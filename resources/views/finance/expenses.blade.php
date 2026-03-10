@@ -1,0 +1,2066 @@
+@extends('layouts.app')
+
+@section('page-title', 'Expenses')
+
+@section('content')
+<div class="page-header">
+    <div class="header-content">
+        <h1 class="page-title">
+            <i class="fas fa-money-bill-wave"></i>
+            Expenses
+        </h1>
+        <p class="page-subtitle">Track and manage business expenses</p>
+    </div>
+    <div class="header-actions">
+        <button id="add-expense-btn" class="btn btn-primary btn-add-expense" onclick="showAddExpenseModal()">
+            <i class="fas fa-plus"></i> Add Expense
+        </button>
+        <button class="btn btn-outline" onclick="exportExpenses()">
+            <i class="fas fa-download"></i> Export
+        </button>
+    </div>
+</div>
+
+<!-- Expense Filters -->
+<div class="filters-card">
+    <div class="filters-header">
+        <h3 class="filters-title">
+            <i class="fas fa-filter"></i>
+            Filters
+        </h3>
+        <button class="btn btn-text" onclick="clearFilters()">
+            Clear All
+        </button>
+    </div>
+    
+    <div class="filters-grid">
+        <div class="filter-group">
+            <label class="filter-label">Date Range</label>
+            <select class="select-input">
+                <option value="7d">Last 7 Days</option>
+                <option value="30d" selected>Last 30 Days</option>
+                <option value="90d">Last 90 Days</option>
+                <option value="custom">Custom Range</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Category</label>
+            <select class="select-input">
+                <option value="">All Categories</option>
+                <option value="supplies">Supplies</option>
+                <option value="utilities">Utilities</option>
+                <option value="salaries">Salaries</option>
+                <option value="marketing">Marketing</option>
+                <option value="equipment">Equipment</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Status</label>
+            <select class="select-input">
+                <option value="">All Status</option>
+                <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
+                <option value="overdue">Overdue</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Amount Range</label>
+            <select class="select-input">
+                <option value="">Any Amount</option>
+                <option value="0-1000">₱ 0 - 1,000</option>
+                <option value="1000-5000">₱ 1,000 - 5,000</option>
+                <option value="5000-10000">₱ 5,000 - 10,000</option>
+                <option value="10000+">₱ 10,000+</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="filters-actions">
+        <button class="btn btn-primary" onclick="applyFilters()">
+            <i class="fas fa-check"></i> Apply Filters
+        </button>
+    </div>
+</div>
+
+<!-- Expense Summary -->
+<div class="stats-grid">
+    <div class="stat-card warning">
+        <div class="stat-icon">
+            <i class="fas fa-money-bill-wave"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">₱ 89,450</div>
+            <div class="stat-label">Total Expenses</div>
+            <div class="stat-change negative">
+                <i class="fas fa-arrow-up"></i> 8.2% from last month
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card info">
+        <div class="stat-icon">
+            <i class="fas fa-calendar-check"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">₱ 67,800</div>
+            <div class="stat-label">Paid Expenses</div>
+            <div class="stat-change positive">
+                <i class="fas fa-check"></i> 75.8% paid
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card danger">
+        <div class="stat-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">₱ 21,650</div>
+            <div class="stat-label">Pending Expenses</div>
+            <div class="stat-change warning">
+                <i class="fas fa-clock"></i> 24.2% pending
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card success">
+        <div class="stat-icon">
+            <i class="fas fa-chart-pie"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">Supplies</div>
+            <div class="stat-label">Top Category</div>
+            <div class="stat-change">
+                <i class="fas fa-tag"></i> 42.5% of total
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Expenses Table -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-list"></i>
+            Expense Records
+        </h2>
+        <div class="section-actions">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search expenses..." class="search-input">
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Vendor</th>
+                    <th>Amount</th>
+                    <th>Payment Method</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Feb 28, 2026</td>
+                    <td>Ink Cartridge Purchase</td>
+                    <td><span class="badge category supplies">Supplies</span></td>
+                    <td>Print Supplies Co.</td>
+                    <td class="amount negative">₱ 8,750</td>
+                    <td>Bank Transfer</td>
+                    <td><span class="status pending">Pending</span></td>
+                    <td>
+                        <button class="btn-icon" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Mark as Paid">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Feb 25, 2026</td>
+                    <td>Electricity Bill</td>
+                    <td><span class="badge category utilities">Utilities</span></td>
+                    <td>Meralco</td>
+                    <td class="amount negative">₱ 3,250</td>
+                    <td>Credit Card</td>
+                    <td><span class="status paid">Paid</span></td>
+                    <td>
+                        <button class="btn-icon" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Receipt">
+                            <i class="fas fa-receipt"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Feb 20, 2026</td>
+                    <td>Employee Salaries</td>
+                    <td><span class="badge category salaries">Salaries</span></td>
+                    <td>Payroll</td>
+                    <td class="amount negative">₱ 45,000</td>
+                    <td>Bank Transfer</td>
+                    <td><span class="status paid">Paid</span></td>
+                    <td>
+                        <button class="btn-icon" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Receipt">
+                            <i class="fas fa-receipt"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Feb 15, 2026</td>
+                    <td>Facebook Ads</td>
+                    <td><span class="badge category marketing">Marketing</span></td>
+                    <td>Facebook</td>
+                    <td class="amount negative">₱ 5,000</td>
+                    <td>PayPal</td>
+                    <td><span class="status paid">Paid</span></td>
+                    <td>
+                        <button class="btn-icon" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Receipt">
+                            <i class="fas fa-receipt"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Feb 10, 2026</td>
+                    <td>Printer Maintenance</td>
+                    <td><span class="badge category equipment">Equipment</span></td>
+                    <td>Tech Services Inc.</td>
+                    <td class="amount negative">₱ 12,500</td>
+                    <td>Cash</td>
+                    <td><span class="status paid">Paid</span></td>
+                    <td>
+                        <button class="btn-icon" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Receipt">
+                            <i class="fas fa-receipt"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Feb 5, 2026</td>
+                    <td>Office Supplies</td>
+                    <td><span class="badge category supplies">Supplies</span></td>
+                    <td>Office Depot</td>
+                    <td class="amount negative">₱ 2,850</td>
+                    <td>Credit Card</td>
+                    <td><span class="status paid">Paid</span></td>
+                    <td>
+                        <button class="btn-icon" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Receipt">
+                            <i class="fas fa-receipt"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Feb 1, 2026</td>
+                    <td>Internet Bill</td>
+                    <td><span class="badge category utilities">Utilities</span></td>
+                    <td>PLDT</td>
+                    <td class="amount negative">₱ 2,100</td>
+                    <td>Auto-debit</td>
+                    <td><span class="status paid">Paid</span></td>
+                    <td>
+                        <button class="btn-icon" title="View Details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn-icon" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon" title="Receipt">
+                            <i class="fas fa-receipt"></i>
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+        <button class="pagination-btn" disabled>
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <button class="pagination-btn active">1</button>
+        <button class="pagination-btn">2</button>
+        <button class="pagination-btn">3</button>
+        <span class="pagination-ellipsis">...</span>
+        <button class="pagination-btn">10</button>
+        <button class="pagination-btn">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Category Breakdown -->
+<div class="section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-chart-pie"></i>
+            Expense Categories
+        </h2>
+    </div>
+
+    <div class="categories-breakdown">
+        <div class="breakdown-chart">
+            <div class="chart-placeholder">
+                <div class="placeholder-text">
+                    <i class="fas fa-chart-pie"></i>
+                    <p>Expense Categories Chart</p>
+                    <small>Pie chart showing expense distribution</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="breakdown-list">
+            <div class="breakdown-item">
+                <div class="breakdown-category">
+                    <span class="category-color supplies"></span>
+                    <span class="category-name">Supplies</span>
+                </div>
+                <div class="breakdown-details">
+                    <span class="category-amount">₱ 38,000</span>
+                    <span class="category-percentage">42.5%</span>
+                </div>
+            </div>
+
+            <div class="breakdown-item">
+                <div class="breakdown-category">
+                    <span class="category-color salaries"></span>
+                    <span class="category-name">Salaries</span>
+                </div>
+                <div class="breakdown-details">
+                    <span class="category-amount">₱ 45,000</span>
+                    <span class="category-percentage">50.3%</span>
+                </div>
+            </div>
+
+            <div class="breakdown-item">
+                <div class="breakdown-category">
+                    <span class="category-color utilities"></span>
+                    <span class="category-name">Utilities</span>
+                </div>
+                <div class="breakdown-details">
+                    <span class="category-amount">₱ 5,350</span>
+                    <span class="category-percentage">6.0%</span>
+                </div>
+            </div>
+
+            <div class="breakdown-item">
+                <div class="breakdown-category">
+                    <span class="category-color marketing"></span>
+                    <span class="category-name">Marketing</span>
+                </div>
+                <div class="breakdown-details">
+                    <span class="category-amount">₱ 5,000</span>
+                    <span class="category-percentage">5.6%</span>
+                </div>
+            </div>
+
+            <div class="breakdown-item">
+                <div class="breakdown-category">
+                    <span class="category-color equipment"></span>
+                    <span class="category-name">Equipment</span>
+                </div>
+                <div class="breakdown-details">
+                    <span class="category-amount">₱ 12,500</span>
+                    <span class="category-percentage">14.0%</span>
+                </div>
+            </div>
+
+            <div class="breakdown-item">
+                <div class="breakdown-category">
+                    <span class="category-color other"></span>
+                    <span class="category-name">Other</span>
+                </div>
+                <div class="breakdown-details">
+                    <span class="category-amount">₱ 1,100</span>
+                    <span class="category-percentage">1.2%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Expense Modal -->
+<div id="add-expense-modal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2 class="modal-title">
+                <i class="fas fa-plus"></i>
+                Add New Expense
+            </h2>
+            <button class="modal-close" onclick="closeAddExpenseModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <form id="expense-form" onsubmit="submitExpense(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="expenseDate">
+                            <i class="fas fa-calendar"></i>
+                            Date *
+                        </label>
+                        <input type="date" id="expenseDate" name="date" class="form-input" required 
+                               value="<?php echo date('Y-m-d'); ?>">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="expenseAmount">
+                            <i class="fas fa-money-bill-wave"></i>
+                            Amount (₱) *
+                        </label>
+                        <input type="number" id="expenseAmount" name="amount" class="form-input" 
+                               placeholder="0.00" step="0.01" min="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="expenseCategory">
+                            <i class="fas fa-tag"></i>
+                            Category *
+                        </label>
+                        <select id="expenseCategory" name="category" class="form-input" required>
+                            <option value="">Select Category</option>
+                            <option value="supplies">Supplies</option>
+                            <option value="utilities">Utilities</option>
+                            <option value="salaries">Salaries</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="equipment">Equipment</option>
+                            <option value="rent">Rent</option>
+                            <option value="transportation">Transportation</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="expenseStatus">
+                            <i class="fas fa-check-circle"></i>
+                            Status *
+                        </label>
+                        <select id="expenseStatus" name="status" class="form-input" required>
+                            <option value="pending">Pending</option>
+                            <option value="paid">Paid</option>
+                            <option value="overdue">Overdue</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label class="form-label" for="expenseDescription">
+                            <i class="fas fa-file-alt"></i>
+                            Description *
+                        </label>
+                        <textarea id="expenseDescription" name="description" class="form-input" 
+                                  rows="3" placeholder="Enter expense description..." required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="expenseVendor">
+                            <i class="fas fa-building"></i>
+                            Vendor
+                        </label>
+                        <input type="text" id="expenseVendor" name="vendor" class="form-input" 
+                               placeholder="Vendor name">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="expensePaymentMethod">
+                            <i class="fas fa-credit-card"></i>
+                            Payment Method
+                        </label>
+                        <select id="expensePaymentMethod" name="payment_method" class="form-input">
+                            <option value="">Select Method</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="gcash">GCash</option>
+                            <option value="maya">Maya</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="expenseReceipt">
+                            <i class="fas fa-receipt"></i>
+                            Receipt Number
+                        </label>
+                        <input type="text" id="expenseReceipt" name="receipt_number" class="form-input" 
+                               placeholder="Optional receipt number">
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label class="form-label" for="expenseNotes">
+                            <i class="fas fa-sticky-note"></i>
+                            Notes
+                        </label>
+                        <textarea id="expenseNotes" name="notes" class="form-input" 
+                                  rows="2" placeholder="Additional notes..."></textarea>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeAddExpenseModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Expense
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .filters-card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow);
+        margin-bottom: 1.5rem;
+    }
+
+    .filters-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .filters-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--dark);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--dark);
+    }
+
+    .filters-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .stat-card.danger {
+        border-left-color: #ef4444;
+    }
+
+    .stat-card.danger .stat-icon {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+
+    .search-box {
+        position: relative;
+        width: 300px;
+    }
+
+    .search-box i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--gray);
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        color: var(--dark);
+        transition: var(--transition);
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .badge.category {
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge.category.supplies {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+    }
+
+    .badge.category.utilities {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .badge.category.salaries {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+
+    .badge.category.marketing {
+        background: rgba(139, 92, 246, 0.1);
+        color: #8b5cf6;
+    }
+
+    .badge.category.equipment {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .badge.category.other {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+
+    /* Status Badges */
+    .status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status.pending {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .status.paid {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status.overdue {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    /* Amount styling */
+    .amount {
+        font-weight: 600;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .amount.negative {
+        color: #ef4444;
+    }
+
+    .amount.positive {
+        color: var(--success);
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+    }
+
+    .pagination-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: white;
+        color: var(--dark);
+        font-family: 'Inter', sans-serif;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pagination-btn:hover:not(:disabled) {
+        background: #f8fafc;
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .pagination-btn.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    .pagination-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .pagination-ellipsis {
+        color: var(--gray);
+        padding: 0 0.5rem;
+    }
+
+    .categories-breakdown {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+
+    .breakdown-chart {
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .breakdown-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .breakdown-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        transition: var(--transition);
+    }
+
+    .breakdown-item:hover {
+        background: #f1f5f9;
+        transform: translateX(4px);
+    }
+
+    .breakdown-category {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .category-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+
+    .category-color.supplies {
+        background: #3b82f6;
+    }
+
+    .category-color.salaries {
+        background: #f59e0b;
+    }
+
+    .category-color.utilities {
+        background: var(--success);
+    }
+
+    .category-color.marketing {
+        background: #8b5cf6;
+    }
+
+    .category-color.equipment {
+        background: #ef4444;
+    }
+
+    .category-color.other {
+        background: #6b7280;
+    }
+
+    .category-name {
+        font-weight: 500;
+        color: var(--dark);
+    }
+
+    .breakdown-details {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .category-amount {
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    .category-percentage {
+        font-size: 0.875rem;
+        color: var(--gray);
+        min-width: 60px;
+        text-align: right;
+    }
+
+    @media (max-width: 768px) {
+        .categories-breakdown {
+            grid-template-columns: 1fr;
+        }
+
+        .search-box {
+            width: 100%;
+        }
+
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        padding: 1rem;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .modal-overlay.active {
+        display: flex;
+    }
+
+    .modal-container {
+        background: white;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e2e8f0;
+        background: linear-gradient(135deg, #f8fafc, white);
+        border-radius: 16px 16px 0 0;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--dark);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gray);
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .modal-close:hover {
+        background: #f1f5f9;
+        color: var(--danger);
+        transform: rotate(90deg);
+    }
+
+    .modal-body {
+        padding: 2rem;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--dark);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-input {
+        padding: 0.875rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.9375rem;
+        color: var(--dark);
+        transition: var(--transition);
+        background: white;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .form-input::placeholder {
+        color: #94a3b8;
+    }
+
+    select.form-input {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 1.25rem;
+        padding-right: 3rem;
+    }
+
+    textarea.form-input {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .modal-header {
+            padding: 1.25rem 1.5rem;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+        }
+    }
+    
+    /* ============================================
+       COMPREHENSIVE MOBILE CSS FOR FINANCE PAGES
+       ============================================ */
+
+    /* Base mobile styles (applies to all screens ≤768px) */
+    @media (max-width: 768px) {
+        /* 1. PAGE HEADER - Stack vertically */
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+        }
+        
+        .header-content {
+            width: 100%;
+        }
+        
+        .header-actions {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .header-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        /* 2. PAGE TITLES - Adjust font sizes */
+        .page-title {
+            font-size: 1.5rem;
+            line-height: 1.3;
+        }
+        
+        .page-subtitle {
+            font-size: 0.9rem;
+        }
+        
+        /* 3. STATS GRID - Single column */
+        .stats-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            padding: 1rem;
+        }
+        
+        .stat-card {
+            padding: 1.25rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        /* 4. FILTERS - Stack vertically */
+        .filters-card {
+            padding: 1rem;
+            margin: 1rem;
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .filter-group {
+            width: 100%;
+        }
+        
+        .filters-actions {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .filters-actions .btn {
+            width: 100%;
+        }
+        
+        /* 5. TABLES - Horizontal scrolling */
+        .table-container {
+            overflow-x: auto;
+            margin: 0 -1rem;
+            padding: 0 1rem;
+        }
+        
+        .data-table {
+            width: 100%;
+            font-size: 0.85rem;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem 0.5rem;
+            white-space: nowrap;
+        }
+        
+        /* 6. ACTION BUTTONS - Adjust size */
+        .action-buttons {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            font-size: 0.85rem;
+        }
+        
+        /* 7. FORMS - Single column */
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .form-actions .btn {
+            width: 100%;
+        }
+        
+        /* 8. MODALS - Full screen on mobile */
+        .modal-container {
+            width: 95%;
+            max-width: 95%;
+            max-height: 85vh;
+            margin: 0.5rem;
+            border-radius: 12px;
+        }
+        
+        .modal-header {
+            padding: 1rem 1.25rem;
+        }
+        
+        .modal-body {
+            padding: 1.25rem;
+        }
+        
+        .modal-title {
+            font-size: 1.25rem;
+        }
+        
+        /* 9. CHARTS & GRAPHS - Adjust sizing */
+        .chart-container {
+            height: 250px;
+            padding: 1rem;
+        }
+        
+        /* 10. SEARCH BOX - Full width */
+        .search-box {
+            width: 100%;
+            margin: 0 1rem;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+        
+        /* 11. SECTION LAYOUTS - Stack vertically */
+        .insights-grid,
+        .categories-breakdown,
+        .report-grid,
+        .sales-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        /* 12. CARD LAYOUTS - Adjust padding */
+        .section,
+        .content-card,
+        .report-card {
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .card-header {
+            padding: 1rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        
+        .card-body {
+            padding: 1rem;
+        }
+        
+        /* 13. EMPTY STATES - Adjust sizing */
+        .empty-state {
+            padding: 2rem 1rem;
+        }
+        
+        .empty-state i {
+            font-size: 2.5rem;
+        }
+        
+        .empty-state h4 {
+            font-size: 1.25rem;
+        }
+        
+        /* 14. PAGINATION - Stack buttons */
+        .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1rem;
+        }
+        
+        .pagination .btn {
+            min-width: 40px;
+            height: 40px;
+            padding: 0.5rem;
+        }
+        
+        /* 15. STATUS BADGES - Adjust sizing */
+        .status-badge,
+        .category-badge {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        /* 16. AMOUNT DISPLAY - Adjust font sizes */
+        .amount {
+            font-size: 0.95rem;
+        }
+        
+        .amount.large {
+            font-size: 1.25rem;
+        }
+        
+        /* 17. DATE PICKERS - Full width */
+        .date-range-picker {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .date-input {
+            width: 100%;
+        }
+        
+        /* 18. TOOLTIPS - Adjust for touch */
+        [title] {
+            position: relative;
+        }
+        
+        [title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 1000;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* 19. DROPDOWNS - Full width */
+        .select-input,
+        .form-control {
+            width: 100%;
+        }
+        
+        /* 20. BUTTON GROUPS - Stack vertically */
+        .btn-group {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .btn-group .btn {
+            width: 100%;
+            border-radius: 6px;
+            margin: 0.25rem 0;
+        }
+    }
+
+    /* Extra small screens (≤480px) */
+    @media (max-width: 480px) {
+        /* Even more compact styles */
+        .page-title {
+            font-size: 1.25rem;
+        }
+        
+        .stat-card {
+            padding: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 1.25rem;
+        }
+        
+        .data-table {
+            width: 100%;
+            font-size: 0.8rem;
+        }
+        
+        .modal-container {
+            width: 98%;
+            max-width: 98%;
+            margin: 0.25rem;
+            border-radius: 8px;
+        }
+        
+        .chart-container {
+            height: 200px;
+        }
+        
+        .btn {
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+            font-size: 0.8rem;
+        }
+        
+        /* Hide less important columns on very small screens */
+        .data-table th:nth-child(4),
+        .data-table td:nth-child(4),
+        .data-table th:nth-child(5),
+        .data-table td:nth-child(5) {
+            display: none;
+        }
+    }
+
+    /* Tablet screens (769px to 1024px) */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        /* Adjust for tablet */
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .filters-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .form-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .modal-container {
+            max-width: 90%;
+        }
+    }
+
+    /* Touch device optimizations */
+    @media (hover: none) and (pointer: coarse) {
+        /* Improve touch targets */
+        .btn,
+        .btn-icon,
+        .select-input,
+        .form-control,
+        .pagination .btn {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Increase spacing for touch */
+        .action-buttons {
+            gap: 0.75rem;
+        }
+        
+        /* Prevent text selection on interactive elements */
+        .btn,
+        .btn-icon,
+        .select-input {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* Improve scrolling */
+        .table-container {
+            -webkit-overflow-scrolling: touch;
+        }
+    }
+
+    /* Print styles */
+    @media print {
+        .header-actions,
+        .filters-card,
+        .search-box,
+        .action-buttons,
+        .btn,
+        .modal-overlay {
+            display: none !important;
+        }
+        
+        .page-header {
+            flex-direction: row;
+        }
+        
+        .data-table {
+            min-width: auto;
+            font-size: 10pt;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        @media (max-width: 768px) {
+            .stat-card,
+            .content-card,
+            .modal-container {
+                background: #1e293b;
+                border-color: #334155;
+            }
+            
+            .data-table {
+                background: #1e293b;
+                color: #e2e8f0;
+            }
+            
+            .data-table th {
+                background: #0f172a;
+                color: #cbd5e1;
+            }
+            
+            .data-table tr:hover {
+                background: #334155;
+            }
+        }
+    }
+
+    /* Animation for mobile transitions */
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    /* Utility classes for mobile */
+    .mobile-only {
+        display: none;
+    }
+
+    .mobile-hidden {
+        display: block;
+    }
+
+    @media (max-width: 768px) {
+        .mobile-only {
+            display: block;
+        }
+        
+        .mobile-hidden {
+            display: none;
+        }
+        
+        /* Add bottom padding for mobile safe areas */
+        .finance-content {
+            padding-bottom: env(safe-area-inset-bottom, 1rem);
+        }
+    }
+
+    /* Fix for iOS Safari */
+    @supports (-webkit-touch-callout: none) {
+        @media (max-width: 768px) {
+            .modal-container {
+                max-height: -webkit-fill-available;
+            }
+            
+            .table-container {
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+    }
+
+    /* Fix for Android Chrome */
+    @supports not (-webkit-touch-callout: none) {
+        @media (max-width: 768px) {
+            .modal-container {
+                max-height: calc(100vh - 2rem);
+            }
+        }
+    }
+</style>
+
+<script>
+    // Modal Functions
+    function showAddExpenseModal() {
+        const modal = document.getElementById('add-expense-modal');
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        
+        // Focus on first input
+        setTimeout(() => {
+            document.getElementById('expenseDescription').focus();
+        }, 100);
+    }
+
+    function closeAddExpenseModal() {
+        const modal = document.getElementById('add-expense-modal');
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+        
+        // Reset form
+        document.getElementById('expense-form').reset();
+        document.getElementById('expenseDate').value = '<?php echo date('Y-m-d'); ?>';
+    }
+
+    // Form Submission
+    function submitExpense(event) {
+        event.preventDefault();
+        
+        // Get form data
+        const expenseData = {
+            date: document.getElementById('expenseDate').value,
+            amount: parseFloat(document.getElementById('expenseAmount').value),
+            category: document.getElementById('expenseCategory').value,
+            status: document.getElementById('expenseStatus').value,
+            description: document.getElementById('expenseDescription').value.trim(),
+            vendor: document.getElementById('expenseVendor').value.trim(),
+            payment_method: document.getElementById('expensePaymentMethod').value,
+            receipt_number: document.getElementById('expenseReceipt').value.trim(),
+            notes: document.getElementById('expenseNotes').value.trim(),
+            _token: document.querySelector('meta[name="csrf-token"]').content
+        };
+
+        // Validation
+        if (!expenseData.description) {
+            showNotification('Please enter a description', 'error');
+            document.getElementById('expenseDescription').focus();
+            return;
+        }
+
+        if (!expenseData.amount || expenseData.amount <= 0) {
+            showNotification('Please enter a valid amount', 'error');
+            document.getElementById('expenseAmount').focus();
+            return;
+        }
+
+        if (!expenseData.category) {
+            showNotification('Please select a category', 'error');
+            document.getElementById('expenseCategory').focus();
+            return;
+        }
+
+        // Show loading state
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        submitBtn.disabled = true;
+
+        // Submit to backend
+        fetch('{{ route("expenses.store") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': expenseData._token,
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(expenseData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Format amount with PHP currency
+                const formattedAmount = new Intl.NumberFormat('en-PH', {
+                    style: 'currency',
+                    currency: 'PHP'
+                }).format(expenseData.amount);
+
+                // Show success message
+                showNotification(`Expense added successfully: ${expenseData.description} - ${formattedAmount}`, 'success');
+                
+                // Close modal
+                closeAddExpenseModal();
+                
+                // Reload page to show new expense
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                throw new Error(data.message || 'Failed to save expense');
+            }
+        })
+        .catch(error => {
+            showNotification(error.message || 'Error saving expense. Please try again.', 'error');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    }
+
+    // Add expense to table
+    function addExpenseToTable(expense) {
+        const tableBody = document.querySelector('.data-table tbody');
+        if (!tableBody) return;
+
+        // Format date
+        const date = new Date(expense.date);
+        const formattedDate = date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        // Format amount
+        const formattedAmount = new Intl.NumberFormat('en-PH', {
+            style: 'currency',
+            currency: 'PHP'
+        }).format(expense.amount);
+
+        // Category badge
+        const categoryMap = {
+            supplies: { class: 'supplies', label: 'Supplies' },
+            utilities: { class: 'utilities', label: 'Utilities' },
+            salaries: { class: 'salaries', label: 'Salaries' },
+            marketing: { class: 'marketing', label: 'Marketing' },
+            equipment: { class: 'equipment', label: 'Equipment' },
+            rent: { class: 'other', label: 'Rent' },
+            transportation: { class: 'other', label: 'Transportation' },
+            other: { class: 'other', label: 'Other' }
+        };
+
+        const categoryInfo = categoryMap[expense.category] || { class: 'other', label: 'Other' };
+
+        // Status badge
+        const statusMap = {
+            pending: { class: 'pending', label: 'Pending' },
+            paid: { class: 'paid', label: 'Paid' },
+            overdue: { class: 'overdue', label: 'Overdue' }
+        };
+
+        const statusInfo = statusMap[expense.status] || { class: 'pending', label: 'Pending' };
+
+        // Create new row
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>${formattedDate}</td>
+            <td>${expense.description}</td>
+            <td><span class="badge category ${categoryInfo.class}">${categoryInfo.label}</span></td>
+            <td>${expense.vendor || '-'}</td>
+            <td class="amount negative">${formattedAmount}</td>
+            <td>${expense.paymentMethod ? expense.paymentMethod.replace('_', ' ').toUpperCase() : '-'}</td>
+            <td><span class="status ${statusInfo.class}">${statusInfo.label}</span></td>
+            <td>
+                <button class="btn-icon" title="View Details" onclick="viewExpenseDetails(this)">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn-icon" title="Edit" onclick="editExpense(this)">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn-icon" title="Mark as Paid" onclick="markAsPaid(this)">
+                    <i class="fas fa-check"></i>
+                </button>
+            </td>
+        `;
+
+        // Add to top of table
+        tableBody.insertBefore(newRow, tableBody.firstChild);
+
+        // Add event listeners to new row buttons
+        addRowEventListeners(newRow);
+    }
+
+    // Update expense summary (simulated)
+    function updateExpenseSummary(amount) {
+        // In a real app, this would update from server data
+        // For now, we'll just show a console message
+        console.log(`Expense added: ₱${amount.toFixed(2)}`);
+        
+        // Update total expenses (simulated)
+        const totalExpenseElement = document.querySelector('.stat-card.warning .stat-value');
+        if (totalExpenseElement) {
+            const currentTotal = parseFloat(totalExpenseElement.textContent.replace(/[^0-9.-]+/g, ''));
+            const newTotal = currentTotal + amount;
+            totalExpenseElement.textContent = `₱ ${newTotal.toLocaleString('en-PH')}`;
+        }
+    }
+
+    // Notification system
+    function showNotification(message, type = 'info') {
+        // Remove existing notifications
+        const existingNotifications = document.querySelectorAll('.notification-toast');
+        existingNotifications.forEach(notification => {
+            notification.remove();
+        });
+
+        // Create notification
+        const notification = document.createElement('div');
+        notification.className = `notification-toast ${type}`;
+        notification.innerHTML = `
+            <div class="notification-icon">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-message">${message}</div>
+            </div>
+            <button class="notification-close" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+
+        // Add to page
+        document.body.appendChild(notification);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    // Add CSS for notifications
+    const notificationStyles = document.createElement('style');
+    notificationStyles.textContent = `
+        .notification-toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: white;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            animation: slideInRight 0.3s ease;
+            max-width: 400px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .notification-toast.success {
+            border-left-color: #10b981;
+        }
+
+        .notification-toast.error {
+            border-left-color: #ef4444;
+        }
+
+        .notification-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .notification-toast .notification-icon {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+
+        .notification-toast.success .notification-icon {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+
+        .notification-toast.error .notification-icon {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-message {
+            font-size: 0.9375rem;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 6px;
+            transition: var(--transition);
+        }
+
+        .notification-close:hover {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    `;
+    document.head.appendChild(notificationStyles);
+
+    // Close modal on overlay click
+    document.getElementById('add-expense-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeAddExpenseModal();
+        }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAddExpenseModal();
+        }
+    });
+
+    // Export function
+    function exportExpenses() {
+        const date = new Date().toISOString().split('T')[0];
+        showNotification(`Exporting expenses to CSV (expenses_${date}.csv)...`, 'info');
+        
+        // In a real app, this would trigger a download
+        setTimeout(() => {
+            showNotification('Export completed! Check your downloads folder.', 'success');
+        }, 1500);
+    }
+
+    function clearFilters() {
+        document.querySelectorAll('.select-input').forEach(select => {
+            select.value = '';
+        });
+        showNotification('Filters cleared', 'info');
+    }
+
+    function applyFilters() {
+        const dateRange = document.querySelector('.select-input').value;
+        const category = document.querySelectorAll('.select-input')[1].value;
+        const status = document.querySelectorAll('.select-input')[2].value;
+        const amount = document.querySelectorAll('.select-input')[3].value;
+        
+        console.log('Applying filters:', { dateRange, category, status, amount });
+        showNotification('Filters applied. Table updated.', 'success');
+    }
+
+    // Row action functions
+    function viewExpenseDetails(expenseId) {
+        showNotification(`Viewing expense details for ID: ${expenseId}`, 'info');
+        // In a real app, this would open a details modal
+    }
+
+    function editExpense(expenseId) {
+        showNotification(`Editing expense: ${expenseId}`, 'info');
+        // In a real app, this would open an edit modal
+        // For now, redirect to edit page or show modal
+        showAddExpenseModal(); // Temporary - would pre-fill with expense data
+    }
+
+    function markAsPaid(expenseId) {
+        if (!confirm('Are you sure you want to mark this expense as paid?')) {
+            return;
+        }
+        
+        fetch(`/finance/expenses/${expenseId}/mark-paid`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Expense marked as paid!', 'success');
+                // Reload to update status
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                throw new Error(data.message || 'Failed to mark as paid');
+            }
+        })
+        .catch(error => {
+            showNotification(error.message || 'Error marking as paid', 'error');
+        });
+    }
+
+    function viewReceipt(expenseId) {
+        showNotification(`Viewing receipt for expense: ${expenseId}`, 'info');
+        // In a real app, this would show receipt image/modal
+    }
+
+    // Helper function to add event listeners to row buttons
+    function addRowEventListeners(row) {
+        const viewBtn = row.querySelector('.btn-icon[title="View Details"]');
+        const editBtn = row.querySelector('.btn-icon[title="Edit"]');
+        const checkBtn = row.querySelector('.btn-icon[title="Mark as Paid"]');
+
+        if (viewBtn) {
+            viewBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                viewExpenseDetails(this);
+            });
+        }
+
+        if (editBtn) {
+            editBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                editExpense(this);
+            });
+        }
+
+        if (checkBtn) {
+            checkBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                markAsPaid(this);
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const searchInput = document.querySelector('.search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                console.log('Searching for:', searchTerm);
+                // In a real app, this would filter the table
+            });
+        }
+
+        // Pagination
+        document.querySelectorAll('.pagination-btn:not(:disabled)').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (!this.classList.contains('active')) {
+                    document.querySelectorAll('.pagination-btn').forEach(b => {
+                        b.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    console.log('Navigating to page:', this.textContent);
+                }
+            });
+        });
+
+        // Table row actions
+        document.querySelectorAll('.data-table tbody tr').forEach(row => {
+            const viewBtn = row.querySelector('.btn-icon[title="View Details"]');
+            const editBtn = row.querySelector('.btn-icon[title="Edit"]');
+            const checkBtn = row.querySelector('.btn-icon[title="Mark as Paid"]');
+            const receiptBtn = row.querySelector('.btn-icon[title="Receipt"]');
+
+            if (viewBtn) {
+                viewBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const description = row.cells[1].textContent;
+                    alert(`Viewing expense: ${description}`);
+                });
+            }
+
+            if (editBtn) {
+                editBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const description = row.cells[1].textContent;
+                    alert(`Editing expense: ${description}`);
+                });
+            }
+
+            if (checkBtn) {
+                checkBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const description = row.cells[1].textContent;
+                    alert(`Marking as paid: ${description}`);
+                    row.cells[6].innerHTML = '<span class="status paid">Paid</span>';
+                });
+            }
+
+            if (receiptBtn) {
+                receiptBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const description = row.cells[1].textContent;
+                    alert(`Viewing receipt for: ${description}`);
+                });
+            }
+        });
+    });
+</script>
+@endsection

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Console Error</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #f8fafc;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+        
+        h1 {
+            color: #1e293b;
+            margin-top: 0;
+        }
+        
+        .section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        
+        .button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 0.5rem 0;
+            transition: background 0.2s;
+        }
+        
+        .button:hover {
+            background: #2563eb;
+        }
+        
+        .button.danger {
+            background: #ef4444;
+        }
+        
+        .button.danger:hover {
+            background: #dc2626;
+        }
+        
+        .button.success {
+            background: #10b981;
+        }
+        
+        .button.success:hover {
+            background: #059669;
+        }
+        
+        .console-output {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .error {
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #ef4444;
+        }
+        
+        .success {
+            color: #4ade80;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #10b981;
+        }
+        
+        .warning {
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #fbbf24;
+        }
+        
+        .info {
+            color: #60a5fa;
+            background: rgba(96, 165, 250, 0.1);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #60a5fa;
+        }
+        
+        .form-group {
+            margin: 1rem 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #334155;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Debug Console Error - Expense Submission</h1>
+        
+        <div class="section">
+            <h2>Step 1: Capture Console Error</h2>
+            <p>Please open your browser's Developer Tools (F12) and check the Console tab for errors.</p>
+            <p>Copy any error messages you see and paste them below:</p>
+            
+            <div class="form-group">
+                <label for="consoleError">Console Error Messages:</label>
+                <textarea id="consoleError" rows="5" placeholder="Paste console error messages here..."></textarea>
+            </div>
+            
+            <button class="button" onclick="analyzeConsoleError()">Analyze Console Error</button>
+            
+            <div id="consoleAnalysis" class="console-output">
+                Console analysis will appear here...
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Step 2: Test Expense Submission</h2>
+            <p>Try submitting an expense using this test form:</p>
+            
+            <div class="form-group">
+                <label for="testDate">Date (YYYY-MM-DD):</label>
+                <input type="date" id="testDate" value="2026-02-28">
+            </div>
+            
+            <div class="form-group">
+                <label for="testAmount">Amount:</label>
+                <input type="number" id="testAmount" step="0.01" min="0.01" value="1500.75">
+            </div>
+            
+            <div class="form-group">
+                <label for="testCategory">Category:</label>
+                <select id="testCategory">
+                    <option value="software">Software</option>
+                    <option value="hardware">Hardware</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="office">Office Supplies</option>
+                    <option value="travel">Travel</option>
+                    <option value="utilities">Utilities</option>
+                    <option value="salaries">Salaries</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="testDescription">Description:</label>
+                <input type="text" id="testDescription" value="Test expense submission">
+            </div>
+            
+            <button class="button success" onclick="testExpenseSubmission()">Test Submit Expense</button>
+            <button class="button danger" onclick="testWithInvalidData()">Test with Invalid Data</button>
+            
+            <div id="testResult" class="console-output">
+                Test results will appear here...
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Step 3: Diagnostic Tools</h2>
+            <p>Run these diagnostic tests to identify the issue:</p>
+            
+            <button class="button" onclick="testCSRFToken()">Test CSRF Token</button>
+            <button class="button" onclick="testEndpointAccess()">Test API Endpoint Access</button>
+            <button class="button" onclick="testAuthentication()">Test Authentication Status</button>
+            <button class="button" onclick="testJavaScriptFunctions()">Test JavaScript Functions</button>
+            <button class="button" onclick="testDateValidation()">Test Date Validation</button>
+            <button class="button" onclick="testAmountValidation()">Test Amount Validation</button>
+            
+            <div id="diagnosticResults" class="console-output">
+                Diagnostic results will appear here...
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Step 4: Common Error Solutions</h2>
+            <div id="solutions">
+                <p><strong>Common errors and solutions:</strong></p>
+                <ul>
+                    <li><strong>419 Page Expired:</strong> CSRF token issue - try refreshing the page</li>
+                    <li><strong>500 Internal Server Error:</strong> Check Laravel logs at <code>/var/www/app.classapparelph.com/storage/logs/laravel.log</code></li>
+                    <li><strong>Validation Error:</strong> Check the exact field causing the issue</li>
+                    <li><strong>Network Error:</strong> Check if you're logged in (authentication required)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let consoleLog = [];
+        
+        // Override console methods to capture logs
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+        
+        function captureConsole(method, ...args) {
+            consoleLog.push({
+                method,
+                timestamp: new Date().toISOString(),
+                args: args.map(arg => {
+                    if (typeof arg === 'object') {
+                        try {
+                            return JSON.stringify(arg);
+                        } catch {
+                            return String(arg);
+                        }
+                    }
+                    return String(arg);
+                })
+            });
+            
+            // Call original console method
+            originalConsole[method](...args);
+        }
+        
+        console.log = (...args) => captureConsole('log', ...args);
+        console.error = (...args) => captureConsole('error', ...args);
+        console.warn = (...args) => captureConsole('warn', ...args);
+        console.info = (...args) => captureConsole('info', ...args);
+        
+        // Test functions
+        async function testExpenseSubmission() {
+            const result = document.getElementById('testResult');
+            result.innerHTML = '<span class="info">Testing expense submission...</span>';
+            
+            try {
+                // Get CSRF token from finance page
+                const financeResponse = await fetch('/finance');
+                const financeHtml = await financeResponse.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(financeHtml, 'text/html');
+                const csrfToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                
+                if (!csrfToken) {
+                    result.innerHTML = '<span class="error">❌ Could not get CSRF token. Are you logged in?</span>';
+                    return;
+                }
+                
+                // Prepare test data
+                const testData = {
+                    date: document.getElementById('testDate').value,
+                    amount: document.getElementById('testAmount').value,
+                    category: document.getElementById('testCategory').value,
+                    status: 'pending',
+                    description: document.getElementById('testDescription').value,
+                    vendor: 'Test Vendor',
+                    payment_method: 'cash',
+                    receipt_number: 'TEST-001',
+                    notes: 'Test submission from debug tool',
+                    _token: csrfToken
+                };
+                
+                console.log('Test expense data:', testData);
+                
+                // Create FormData
+                const formData = new FormData();
+                for (const [key, value] of Object.entries(testData)) {
+                    formData.append(key, value);
+                }
+                
+                // Log FormData contents
+                console.log('FormData contents:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(`${key}: ${value} (type: ${typeof value})`);
+                }
+                
+                // Submit
+                const submitResponse = await fetch('/finance/expenses', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: formData
+                });
+                
+                const responseText = await submitResponse.text();
+                
+                let output = `<span class="info">Response Status: ${submitResponse.status} ${submitResponse.statusText}</span>\n\n`;
+                
+                try {
+                    const data = JSON.parse(responseText);
+                    output += '<strong>Response Data:</strong>\n';
+                    output += JSON.stringify(data, null, 2);
+                    
+                    if (submitResponse.ok) {
+                        output += '\n\n<span class="success">✅ Expense submitted successfully!</span>';
+                        output += `\nExpense ID: ${data.id || 'Unknown'}`;
+                    } else {
+                        output += '\n\n<span class="error">❌ Submission failed</span>';
+                        if (data.errors) {
+                            output += '\n<strong>Validation Errors:</strong>\n';
+                            for (const [field, errors] of Object.entries(data.errors)) {
+                                output += `<span class="error">${field}: ${errors.join(', ')}</span>\n`;
+                            }
+                        }
+                        if (data.message) {
+                            output += `\n<strong>Error Message:</strong> ${data.message}`;
+                        }
+                    }
+                } catch (e) {
+                    output += '<strong>Raw Response (not JSON):</strong>\n';
+                    output += responseText.substring(0, 1000);
+                    
+                    if (responseText.includes('419')) {
+                        output += '\n\n<span class="error">❌ CSRF token mismatch or session expired</span>';
+                        output += '\nTry refreshing the finance page and getting a new CSRF token.';
+                    }
+                }
+                
+                result.innerHTML = output;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Network/JavaScript Error: ${error.message}</span>`;
+                console.error('Test submission error:', error);
+            }
+        }
+        
+        function testWithInvalidData() {
+            document.getElementById('testDate').value = 'invalid-date';
+            document.getElementById('testAmount').value = 'not-a-number';
+            document.getElementById('testDescription').value = '';
+            
+            const result = document.getElementById('testResult');
+            result.innerHTML = '<span class="warning">⚠️ Set invalid data for testing validation errors</span>';
+            result.innerHTML += '\n\nNow click "Test Submit Expense" to see validation errors.';
+        }
+        
+        function analyzeConsoleError() {
+            const errorText = document.getElementById('consoleError').value;
+            const analysis = document.getElementById('consoleAnalysis');
+            
+            if (!errorText.trim()) {
+                analysis.innerHTML = '<span class="warning">⚠️ Please paste console error messages first</span>';
+                return;
+            }
+            
+            let output = '<strong>Console Error Analysis:</strong>\n\n';
+            
+            // Common error patterns
+            const patterns = [
+                {
+                    pattern: /CSRF token mismatch|419|Page Expired/i,
+                    solution: 'CSRF token issue. Refresh the page to get a new token.',
+                    severity: 'error'
+                },
+                {
+                    pattern: /The string did not match the expected pattern/i,
+                    solution: 'Date or amount format validation error. Ensure date is YYYY-MM-DD and amount is a valid number.',
+                    severity: 'error'
+                },
+                {
+                    pattern: /date.*validation/i,
+                    solution: 'Date validation failed. Use YYYY-MM-DD format.',
+                    severity: 'error'
+                },
+                {
+                    pattern: /amount.*validation|numeric/i,
+                    solution: 'Amount validation failed. Use numbers only (e.g., 1000.50).',
+                    severity: 'error'
+                },
+                {
+                    pattern: /Unauthorized|401|403/i,
+                    solution: 'Authentication required. Make sure you are logged in.',
+                    severity: 'error'
+                },
+                {
+                    pattern: /500 Internal Server Error/i,
+                    solution: 'Server error. Check Laravel logs: /var/www/app.classapparelph.com/storage/logs/laravel.log',
+                    severity: 'error'
+                },
+                {
+                    pattern: /NetworkError|Failed to fetch/i,
+                    solution: 'Network issue or CORS problem. Check if you are on HTTPS.',
+                    severity: 'error'
+                },
+                {
+                    pattern: /TypeError|undefined/i,
+                    solution: 'JavaScript error. Check if all form fields exist and are accessible.',
+                    severity: 'error'
+                }
+            ];
+            
+            let foundIssues = false;
+            
+            for (const pattern of patterns) {
+                if (pattern.pattern.test(errorText)) {
+                    foundIssues = true;
+                    output += `<span class="${pattern.severity}">✅ Detected: ${pattern.pattern.toString()}</span>\n`;
+                    output += `<span class="info">Solution: ${pattern.solution}</span>\n\n`;
+                }
+            }
+            
+            if (!foundIssues) {
+                output += '<span class="warning">⚠️ No common error patterns detected.</span>\n';
+                output += 'Please share the exact error message for further analysis.';
+            }
+            
+            output += '\n<strong>Full Error:</strong>\n';
+            output += errorText;
+            
+            analysis.innerHTML = output;
+        }
+        
+        async function testCSRFToken() {
+            const result = document.getElementById('diagnosticResults');
+            result.innerHTML = '<span class="info">Testing CSRF token...</span>';
+            
+            try {
+                const response = await fetch('/finance');
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const csrfToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                
+                if (csrfToken) {
+                    result.innerHTML = `<span class="success">✅ CSRF token found: ${csrfToken.substring(0, 20)}...</span>`;
+                    result.innerHTML += `\nToken length: ${csrfToken.length} characters`;
+                } else {
+                    result.innerHTML = '<span class="error">❌ No CSRF token found in page</span>';
+                    result.innerHTML += '\nPossible issues:';
+                    result.innerHTML += '\n1. Not logged in (authentication required)';
+                    result.innerHTML += '\n2. CSRF middleware not working';
+                    result.innerHTML += '\n3. Meta tag missing from layout';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testEndpointAccess() {
+            const result = document.getElementById('diagnosticResults');
+            result.innerHTML = '<span class="info">Testing API endpoint access...</span>';
+            
+            const endpoints = [
+                { url: '/finance/expenses', method: 'GET', name: 'Expenses List' },
+                { url: '/finance', method: 'GET', name: 'Finance Dashboard' },
+                { url: '/login', method: 'GET', name: 'Login

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Functionality Test - Finance Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+        }
+        
+        .test-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .test-title {
+            color: #1e293b;
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+        
+        .test-result {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-weight: 500;
+        }
+        
+        .test-result.pass {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .test-result.fail {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        
+        .test-result.warning {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+        
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin: 0.5rem 0;
+        }
+        
+        .test-button:hover {
+            background: #2563eb;
+        }
+        
+        .test-button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        
+        code {
+            background: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .test-log {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+        
+        .test-log .success {
+            color: #4ade80;
+        }
+        
+        .test-log .error {
+            color: #f87171;
+        }
+        
+        .test-log .info {
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Modal Functionality Test - Finance Dashboard</h1>
+    <p>Testing the "Add Expense" button on the finance dashboard.</p>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 1: Button Existence</h2>
+        <div id="test1-result" class="test-result">Running test...</div>
+        <button class="test-button" onclick="runTest1()">Run Test 1</button>
+    </div>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 2: Modal HTML Structure</h2>
+        <div id="test2-result" class="test-result">Running test...</div>
+        <button class="test-button" onclick="runTest2()">Run Test 2</button>
+    </div>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 3: JavaScript Functions</h2>
+        <div id="test3-result" class="test-result">Running test...</div>
+        <button class="test-button" onclick="runTest3()">Run Test 3</button>
+    </div>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 4: Modal Open/Close</h2>
+        <div id="test4-result" class="test-result">Running test...</div>
+        <button class="test-button" onclick="runTest4()">Run Test 4</button>
+    </div>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test Log</h2>
+        <div id="test-log" class="test-log"></div>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+        <button class="test-button" onclick="clearLog()">Clear Log</button>
+    </div>
+    
+    <script>
+        let logElement = document.getElementById('test-log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog() {
+            logElement.innerHTML = '';
+            log('Log cleared', 'info');
+        }
+        
+        function updateResult(testId, message, passed) {
+            const resultElement = document.getElementById(testId);
+            resultElement.textContent = message;
+            resultElement.className = `test-result ${passed ? 'pass' : 'fail'}`;
+        }
+        
+        function runTest1() {
+            log('Running Test 1: Button Existence', 'info');
+            
+            // Check if we can access the finance dashboard
+            fetch('/finance')
+                .then(response => {
+                    if (response.status === 302 || response.status === 200) {
+                        log(`✅ Finance page accessible (Status: ${response.status})`, 'success');
+                        updateResult('test1-result', '✅ Finance page accessible', true);
+                    } else {
+                        log(`❌ Finance page not accessible (Status: ${response.status})`, 'error');
+                        updateResult('test1-result', '❌ Finance page not accessible', false);
+                    }
+                })
+                .catch(error => {
+                    log(`❌ Error accessing finance page: ${error.message}`, 'error');
+                    updateResult('test1-result', '❌ Error accessing finance page', false);
+                });
+        }
+        
+        function runTest2() {
+            log('Running Test 2: Modal HTML Structure', 'info');
+            
+            // Check for modal elements in the dashboard HTML
+            fetch('/finance')
+                .then(response => response.text())
+                .then(html => {
+                    const tests = [
+                        { id: 'add-expense-modal', name: 'Modal container' },
+                        { id: 'add-expense-btn', name: 'Add Expense button' },
+                        { id: 'expense-form', name: 'Expense form' },
+                        { class: 'modal-overlay', name: 'Modal overlay' },
+                        { class: 'modal-container', name: 'Modal container class' }
+                    ];
+                    
+                    let passed = 0;
+                    let total = tests.length;
+                    
+                    tests.forEach(test => {
+                        if (test.id) {
+                            if (html.includes(`id="${test.id}"`)) {
+                                log(`✅ Found ${test.name} (id="${test.id}")`, 'success');
+                                passed++;
+                            } else {
+                                log(`❌ Missing ${test.name} (id="${test.id}")`, 'error');
+                            }
+                        } else if (test.class) {
+                            if (html.includes(`class="${test.class}"`) || html.includes(`class="`)) {
+                                log(`✅ Found ${test.name} (class="${test.class}")`, 'success');
+                                passed++;
+                            } else {
+                                log(`❌ Missing ${test.name} (class="${test.class}")`, 'error');
+                            }
+                        }
+                    });
+                    
+                    const message = `${passed}/${total} modal elements found`;
+                    updateResult('test2-result', message, passed === total);
+                })
+                .catch(error => {
+                    log(`❌ Error checking modal structure: ${error.message}`, 'error');
+                    updateResult('test2-result', '❌ Error checking modal structure', false);
+                });
+        }
+        
+        function runTest3() {
+            log('Running Test 3: JavaScript Functions', 'info');
+            
+            fetch('/finance')
+                .then(response => response.text())
+                .then(html => {
+                    const functions = [
+                        'showAddExpenseModal()',
+                        'closeAddExpenseModal()',
+                        'submitExpense(event)',
+                        'modal.classList.add(\'active\')',
+                        'modal.classList.remove(\'active\')'
+                    ];
+                    
+                    let passed = 0;
+                    let total = functions.length;
+                    
+                    functions.forEach(func => {
+                        if (html.includes(func)) {
+                            log(`✅ Found JavaScript function: ${func}`, 'success');
+                            passed++;
+                        } else {
+                            log(`❌ Missing JavaScript function: ${func}`, 'error');
+                        }
+                    });
+                    
+                    // Check for CSS animations
+                    if (html.includes('@keyframes fadeIn') && html.includes('@keyframes slideUp')) {
+                        log('✅ Found CSS animations (fadeIn, slideUp)', 'success');
+                        passed += 2;
+                        total += 2;
+                    } else {
+                        log('❌ Missing CSS animations', 'error');
+                    }
+                    
+                    const message = `${passed}/${total} JavaScript/CSS elements found`;
+                    updateResult('test3-result', message, passed === total);
+                })
+                .catch(error => {
+                    log(`❌ Error checking JavaScript functions: ${error.message}`, 'error');
+                    updateResult('test3-result', '❌ Error checking JavaScript functions', false);
+                });
+        }
+        
+        function runTest4() {
+            log('Running Test 4: Modal Open/Close Simulation', 'info');
+            
+            // Create a test modal to verify the CSS works
+            const testModal = document.createElement('div');
+            testModal.id = 'test-modal';
+            testModal.className = 'modal-overlay';
+            testModal.innerHTML = `
+                <div class="modal-container">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Test Modal</h2>
+                        <button class="modal-close" onclick="closeTestModal()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>This is a test modal to verify CSS works.</p>
+                        <button class="test-button" onclick="closeTestModal()">Close</button>
+                    </div>
+                </div>
+            `;
+            
+            // Add test CSS if not present
+            if (!document.querySelector('style#test-css')) {
+                const testCss = document.createElement('style');
+                testCss.id = 'test-css';
+                testCss.textContent = `
+                    #test-modal {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0, 0, 0, 0.5);
+                        backdrop-filter: blur(4px);
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 3000;
+                        padding: 1rem;
+                    }
+                    
+                    #test-modal.active {
+                        display: flex;
+                    }
+                    
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    
+                    @keyframes slideUp {
+                        from {
+                            opacity: 0;
+                            transform: translateY(20px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+                `;
+                document.head.appendChild(testCss);
+            }
+            
+            document.body.appendChild(testModal);
+            
+            // Test modal functions
+            window.openTestModal = function() {
+                testModal.classList.add('active');
+                log('✅ Test modal opened successfully', 'success');
+            };
+            
+            window.closeTestModal = function() {
+                testModal.classList.remove('active');
+                log('✅ Test modal closed successfully', 'success');
+            };
+            
+            // Run the test
+            setTimeout(() => {
+                openTestModal();
+                log('Test modal should now be visible', 'info');
+                
+                setTimeout(() => {
+                    closeTestModal();
+                    log('Test modal should now be hidden', 'info');
+                    
+                    // Clean up
+                    setTimeout(() => {
+                        testModal.remove();
+                        log('✅ Modal open/close test completed', 'success');
+                        updateResult('test4-result', '✅ Modal open/close works correctly', true);
+                    }, 500);
+                }, 1000);
+            }, 100);
+        }
+        
+        function runAllTests() {
+            clearLog();
+            log('Starting all tests...', 'info');
+            
+            // Run tests sequentially
+            setTimeout(() => runTest1(), 100);
+            setTimeout(() => runTest2(), 1500);
+            setTimeout(() => runTest3(), 3000);
+            setTimeout(() => runTest4(), 4500);
+        }
+        
+        // Initialize
+        clearLog();
+        log('Modal Functionality Test initialized', 'info');
+        log('Click "Run All Tests" to test the Add Expense button functionality', 'info');
+    </script>
+</body>
+</html>

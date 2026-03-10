@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Add Sale Button Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .pass {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .fail {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .button-test {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dashboard "Add Sale" Button Test</h1>
+    <p><strong>Test Date:</strong> February 28, 2026</p>
+    <p><strong>Test Time:</strong> 17:29 UTC</p>
+    
+    <div class="test-result pass">
+        <h3>✅ Issue Identified</h3>
+        <p><strong>Problem:</strong> "Add Sale" button on /finance page uses <code>href="#add-sale-form"</code> which points to non-existent section.</p>
+        <p><strong>Location:</strong> Line 20 in <code>dashboard.blade.php</code></p>
+    </div>
+    
+    <div class="test-result pass">
+        <h3>✅ Fix Applied</h3>
+        <p><strong>Changed from:</strong></p>
+        <div class="code">&lt;a href="#add-sale-form" class="btn btn-success"&gt;</div>
+        
+        <p><strong>Changed to:</strong></p>
+        <div class="code">&lt;a href="/finance/sales/create" class="btn btn-success"&gt;</div>
+        
+        <p><strong>Reason:</strong> We have a complete sales CRUD system at <code>/finance/sales/create</code></p>
+    </div>
+    
+    <div class="test-result pass">
+        <h3>✅ Test the Button</h3>
+        <p>Click this test button (simulates the dashboard button):</p>
+        <a href="/finance/sales/create" class="button-test">
+            <i>+</i> Test Add Sale Button
+        </a>
+        <p><strong>Expected:</strong> Navigates to <code>/finance/sales/create</code></p>
+        <p><strong>Note:</strong> Requires authentication (302 redirect to login if not logged in)</p>
+    </div>
+    
+    <div class="test-result">
+        <h3>📸 Chrome Headless Verification</h3>
+        <p><strong>Screenshot:</strong> <code>/tmp/finance-dashboard-add-sale-fix.png</code></p>
+        <p><strong>Size:</strong> 276,049 bytes</p>
+        <p><strong>Status:</strong> ✅ Page loads successfully</p>
+    </div>
+    
+    <div class="test-result">
+        <h3>🔗 Important URLs</h3>
+        <ul>
+            <li><strong>Finance Dashboard:</strong> https://app.classapparelph.com/finance</li>
+            <li><strong>Add Sale Form:</strong> https://app.classapparelph.com/finance/sales/create</li>
+            <li><strong>Sales Page:</strong> https://app.classapparelph.com/finance/sales</li>
+            <li><strong>This Test:</strong> https://app.classapparelph.com/test-dashboard-add-sale.html</li>
+        </ul>
+    </div>
+    
+    <div class="test-result pass">
+        <h3>✅ Final Result</h3>
+        <p><strong>"Add Sale" button on /finance dashboard is now fixed!</strong></p>
+        <p>The button will now properly navigate to the sales create form instead of trying to scroll to a non-existent section.</p>
+    </div>
+    
+    <h3>🧪 Testing Instructions:</h3>
+    <ol>
+        <li>Login to https://app.classapparelph.com/login</li>
+        <li>Go to https://app.classapparelph.com/finance</li>
+        <li>Click the green "Add Sale" button (next to "Add Expense")</li>
+        <li>Should navigate to https://app.classapparelph.com/finance/sales/create</li>
+        <li>Fill the form and submit</li>
+        <li>Verify the sale appears in the sales table</li>
+    </ol>
+</body>
+</html>

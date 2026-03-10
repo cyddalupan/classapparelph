@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test DTF Buttons</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { padding: 20px; }
+        .test-button { margin: 10px; padding: 15px; border: 2px solid #007bff; }
+        .log { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test DTF Buttons Functionality</h1>
+        
+        <div class="alert alert-info">
+            <h4>Testing Steps:</h4>
+            <ol>
+                <li>Click "Test Add Print Size" button below</li>
+                <li>Check browser console (F12 → Console)</li>
+                <li>Look for "Add Another Print Size button clicked" message</li>
+                <li>Check if new row appears</li>
+            </ol>
+        </div>
+        
+        <!-- Simulated DTF Form -->
+        <div class="card">
+            <div class="card-header">
+                <h5>DTF Printing Form (Test)</h5>
+            </div>
+            <div class="card-body">
+                <!-- Print Sizes Section -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fw-semibold">Print Sizes</label>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size">
+                            <i class="fas fa-plus me-1"></i> Add Another Print Size
+                        </button>
+                    </div>
+                    <div id="print-sizes-container">
+                        <!-- First Print Size Row -->
+                        <div class="print-size-row mb-3 p-3 border rounded">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small">Print Size 1</label>
+                                    <select class="form-select form-select-sm print-size-select" name="dtf_print_size[]" required>
+                                        <option value="" selected disabled>Select print size</option>
+                                        <option value="8x10">8x10 inches</option>
+                                        <option value="custom">Custom Size</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small">Custom Size (if selected)</label>
+                                    <input type="text" class="form-control form-control-sm custom-size-input" name="dtf_custom_size[]" placeholder="e.g., 18x24 inches" style="display: none;">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold small">Quantity</label>
+                                    <input type="number" class="form-control form-control-sm print-size-quantity" name="dtf_print_size_quantity[]" min="1" value="1" required>
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-print-size" style="margin-bottom: 8px;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Shirt Sizes Section -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fw-semibold">Shirt Sizes</label>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size">
+                            <i class="fas fa-plus me-1"></i> Add Another Size
+                        </button>
+                    </div>
+                    <div id="shirt-sizes-container">
+                        <!-- First Shirt Size Row -->
+                        <div class="shirt-size-row mb-3 p-3 border rounded">
+                            <div class="row g-2">
+                                <div class="col-md-7">
+                                    <label class="form-label fw-semibold small">Size 1</label>
+                                    <select class="form-select form-select-sm shirt-size-select" name="dtf_shirt_size[]" required>
+                                        <option value="" selected disabled>Select size</option>
+                                        <option value="m">M (Medium)</option>
+                                        <option value="l">L (Large)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold small">Quantity</label>
+                                    <input type="number" class="form-control form-control-sm shirt-size-quantity" name="dtf_shirt_size_quantity[]" min="1" value="1" required>
+                                </div>
+                                <div class="col-md-1 d-flex align-items-end">
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-shirt-size" style="margin-bottom: 8px;">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Total Quantity Display -->
+                <div class="alert alert-info p-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">Total Quantity:</span>
+                        <span class="badge bg-primary" id="dtf-total-quantity">1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test Results -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Test Results</h5>
+            </div>
+            <div class="card-body">
+                <div class="log" id="test-log">
+                    <p>Click the buttons above and check here for messages...</p>
+                </div>
+                <button class="btn btn-primary" onclick="runTests()">Run All Tests</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Simple event delegation for DTF form buttons
+        document.addEventListener('click', function(event) {
+            // Check if click is on "Add Another Print Size" button
+            if (event.target && event.target.id === 'add-print-size') {
+                console.log('Add Another Print Size button clicked');
+                logMessage('Add Another Print Size button clicked');
+                addPrintSizeRow();
+                event.preventDefault();
+                return false;
+            }
+            
+            // Check if click is on "Add Another Size" button
+            if (event.target && event.target.id === 'add-shirt-size') {
+                console.log('Add Another Size button clicked');
+                logMessage('Add Another Size button clicked');
+                addShirtSizeRow();
+                event.preventDefault();
+                return false;
+            }
+            
+            // Check if click is on remove buttons
+            if (event.target && event.target.classList.contains('remove-print-size')) {
+                console.log('Remove print size button clicked');
+                logMessage('Remove print size button clicked');
+                const row = event.target.closest('.print-size-row');
+                if (row && document.querySelectorAll('.print-size-row').length > 1) {
+                    row.remove();
+                    updateTotalQuantity();
+                } else {
+                    alert('You must have at least one print size.');
+                }
+                event.preventDefault();
+                return false;
+            }
+            
+            if (event.target && event.target.classList.contains('remove-shirt-size')) {
+                console.log('Remove shirt size button clicked');
+                logMessage('Remove shirt size button clicked');
+                const row = event.target.closest('.shirt-size-row');
+                if (row && document.querySelectorAll('.shirt-size-row').length > 1) {
+                    row.remove();
+                    updateTotalQuantity();
+                } else {
+                    alert('You must have at least one shirt size.');
+                }
+                event.preventDefault();
+                return false;
+            }
+        });
+        
+        // Add Print Size Row function
+        function addPrintSizeRow() {
+            const printSizesContainer = document.getElementById('print-sizes-container');
+            if (!printSizesContainer) {
+                console.error('print-sizes-container not found');
+                logMessage('ERROR: print-sizes-container not found');
+                return;
+            }
+            
+            const rowCount = printSizesContainer.querySelectorAll('.print-size-row').length;
+            const newRow = document.createElement('div');
+            newRow.className = 'print-size-row mb-3 p-3 border rounded';
+            newRow.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small">Print Size ${rowCount + 1}</label>
+                        <select class="form-select form-select-sm print-size-select" name="dtf_print_size[]" required>
+                            <option value="" selected disabled>Select print size</option>
+                            <option value="8x10">8x10 inches</option>
+                            <option value="custom">Custom Size</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small">Custom Size (if selected)</label>
+                        <input type="text" class="form-control form-control-sm custom-size-input" name="dtf_custom_size[]" placeholder="e.g., 18x24 inches" style="display: none;">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold small">Quantity</label>
+                        <input type="number" class="form-control form-control-sm print-size-quantity" name="dtf_print_size_quantity[]" min="1" value="1" required>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-print-size" style="margin-bottom: 8px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            printSizesContainer.appendChild(newRow);
+            
+            // Add event listener for custom size toggle
+            const select = newRow.querySelector('.print-size-select');
+            const customInput = newRow.querySelector('.custom-size-input');
+            
+            select.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customInput.style.display = 'block';
+                    customInput.required = true;
+                } else {
+                    customInput.style.display = 'none';
+                    customInput.required = false;
+                    customInput.value = '';
+                }
+            });
+            
+            // Add event listener for quantity changes
+            const quantityInput = newRow.querySelector('.print-size-quantity');
+            quantityInput.addEventListener('input', updateTotalQuantity);
+            
+            console.log(`Added print size row ${rowCount + 1}`);
+            logMessage(`✓ Added print size row ${rowCount + 1}`);
+            updateTotalQuantity();
+        }
+        
+        // Add Shirt Size Row function
+        function addShirtSizeRow() {
+            const shirtSizesContainer = document.getElementById('shirt-sizes-container');
+            if (!shirtSizesContainer) {
+                console.error('shirt-sizes-container not found');
+                logMessage('ERROR: shirt-sizes-container not found');
+                return;
+            }
+            
+            const rowCount = shirtSizesContainer.querySelectorAll('.shirt-size-row').length;
+            const newRow = document.createElement('div');
+            newRow.className = 'shirt-size-row mb-3 p-3 border rounded';
+            newRow.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold small">Size ${rowCount + 1}</label>
+                        <select class="form-select form-select-sm shirt-size-select" name="dtf_shirt_size[]" required>
+                            <option value="" selected disabled>Select size</option>
+                            <option value="m">M (Medium)</option>
+                            <option value="l">L (Large)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold small">Quantity</label>
+                        <input type="number" class="form-control form-control-sm shirt-size-quantity" name="dtf_shirt_size_quantity[]" min="1" value="1" required>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-shirt-size" style="margin-bottom: 8px;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            shirtSizesContainer.appendChild(newRow);
+            
+            // Add event listener for quantity changes
+            const quantityInput = newRow.querySelector('.shirt-size-quantity');
+            quantityInput.addEventListener('input', updateTotalQuantity);
+            
+            console.log(`Added shirt size row ${rowCount + 1}`);
+            logMessage(`✓ Added shirt size row ${rowCount + 1}`);
+            updateTotalQuantity();
+        }
+        
+        // Update Total Quantity function
+        function updateTotalQuantity() {
+            const totalQuantityDisplay = document.getElementById('dtf-total-quantity');
+            if (!totalQuantityDisplay) return;
+            
+            let total = 0;
+            
+            // Sum print size quantities
+            const printSizeQuantities = document.querySelectorAll('.print-size-quantity');
+            printSizeQuantities.forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            
+            // Sum shirt size quantities
+            const shirtSizeQuantities = document.querySelectorAll('.shirt-size-quantity');
+            shirtSizeQuantities.forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+            
+            // Update display
+            totalQuantityDisplay.textContent = total;
+            console.log(`Total quantity updated: ${total}`);
+            logMessage(`Total quantity updated: ${total}`);
+        }
+        
+        // Initialize custom size toggle for first row on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing DTF form...');
+            logMessage('DOM loaded, initializing DTF form...');
+            
+            // Set up custom size toggle for first print size row
+            const firstPrintSizeSelect = document.querySelector('#print-sizes-container .print-size-select');
+            const firstCustomInput = document.querySelector('#print-sizes-container .custom-size-input');
+            
+            if (firstPrintSizeSelect && firstCustomInput) {
+                firstPrintSizeSelect.addEventListener('change', function() {
+                    if (this.value === 'custom') {
+                        firstCustomInput.style.display = 'block';
+                        firstCustomInput.required = true;
+                    } else {
+                        firstCustomInput.style.display = 'none';
+                        firstCustomInput.required = false;
+                        firstCustomInput.value = '';
+                    }
+                });
+            }
+            
+            // Set up quantity change listeners for first rows
+            const firstPrintSizeQuantity = document.querySelector('#print-sizes-container .print-size-quantity');
+            const firstShirtSizeQuantity = document.querySelector('#shirt-sizes-container .shirt-size-quantity');
+            
+            if (firstPrintSizeQuantity) {
+                firstPrintSizeQuantity.addEventListener('input', updateTotalQuantity);
+            }
+            
+            if (firstShirtSizeQuantity) {
+                firstShirtSizeQuantity.addEventListener('input', updateTotalQuantity);
+            }
+            
+            // Initialize total quantity
+            updateTotalQuantity();
+            
+            console.log('DTF form initialization complete');
+            logMessage('✓ DTF form initialization complete');
+        });
+        
+        // Helper function to log messages
+        function logMessage(message) {
+            const logDiv = document.getElementById('test-log');
+            const p = document.createElement('p');
+            p.textContent = '[' + new Date().toLocaleTimeString() + '] ' + message;
+            logDiv.appendChild(p);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        // Run all tests
+        function runTests() {
+            const logDiv = document.getElementById('test-log');
+            logDiv.innerHTML = '<p>Running tests...</p>';
+            
+            // Test 1: Check if buttons exist
+            const addPrintSizeBtn = document.getElementById('add-print-size');
+            const addShirtSizeBtn = document.getElementById('add-shirt-size');
+            
+            if (addPrintSizeBtn) {
+                logMessage('✓ Test 1: Add Print Size button found');
+            } else {
+                logMessage('✗ Test 1: Add Print Size button NOT found');
+            }
+            
+            if (addShirtSizeBtn) {
+                logMessage('✓ Test 2: Add Shirt Size button found');
+            } else {
+                logMessage('✗ Test 2: Add Shirt Size button NOT found');
+            }
+            
+            // Test 3: Try to add a print size row
+            try {
+                addPrintSizeRow();
+                logMessage('✓ Test 3: Successfully added print size row');
+            } catch (error) {
+                logMessage('✗ Test 3: Failed to add print size row: ' + error.message);
+            }
+            
+            // Test 4: Try to add a shirt size row
+            try {
+                addShirtSizeRow();
+                logMessage('✓ Test 4: Successfully added shirt size row');
+            } catch (error) {
+                logMessage('✗ Test 4: Failed to add shirt size row: ' + error.message);
+            }
+            
+            logMessage('Tests completed!');
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            logMessage('Page loaded successfully');
+            logMessage('Click "Add Another Print Size" or "Add Another Size" buttons to test');
+        });
+    </script>
+</body>
+</html></

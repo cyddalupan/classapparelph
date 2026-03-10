@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Add Expense Button</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            padding: 2rem;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+        }
+        
+        h1 {
+            color: #1e293b;
+            margin-bottom: 1.5rem;
+        }
+        
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+        }
+        
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #f0f9ff;
+            border-left: 4px solid #0ea5e9;
+        }
+        
+        .success {
+            background: #f0fdf4;
+            border-left-color: #10b981;
+        }
+        
+        .error {
+            background: #fef2f2;
+            border-left-color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Test: Add Expense Button Functionality</h1>
+        
+        <div class="test-section">
+            <h2>Test 1: Check if showAddExpenseModal function exists</h2>
+            <button class="btn" onclick="testFunctionExistence()">Test Function Existence</button>
+            <div id="test1" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 2: Check if modal HTML exists</h2>
+            <button class="btn" onclick="testModalExistence()">Test Modal Existence</button>
+            <div id="test2" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 3: Try to open the modal</h2>
+            <button class="btn" onclick="testOpenModal()">Open Add Expense Modal</button>
+            <div id="test3" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test 4: Check for alert placeholder</h2>
+            <button class="btn" onclick="testAlertPlaceholder()">Check for Alert Placeholder</button>
+            <div id="test4" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Live Test</h2>
+            <p>Click this button to test the actual functionality:</p>
+            <button class="btn" onclick="showAddExpenseModal()">Add Expense (Live Test)</button>
+            <p><small>This should open a modal, not show an alert.</small></p>
+        </div>
+    </div>
+    
+    <!-- Add Expense Modal (copied from expenses.blade.php) -->
+    <div id="addExpenseModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 2rem; border-radius: 16px; max-width: 500px; width: 90%;">
+            <h2>Add Expense Modal</h2>
+            <p>If you can see this, the modal exists and can be opened.</p>
+            <button class="btn" onclick="closeAddExpenseModal()">Close Modal</button>
+        </div>
+    </div>
+    
+    <script>
+        function testFunctionExistence() {
+            const result = document.getElementById('test1');
+            if (typeof showAddExpenseModal === 'function') {
+                result.innerHTML = '<strong>✅ SUCCESS:</strong> showAddExpenseModal function exists';
+                result.className = 'result success';
+            } else {
+                result.innerHTML = '<strong>❌ ERROR:</strong> showAddExpenseModal function NOT FOUND';
+                result.className = 'result error';
+            }
+        }
+        
+        function testModalExistence() {
+            const result = document.getElementById('test2');
+            const modal = document.getElementById('addExpenseModal');
+            if (modal) {
+                result.innerHTML = '<strong>✅ SUCCESS:</strong> addExpenseModal element exists';
+                result.className = 'result success';
+            } else {
+                result.innerHTML = '<strong>❌ ERROR:</strong> addExpenseModal element NOT FOUND';
+                result.className = 'result error';
+            }
+        }
+        
+        function testOpenModal() {
+            const result = document.getElementById('test3');
+            try {
+                showAddExpenseModal();
+                result.innerHTML = '<strong>✅ SUCCESS:</strong> Modal opened successfully';
+                result.className = 'result success';
+            } catch (error) {
+                result.innerHTML = `<strong>❌ ERROR:</strong> ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        function testAlertPlaceholder() {
+            const result = document.getElementById('test4');
+            const functionString = showAddExpenseModal.toString();
+            if (functionString.includes('alert') && functionString.includes('placeholder')) {
+                result.innerHTML = '<strong>⚠️ WARNING:</strong> Function contains alert placeholder';
+                result.className = 'result error';
+            } else {
+                result.innerHTML = '<strong>✅ SUCCESS:</strong> No alert placeholder found in function';
+                result.className = 'result success';
+            }
+        }
+        
+        // Simplified modal functions for testing
+        function showAddExpenseModal() {
+            const modal = document.getElementById('addExpenseModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeAddExpenseModal() {
+            const modal = document.getElementById('addExpenseModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        
+        // Close modal on overlay click
+        document.getElementById('addExpenseModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAddExpenseModal();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1553 @@
+@extends('layouts.app')
+
+@section('title', 'Add Quick Sale')
+
+@push('styles')
+    <!-- Bootstrap CSS for modals -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+@endpush
+
+@section('content')
+<div class="content-wrapper">
+    <!-- Sales Transaction Header - MOVED TO TOP -->
+    <div class="card mb-4">
+        <div class="card-body text-center">
+            <div class="d-flex align-items-center justify-content-center">
+                <div class="header-icon-wrapper me-3">
+                    <div class="header-icon bg-gradient-primary">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="mb-1">Sales Transaction</h2>
+                    <p class="text-muted mb-0">Complete customer details and order information below</p>
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="btn-group" role="group">
+                    <a href="{{ route('sales.products') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-2"></i> Back to Catalog
+                    </a>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="window.print()">
+                        <i class="fas fa-print me-2"></i> Print Preview
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Form Container -->
+    <div class="row">
+        <!-- Left Column: Form -->
+        <div class="col-lg-8">
+            <form id="quickSaleForm" action="{{ route('sales.quick-store') }}" method="POST">
+                @csrf
+                
+                <!-- Customer Information Card - SPLIT INTO LEFT & RIGHT COLUMNS -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-user-circle text-primary me-2"></i>
+                            Customer Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <!-- LEFT COLUMN: Customer, Marketplace, Location -->
+                            <div style="flex: 1; min-width: 300px;">
+                                <!-- Customer Name -->
+                                <div class="mb-3">
+                                    <label for="customer" class="form-label fw-semibold small">
+                                        Customer <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-user"></i>
+                                        </span>
+                                        <input type="text" class="form-control form-control-sm" id="customer" name="customer" 
+                                               placeholder="Enter customer name" required>
+                                    </div>
+                                </div>
+
+                                <!-- Marketplace Dropdown -->
+                                <div class="mb-3">
+                                    <label for="marketplace" class="form-label fw-semibold small">
+                                        Marketplace <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-store"></i>
+                                        </span>
+                                        <select class="form-select form-select-sm" id="marketplace" name="marketplace" required>
+                                            <option value="" selected disabled>Select marketplace</option>
+                                            <option value="shopee">Shopee</option>
+                                            <option value="lazada">Lazada</option>
+                                            <option value="tiktok">TikTok Shop</option>
+                                            <option value="facebook">Facebook Marketplace</option>
+                                            <option value="instagram">Instagram</option>
+                                            <option value="website">Website</option>
+                                            <option value="walk-in">Walk-in</option>
+                                            <option value="referral">Referral</option>
+                                            <option value="corporate">Corporate</option>
+                                            <option value="wholesale">Wholesale</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Location -->
+                                <div class="mb-3">
+                                    <label for="location" class="form-label fw-semibold small">
+                                        Location <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-map-marker-alt"></i>
+                                        </span>
+                                        <input type="text" class="form-control form-control-sm" id="location" name="location" 
+                                               placeholder="City/Province" required>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT COLUMN: Contact Number, Email Address, Company -->
+                            <div style="flex: 1; min-width: 300px;">
+                                <!-- Contact Number -->
+                                <div class="mb-3">
+                                    <label for="contact_number" class="form-label fw-semibold small">
+                                        Contact Number <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-phone"></i>
+                                        </span>
+                                        <input type="tel" class="form-control form-control-sm" id="contact_number" name="contact_number" 
+                                               placeholder="09XXXXXXXXX" required>
+                                    </div>
+                                </div>
+
+                                <!-- Email Address -->
+                                <div class="mb-3">
+                                    <label for="email" class="form-label fw-semibold small">
+                                        Email Address
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-envelope"></i>
+                                        </span>
+                                        <input type="email" class="form-control form-control-sm" id="email" name="email" 
+                                               placeholder="customer@email.com">
+                                    </div>
+                                </div>
+
+                                <!-- Company -->
+                                <div class="mb-3">
+                                    <label for="company" class="form-label fw-semibold small">
+                                        Company
+                                    </label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-building"></i>
+                                        </span>
+                                        <input type="text" class="form-control form-control-sm" id="company" name="company" 
+                                               placeholder="Company name (optional)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Details Card - SIMPLE CLICKABLE OPTIONS -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-shopping-cart text-success me-2"></i>
+                            Order Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center mb-4">
+                            <p class="text-muted small mb-3">Select order type:</p>
+                            <div class="row g-2">
+                                <!-- iPrint Option -->
+                                <div class="col-md-3 col-sm-6">
+                                    <button type="button" class="btn btn-outline-primary w-100 py-2" data-order-type="iprint">
+                                        <i class="fas fa-print fa-lg me-2"></i>
+                                        <span class="small fw-bold">iPrint</span>
+                                    </button>
+                                </div>
+                                
+                                <!-- Consol Option -->
+                                <div class="col-md-3 col-sm-6">
+                                    <button type="button" class="btn btn-outline-success w-100 py-2" data-order-type="consol">
+                                        <i class="fas fa-boxes fa-lg me-2"></i>
+                                        <span class="small fw-bold">Consol</span>
+                                    </button>
+                                </div>
+                                
+                                <!-- Class Option -->
+                                <div class="col-md-3 col-sm-6">
+                                    <button type="button" class="btn btn-outline-info w-100 py-2" data-order-type="class">
+                                        <i class="fas fa-graduation-cap fa-lg me-2"></i>
+                                        <span class="small fw-bold">Class</span>
+                                    </button>
+                                </div>
+                                
+                                <!-- Cinco Option -->
+                                <div class="col-md-3 col-sm-6">
+                                    <button type="button" class="btn btn-outline-warning w-100 py-2" data-order-type="cinco">
+                                        <i class="fas fa-star fa-lg me-2"></i>
+                                        <span class="small fw-bold">Cinco</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Order Forms Container (Initially Hidden) -->
+                        <div id="order-forms-container" style="display: none;">
+                            <div class="card mt-3">
+                                <div class="card-header bg-light py-2">
+                                    <h6 class="mb-0" id="form-title">Order Details</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary float-end" onclick="hideOrderForm()">Close</button>
+                                </div>
+                                <div class="card-body">
+                                    <!-- iPrint Form -->
+                                    <div id="iprint-form" style="display: none;">
+                                        <h6 class="mb-3">iPrint Order Details</h6>
+                                        
+                                        <!-- Step 1: Choose Printing Type -->
+                                        <div class="mb-4 p-3 border rounded bg-light">
+                                            <h6 class="mb-3 text-primary">Step 1: Choose Printing Type</h6>
+                                            <div class="row g-2">
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-outline-primary w-100 py-2 iprint-option-btn" data-option="dtf">
+                                                        <i class="fas fa-print fa-lg me-2"></i>
+                                                        <span class="small fw-bold">DTF</span>
+                                                    </button>
+                                                </div>
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-outline-success w-100 py-2 iprint-option-btn" data-option="lanyard">
+                                                        <i class="fas fa-id-card fa-lg me-2"></i>
+                                                        <span class="small fw-bold">Lanyard</span>
+                                                    </button>
+                                                </div>
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-outline-info w-100 py-2 iprint-option-btn" data-option="tarpaulin">
+                                                        <i class="fas fa-image fa-lg me-2"></i>
+                                                        <span class="small fw-bold">Tarpaulin</span>
+                                                    </button>
+                                                </div>
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-outline-warning w-100 py-2 iprint-option-btn" data-option="sublimation">
+                                                        <i class="fas fa-fire fa-lg me-2"></i>
+                                                        <span class="small fw-bold">Sublimation</span>
+                                                    </button>
+                                                </div>
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-outline-danger w-100 py-2 iprint-option-btn" data-option="embroidery">
+                                                        <i class="fas fa-threads fa-lg me-2"></i>
+                                                        <span class="small fw-bold">Embroidery</span>
+                                                    </button>
+                                                </div>
+                                                <div class="col-md-4 col-sm-6">
+                                                    <button type="button" class="btn btn-outline-secondary w-100 py-2 iprint-option-btn" data-option="other">
+                                                        <i class="fas fa-boxes fa-lg me-2"></i>
+                                                        <span class="small fw-bold">Other Items</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Step 2: Detailed Form (Hidden Initially) -->
+                                        <div id="iprint-details-container" style="display: none;">
+                                            <div class="mb-3 p-3 border rounded">
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <h6 class="mb-0 text-primary" id="iprint-selected-type">Selected: DTF Printing</h6>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="iprint-change-type">
+                                                        <i class="fas fa-undo me-1"></i> Change Type
+                                                    </button>
+                                                </div>
+                                                
+                                                <!-- DTF Printing Form -->
+                                                <div id="dtf-form" class="iprint-type-form" style="display: none;">
+                                                    <div class="row g-3">
+                                                        <!-- Print Size Section - Flexible Multiple Sizes -->
+                                                        <div class="col-md-12">
+                                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                <label class="form-label fw-semibold small">Print Sizes</label>
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size">
+                                                                    <i class="fas fa-plus me-1"></i> Add Another Print Size
+                                                                </button>
+                                                            </div>
+                                                            <div id="print-sizes-container">
+                                                                <!-- First Print Size Row -->
+                                                                <div class="print-size-row mb-3 p-3 border rounded">
+                                                                    <div class="row g-2">
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label fw-semibold small">Print Size</label>
+                                                                            <select class="form-select form-select-sm print-size-select" name="dtf_print_size[]" required>
+                                                                                <option value="" selected disabled>Select print size</option>
+                                                                                <option value="8x10">8x10 inches</option>
+                                                                                <option value="10x12">10x12 inches</option>
+                                                                                <option value="12x14">12x14 inches</option>
+                                                                                <option value="14x16">14x16 inches</option>
+                                                                                <option value="16x20">16x20 inches</option>
+                                                                                <option value="custom">Custom Size</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label fw-semibold small">Custom Size (if selected)</label>
+                                                                            <input type="text" class="form-control form-control-sm custom-size-input" name="dtf_custom_size[]" placeholder="e.g., 18x24 inches" style="display: none;">
+                                                                        </div>
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label fw-semibold small">Quantity for this size</label>
+                                                                            <input type="number" class="form-control form-control-sm print-size-quantity" name="dtf_print_size_quantity[]" min="1" value="1" required>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Material Type and Brand -->
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Material Type</label>
+                                                            <select class="form-select form-select-sm" name="dtf_material_type" required>
+                                                                <option value="" selected disabled>Select material type</option>
+                                                                <option value="cotton">100% Cotton</option>
+                                                                <option value="polyester">Polyester</option>
+                                                                <option value="cotton_poly">Cotton-Poly Blend</option>
+                                                                <option value="fleece">Fleece</option>
+                                                                <option value="hoodie">Hoodie Material</option>
+                                                                <option value="sweatshirt">Sweatshirt Material</option>
+                                                                <option value="other">Other Material</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Brand</label>
+                                                            <select class="form-select form-select-sm" name="dtf_brand" required>
+                                                                <option value="" selected disabled>Select brand</option>
+                                                                <option value="gildan">Gildan</option>
+                                                                <option value="hanes">Hanes</option>
+                                                                <option value="fruit_of_the_loom">Fruit of the Loom</option>
+                                                                <option value="champion">Champion</option>
+                                                                <option value="under_armour">Under Armour</option>
+                                                                <option value="nike">Nike</option>
+                                                                <option value="adidas">Adidas</option>
+                                                                <option value="local">Local Brand</option>
+                                                                <option value="no_brand">No Brand/Plain</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <!-- Color -->
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Color</label>
+                                                            <select class="form-select form-select-sm" name="dtf_color" required>
+                                                                <option value="" selected disabled>Select color</option>
+                                                                <option value="white">White</option>
+                                                                <option value="black">Black</option>
+                                                                <option value="navy">Navy Blue</option>
+                                                                <option value="red">Red</option>
+                                                                <option value="royal_blue">Royal Blue</option>
+                                                                <option value="gray">Gray</option>
+                                                                <option value="maroon">Maroon</option>
+                                                                <option value="green">Green</option>
+                                                                <option value="yellow">Yellow</option>
+                                                                <option value="pink">Pink</option>
+                                                                <option value="custom">Custom Color</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <!-- Shirt Sizes Section - Flexible Multiple Sizes -->
+                                                        <div class="col-md-6">
+                                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                                <label class="form-label fw-semibold small">Shirt Sizes</label>
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size">
+                                                                    <i class="fas fa-plus me-1"></i> Add Another Size
+                                                                </button>
+                                                            </div>
+                                                            <div id="shirt-sizes-container">
+                                                                <!-- First Shirt Size Row -->
+                                                                <div class="shirt-size-row mb-3 p-3 border rounded">
+                                                                    <div class="row g-2">
+                                                                        <div class="col-md-8">
+                                                                            <label class="form-label fw-semibold small">Size</label>
+                                                                            <select class="form-select form-select-sm shirt-size-select" name="dtf_shirt_size[]" required>
+                                                                                <option value="" selected disabled>Select size</option>
+                                                                                <option value="xs">XS (Extra Small)</option>
+                                                                                <option value="s">S (Small)</option>
+                                                                                <option value="m">M (Medium)</option>
+                                                                                <option value="l">L (Large)</option>
+                                                                                <option value="xl">XL (Extra Large)</option>
+                                                                                <option value="2xl">2XL (Double Extra Large)</option>
+                                                                                <option value="3xl">3XL (Triple Extra Large)</option>
+                                                                                <option value="4xl">4XL (4X Extra Large)</option>
+                                                                                <option value="5xl">5XL (5X Extra Large)</option>
+                                                                                <option value="6xl">6XL (6X Extra Large)</option>
+                                                                                <option value="7xl">7XL (7X Extra Large)</option>
+                                                                                <option value="8xl">8XL (8X Extra Large)</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label fw-semibold small">Quantity</label>
+                                                                            <input type="number" class="form-control form-control-sm shirt-size-quantity" name="dtf_shirt_size_quantity[]" min="1" value="1" required>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Additional Notes -->
+                                                        <div class="col-md-12">
+                                                            <label class="form-label fw-semibold small">Additional Notes</label>
+                                                            <textarea class="form-control form-control-sm" name="dtf_notes" rows="2" placeholder="Special instructions, design details, file information..."></textarea>
+                                                        </div>
+
+                                                        <!-- Total Quantity Display -->
+                                                        <div class="col-md-12">
+                                                            <div class="alert alert-info p-2">
+                                                                <div class="d-flex justify-content-between align-items-center">
+                                                                    <span class="small fw-semibold">Total Quantity:</span>
+                                                                    <span class="badge bg-primary" id="dtf-total-quantity">1</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Lanyard Printing Form -->
+                                                <div id="lanyard-form" class="iprint-type-form" style="display: none;">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Lanyard Type</label>
+                                                            <select class="form-select form-select-sm" name="lanyard_type">
+                                                                <option value="" selected disabled>Select lanyard type</option>
+                                                                <option value="standard">Standard Lanyard</option>
+                                                                <option value="premium">Premium Lanyard</option>
+                                                                <option value="safety">Safety Breakaway</option>
+                                                                <option value="custom">Custom Shape</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Width</label>
+                                                            <select class="form-select form-select-sm" name="lanyard_width">
+                                                                <option value="15mm">15mm (Standard)</option>
+                                                                <option value="20mm">20mm (Wide)</option>
+                                                                <option value="25mm">25mm (Extra Wide)</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Quantity</label>
+                                                            <input type="number" class="form-control form-control-sm" name="lanyard_quantity" min="50" value="100">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Length</label>
+                                                            <select class="form-select form-select-sm" name="lanyard_length">
+                                                                <option value="36">36 inches</option>
+                                                                <option value="40" selected>40 inches</option>
+                                                                <option value="48">48 inches</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Attachment</label>
+                                                            <select class="form-select form-select-sm" name="lanyard_attachment">
+                                                                <option value="j-hook">J-Hook</option>
+                                                                <option value="bulldog">Bulldog Clip</option>
+                                                                <option value="keyring">Keyring</option>
+                                                                <option value="swivel">Swivel Hook</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-12">
+                                                            <label class="form-label fw-semibold small">Print Details</label>
+                                                            <textarea class="form-control form-control-sm" name="lanyard_notes" rows="2" placeholder="Logo details, text to print, color preferences..."></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Tarpaulin Printing Form -->
+                                                <div id="tarpaulin-form" class="iprint-type-form" style="display: none;">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Tarpaulin Type</label>
+                                                            <select class="form-select form-select-sm" name="tarpaulin_type">
+                                                                <option value="" selected disabled>Select tarpaulin type</option>
+                                                                <option value="standard">Standard Tarpaulin</option>
+                                                                <option value="mesh">Mesh Tarpaulin</option>
+                                                                <option value="canvas">Canvas</option>
+                                                                <option value="vinyl">Vinyl Banner</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Thickness</label>
+                                                            <select class="form-select form-select-sm" name="tarpaulin_thickness">
+                                                                <option value="8oz">8 oz (Light)</option>
+                                                                <option value="10oz" selected>10 oz (Standard)</option>
+                                                                <option value="12oz">12 oz (Heavy)</option>
+                                                                <option value="14oz">14 oz (Extra Heavy)</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Width (feet)</label>
+                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_width" min="1" value="3">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Height (feet)</label>
+                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_height" min="1" value="6">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Quantity</label>
+                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_quantity" min="1" value="1">
+                                                        </div>
+                                                        <div class="col-md-12">
+                                                            <label class="form-label fw-semibold small">Print Specifications</label>
+                                                            <textarea class="form-control form-control-sm" name="tarpaulin_notes" rows="2" placeholder="Design details, mounting requirements, grommet placement..."></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Sublimation Printing Form -->
+                                                <div id="sublimation-form" class="iprint-type-form" style="display: none;">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Sublimation Type</label>
+                                                            <select class="form-select form-select-sm" name="sublimation_type">
+                                                                <option value="" selected disabled>Select sublimation type</option>
+                                                                <option value="garment">Garment Sublimation</option>
+                                                                <option value="mug">Mug Sublimation</option>
+                                                                <option value="plate">Plate Sublimation</option>
+                                                                <option value="puzzle">Puzzle Sublimation</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Item Type</label>
+                                                            <select class="form-select form-select-sm" name="sublimation_item">
+                                                                <option value="" selected disabled>Select item</option>
+                                                                <option value="tshirt">T-Shirt</option>
+                                                                <option value="mug">Coffee Mug</option>
+                                                                <option value="plate">Ceramic Plate</option>
+                                                                <option value="puzzle">Jigsaw Puzzle</option>
+                                                                <option value="mousepad">Mouse Pad</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Quantity</label>
+                                                            <input type="number" class="form-control form-control-sm" name="sublimation_quantity" min="1" value="1">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Print Size</label>
+                                                            <select class="form-select form-select-sm" name="sublimation_size">
+                                                                <option value="full">Full Print</option>
+                                                                <option value="partial" selected>Partial Print</option>
+                                                                <option value="custom">Custom Size</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Material</label>
+                                                            <select class="form-select form-select-sm" name="sublimation_material">
+                                                                <option value="polyester">Polyester</option>
+                                                                <option value="ceramic">Ceramic</option>
+                                                                <option value="metal">Metal</option>
+                                                                <option value="wood">Wood</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-12">
+                                                            <label class="form-label fw-semibold small">Design Details</label>
+                                                            <textarea class="form-control form-control-sm" name="sublimation_notes" rows="2" placeholder="Design file, color requirements, special effects..."></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Embroidery Printing Form -->
+                                                <div id="embroidery-form" class="iprint-type-form" style="display: none;">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Embroidery Type</label>
+                                                            <select class="form-select form-select-sm" name="embroidery_type">
+                                                                <option value="" selected disabled>Select embroidery type</option>
+                                                                <option value="flat">Flat Embroidery</option>
+                                                                <option value="3d">3D Puff Embroidery</option>
+                                                                <option value="chenille">Chenille Embroidery</option>
+                                                                <option value="sequin">Sequin Embroidery</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Stitch Count</label>
+                                                            <select class="form-select form-select-sm" name="embroidery_stitches">
+                                                                <option value="5000">5,000 stitches</option>
+                                                                <option value="10000" selected>10,000 stitches</option>
+                                                                <option value="15000">15,000 stitches</option>
+                                                                <option value="20000">20,000 stitches</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Quantity</label>
+                                                            <input type="number" class="form-control form-control-sm" name="embroidery_quantity" min="1" value="1">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Thread Colors</label>
+                                                            <input type="number" class="form-control form-control-sm" name="embroidery_colors" min="1" max="12" value="3">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Size (inches)</label>
+                                                            <input type="text" class="form-control form-control-sm" name="embroidery_size" placeholder="e.g., 3x4">
+                                                        </div>
+                                                        <div class="col-md-12">
+                                                            <label class="form-label fw-semibold small">Design Specifications</label>
+                                                            <textarea class="form-control form-control-sm" name="embroidery_notes" rows="2" placeholder="Design file format, thread colors, placement details..."></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Other Items Form -->
+                                                <div id="other-form" class="iprint-type-form" style="display: none;">
+                                                    <div class="row g-3">
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Item Category</label>
+                                                            <select class="form-select form-select-sm" name="other_category">
+                                                                <option value="" selected disabled>Select category</option>
+                                                                <option value="promotional">Promotional Items</option>
+                                                                <option value="office">Office Supplies</option>
+                                                                <option value="event">Event Materials</option>
+                                                                <option value="custom">Custom Products</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <label class="form-label fw-semibold small">Item Name</label>
+                                                            <input type="text" class="form-control form-control-sm" name="other_item" placeholder="e.g., Pens, Mugs, Banners">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Quantity</label>
+                                                            <input type="number" class="form-control form-control-sm" name="other_quantity" min="1" value="1">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Unit Price (₱)</label>
+                                                            <input type="number" class="form-control form-control-sm" name="other_price" min="0" step="0.01" placeholder="0.00">
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label fw-semibold small">Material</label>
+                                                            <input type="text" class="form-control form-control-sm" name="other_material" placeholder="e.g., Plastic, Metal, Paper">
+                                                        </div>
+                                                        <div class="col-md-12">
+                                                            <label class="form-label fw-semibold small">Item Description</label>
+                                                            <textarea class="form-control form-control-sm" name="other_notes" rows="3" placeholder="Detailed description, specifications, customization requirements..."></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Consol Form -->
+                                    <div id="consol-form" style="display: none;">
+                                        <h6 class="mb-3">Consol Order Details</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">Consolidation Type</label>
+                                                <select class="form-select form-select-sm" name="consol_type">
+                                                    <option value="" selected disabled>Select type</option>
+                                                    <option value="local">Local Consolidation</option>
+                                                    <option value="international">International Shipment</option>
+                                                    <option value="warehouse">Warehouse Storage</option>
+                                                    <option value="distribution">Distribution</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">Package Count</label>
+                                                <input type="number" class="form-control form-control-sm" name="consol_packages" min="1" value="1">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Total Weight (kg)</label>
+                                                <input type="number" class="form-control form-control-sm" name="consol_weight" min="0.1" step="0.1" value="1.0">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Volume (m³)</label>
+                                                <input type="number" class="form-control form-control-sm" name="consol_volume" min="0.01" step="0.01" value="0.1">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Destination</label>
+                                                <input type="text" class="form-control form-control-sm" name="consol_destination" placeholder="City/Country">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label class="form-label fw-semibold small">Consolidation Notes</label>
+                                                <textarea class="form-control form-control-sm" name="consol_notes" rows="2" placeholder="Package contents, handling instructions, etc."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Class Form -->
+                                    <div id="class-form" style="display: none;">
+                                        <h6 class="mb-3">Class Order Details</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">Class Type</label>
+                                                <select class="form-select form-select-sm" name="class_type">
+                                                    <option value="" selected disabled>Select class type</option>
+                                                    <option value="training">Training/Workshop</option>
+                                                    <option value="seminar">Seminar</option>
+                                                    <option value="course">Course</option>
+                                                    <option value="tutorial">Tutorial Session</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">Participant Count</label>
+                                                <input type="number" class="form-control form-control-sm" name="class_participants" min="1" value="1">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Duration (hours)</label>
+                                                <input type="number" class="form-control form-control-sm" name="class_duration" min="1" value="2">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Date</label>
+                                                <input type="date" class="form-control form-control-sm" name="class_date">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Time</label>
+                                                <input type="time" class="form-control form-control-sm" name="class_time">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label class="form-label fw-semibold small">Class Requirements</label>
+                                                <textarea class="form-control form-control-sm" name="class_requirements" rows="2" placeholder="Materials needed, topics to cover, etc."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Cinco Form -->
+                                    <div id="cinco-form" style="display: none;">
+                                        <h6 class="mb-3">Cinco Order Details</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">Cinco Package Type</label>
+                                                <select class="form-select form-select-sm" name="cinco_type" required>
+                                                    <option value="" selected disabled>Select package type</option>
+                                                    <option value="basic">Basic Package</option>
+                                                    <option value="premium">Premium Package</option>
+                                                    <option value="deluxe">Deluxe Package</option>
+                                                    <option value="custom">Custom Package</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">Service Category</label>
+                                                <select class="form-select form-select-sm" name="cinco_category" required>
+                                                    <option value="" selected disabled>Select category</option>
+                                                    <option value="printing">Printing Services</option>
+                                                    <option value="design">Design Services</option>
+                                                    <option value="consultation">Consultation</option>
+                                                    <option value="installation">Installation</option>
+                                                    <option value="maintenance">Maintenance</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Quantity</label>
+                                                <input type="number" class="form-control form-control-sm" name="cinco_quantity" min="1" value="1" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Duration (Hours)</label>
+                                                <input type="number" class="form-control form-control-sm" name="cinco_duration" min="1" value="1" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-semibold small">Priority Level</label>
+                                                <select class="form-select form-select-sm" name="cinco_priority" required>
+                                                    <option value="standard">Standard</option>
+                                                    <option value="express">Express</option>
+                                                    <option value="urgent">Urgent</option>
+                                                    <option value="vip">VIP</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">Start Date</label>
+                                                <input type="date" class="form-control form-control-sm" name="cinco_start_date" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold small">End Date</label>
+                                                <input type="date" class="form-control form-control-sm" name="cinco_end_date">
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label class="form-label fw-semibold small">Service Details</label>
+                                                <textarea class="form-control form-control-sm" name="cinco_details" rows="3" placeholder="Specific requirements, deliverables, special instructions..." required></textarea>
+                                            </div>
+                                            <div class="col-md-12">
+                                                <label class="form-label fw-semibold small">Additional Notes</label>
+                                                <textarea class="form-control form-control-sm" name="cinco_notes" rows="2" placeholder="Any additional information or special requests..."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden field to store selected order type -->
+                        <input type="hidden" id="order_type" name="order_type" value="">
+                    </div>
+                </div>
+
+                <!-- Payment Information Card - COMPACT -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-credit-card text-info me-2"></i>
+                            Payment Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="mop" class="form-label fw-semibold small">
+                                    Payment Method <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-wallet"></i>
+                                    </span>
+                                    <select class="form-select form-select-sm" id="mop" name="mop" required>
+                                        <option value="" selected disabled>Select payment method</option>
+                                        <option value="cash">Cash</option>
+                                        <option value="gcash">GCash</option>
+                                        <option value="maya">Maya</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                        <option value="credit_card">Credit Card</option>
+                                        <option value="debit_card">Debit Card</option>
+                                        <option value="check">Check</option>
+                                        <option value="cod">Cash on Delivery</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="boost" class="form-label fw-semibold small">
+                                    Service Priority
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-bolt"></i>
+                                    </span>
+                                    <select class="form-select form-select-sm" id="boost" name="boost">
+                                        <option value="" selected>Standard Processing</option>
+                                        <option value="urgent">Urgent Delivery (+15%)</option>
+                                        <option value="priority">Priority Processing (+10%)</option>
+                                        <option value="express">Express Service (+20%)</option>
+                                        <option value="vip">VIP Treatment (+25%)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="down_payment" class="form-label fw-semibold small">
+                                    Down Payment <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control form-control-sm text-end" id="down_payment" name="down_payment" 
+                                           min="0" value="0" step="0.01" required>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small">
+                                    Payment Status
+                                </label>
+                                <div class="payment-status">
+                                    <div class="form-check form-check-sm">
+                                        <input class="form-check-input" type="checkbox" id="full_payment" name="full_payment">
+                                        <label class="form-check-label small" for="full_payment">
+                                            <i class="fas fa-check-circle text-success me-1"></i>
+                                            Full Payment
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small">
+                                    Transaction Date
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-calendar"></i>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm" value="{{ now()->format('M d, Y') }}" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="card">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button type="reset" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-eraser me-2"></i> Clear Form
+                                </button>
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary btn-sm px-4">
+                                    <i class="fas fa-check-circle me-2"></i> Complete Transaction
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right Column: Summary & Calculations -->
+        <div class="col-lg-4">
+            <!-- Order Summary Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-receipt me-2"></i>
+                        Order Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="summary-item">
+                        <div class="summary-label small">Subtotal</div>
+                        <div class="summary-value small" id="summary-subtotal">₱500.00</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label small">Service Fee</div>
+                        <div class="summary-value small" id="summary-service">₱0.00</div>
+                    </div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-item total">
+                        <div class="summary-label small">Total Amount</div>
+                        <div class="summary-value small" id="summary-total">₱500.00</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label small">Down Payment</div>
+                        <div class="summary-value small text-success" id="summary-down">₱0.00</div>
+                    </div>
+                    <div class="summary-divider"></div>
+                    <div class="summary-item balance">
+                        <div class="summary-label small">Remaining Balance</div>
+                        <div class="summary-value small" id="summary-balance">₱500.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions Card -->
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-bolt text-warning me-2"></i>
+                        Quick Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ route('sales.products') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-list-alt me-2"></i> Browse Products
+                        </a>
+                        <a href="{{ route('sales.pricing') }}" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-tags me-2"></i> View Pricing
+                        </a>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="generateInvoice()">
+                            <i class="fas fa-file-invoice me-2"></i> Generate Invoice
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help & Guidelines Card -->
+            <div class="card">
+                <div class="card-header py-3">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        Guidelines
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="guidelines-list">
+                        <li class="small">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong>Required:</strong> Customer, Marketplace, Location, Contact, Item, Quantity, Down Payment, Payment Method
+                        </li>
+                        <li class="small">
+                            <i class="fas fa-calculator text-primary me-2"></i>
+                            <strong>Auto-Calculated:</strong> Total and Balance
+                        </li>
+                        <li class="small">
+                            <i class="fas fa-money-bill-wave text-success me-2"></i>
+                            <strong>Payment:</strong> Check "Full Payment" to auto-fill
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@push('styles')
+<style>
+/* Compact Styling */
+.header-icon-wrapper {
+    position: relative;
+}
+
+.header-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress Steps */
+.steps {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+}
+
+.steps::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: #e9ecef;
+    z-index: 1;
+}
+
+.step {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    flex: 1;
+}
+
+.step.active .step-number {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.step.active .step-label {
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+.step-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: white;
+    border: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.step-label {
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* Compact Form Controls */
+.form-control-sm, .form-select-sm {
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    padding: 6px 10px;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.form-control-sm:focus, .form-select-sm:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.input-group-sm .input-group-text {
+    font-size: 14px;
+    padding: 6px 10px;
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #495057;
+}
+
+/* Compact Summary Card */
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.summary-item:last-child {
+    border-bottom: none;
+}
+
+.summary-item.total {
+    border-top: 2px solid #dee2e6;
+    border-bottom: 2px solid #dee2e6;
+    margin: 6px 0;
+    padding: 12px 0;
+}
+
+.summary-item.balance {
+    font-size: 16px;
+    font-weight: 600;
+    color: #198754;
+}
+
+.summary-label {
+    color: #5f6368;
+    font-weight: 500;
+}
+
+.summary-value {
+    font-weight: 600;
+    color: #202124;
+}
+
+.summary-divider {
+    height: 1px;
+    background-color: #f1f3f4;
+    margin: 6px 0;
+}
+
+/* Compact Payment Status */
+.payment-status {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.form-check-sm .form-check-input {
+    width: 1.1em;
+    height: 1.1em;
+    margin-top: 0.15em;
+}
+
+.form-check-sm .form-check-label {
+    font-size: 14px;
+}
+
+.form-check-input:checked {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+/* Compact Guidelines List */
+.guidelines-list {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.guidelines-list li {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.guidelines-list li:last-child {
+    border-bottom: none;
+}
+
+/* Compact Card Styling */
+.card {
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    border-bottom: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+    padding: 12px 16px;
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.card-body {
+    padding: 16px;
+}
+
+/* Compact Button Styling */
+.btn-sm {
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0a58ca 0%, #084298 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(13, 110, 253, 0.2);
+}
+
+.btn-outline-secondary {
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .steps {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .steps::before {
+        display: none;
+    }
+    
+    .step {
+        text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .step-number {
+        margin: 0;
+        flex-shrink: 0;
+    }
+    
+    .header-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+}
+</style>
+@endpush
+
+@endsection
+@push('scripts')
+<!-- Bootstrap JS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// MINIMAL VERSION - TESTING ONLY
+console.log('=== MINIMAL JAVASCRIPT LOADED ===');
+
+// Simple Order Form Functions
+function showOrderForm(type) {
+    console.log('showOrderForm called with type:', type);
+    
+    try {
+        // Hide all forms first
+        document.getElementById('iprint-form').style.display = 'none';
+        document.getElementById('consol-form').style.display = 'none';
+        document.getElementById('class-form').style.display = 'none';
+        document.getElementById('cinco-form').style.display = 'none';
+        
+        // Show the selected form
+        document.getElementById(type + '-form').style.display = 'block';
+        
+        // Show the forms container
+        document.getElementById('order-forms-container').style.display = 'block';
+        
+        // Set hidden field
+        document.getElementById('order_type').value = type;
+        
+        console.log('Form shown successfully:', type);
+    } catch (error) {
+        console.error('ERROR in showOrderForm:', error);
+    }
+}
+
+// iPrint Option Selection Function
+function showIprintOption(option) {
+    console.log('Selected iPrint option:', option);
+    
+    try {
+        // Hide all iPrint type forms
+        const typeForms = document.querySelectorAll('.iprint-type-form');
+        typeForms.forEach(form => {
+            form.style.display = 'none';
+        });
+        
+        // Show the selected iPrint type form
+        const selectedForm = document.getElementById(option + '-form');
+        if (selectedForm) {
+            selectedForm.style.display = 'block';
+        }
+        
+        // Update selected type text
+        const typeNames = {
+            'dtf': 'DTF Printing',
+            'lanyard': 'Lanyard Printing',
+            'tarpaulin': 'Tarpaulin Printing',
+            'sublimation': 'Sublimation Printing',
+            'embroidery': 'Embroidery',
+            'other': 'Other Items'
+        };
+        
+        const selectedTypeElement = document.getElementById('iprint-selected-type');
+        if (selectedTypeElement) {
+            selectedTypeElement.textContent = 'Selected: ' + (typeNames[option] || option);
+        }
+        
+        // Show the details container
+        const detailsContainer = document.getElementById('iprint-details-container');
+        if (detailsContainer) {
+            detailsContainer.style.display = 'block';
+        }
+        
+        // Set hidden field if it exists
+        const iprintTypeField = document.getElementById('iprint_type');
+        if (iprintTypeField) {
+            iprintTypeField.value = option;
+        }
+        
+        console.log('iPrint option shown successfully:', option);
+    } catch (error) {
+        console.error('ERROR in showIprintOption:', error);
+    }
+}
+
+// Change iPrint type function
+function changeIprintType() {
+    console.log('Change iPrint type clicked');
+    
+    try {
+        // Hide all iPrint type forms
+        const typeForms = document.querySelectorAll('.iprint-type-form');
+        typeForms.forEach(form => {
+            form.style.display = 'none';
+        });
+        
+        // Hide the details container
+        const detailsContainer = document.getElementById('iprint-details-container');
+        if (detailsContainer) {
+            detailsContainer.style.display = 'none';
+        }
+        
+        // Clear the hidden field if it exists
+        const iprintTypeField = document.getElementById('iprint_type');
+        if (iprintTypeField) {
+            iprintTypeField.value = '';
+        }
+        
+        console.log('iPrint type selection reset');
+    } catch (error) {
+        console.error('ERROR in changeIprintType:', error);
+    }
+}
+
+// Add Print Size Row function
+function addPrintSizeRow() {
+    console.log('Add print size row clicked');
+    
+    try {
+        const container = document.getElementById('print-sizes-container');
+        if (!container) {
+            console.error('Print sizes container not found');
+            return;
+        }
+        
+        // Count existing rows
+        const existingRows = container.querySelectorAll('.print-size-row');
+        const rowCount = existingRows.length;
+        
+        // Create new row HTML
+        const newRow = document.createElement('div');
+        newRow.className = 'print-size-row mb-3 p-3 border rounded';
+        newRow.innerHTML = `
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small">Print Size</label>
+                    <select class="form-select form-select-sm print-size-select" name="dtf_print_size[]" required>
+                        <option value="" selected disabled>Select print size</option>
+                        <option value="8x10">8x10 inches</option>
+                        <option value="10x12">10x12 inches</option>
+                        <option value="12x14">12x14 inches</option>
+                        <option value="14x16">14x16 inches</option>
+                        <option value="16x20">16x20 inches</option>
+                        <option value="custom">Custom Size</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small">Custom Size (if selected)</label>
+                    <input type="text" class="form-control form-control-sm custom-size-input" name="dtf_custom_size[]" placeholder="e.g., 18x24 inches" style="display: none;">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small">Quantity for this size</label>
+                    <input type="number" class="form-control form-control-sm print-size-quantity" name="dtf_print_size_quantity[]" min="1" value="1" required>
+                </div>
+            </div>
+        `;
+        
+        // Add the new row
+        container.appendChild(newRow);
+        console.log(`Added print size row ${rowCount + 1}`);
+        
+        // Add event listener for custom size selection
+        const selectElement = newRow.querySelector('.print-size-select');
+        const customInput = newRow.querySelector('.custom-size-input');
+        
+        if (selectElement && customInput) {
+            selectElement.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customInput.style.display = 'block';
+                    customInput.required = true;
+                } else {
+                    customInput.style.display = 'none';
+                    customInput.required = false;
+                    customInput.value = '';
+                }
+            });
+        }
+        
+    } catch (error) {
+        console.error('ERROR in addPrintSizeRow:', error);
+    }
+}
+
+// Add Shirt Size Row function
+function addShirtSizeRow() {
+    console.log('Add shirt size row clicked');
+    
+    try {
+        const container = document.getElementById('shirt-sizes-container');
+        if (!container) {
+            console.error('Shirt sizes container not found');
+            return;
+        }
+        
+        // Count existing rows
+        const existingRows = container.querySelectorAll('.shirt-size-row');
+        const rowCount = existingRows.length;
+        
+        // Create new row HTML
+        const newRow = document.createElement('div');
+        newRow.className = 'shirt-size-row mb-3 p-3 border rounded';
+        newRow.innerHTML = `
+            <div class="row g-2">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold small">Size</label>
+                    <select class="form-select form-select-sm shirt-size-select" name="dtf_shirt_size[]" required>
+                        <option value="" selected disabled>Select size</option>
+                        <option value="xs">XS (Extra Small)</option>
+                        <option value="s">S (Small)</option>
+                        <option value="m">M (Medium)</option>
+                        <option value="l">L (Large)</option>
+                        <option value="xl">XL (Extra Large)</option>
+                        <option value="2xl">2XL (Double Extra Large)</option>
+                        <option value="3xl">3XL (Triple Extra Large)</option>
+                        <option value="4xl">4XL (4X Extra Large)</option>
+                        <option value="5xl">5XL (5X Extra Large)</option>
+                        <option value="6xl">6XL (6X Extra Large)</option>
+                        <option value="7xl">7XL (7X Extra Large)</option>
+                        <option value="8xl">8XL (8X Extra Large)</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold small">Quantity</label>
+                    <input type="number" class="form-control form-control-sm shirt-size-quantity" name="dtf_shirt_size_quantity[]" min="1" value="1" required>
+                </div>
+            </div>
+        `;
+        
+        // Add the new row
+        container.appendChild(newRow);
+        console.log(`Added shirt size row ${rowCount + 1}`);
+        
+    } catch (error) {
+        console.error('ERROR in addShirtSizeRow:', error);
+    }
+}
+
+// Event delegation for order type buttons
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up event listeners');
+    
+    // Add click handlers for order type buttons
+    const orderButtons = document.querySelectorAll('[data-order-type]');
+    console.log('Found', orderButtons.length, 'order type buttons');
+    
+    orderButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const orderType = this.getAttribute('data-order-type');
+            console.log('Button clicked:', orderType);
+            showOrderForm(orderType);
+        });
+    });
+    
+    // Add click handlers for iPrint option buttons
+    const iprintOptionButtons = document.querySelectorAll('.iprint-option-btn');
+    console.log('Found', iprintOptionButtons.length, 'iPrint option buttons');
+    
+    iprintOptionButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const option = this.getAttribute('data-option');
+            console.log('iPrint option button clicked:', option);
+            showIprintOption(option);
+        });
+    });
+    
+    // Add click handler for change type button
+    const changeTypeButton = document.getElementById('iprint-change-type');
+    if (changeTypeButton) {
+        changeTypeButton.addEventListener('click', function() {
+            console.log('Change type button clicked');
+            changeIprintType();
+        });
+    }
+    
+    // Add click handler for add print size button
+    const addPrintSizeButton = document.getElementById('add-print-size');
+    if (addPrintSizeButton) {
+        addPrintSizeButton.addEventListener('click', function() {
+            console.log('Add print size button clicked');
+            addPrintSizeRow();
+        });
+    }
+    
+    // Add click handler for add shirt size button
+    const addShirtSizeButton = document.getElementById('add-shirt-size');
+    if (addShirtSizeButton) {
+        addShirtSizeButton.addEventListener('click', function() {
+            console.log('Add shirt size button clicked');
+            addShirtSizeRow();
+        });
+    }
+    
+    // Add event listeners for existing print size selects (for custom size handling)
+    const existingPrintSizeSelects = document.querySelectorAll('.print-size-select');
+    existingPrintSizeSelects.forEach(select => {
+        const customInput = select.closest('.print-size-row').querySelector('.custom-size-input');
+        if (customInput) {
+            select.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customInput.style.display = 'block';
+                    customInput.required = true;
+                } else {
+                    customInput.style.display = 'none';
+                    customInput.required = false;
+                    customInput.value = '';
+                }
+            });
+        }
+    });
+    
+    console.log('Event listeners setup complete');
+});
+</script>
+@endpush

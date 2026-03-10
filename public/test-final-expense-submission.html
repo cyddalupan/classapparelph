@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Expense Submission Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #f8fafc;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+        
+        h1 {
+            color: #1e293b;
+            margin-top: 0;
+        }
+        
+        .test-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        
+        .button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 0.5rem 0;
+            transition: background 0.2s;
+        }
+        
+        .button:hover {
+            background: #2563eb;
+        }
+        
+        .button.success {
+            background: #10b981;
+        }
+        
+        .button.success:hover {
+            background: #059669;
+        }
+        
+        .button.danger {
+            background: #ef4444;
+        }
+        
+        .button.danger:hover {
+            background: #dc2626;
+        }
+        
+        .result {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .success-message {
+            color: #4ade80;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #10b981;
+        }
+        
+        .error-message {
+            color: #f87171;
+            background: rgba(239, 68, 68, 0.1);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #ef4444;
+        }
+        
+        .warning-message {
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #fbbf24;
+        }
+        
+        .form-group {
+            margin: 1rem 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #334155;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Final Expense Submission Test</h1>
+        <p>This test verifies the expense submission works with the new validation logic.</p>
+        
+        <div class="test-section">
+            <h2>Step 1: Get CSRF Token</h2>
+            <p>First, we need to get a valid CSRF token from the finance page:</p>
+            <button class="button" onclick="getCSRFToken()">Get CSRF Token</button>
+            <div id="csrfResult" class="result">CSRF token will appear here...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Step 2: Test Expense Submission</h2>
+            <p>Test with valid data (should succeed):</p>
+            
+            <div class="form-group">
+                <label for="testDate">Date (YYYY-MM-DD):</label>
+                <input type="date" id="testDate" value="2026-02-28">
+            </div>
+            
+            <div class="form-group">
+                <label for="testAmount">Amount:</label>
+                <input type="number" id="testAmount" step="0.01" min="0.01" value="1500.75">
+            </div>
+            
+            <div class="form-group">
+                <label for="testCategory">Category:</label>
+                <select id="testCategory">
+                    <option value="software">Software</option>
+                    <option value="hardware">Hardware</option>
+                    <option value="marketing">Marketing</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="testDescription">Description:</label>
+                <input type="text" id="testDescription" value="Test expense submission">
+            </div>
+            
+            <button class="button success" onclick="testValidSubmission()">Test Valid Submission</button>
+            <button class="button danger" onclick="testInvalidSubmission()">Test Invalid Submission</button>
+            
+            <div id="testResult" class="result">Test results will appear here...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Step 3: Check Laravel Logs</h2>
+            <p>Check if the request was logged in Laravel:</p>
+            <button class="button" onclick="checkLaravelLogs()">Check Logs (via API)</button>
+            <div id="logsResult" class="result">Log check results will appear here...</div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Step 4: Verify Mobile Responsive Design</h2>
+            <p>The mobile responsive CSS has been added. Test by:</p>
+            <ol>
+                <li>Opening https://app.classapparelph.com/finance on mobile device</li>
+                <li>Using browser DevTools to simulate mobile (375px width)</li>
+                <li>Verifying layout doesn't exceed screen width</li>
+            </ol>
+            <p><strong>Key fixes applied:</strong></p>
+            <ul>
+                <li>Header stacks vertically on mobile</li>
+                <li>Buttons become full-width on small screens</li>
+                <li>Stats grid changes to single column</li>
+                <li>Modal resizes properly for mobile screens</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        let csrfToken = null;
+        
+        async function getCSRFToken() {
+            const result = document.getElementById('csrfResult');
+            result.innerHTML = '<span class="warning-message">Fetching CSRF token...</span>';
+            
+            try {
+                const response = await fetch('/finance');
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                csrfToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                
+                if (csrfToken) {
+                    result.innerHTML = `<span class="success-message">✅ CSRF token found!</span>\n`;
+                    result.innerHTML += `Token: ${csrfToken.substring(0, 20)}...\n`;
+                    result.innerHTML += `Length: ${csrfToken.length} characters\n`;
+                    result.innerHTML += `\n<strong>Note:</strong> You need to be logged in for this to work.`;
+                } else {
+                    result.innerHTML = '<span class="error-message">❌ No CSRF token found</span>\n';
+                    result.innerHTML += 'Possible issues:\n';
+                    result.innerHTML += '1. Not logged in (authentication required)\n';
+                    result.innerHTML += '2. CSRF middleware not working\n';
+                    result.innerHTML += '3. Meta tag missing from layout\n';
+                    result.innerHTML += '\n<strong>Solution:</strong> Login at https://app.classapparelph.com/login first.';
+                }
+            } catch (error) {
+                result.innerHTML = `<span class="error-message">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testValidSubmission() {
+            const result = document.getElementById('testResult');
+            result.innerHTML = '<span class="warning-message">Testing valid submission...</span>';
+            
+            if (!csrfToken) {
+                result.innerHTML = '<span class="error-message">❌ Please get CSRF token first</span>';
+                return;
+            }
+            
+            try {
+                // Prepare test data
+                const testData = {
+                    date: document.getElementById('testDate').value,
+                    amount: document.getElementById('testAmount').value,
+                    category: document.getElementById('testCategory').value,
+                    status: 'pending',
+                    description: document.getElementById('testDescription').value,
+                    vendor: 'Test Vendor',
+                    payment_method: 'cash',
+                    receipt_number: 'TEST-001',
+                    notes: 'Test submission from final test tool',
+                    _token: csrfToken
+                };
+                
+                console.log('Test expense data:', testData);
+                
+                // Create FormData
+                const formData = new FormData();
+                for (const [key, value] of Object.entries(testData)) {
+                    formData.append(key, value);
+                }
+                
+                // Log FormData contents
+                console.log('FormData contents:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(`${key}: ${value} (type: ${typeof value})`);
+                }
+                
+                // Submit
+                const submitResponse = await fetch('/finance/expenses', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: formData
+                });
+                
+                const responseText = await submitResponse.text();
+                
+                let output = `<span class="info">Response Status: ${submitResponse.status} ${submitResponse.statusText}</span>\n\n`;
+                
+                try {
+                    const data = JSON.parse(responseText);
+                    output += '<strong>Response Data:</strong>\n';
+                    output += JSON.stringify(data, null, 2);
+                    
+                    if (submitResponse.ok) {
+                        output += '\n\n<span class="success-message">✅ Expense submitted successfully!</span>';
+                        output += `\nExpense ID: ${data.id || 'Unknown'}`;
+                        output += `\nDate: ${data.date || 'Unknown'}`;
+                        output += `\nAmount: ₱${data.amount || 'Unknown'}`;
+                    } else {
+                        output += '\n\n<span class="error-message">❌ Submission failed</span>';
+                        if (data.errors) {
+                            output += '\n<strong>Validation Errors:</strong>\n';
+                            for (const [field, errors] of Object.entries(data.errors)) {
+                                output += `<span class="error-message">${field}: ${errors.join(', ')}</span>\n`;
+                            }
+                        }
+                        if (data.message) {
+                            output += `\n<strong>Error Message:</strong> ${data.message}`;
+                        }
+                    }
+                } catch (e) {
+                    output += '<strong>Raw Response (not JSON):</strong>\n';
+                    output += responseText.substring(0, 1000);
+                    
+                    if (responseText.includes('419')) {
+                        output += '\n\n<span class="error-message">❌ CSRF token mismatch or session expired</span>';
+                        output += '\nTry refreshing the finance page and getting a new CSRF token.';
+                    } else if (responseText.includes('The string did not match the expected pattern')) {
+                        output += '\n\n<span class="error-message">❌ OLD VALIDATION ERROR STILL APPEARING</span>';
+                        output += '\nThis means the new validation logic in ExpenseController is not being used.';
+                        output += '\nTry clearing Laravel cache: `php artisan optimize:clear`';
+                    }
+                }
+                
+                result.innerHTML = output;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error-message">❌ Network/JavaScript Error: ${error.message}</span>`;
+                console.error('Test submission error:', error);
+            }
+        }
+        
+        function testInvalidSubmission() {
+            // Set invalid data for testing
+            document.getElementById('testDate').value = 'invalid-date';
+            document.getElementById('testAmount').value = 'not-a-number';
+            document.getElementById('testDescription').value = '';
+            
+            const result = document.getElementById('testResult');
+            result.innerHTML = '<span class="warning-message">⚠️ Set invalid data for testing</span>';
+            result.innerHTML += '\n\nNow click "Test Valid Submission" to see validation errors.';
+            result.innerHTML += '\n\n<strong>Expected:</strong> Detailed validation errors showing which fields failed.';
+            result.innerHTML += '\n<strong>Not Expected:</strong> Generic "The string did not match the expected pattern" error.';
+        }
+        
+        async function checkLaravelLogs() {
+            const result = document.getElementById('logsResult');
+            result.innerHTML = '<span class="warning-message">Checking Laravel logs...</span>';
+            
+            try {
+                // Try to access a simple API endpoint that might show recent logs
+                const response = await fetch('/api/expenses/statistics', {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                let output = `<span class="info">API Status: ${response.status} ${response.statusText}</span>\n\n`;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    output += '<strong>Statistics API Response:</strong>\n';
+                    output += JSON.stringify(data, null, 2);
+                    output += '\n\n<span class="success-message">✅ API endpoint is working</span>';
+                } else {
+                    output += '<span class="warning-message">⚠️ API endpoint returned error</span>';
+                    output += `\nThis is normal if you're not logged in.`;
+                }
+                
+                result.innerHTML = output;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error-message">❌ Error checking logs: ${error.message}</span>`;
+                result.innerHTML += `\n\n<strong>Manual log check:</strong>`;
+                result.innerHTML += `\nSSH into server and run:`;
+                result.innerHTML += `\n<code>cd /var/www/app.classapparelph.com && tail -20 storage/logs/laravel.log</code>`;
+            }
+        }
+        
+        // Initialize with current date
+        document.getElementById('testDate').value = new Date().toISOString().split('T')[0];
+    </script>
+</body>
+</html>

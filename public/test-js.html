@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Test</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="p-4">
+    <div class="container">
+        <h1 class="mb-4">JavaScript and Bootstrap Test</h1>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Test Results</h5>
+            </div>
+            <div class="card-body">
+                <div id="test-results">
+                    <p class="text-muted">Running tests...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Test Buttons (Like Sales Form)</h5>
+            </div>
+            <div class="card-body text-center">
+                <p class="text-muted mb-3">Click these buttons to test functionality:</p>
+                <div class="d-flex flex-wrap justify-content-center gap-3">
+                    <button type="button" class="btn btn-outline-primary btn-lg" id="test-iprint" style="min-width: 120px;">
+                        <i class="fas fa-print fa-2x mb-2"></i><br>
+                        <span class="fw-bold">iPrint</span>
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-success btn-lg" id="test-consol" style="min-width: 120px;">
+                        <i class="fas fa-boxes fa-2x mb-2"></i><br>
+                        <span class="fw-bold">Consol</span>
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-info btn-lg" id="test-class" style="min-width: 120px;">
+                        <i class="fas fa-graduation-cap fa-2x mb-2"></i><br>
+                        <span class="fw-bold">Class</span>
+                    </button>
+                </div>
+                
+                <div class="mt-4" id="test-output" style="display: none;">
+                    <div class="alert alert-success">
+                        <h6 id="test-title">Test Output</h6>
+                        <p id="test-message">Button clicked successfully!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+    // Test JavaScript functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const results = document.getElementById('test-results');
+        
+        // Test 1: JavaScript is working
+        results.innerHTML = `
+            <div class="alert alert-success">
+                <h6>✅ Test 1: JavaScript Loaded</h6>
+                <p class="mb-0">JavaScript is working correctly.</p>
+            </div>
+        `;
+        
+        // Test 2: Bootstrap is working
+        if (typeof bootstrap !== 'undefined') {
+            results.innerHTML += `
+                <div class="alert alert-success">
+                    <h6>✅ Test 2: Bootstrap Loaded</h6>
+                    <p class="mb-0">Bootstrap JavaScript is working.</p>
+                </div>
+            `;
+        } else {
+            results.innerHTML += `
+                <div class="alert alert-danger">
+                    <h6>❌ Test 2: Bootstrap NOT Loaded</h6>
+                    <p class="mb-0">Bootstrap JavaScript failed to load.</p>
+                </div>
+            `;
+        }
+        
+        // Test 3: Font Awesome is working
+        if (document.querySelector('i.fa-print')) {
+            results.innerHTML += `
+                <div class="alert alert-success">
+                    <h6>✅ Test 3: Font Awesome Loaded</h6>
+                    <p class="mb-0">Font Awesome icons are visible.</p>
+                </div>
+            `;
+        } else {
+            results.innerHTML += `
+                <div class="alert alert-danger">
+                    <h6>❌ Test 3: Font Awesome NOT Loaded</h6>
+                    <p class="mb-0">Font Awesome icons failed to load.</p>
+                </div>
+            `;
+        }
+        
+        // Add button event listeners
+        document.getElementById('test-iprint').addEventListener('click', function() {
+            showTestOutput('iPrint', 'iPrint button clicked successfully!');
+        });
+        
+        document.getElementById('test-consol').addEventListener('click', function() {
+            showTestOutput('Consol', 'Consol button clicked successfully!');
+        });
+        
+        document.getElementById('test-class').addEventListener('click', function() {
+            showTestOutput('Class', 'Class button clicked successfully!');
+        });
+        
+        function showTestOutput(title, message) {
+            document.getElementById('test-title').textContent = title;
+            document.getElementById('test-message').textContent = message;
+            document.getElementById('test-output').style.display = 'block';
+            
+            // Scroll to output
+            document.getElementById('test-output').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Show alert
+        alert('Test page loaded successfully!\n\nClick the iPrint, Consol, and Class buttons to test functionality.');
+    });
+    </script>
+</body>
+</html>

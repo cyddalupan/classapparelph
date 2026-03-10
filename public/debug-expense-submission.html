@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Expense Submission</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .debug-panel {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .debug-title {
+            color: #60a5fa;
+            margin-top: 0;
+            font-size: 1.2rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 0.5rem;
+        }
+        
+        .debug-content {
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+        
+        .debug-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: background 0.2s;
+        }
+        
+        .debug-button:hover {
+            background: #2563eb;
+        }
+        
+        .debug-button.danger {
+            background: #ef4444;
+        }
+        
+        .debug-button.danger:hover {
+            background: #dc2626;
+        }
+        
+        .success {
+            color: #4ade80;
+        }
+        
+        .error {
+            color: #f87171;
+        }
+        
+        .warning {
+            color: #fbbf24;
+        }
+        
+        .info {
+            color: #60a5fa;
+        }
+        
+        .section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .section-title {
+            color: #1e293b;
+            margin-top: 0;
+            font-size: 1.3rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Expense Submission</h1>
+    <p>This page helps debug the "string did not match the expected pattern" error.</p>
+    
+    <div class="section">
+        <h2 class="section-title">Step 1: Capture Current Form Data</h2>
+        <p>Go to the finance dashboard, open the modal, fill the form, then click this button:</p>
+        <button class="debug-button" onclick="captureFormData()">Capture Form Data</button>
+        <div id="form-data" class="debug-panel">
+            <div class="debug-title">Form Data Will Appear Here</div>
+            <div class="debug-content">Click the button above after filling the form on the finance dashboard.</div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">Step 2: Test Submission</h2>
+        <p>Test submitting the captured data:</p>
+        <button class="debug-button" onclick="testSubmission()">Test Submission</button>
+        <button class="debug-button danger" onclick="testWithMinimalData()">Test Minimal Data</button>
+        <div id="test-results" class="debug-panel">
+            <div class="debug-title">Test Results</div>
+            <div class="debug-content">Click a test button above.</div>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2 class="section-title">Step 3: Common Fixes</h2>
+        <div class="debug-panel">
+            <div class="debug-title">Try These Solutions</div>
+            <div class="debug-content">
+<strong>1. Date Format Issue:</strong>
+- HTML date input: YYYY-MM-DD (should work)
+- Try: 2026-02-28 (not 28/02/2026)
+
+<strong>2. Amount Format Issue:</strong>
+- Should be: 1000.50 (not 1,000.50)
+- Decimal separator: . (dot) not , (comma)
+
+<strong>3. CSRF Token Missing:</strong>
+- Check console for "CSRF token mismatch"
+- Ensure _token field is included
+
+<strong>4. Character Encoding:</strong>
+- Avoid special characters in description
+- Try plain text first
+
+<strong>5. Test with Minimal Data:</strong>
+{
+  "date": "2026-02-28",
+  "amount": 100.50,
+  "category": "office_supplies",
+  "status": "pending",
+  "description": "Test expense",
+  "_token": "your-csrf-token-here"
+}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let capturedData = null;
+        
+        function captureFormData() {
+            const formDataPanel = document.getElementById('form-data');
+            const content = formDataPanel.querySelector('.debug-content');
+            
+            content.innerHTML = '<span class="info">Trying to capture form data from finance dashboard...</span>';
+            
+            // Try to access the finance page
+            fetch('/finance')
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Get form values
+                    const formData = {
+                        date: doc.getElementById('expenseDate')?.value || 'Not found',
+                        amount: doc.getElementById('expenseAmount')?.value || 'Not found',
+                        category: doc.getElementById('expenseCategory')?.value || 'Not found',
+                        status: doc.getElementById('expenseStatus')?.value || 'Not found',
+                        description: doc.getElementById('expenseDescription')?.value || 'Not found',
+                        vendor: doc.getElementById('expenseVendor')?.value || 'Not found',
+                        payment_method: doc.getElementById('expensePaymentMethod')?.value || 'Not found',
+                        receipt_number: doc.getElementById('expenseReceipt')?.value || 'Not found',
+                        notes: doc.getElementById('expenseNotes')?.value || 'Not found'
+                    };
+                    
+                    // Get CSRF token
+                    const csrfToken = doc.querySelector('meta[name="csrf-token"]')?.content || 'Not found';
+                    
+                    capturedData = {
+                        ...formData,
+                        _token: csrfToken
+                    };
+                    
+                    let output = '<span class="success">✅ Form data captured!</span>\n\n';
+                    output += '<strong>Captured Data:</strong>\n';
+                    output += JSON.stringify(capturedData, null, 2);
+                    output += '\n\n<strong>CSRF Token:</strong> ' + (csrfToken.length > 20 ? csrfToken.substring(0, 20) + '...' : csrfToken);
+                    
+                    content.innerHTML = output;
+                })
+                .catch(error => {
+                    content.innerHTML = `<span class="error">❌ Error capturing form data: ${error.message}</span>`;
+                });
+        }
+        
+        function testSubmission() {
+            if (!capturedData) {
+                alert('Please capture form data first!');
+                return;
+            }
+            
+            const resultsPanel = document.getElementById('test-results');
+            const content = resultsPanel.querySelector('.debug-content');
+            
+            content.innerHTML = '<span class="info">Testing submission with captured data...</span>';
+            
+            // Create FormData
+            const formData = new FormData();
+            for (const [key, value] of Object.entries(capturedData)) {
+                if (value !== 'Not found') {
+                    formData.append(key, value);
+                }
+            }
+            
+            // Log what we're sending
+            let log = '<span class="info">Sending FormData:</span>\n';
+            for (let [key, value] of formData.entries()) {
+                log += `${key}: ${value}\n`;
+            }
+            content.innerHTML = log;
+            
+            // Submit
+            fetch('/finance/expenses', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': capturedData._token || ''
+                },
+                body: formData
+            })
+            .then(response => {
+                content.innerHTML += `\n<span class="info">Response: ${response.status} ${response.statusText}</span>`;
+                return response.text();
+            })
+            .then(responseText => {
+                content.innerHTML += `\n\n<strong>Response Body:</strong>\n`;
+                
+                try {
+                    const data = JSON.parse(responseText);
+                    content.innerHTML += JSON.stringify(data, null, 2);
+                    
+                    if (data.errors) {
+                        content.innerHTML += `\n\n<span class="error">Validation Errors:</span>\n`;
+                        for (const [field, errors] of Object.entries(data.errors)) {
+                            content.innerHTML += `${field}: ${errors.join(', ')}\n`;
+                        }
+                    }
+                } catch (e) {
+                    content.innerHTML += responseText.substring(0, 1000);
+                }
+            })
+            .catch(error => {
+                content.innerHTML += `\n\n<span class="error">Error: ${error.message}</span>`;
+            });
+        }
+        
+        function testWithMinimalData() {
+            const resultsPanel = document.getElementById('test-results');
+            const content = resultsPanel.querySelector('.debug-content');
+            
+            content.innerHTML = '<span class="info">Testing with minimal valid data...</span>';
+            
+            // First get CSRF token
+            fetch('/finance')
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const csrfToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                    
+                    if (!csrfToken) {
+                        content.innerHTML = '<span class="error">❌ Could not get CSRF token</span>';
+                        return;
+                    }
+                    
+                    // Minimal valid data
+                    const minimalData = {
+                        date: '2026-02-28',
+                        amount: '1500.75',
+                        category: 'software',
+                        status: 'pending',
+                        description: 'Minimal test expense',
+                        _token: csrfToken
+                    };
+                    
+                    content.innerHTML += `\n<span class="success">✅ CSRF token found</span>\n`;
+                    content.innerHTML += `\n<strong>Test Data:</strong>\n${JSON.stringify(minimalData, null, 2)}`;
+                    
+                    // Submit
+                    const formData = new FormData();
+                    for (const [key, value] of Object.entries(minimalData)) {
+                        formData.append(key, value);
+                    }
+                    
+                    return fetch('/finance/expenses', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: formData
+                    });
+                })
+                .then(response => {
+                    content.innerHTML += `\n\n<span class="info">Response: ${response.status} ${response.statusText}</span>`;
+                    return response.text();
+                })
+                .then(responseText => {
+                    content.innerHTML += `\n\n<strong>Response:</strong>\n`;
+                    
+                    try {
+                        const data = JSON.parse(responseText);
+                        content.innerHTML += JSON.stringify(data, null, 2);
+                        
+                        if (data.errors) {
+                            content.innerHTML += `\n\n<span class="error">Validation Errors:</span>\n`;
+                            for (const [field, errors] of Object.entries(data.errors)) {
+                                content.innerHTML += `${field}: ${errors.join(', ')}\n`;
+                            }
+                            
+                            // Check for date pattern error
+                            if (JSON.stringify(data.errors).includes('pattern')) {
+                                content.innerHTML += `\n\n<span class="warning">⚠️ PATTERN ERROR DETECTED!</span>\n`;
+                                content.innerHTML += `This is likely a date format issue.\n`;
+                                content.innerHTML += `Date sent: 2026-02-28\n`;
+                                content.innerHTML += `Expected format might be different.\n`;
+                                content.innerHTML += `Try: 28/02/2026 or check Laravel validation rules.`;
+                            }
+                        }
+                    } catch (e) {
+                        content.innerHTML += responseText.substring(0, 1000);
+                    }
+                })
+                .catch(error => {
+                    content.innerHTML += `\n\n<span class="error">Error: ${error.message}</span>`;
+                });
+        }
+    </script>
+</body>
+</html>

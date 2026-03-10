@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Validation Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .test-title {
+            color: #1e293b;
+            margin-top: 0;
+            font-size: 1.5rem;
+        }
+        
+        .test-form {
+            display: grid;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #475569;
+        }
+        
+        input, select, textarea {
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 1rem 0;
+            transition: background 0.2s;
+        }
+        
+        .test-button:hover {
+            background: #2563eb;
+        }
+        
+        .test-button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+        
+        .test-result {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .success {
+            color: #4ade80;
+        }
+        
+        .error {
+            color: #f87171;
+        }
+        
+        .warning {
+            color: #fbbf24;
+        }
+        
+        .info {
+            color: #60a5fa;
+        }
+        
+        .test-log {
+            background: #0f172a;
+            color: #cbd5e1;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Expense Validation Test</h1>
+    <p>Testing why expense submission returns: "The string did not match the expected pattern"</p>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 1: Check CSRF Token</h2>
+        <button class="test-button" onclick="checkCsrfToken()">Check CSRF Token</button>
+        <div id="test1-result" class="test-result">Click button to test...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 2: Test Form Submission</h2>
+        <form id="test-form" class="test-form">
+            <div class="form-group">
+                <label for="date">Date *</label>
+                <input type="date" id="date" name="date" value="2026-02-28" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="amount">Amount (₱) *</label>
+                <input type="number" id="amount" name="amount" step="0.01" min="0.01" value="1000.50" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="category">Category *</label>
+                <select id="category" name="category" required>
+                    <option value="">Select category</option>
+                    <option value="office_supplies" selected>Office Supplies</option>
+                    <option value="utilities">Utilities</option>
+                    <option value="travel">Travel</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="software">Software</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="status">Status *</label>
+                <select id="status" name="status" required>
+                    <option value="">Select status</option>
+                    <option value="pending" selected>Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">Description *</label>
+                <textarea id="description" name="description" rows="3" required>Test expense for validation</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="vendor">Vendor</label>
+                <input type="text" id="vendor" name="vendor" value="Test Vendor">
+            </div>
+            
+            <button type="submit" class="test-button">Submit Test Expense</button>
+        </form>
+        <div id="test2-result" class="test-result">Fill form and submit...</div>
+        <div id="test2-log" class="test-log"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 3: Check Laravel Validation Rules</h2>
+        <button class="test-button" onclick="checkValidationRules()">Check Validation Rules</button>
+        <div id="test3-result" class="test-result">Click button to test...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2 class="test-title">Test 4: Direct API Test (No Form)</h2>
+        <button class="test-button" onclick="testDirectApi()">Test Direct API Call</button>
+        <div id="test4-result" class="test-result">Click button to test...</div>
+        <div id="test4-log" class="test-log"></div>
+    </div>
+    
+    <script>
+        const test1Result = document.getElementById('test1-result');
+        const test2Result = document.getElementById('test2-result');
+        const test2Log = document.getElementById('test2-log');
+        const test3Result = document.getElementById('test3-result');
+        const test4Result = document.getElementById('test4-result');
+        const test4Log = document.getElementById('test4-log');
+        
+        function log(element, message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            element.appendChild(logEntry);
+            element.scrollTop = element.scrollHeight;
+        }
+        
+        function clearLog(element) {
+            element.innerHTML = '';
+        }
+        
+        async function checkCsrfToken() {
+            test1Result.innerHTML = '<span class="info">Checking CSRF token...</span>';
+            
+            try {
+                // First get the CSRF token from meta tag
+                const csrfToken = document.querySelector('meta[name="csrf-token"]');
+                
+                if (csrfToken) {
+                    test1Result.innerHTML = `<span class="success">✅ CSRF token found!</span>\n\nToken: ${csrfToken.content.substring(0, 20)}...`;
+                } else {
+                    // Try to get it from the finance page
+                    const response = await fetch('/finance');
+                    const html = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const token = doc.querySelector('meta[name="csrf-token"]');
+                    
+                    if (token) {
+                        test1Result.innerHTML = `<span class="success">✅ CSRF token found on finance page!</span>\n\nToken: ${token.content.substring(0, 20)}...`;
+                    } else {
+                        test1Result.innerHTML = '<span class="error">❌ CSRF token not found!</span>\n\nThis could cause validation errors.';
+                    }
+                }
+            } catch (error) {
+                test1Result.innerHTML = `<span class="error">❌ Error checking CSRF token: ${error.message}</span>`;
+            }
+        }
+        
+        async function checkValidationRules() {
+            test3Result.innerHTML = '<span class="info">Checking Laravel validation rules...</span>';
+            
+            try {
+                // Try to get validation rules from the ExpenseController
+                const response = await fetch('/api/expenses/statistics');
+                const data = await response.json();
+                
+                let message = '<span class="success">✅ Expense API is accessible!</span>\n\n';
+                message += 'Response data:\n';
+                message += JSON.stringify(data, null, 2);
+                
+                test3Result.innerHTML = message;
+            } catch (error) {
+                test3Result.innerHTML = `<span class="error">❌ Error checking validation: ${error.message}</span>`;
+            }
+        }
+        
+        // Handle form submission
+        document.getElementById('test-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            clearLog(test2Log);
+            test2Result.innerHTML = '<span class="info">Submitting test expense...</span>';
+            
+            const formData = new FormData(this);
+            
+            // Get CSRF token
+            let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (!csrfToken) {
+                // Try to fetch it
+                try {
+                    const response = await fetch('/finance');
+                    const html = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    csrfToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                } catch (error) {
+                    log(test2Log, `❌ Could not get CSRF token: ${error.message}`, 'error');
+                }
+            }
+            
+            if (csrfToken) {
+                formData.append('_token', csrfToken);
+                log(test2Log, `✅ CSRF token added: ${csrfToken.substring(0, 20)}...`, 'success');
+            } else {
+                log(test2Log, '⚠️ No CSRF token found, request may fail', 'warning');
+            }
+            
+            // Log what we're sending
+            log(test2Log, 'FormData contents:', 'info');
+            for (let [key, value] of formData.entries()) {
+                log(test2Log, `  ${key}: ${value}`, 'info');
+            }
+            
+            try {
+                log(test2Log, 'Sending POST request to /finance/expenses...', 'info');
+                
+                const response = await fetch('/finance/expenses', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken || ''
+                    },
+                    body: formData
+                });
+                
+                log(test2Log, `Response status: ${response.status} ${response.statusText}`, 'info');
+                
+                const responseText = await response.text();
+                log(test2Log, `Response body (first 500 chars):\n${responseText.substring(0, 500)}`, 'info');
+                
+                try {
+                    const data = JSON.parse(responseText);
+                    
+                    if (response.ok) {
+                        test2Result.innerHTML = `<span class="success">✅ Expense submitted successfully!</span>\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                    } else {
+                        if (data.errors) {
+                            const errorMessages = Object.values(data.errors).flat().join('\n');
+                            test2Result.innerHTML = `<span class="error">❌ Validation errors:</span>\n\n${errorMessages}\n\nFull response:\n${JSON.stringify(data, null, 2)}`;
+                        } else {
+                            test2Result.innerHTML = `<span class="error">❌ Error: ${data.message || 'Unknown error'}</span>\n\nFull response:\n${JSON.stringify(data, null, 2)}`;
+                        }
+                    }
+                } catch (parseError) {
+                    test2Result.innerHTML = `<span class="error">❌ Could not parse JSON response</span>\n\nRaw response:\n${responseText.substring(0, 1000)}`;
+                }
+            } catch (error) {
+                log(test2Log, `❌ Network error: ${error.message}`, 'error');
+                test2Result.innerHTML = `<span class="error">❌ Network error: ${error.message}</span>`;
+            }
+        });
+        
+        async function testDirectApi() {
+            clearLog(test4Log);
+            test4Result.innerHTML = '<span class="info">Testing direct API call...</span>';
+            
+            // Get CSRF token
+            let csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (!csrfToken) {
+                log(test4Log, '⚠️ No CSRF token in current page, trying to fetch...', 'warning');
+                
+                try {
+                    const response = await fetch('/finance');
+                    const html = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    csrfToken = doc.querySelector('meta[name="csrf-token"]')?.content;
+                    
+                    if (csrfToken) {
+                        log(test4Log, `✅ Got CSRF token: ${csrfToken.substring(0, 20)}...`, 'success');
+                    } else {
+                        log(test4Log, '❌ Could not get CSRF token', 'error');
+                        return;
+                    }
+                } catch (error) {
+                    log(test4Log, `❌ Error getting CSRF token: ${error.message}`, 'error');
+                    return;
+                }
+            }
+            
+            // Test with minimal valid data
+            const testData = {
+                date: '2026-02-28',
+                amount: 1500.75,
+                category: 'software',
+                status: 'pending',
+                description: 'Direct API test expense',
+                _token: csrfToken
+            };
+            
+            log(test4Log, 'Test data:', 'info');
+            log(test4Log, JSON.stringify(testData, null, 2), 'info');
+            
+            // Test with FormData
+            const formData = new FormData();
+            for (const [key, value] of Object.entries(testData)) {
+                formData.append(key, value);
+            }
+            
+            log(test4Log, 'Sending FormData request...', 'info');
+            
+            try {
+                const response = await fetch('/finance/expenses', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: formData
+                });
+                
+                log(test4Log, `Response: ${response.status} ${response.statusText}`, 'info');
+                
+                const responseText = await response.text();
+                log(test4Log, `Response body:\n${responseText.substring(0, 1000)}`, 'info');
+                
+                try {
+                    const data = JSON.parse(responseText);
+                    
+                    if (response.ok) {
+                        test4Result.innerHTML = `<span class="success">✅ Direct API test successful!</span>\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                    } else {
+                        if (data.errors) {
+                            const errorMessages = Object.values(data.errors).flat().join('\n');
+                            test4Result.innerHTML = `<span class="error">❌ Validation errors:</span>\n\n${errorMessages}`;
+                            
+                            // Check specifically for date format error
+                            if (errorMessages.includes('date') || errorMessages.includes('pattern')) {
+                                test4Result.innerHTML += '\n\n⚠️ Date format issue detected!';
+                                test4Result.innerHTML += '\nDate sent: 2026-02-28';
+                                test4Result.innerHTML += '\nExpected format: YYYY-MM-DD';
+                            }
+                        } else {
+                            test4Result.innerHTML = `<span class="error">❌ Error: ${data.message || 'Unknown error'}</span>`;
+                        }
+                    }
+                } catch (parseError) {
+                    test4Result.innerHTML = `<span class="error">❌ Could not parse JSON response</span>\n\nRaw response:\n${responseText.substring(0, 500)}`;
+                }
+            } catch (error) {
+                log(test4Log, `❌ Network error: ${error.message}`, 'error');
+                test4Result.innerHTML = `<span class="error">❌ Network error: ${error.message}</span>`;
+            }
+        }
+        
+        // Initialize
+        test1Result.innerHTML = '<span class="info">Ready to test expense validation.</span>';
+        test2Result.innerHTML = '<span class="info">Fill the form above and click Submit.</span>';
+        test3Result.innerHTML = '<span class="info">Click button to check validation rules.</span>';
+        test4Result.innerHTML = '<span class="info">Click button to test direct API.</span>';
+    </script>
+</body>
+</html>

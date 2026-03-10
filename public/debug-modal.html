@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Modal Issue</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .debug-section {
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .debug-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: background 0.2s;
+        }
+        
+        .debug-button:hover {
+            background: #2563eb;
+        }
+        
+        .debug-button.danger {
+            background: #ef4444;
+        }
+        
+        .debug-button.danger:hover {
+            background: #dc2626;
+        }
+        
+        .debug-output {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .success {
+            color: #4ade80;
+        }
+        
+        .error {
+            color: #f87171;
+        }
+        
+        .warning {
+            color: #fbbf24;
+        }
+        
+        .info {
+            color: #60a5fa;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 1rem;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal-container {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug: Why Modal Isn't Opening</h1>
+    
+    <div class="debug-section">
+        <h2>Step 1: Check if JavaScript functions exist</h2>
+        <button class="debug-button" onclick="checkFunctions()">Check Functions</button>
+        <div id="output1" class="debug-output">Click button to check...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Step 2: Try to call showAddExpenseModal()</h2>
+        <button class="debug-button" onclick="tryCallFunction()">Call showAddExpenseModal()</button>
+        <div id="output2" class="debug-output">Click button to try...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Step 3: Create test modal and test CSS</h2>
+        <button class="debug-button" onclick="createTestModal()">Create Test Modal</button>
+        <button class="debug-button" onclick="testModalCSS()">Test Modal CSS</button>
+        <div id="output3" class="debug-output">Click button to test...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>Step 4: Load finance page and extract code</h2>
+        <button class="debug-button" onclick="loadFinancePage()">Load Finance Page</button>
+        <div id="output4" class="debug-output">Click button to load...</div>
+    </div>
+    
+    <div id="test-modal" class="modal-overlay">
+        <div class="modal-container">
+            <h2>Test Modal</h2>
+            <p>If you can see this, modal CSS is working!</p>
+            <button class="debug-button" onclick="closeTestModal()">Close</button>
+        </div>
+    </div>
+    
+    <script>
+        const output1 = document.getElementById('output1');
+        const output2 = document.getElementById('output2');
+        const output3 = document.getElementById('output3');
+        const output4 = document.getElementById('output4');
+        const testModal = document.getElementById('test-modal');
+        
+        function log(outputElement, message, type = 'info') {
+            outputElement.innerHTML = `<span class="${type}">${message}</span>`;
+        }
+        
+        function checkFunctions() {
+            log(output1, 'Checking if functions exist in global scope...', 'info');
+            
+            setTimeout(() => {
+                const functions = ['showAddExpenseModal', 'closeAddExpenseModal', 'submitExpense'];
+                let found = 0;
+                let message = '';
+                
+                functions.forEach(funcName => {
+                    if (typeof window[funcName] === 'function') {
+                        message += `✅ ${funcName}() exists\n`;
+                        found++;
+                    } else {
+                        message += `❌ ${funcName}() NOT found\n`;
+                    }
+                });
+                
+                message += `\n${found}/${functions.length} functions found`;
+                
+                if (found === functions.length) {
+                    log(output1, message, 'success');
+                } else {
+                    log(output1, message, 'error');
+                }
+            }, 100);
+        }
+        
+        function tryCallFunction() {
+            log(output2, 'Attempting to call showAddExpenseModal()...', 'info');
+            
+            setTimeout(() => {
+                try {
+                    if (typeof showAddExpenseModal === 'function') {
+                        showAddExpenseModal();
+                        log(output2, '✅ Function called successfully! Check if modal opened.', 'success');
+                    } else {
+                        log(output2, '❌ showAddExpenseModal is not a function', 'error');
+                    }
+                } catch (error) {
+                    log(output2, `❌ Error calling function: ${error.message}`, 'error');
+                }
+            }, 100);
+        }
+        
+        function createTestModal() {
+            log(output3, 'Creating and testing modal...', 'info');
+            
+            // Test if modal CSS works
+            testModal.classList.add('active');
+            log(output3, '✅ Test modal should now be visible. If you see it, CSS works!', 'success');
+            
+            // Auto-close after 3 seconds
+            setTimeout(() => {
+                testModal.classList.remove('active');
+            }, 3000);
+        }
+        
+        function closeTestModal() {
+            testModal.classList.remove('active');
+        }
+        
+        function testModalCSS() {
+            log(output3, 'Testing modal CSS classes...', 'info');
+            
+            // Check computed styles
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.style.position = 'absolute';
+            modal.style.top = '-1000px';
+            document.body.appendChild(modal);
+            
+            const computed = window.getComputedStyle(modal);
+            const checks = [
+                { property: 'display', expected: 'none', description: 'Modal hidden by default' },
+                { property: 'position', expected: 'fixed', description: 'Fixed positioning' },
+                { property: 'zIndex', expected: '2000', description: 'High z-index' }
+            ];
+            
+            let message = '';
+            let passed = 0;
+            
+            checks.forEach(check => {
+                const value = computed[check.property];
+                if (value === check.expected) {
+                    message += `✅ ${check.description}: ${value}\n`;
+                    passed++;
+                } else {
+                    message += `❌ ${check.description}: Expected ${check.expected}, got ${value}\n`;
+                }
+            });
+            
+            message += `\n${passed}/${checks.length} CSS checks passed`;
+            
+            // Clean up
+            document.body.removeChild(modal);
+            
+            if (passed === checks.length) {
+                log(output3, message, 'success');
+            } else {
+                log(output3, message, 'warning');
+            }
+        }
+        
+        async function loadFinancePage() {
+            log(output4, 'Loading finance page to extract code...', 'info');
+            
+            try {
+                const response = await fetch('/finance');
+                const html = await response.text();
+                
+                // Extract the button HTML
+                const buttonMatch = html.match(/<button[^>]*id="add-expense-btn"[^>]*>[\s\S]*?<\/button>/);
+                
+                if (buttonMatch) {
+                    let message = '✅ Found button HTML:\n\n';
+                    message += buttonMatch[0] + '\n\n';
+                    
+                    // Extract the showAddExpenseModal function
+                    const functionMatch = html.match(/function showAddExpenseModal\(\) \{[\s\S]*?\n\s*\}/);
+                    
+                    if (functionMatch) {
+                        message += '✅ Found function:\n\n';
+                        message += functionMatch[0] + '\n\n';
+                        
+                        // Check if modal exists in HTML
+                        if (html.includes('id="add-expense-modal"')) {
+                            message += '✅ Modal HTML exists in page\n';
+                        } else {
+                            message += '❌ Modal HTML NOT found in page\n';
+                        }
+                        
+                        // Check for CSS
+                        if (html.includes('.modal-overlay.active')) {
+                            message += '✅ Modal CSS exists in page\n';
+                        } else {
+                            message += '❌ Modal CSS NOT found in page\n';
+                        }
+                    } else {
+                        message += '❌ Function NOT found in page\n';
+                    }
+                    
+                    log(output4, message, functionMatch ? 'success' : 'error');
+                } else {
+                    log(output4, '❌ Button not found in finance page HTML', 'error');
+                }
+            } catch (error) {
+                log(output4, `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Initialize
+        log(output1, 'Ready to debug modal issue. Click buttons above.', 'info');
+    </script>
+</body>
+</html>

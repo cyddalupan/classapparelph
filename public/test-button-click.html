@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Click Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .test-container {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .test-button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin: 1rem 0;
+            transition: background 0.2s;
+        }
+        
+        .test-button:hover {
+            background: #2563eb;
+        }
+        
+        .result {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            background: #1e293b;
+            color: #e2e8f0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .success {
+            color: #4ade80;
+        }
+        
+        .error {
+            color: #f87171;
+        }
+        
+        .info {
+            color: #60a5fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Button Click Test - Finance Dashboard</h1>
+    <p>Testing if the "Add Expense" button actually opens the modal.</p>
+    
+    <div class="test-container">
+        <h2>Test 1: Check if button exists on finance page</h2>
+        <button class="test-button" onclick="checkButtonExistence()">Check Button Existence</button>
+        <div id="result1" class="result">Click the button to run test...</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test 2: Simulate button click</h2>
+        <button class="test-button" onclick="simulateButtonClick()">Simulate Button Click</button>
+        <div id="result2" class="result">Click the button to run test...</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>Test 3: Check modal CSS</h2>
+        <button class="test-button" onclick="checkModalCSS()">Check Modal CSS</button>
+        <div id="result3" class="result">Click the button to run test...</div>
+    </div>
+    
+    <script>
+        function logResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<span class="${type}">${message}</span>`;
+        }
+        
+        async function checkButtonExistence() {
+            logResult('result1', 'Fetching finance page...', 'info');
+            
+            try {
+                const response = await fetch('/finance');
+                const html = await response.text();
+                
+                // Create a temporary DOM to parse the HTML
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Look for the button
+                const button = doc.querySelector('#add-expense-btn');
+                
+                if (button) {
+                    const buttonHTML = button.outerHTML;
+                    const hasOnclick = button.hasAttribute('onclick');
+                    const onclickValue = button.getAttribute('onclick');
+                    
+                    let message = '✅ Button found!\n\n';
+                    message += `HTML: ${buttonHTML}\n`;
+                    message += `Has onclick: ${hasOnclick}\n`;
+                    message += `onclick value: ${onclickValue}\n`;
+                    
+                    if (onclickValue === 'showAddExpenseModal()') {
+                        message += '\n✅ Button has correct onclick handler!';
+                    } else {
+                        message += '\n❌ Button has wrong onclick handler!';
+                    }
+                    
+                    logResult('result1', message, hasOnclick && onclickValue === 'showAddExpenseModal()' ? 'success' : 'error');
+                } else {
+                    logResult('result1', '❌ Button not found! Looking for #add-expense-btn', 'error');
+                }
+            } catch (error) {
+                logResult('result1', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateButtonClick() {
+            logResult('result2', 'Simulating button click...', 'info');
+            
+            try {
+                const response = await fetch('/finance');
+                const html = await response.text();
+                
+                // Extract JavaScript from the page
+                const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
+                
+                if (scriptMatch) {
+                    const scriptContent = scriptMatch[1];
+                    
+                    // Check for showAddExpenseModal function
+                    if (scriptContent.includes('function showAddExpenseModal()')) {
+                        // Extract the function
+                        const functionMatch = scriptContent.match(/function showAddExpenseModal\(\) \{([\s\S]*?)\}/);
+                        
+                        if (functionMatch) {
+                            const functionBody = functionMatch[1];
+                            let message = '✅ showAddExpenseModal function found!\n\n';
+                            message += `Function body:\n${functionBody}\n\n`;
+                            
+                            // Check what the function does
+                            if (functionBody.includes('alert(')) {
+                                message += '❌ Function still shows alert!';
+                                logResult('result2', message, 'error');
+                            } else if (functionBody.includes('classList.add(\'active\')')) {
+                                message += '✅ Function adds "active" class to modal!';
+                                logResult('result2', message, 'success');
+                            } else {
+                                message += '⚠️ Function found but behavior unknown';
+                                logResult('result2', message, 'info');
+                            }
+                        } else {
+                            logResult('result2', '❌ Could not extract function body', 'error');
+                        }
+                    } else {
+                        logResult('result2', '❌ showAddExpenseModal function not found in script', 'error');
+                    }
+                } else {
+                    logResult('result2', '❌ No script tag found in page', 'error');
+                }
+            } catch (error) {
+                logResult('result2', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkModalCSS() {
+            logResult('result3', 'Checking modal CSS...', 'info');
+            
+            try {
+                const response = await fetch('/finance');
+                const html = await response.text();
+                
+                // Check for modal CSS
+                const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+                
+                if (styleMatch) {
+                    const styleContent = styleMatch[1];
+                    let message = '✅ Style tag found!\n\n';
+                    
+                    // Check for modal classes
+                    const checks = [
+                        { class: '.modal-overlay', description: 'Modal overlay' },
+                        { class: '.modal-overlay.active', description: 'Active modal state' },
+                        { class: '.modal-container', description: 'Modal container' },
+                        { class: '@keyframes fadeIn', description: 'Fade animation' },
+                        { class: '@keyframes slideUp', description: 'Slide animation' }
+                    ];
+                    
+                    let passed = 0;
+                    
+                    checks.forEach(check => {
+                        if (styleContent.includes(check.class)) {
+                            message += `✅ ${check.description} found\n`;
+                            passed++;
+                        } else {
+                            message += `❌ ${check.description} NOT found\n`;
+                        }
+                    });
+                    
+                    message += `\n${passed}/${checks.length} CSS checks passed`;
+                    
+                    if (passed === checks.length) {
+                        logResult('result3', message, 'success');
+                    } else if (passed > 0) {
+                        logResult('result3', message, 'info');
+                    } else {
+                        logResult('result3', message, 'error');
+                    }
+                } else {
+                    logResult('result3', '❌ No style tag found in page', 'error');
+                }
+            } catch (error) {
+                logResult('result3', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

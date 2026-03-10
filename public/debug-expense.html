@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Add Expense Button</title>
+    <script>
+        // First, let's see what showAddExpenseModal currently is
+        console.log('Initial showAddExpenseModal:', typeof showAddExpenseModal);
+        
+        // If it doesn't exist or is wrong, we'll override it
+        if (typeof showAddExpenseModal !== 'function' || 
+            showAddExpenseModal.toString().includes('alert')) {
+            
+            console.log('Overriding showAddExpenseModal function');
+            
+            window.showAddExpenseModal = function() {
+                console.log('showAddExpenseModal called - opening modal');
+                alert('DEBUG: Modal would open here. This is the OVERRIDDEN function.');
+                
+                // Try to find and show modal
+                const modal = document.getElementById('addExpenseModal');
+                if (modal) {
+                    console.log('Modal found, showing it');
+                    modal.style.display = 'block';
+                } else {
+                    console.log('Modal NOT found');
+                }
+            };
+        }
+        
+        // Also check if there are multiple definitions
+        window.checkFunctionDefinitions = function() {
+            console.log('=== Checking function definitions ===');
+            console.log('showAddExpenseModal type:', typeof showAddExpenseModal);
+            console.log('showAddExpenseModal source:', showAddExpenseModal.toString().substring(0, 200) + '...');
+            
+            // Check for alert in function
+            if (showAddExpenseModal.toString().includes('alert')) {
+                console.log('⚠️ Function contains ALERT - this is the problem!');
+            } else {
+                console.log('✅ Function does not contain alert');
+            }
+        };
+    </script>
+</head>
+<body>
+    <h1>Debug Add Expense Button</h1>
+    
+    <button onclick="checkFunctionDefinitions()">Check Function Definition</button>
+    <button onclick="showAddExpenseModal()">Test Add Expense Button</button>
+    
+    <div id="addExpenseModal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1000;">
+        <h2>Debug Modal</h2>
+        <p>If you can see this, the modal works.</p>
+        <button onclick="document.getElementById('addExpenseModal').style.display='none'">Close</button>
+    </div>
+    
+    <script>
+        // Run check on page load
+        setTimeout(checkFunctionDefinitions, 100);
+    </script>
+</body>
+</html>

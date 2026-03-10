@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Add Sale Button</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .test-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .test-button:hover {
+            background: #218838;
+        }
+        .test-area {
+            border: 2px solid #ccc;
+            padding: 20px;
+            margin: 20px 0;
+            background: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Add Sale Button</h1>
+    
+    <div class="test-area">
+        <h2>Test 1: Simple Link Button</h2>
+        <a href="/finance/sales/create" class="test-button" id="test-button-1">
+            <i>+</i> Add Sale (Simple Link)
+        </a>
+        <p>This should navigate to: /finance/sales/create</p>
+    </div>
+    
+    <div class="test-area">
+        <h2>Test 2: Button with JavaScript</h2>
+        <button class="test-button" id="test-button-2" onclick="testButtonClick()">
+            <i>+</i> Add Sale (JavaScript)
+        </button>
+        <p>This uses JavaScript onclick</p>
+    </div>
+    
+    <div class="test-area">
+        <h2>Test 3: Laravel Route Link</h2>
+        <a href="{{ route('sales.create') }}" class="test-button" id="test-button-3">
+            <i>+</i> Add Sale (Laravel Route)
+        </a>
+        <p>This uses Laravel route: {{ route('sales.create') }}</p>
+        <p>Actual URL: /finance/sales/create</p>
+    </div>
+    
+    <script>
+        function testButtonClick() {
+            alert('JavaScript button clicked - would redirect to /finance/sales/create');
+            // Uncomment to actually redirect:
+            // window.location.href = '/finance/sales/create';
+        }
+        
+        // Add event listeners to track clicks
+        document.querySelectorAll('.test-button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                console.log('Button clicked:', this.id);
+                console.log('Href:', this.href);
+                console.log('Event type:', e.type);
+            });
+        });
+    </script>
+</body>
+</html>
