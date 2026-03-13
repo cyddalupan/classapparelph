@@ -3425,6 +3425,14 @@
                 return;
             }
             
+            // Check if the form is visible
+            const form = container.closest('.iprint-type-form');
+            if (form && form.style.display === 'none') {
+                console.log('DEBUG: Form is hidden! Make sure DTF form is selected first.');
+                alert('Please select DTF from the iPrint options first!');
+                return;
+            }
+            
             // Get current row count
             const currentRows = container.querySelectorAll('.print-size-row');
             const rowNumber = currentRows.length + 1;
@@ -3512,6 +3520,14 @@
             const container = document.getElementById(containerId);
             if (!container) {
                 console.log('DEBUG: Container not found:', containerId);
+                return;
+            }
+            
+            // Check if the form is visible
+            const form = container.closest('.iprint-type-form');
+            if (form && form.style.display === 'none') {
+                console.log('DEBUG: Form is hidden! Make sure DTF form is selected first.');
+                alert('Please select DTF from the iPrint options first!');
                 return;
             }
             
