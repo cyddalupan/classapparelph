@@ -3417,146 +3417,126 @@
         // These functions are globally accessible
         
         // Function to add a new print size row
+        // ULTRA SIMPLE: Just add a new row
         function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
-            console.log('SIMPLE VERSION: Adding print size row to', containerId);
+            console.log('ULTRA SIMPLE: Adding print size row');
             
             const container = document.getElementById(containerId);
             if (!container) {
-                console.error('Container not found:', containerId);
+                alert('Error: Container not found!');
                 return;
             }
             
-            // Get the FIRST existing row to clone it
-            const firstRow = container.querySelector('.print-size-row');
-            if (!firstRow) {
-                console.error('No existing row found to clone');
-                return;
-            }
-            
-            // Clone the first row
-            const newRow = firstRow.cloneNode(true);
-            
-            // Update row number
+            // Get row count
             const rowCount = container.querySelectorAll('.print-size-row').length;
-            newRow.querySelector('td:first-child').textContent = rowCount + 1;
+            const rowNumber = rowCount + 1;
             
-            // Clear input values
-            newRow.querySelectorAll('input, select').forEach(input => {
-                if (input.type !== 'button' && input.type !== 'submit') {
-                    input.value = '';
-                    
-                    // For select, set to first option
-                    if (input.tagName === 'SELECT') {
-                        input.selectedIndex = 0;
-                    }
-                }
-            });
-            
-            // Enable delete button
-            const deleteBtn = newRow.querySelector('.delete-print-size-btn');
-            if (deleteBtn) {
-                deleteBtn.disabled = false;
-                deleteBtn.title = 'Delete this print size';
-                deleteBtn.onclick = function() { deletePrintSizeRow(this); };
-            }
+            // Create SIMPLE row
+            const newRow = document.createElement('tr');
+            newRow.className = 'print-size-row';
+            newRow.innerHTML = `
+                <td class="align-middle text-center">${rowNumber}</td>
+                <td>
+                    <select class="form-select form-select-sm print-size-select" name="${sizeSelectName}" required>
+                        <option value="" selected disabled>Select print size</option>
+                        <option value="2x3">2x3 inches</option>
+                        <option value="3x4">3x4 inches</option>
+                        <option value="4x6">4x6 inches</option>
+                        <option value="5x7">5x7 inches</option>
+                        <option value="6x9">6x9 inches</option>
+                        <option value="8x10">8x10 inches</option>
+                        <option value="10x12">10x12 inches</option>
+                        <option value="12x18">12x18 inches</option>
+                        <option value="custom">Custom Size</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm custom-size-input" name="${customInputName}" placeholder="Enter custom size" style="display: none;">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm print-size-quantity" name="${quantityInputName}" min="1" value="1" required>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger delete-print-size-btn" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
             
             // Add to container
             container.appendChild(newRow);
-            console.log('✅ Row added successfully. Total rows:', rowCount + 1);
+            console.log('✅ Ultra simple row added!');
             
-            // Force browser to re-render
-            newRow.style.display = 'none';
-            setTimeout(() => {
-                newRow.style.display = '';
-            }, 10);
-            
-            // Show/hide custom size input based on selection
-            const sizeSelect = newRow.querySelector('.print-size-select');
-            const customInput = newRow.querySelector('.custom-size-input');
-            
-            sizeSelect.addEventListener('change', function() {
-                if (this.value === 'custom') {
-                    customInput.style.display = 'block';
-                    customInput.required = true;
-                } else {
-                    customInput.style.display = 'none';
-                    customInput.required = false;
-                    customInput.value = '';
-                }
-            });
-            
-            // Enable delete buttons on all rows (including first one)
-            const deleteButtons = container.querySelectorAll('.delete-print-size-btn');
-            deleteButtons.forEach(btn => {
-                btn.disabled = false;
-                btn.title = 'Delete this print size';
-            });
-            
-            // Add event listener for quantity change to update total
-            const quantityInput = newRow.querySelector('.print-size-quantity');
-            if (quantityInput) {
-                quantityInput.addEventListener('input', function() {
-                    calculateTotalQuantity(containerId);
-                });
-                quantityInput.addEventListener('change', function() {
-                    calculateTotalQuantity(containerId);
-                });
-            }
+            // Make it visible with red border
+            newRow.style.border = '2px solid red';
         }
         
-        // Function to add a new shirt size row
+        // Helper to update row numbers after delete
+        function updateRowNumbers(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const rows = container.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                const firstTd = row.querySelector('td:first-child');
+                if (firstTd) {
+                    firstTd.textContent = index + 1;
+                }
+            });
+        }
+        
+        // ULTRA SIMPLE: Just add a new shirt size row
         function addShirtSizeRow(containerId, sizeSelectName, quantityInputName) {
-            console.log('SIMPLE VERSION: Adding shirt size row to', containerId);
+            console.log('ULTRA SIMPLE: Adding shirt size row');
             
             const container = document.getElementById(containerId);
             if (!container) {
-                console.error('Container not found:', containerId);
+                alert('Error: Container not found!');
                 return;
             }
             
-            // Get the FIRST existing row to clone it
-            const firstRow = container.querySelector('.shirt-size-row');
-            if (!firstRow) {
-                console.error('No existing row found to clone');
-                return;
-            }
-            
-            // Clone the first row
-            const newRow = firstRow.cloneNode(true);
-            
-            // Update row number
+            // Get row count
             const rowCount = container.querySelectorAll('.shirt-size-row').length;
-            newRow.querySelector('td:first-child').textContent = rowCount + 1;
+            const rowNumber = rowCount + 1;
             
-            // Clear input values
-            newRow.querySelectorAll('input, select').forEach(input => {
-                if (input.type !== 'button' && input.type !== 'submit') {
-                    input.value = '';
-                    
-                    // For select, set to first option
-                    if (input.tagName === 'SELECT') {
-                        input.selectedIndex = 0;
-                    }
-                }
-            });
-            
-            // Enable delete button
-            const deleteBtn = newRow.querySelector('.delete-shirt-size-btn');
-            if (deleteBtn) {
-                deleteBtn.disabled = false;
-                deleteBtn.title = 'Delete this shirt size';
-                deleteBtn.onclick = function() { deleteShirtSizeRow(this); };
-            }
+            // Create SIMPLE row
+            const newRow = document.createElement('tr');
+            newRow.className = 'shirt-size-row';
+            newRow.innerHTML = `
+                <td class="align-middle text-center">${rowNumber}</td>
+                <td>
+                    <select class="form-select form-select-sm shirt-size-select" name="${sizeSelectName}" required>
+                        <option value="" selected disabled>Select size</option>
+                        <option value="xs">XS (Extra Small)</option>
+                        <option value="s">S (Small)</option>
+                        <option value="m">M (Medium)</option>
+                        <option value="l">L (Large)</option>
+                        <option value="xl">XL (Extra Large)</option>
+                        <option value="2xl">2XL (Double Extra Large)</option>
+                        <option value="3xl">3XL (Triple Extra Large)</option>
+                        <option value="4xl">4XL (4X Extra Large)</option>
+                        <option value="5xl">5XL (5X Extra Large)</option>
+                        <option value="6xl">6XL (6X Extra Large)</option>
+                        <option value="7xl">7XL (7X Extra Large)</option>
+                        <option value="8xl">8XL (8X Extra Large)</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm shirt-size-quantity" name="${quantityInputName}" min="1" value="1" required>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger delete-shirt-size-btn" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
             
             // Add to container
             container.appendChild(newRow);
-            console.log('✅ Row added successfully. Total rows:', rowCount + 1);
+            console.log('✅ Ultra simple shirt row added!');
             
-            // Force browser to re-render
-            newRow.style.display = 'none';
-            setTimeout(() => {
-                newRow.style.display = '';
-            }, 10);
+            // Make it visible with green border
+            newRow.style.border = '2px solid green';
         }
             
             // Enable delete buttons on all rows (including first one)
