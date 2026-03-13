@@ -3425,16 +3425,8 @@
                 return;
             }
             
-            // Check if the form is visible (using computed style for print size)
-            const form = container.closest('.iprint-type-form');
-            if (form) {
-                const computedStyle = window.getComputedStyle(form);
-                if (computedStyle.display === 'none') {
-                    console.log('DEBUG: Form is hidden! Make sure DTF form is selected first.');
-                    alert('Please select DTF from the iPrint options first!');
-                    return;
-                }
-            }
+            // REMOVED visibility check - buttons work even if form is hidden
+            // Users can add rows first, then show form later
             
             // Get current row count
             const currentRows = container.querySelectorAll('.print-size-row');
@@ -3526,16 +3518,8 @@
                 return;
             }
             
-            // Check if the form is visible (using computed style for shirt size)
-            const form = container.closest('.iprint-type-form');
-            if (form) {
-                const computedStyle = window.getComputedStyle(form);
-                if (computedStyle.display === 'none') {
-                    console.log('DEBUG: Form is hidden! Make sure DTF form is selected first.');
-                    alert('Please select DTF from the iPrint options first!');
-                    return;
-                }
-            }
+            // REMOVED visibility check - buttons work even if form is hidden
+            // Users can add rows first, then show form later
             
             // Get current row count
             const currentRows = container.querySelectorAll('.shirt-size-row');
