@@ -303,7 +303,7 @@
                                                         <div class="col-md-12">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Print Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size" onclick="addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]')">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Print Size
                                                                 </button>
                                                             </div>
@@ -403,7 +403,7 @@
                                                         <div class="col-md-6">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Shirt Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size" onclick="addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]')">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Size
                                                                 </button>
                                                             </div>
@@ -1201,7 +1201,7 @@
                                                         <div class="col-md-12">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Print Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-print-size" onclick="addPrintSizeRow('embroidery-print-sizes-container', 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]')">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-print-size">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Print Size
                                                                 </button>
                                                             </div>
@@ -1301,7 +1301,7 @@
                                                         <div class="col-md-6">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Shirt Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-shirt-size" onclick="addShirtSizeRow('embroidery-shirt-sizes-container', 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]')">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-shirt-size">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Size
                                                                 </button>
                                                             </div>
@@ -2399,53 +2399,8 @@
         function reinitializeFormEventListeners(form, option, instanceId) {
             console.log('DEBUG: Reinitializing event listeners for:', form.id, 'option:', option, 'instance:', instanceId);
             
-            // DTF Form Event Listeners
-            if (option === 'dtf') {
-                // Initialize quantity auto-compute for this form
-                initializeQuantityAutoComputeForForm(form);
-                
-                // ADD INLINE ONCLICK HANDLERS FOR DTF FORM
-                const addPrintSizeBtn = form.querySelector(`#add-print-size-${instanceId}`);
-                if (addPrintSizeBtn) {
-                    addPrintSizeBtn.setAttribute('onclick', `addPrintSizeRow('print-sizes-container-${instanceId}', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]')`);
-                }
-                
-                const addShirtSizeBtn = form.querySelector(`#add-shirt-size-${instanceId}`);
-                if (addShirtSizeBtn) {
-                    addShirtSizeBtn.setAttribute('onclick', `addShirtSizeRow('shirt-sizes-container-${instanceId}', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]')`);
-                }
-            }
-            
-            // Sublimation Form Event Listeners
-            else if (option === 'sublimation') {
-                // Initialize quantity auto-compute for this form
-                initializeQuantityAutoComputeForForm(form);
-                
-                // ADD INLINE ONCLICK HANDLERS FOR SUBLIMATION FORM
-                const addSublimationPrintSizeBtn = form.querySelector(`#add-sublimation-print-size-${instanceId}`);
-                if (addSublimationPrintSizeBtn) {
-                    addSublimationPrintSizeBtn.setAttribute('onclick', `addPrintSizeRow('sublimation-print-sizes-container-${instanceId}', 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]')`);
-                }
-            }
-            
-            // Embroidery Form Event Listeners
-            else if (option === 'embroidery') {
-                // Initialize quantity auto-compute for this form
-                initializeQuantityAutoComputeForForm(form);
-                
-                // ADD INLINE ONCLICK HANDLERS FOR EMBROIDERY FORM
-                const addEmbroideryPrintSizeBtn = form.querySelector(`#add-embroidery-print-size-${instanceId}`);
-                if (addEmbroideryPrintSizeBtn) {
-                    addEmbroideryPrintSizeBtn.setAttribute('onclick', `addPrintSizeRow('embroidery-print-sizes-container-${instanceId}', 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]')`);
-                }
-                
-                const addEmbroideryShirtSizeBtn = form.querySelector(`#add-embroidery-shirt-size-${instanceId}`);
-                if (addEmbroideryShirtSizeBtn) {
-                    addEmbroideryShirtSizeBtn.setAttribute('onclick', `addShirtSizeRow('embroidery-shirt-sizes-container-${instanceId}', 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]')`);
-                }
-            }
-            
-            // Lanyard, Tarpaulin, Other Items - no size buttons needed
+            // Initialize quantity auto-compute for this form
+            initializeQuantityAutoComputeForForm(form);
             
             // REINITIALIZE IMAGE UPLOAD INPUTS for this form instance
             reinitializeImageUploadInputs(form, option, instanceId);
