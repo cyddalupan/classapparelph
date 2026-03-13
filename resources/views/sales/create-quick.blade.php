@@ -3465,6 +3465,10 @@
             container.appendChild(newRow);
             console.log('DEBUG: Added new print size row #', rowNumber);
             
+            // VISIBILITY TEST: Add red border to see if row is visible
+            newRow.style.border = '2px solid red';
+            newRow.style.backgroundColor = '#fff0f0';
+            
             // Show/hide custom size input based on selection
             const sizeSelect = newRow.querySelector('.print-size-select');
             const customInput = newRow.querySelector('.custom-size-input');
@@ -3547,6 +3551,10 @@
             // Add to container
             container.appendChild(newRow);
             console.log('DEBUG: Added new shirt size row #', rowNumber);
+            
+            // VISIBILITY TEST: Add green border to see if row is visible
+            newRow.style.border = '2px solid green';
+            newRow.style.backgroundColor = '#f0fff0';
             
             // Enable delete buttons on all rows (including first one)
             const deleteButtons = container.querySelectorAll('.delete-shirt-size-btn');
