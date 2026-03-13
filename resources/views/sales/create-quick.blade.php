@@ -3413,129 +3413,8 @@
     </script>
     
     <script>
-        // Add event listeners for Add Another Print Size buttons
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DEBUG: DOM fully loaded');
-            console.log('DEBUG: Form data store initialized');
-            
-            // Initialize image upload previews for all forms
-            initializeImageUploadPreviews();
-            
-            // USE EVENT DELEGATION for all Add Size buttons
-            // This works for both original forms and form instances
-            document.addEventListener('click', function(event) {
-                // Check if clicked element is an "Add Print Size" button
-                if (event.target.matches('#add-print-size, [id^="add-print-size-"]')) {
-                    // Find the container for this button
-                    const button = event.target;
-                    console.log('DEBUG: Add Print Size button clicked, ID:', button.id);
-                    
-                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
-                    let containerId = 'print-sizes-container';
-                    if (button.id.includes('-')) {
-                        // Get everything after "add-print-size-"
-                        const instanceId = button.id.replace('add-print-size-', '');
-                        if (instanceId) {
-                            containerId = `print-sizes-container-${instanceId}`;
-                        }
-                    }
-                    console.log('DEBUG: Looking for container:', containerId);
-                    
-                    // DEBUG: List all containers with similar IDs
-                    const allContainers = document.querySelectorAll('[id^="print-sizes-container"]');
-                    console.log('DEBUG: All print size containers found:', Array.from(allContainers).map(c => c.id));
-                    
-                    addPrintSizeRow(containerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
-                }
-                
-                // Check if clicked element is an "Add Shirt Size" button
-                if (event.target.matches('#add-shirt-size, [id^="add-shirt-size-"]')) {
-                    // Find the container for this button
-                    const button = event.target;
-                    console.log('DEBUG: Add Shirt Size button clicked, ID:', button.id);
-                    
-                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
-                    let containerId = 'shirt-sizes-container';
-                    if (button.id.includes('-')) {
-                        // Get everything after "add-shirt-size-"
-                        const instanceId = button.id.replace('add-shirt-size-', '');
-                        if (instanceId) {
-                            containerId = `shirt-sizes-container-${instanceId}`;
-                        }
-                    }
-                    console.log('DEBUG: Looking for container:', containerId);
-                    
-                    // DEBUG: List all containers with similar IDs
-                    const allContainers = document.querySelectorAll('[id^="shirt-sizes-container"]');
-                    console.log('DEBUG: All shirt size containers found:', Array.from(allContainers).map(c => c.id));
-                    
-                    addShirtSizeRow(containerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
-                }
-                
-                // Check if clicked element is an "Add Embroidery Print Size" button
-                if (event.target.matches('#add-embroidery-print-size, [id^="add-embroidery-print-size-"]')) {
-                    // Find the container for this button
-                    const button = event.target;
-                    console.log('DEBUG: Add Embroidery Print Size button clicked, ID:', button.id);
-                    
-                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
-                    let containerId = 'embroidery-print-sizes-container';
-                    if (button.id.includes('-')) {
-                        // Get everything after "add-embroidery-print-size-"
-                        const instanceId = button.id.replace('add-embroidery-print-size-', '');
-                        if (instanceId) {
-                            containerId = `embroidery-print-sizes-container-${instanceId}`;
-                        }
-                    }
-                    console.log('DEBUG: Looking for container:', containerId);
-                    
-                    addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
-                }
-                
-                // Check if clicked element is an "Add Embroidery Shirt Size" button
-                if (event.target.matches('#add-embroidery-shirt-size, [id^="add-embroidery-shirt-size-"]')) {
-                    // Find the container for this button
-                    const button = event.target;
-                    console.log('DEBUG: Add Embroidery Shirt Size button clicked, ID:', button.id);
-                    
-                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
-                    let containerId = 'embroidery-shirt-sizes-container';
-                    if (button.id.includes('-')) {
-                        // Get everything after "add-embroidery-shirt-size-"
-                        const instanceId = button.id.replace('add-embroidery-shirt-size-', '');
-                        if (instanceId) {
-                            containerId = `embroidery-shirt-sizes-container-${instanceId}`;
-                        }
-                    }
-                    console.log('DEBUG: Looking for container:', containerId);
-                    
-                    addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
-                }
-                
-                // Check if clicked element is an "Add Sublimation Print Size" button
-                if (event.target.matches('#add-sublimation-print-size, [id^="add-sublimation-print-size-"]')) {
-                    // Find the container for this button
-                    const button = event.target;
-                    console.log('DEBUG: Add Sublimation Print Size button clicked, ID:', button.id);
-                    
-                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
-                    let containerId = 'sublimation-print-sizes-container';
-                    if (button.id.includes('-')) {
-                        // Get everything after "add-sublimation-print-size-"
-                        const instanceId = button.id.replace('add-sublimation-print-size-', '');
-                        if (instanceId) {
-                            containerId = `sublimation-print-sizes-container-${instanceId}`;
-                        }
-                    }
-                    console.log('DEBUG: Looking for container:', containerId);
-                    
-                    addPrintSizeRow(containerId, 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]');
-                }
-            });
-            
-            // Initialize quantity auto-compute
-            initializeQuantityAutoCompute();
-        });
+        // SIMPLE GLOBAL FUNCTIONS FOR ADD SIZE BUTTONS
+        // These functions are globally accessible
         
         // Function to add a new print size row
         function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
@@ -3558,16 +3437,19 @@
                 <td>
                     <select class="form-select form-select-sm print-size-select" name="${sizeSelectName}" required>
                         <option value="" selected disabled>Select print size</option>
+                        <option value="2x3">2x3 inches</option>
+                        <option value="3x4">3x4 inches</option>
+                        <option value="4x6">4x6 inches</option>
+                        <option value="5x7">5x7 inches</option>
+                        <option value="6x9">6x9 inches</option>
                         <option value="8x10">8x10 inches</option>
                         <option value="10x12">10x12 inches</option>
-                        <option value="12x14">12x14 inches</option>
-                        <option value="14x16">14x16 inches</option>
-                        <option value="16x20">16x20 inches</option>
+                        <option value="12x18">12x18 inches</option>
                         <option value="custom">Custom Size</option>
                     </select>
                 </td>
                 <td>
-                    <input type="text" class="form-control form-control-sm custom-size-input" name="${customInputName}" placeholder="e.g., 18x24 inches" style="display: none;">
+                    <input type="text" class="form-control form-control-sm custom-size-input" name="${customInputName}" placeholder="Enter custom size" style="display: none;">
                 </td>
                 <td>
                     <input type="number" class="form-control form-control-sm print-size-quantity" name="${quantityInputName}" min="1" value="1" required>
@@ -3583,29 +3465,27 @@
             container.appendChild(newRow);
             console.log('DEBUG: Added new print size row #', rowNumber);
             
+            // Show/hide custom size input based on selection
+            const sizeSelect = newRow.querySelector('.print-size-select');
+            const customInput = newRow.querySelector('.custom-size-input');
+            
+            sizeSelect.addEventListener('change', function() {
+                if (this.value === 'custom') {
+                    customInput.style.display = 'block';
+                    customInput.required = true;
+                } else {
+                    customInput.style.display = 'none';
+                    customInput.required = false;
+                    customInput.value = '';
+                }
+            });
+            
             // Enable delete buttons on all rows (including first one)
             const deleteButtons = container.querySelectorAll('.delete-print-size-btn');
             deleteButtons.forEach(btn => {
                 btn.disabled = false;
-                btn.title = 'Delete this size';
+                btn.title = 'Delete this print size';
             });
-            
-            // Add event listener for custom size toggle
-            const sizeSelect = newRow.querySelector('.print-size-select');
-            const customInput = newRow.querySelector('.custom-size-input');
-            
-            if (sizeSelect && customInput) {
-                sizeSelect.addEventListener('change', function() {
-                    if (this.value === 'custom') {
-                        customInput.style.display = 'block';
-                        customInput.required = true;
-                    } else {
-                        customInput.style.display = 'none';
-                        customInput.required = false;
-                        customInput.value = '';
-                    }
-                });
-            }
             
             // Add event listener for quantity change to update total
             const quantityInput = newRow.querySelector('.print-size-quantity');
@@ -3619,13 +3499,12 @@
             }
         }
         
-        // Function to add a new shirt size row (3 columns: #, Size, Quantity, Actions)
+        // Function to add a new shirt size row
         function addShirtSizeRow(containerId, sizeSelectName, quantityInputName) {
-            console.log('DEBUG: addShirtSizeRow called for container:', containerId);
-            
+            console.log('DEBUG: addShirtSizeRow called with containerId:', containerId);
             const container = document.getElementById(containerId);
             if (!container) {
-                console.error('DEBUG: Container not found:', containerId);
+                console.log('DEBUG: Container not found:', containerId);
                 return;
             }
             
@@ -3801,32 +3680,6 @@
                     const value = parseInt(input.value) || 0;
                     total += value;
                 });
-                
-                // Update the corresponding total display
-                // Find the total quantity badge within the same form/container
-                // Based on container type, look for specific badge
-                const form = container.closest('[id*="-form"]');
-                if (form) {
-                    let badgeSelector = '';
-                    
-                    if (containerId.includes('print-sizes-container')) {
-                        // For print sizes, look for badge with id containing "print-total-quantity"
-                        badgeSelector = '[id*="print-total-quantity"]';
-                    } else if (containerId.includes('sublimation-print-sizes-container')) {
-                        // For sublimation print sizes
-                        badgeSelector = '[id*="sublimation-total-quantity"]';
-                    } else if (containerId.includes('embroidery-print-sizes-container')) {
-                        // For embroidery print sizes
-                        badgeSelector = '[id*="embroidery-print-total-quantity"]';
-                    }
-                    
-                    if (badgeSelector) {
-                        const totalBadge = form.querySelector(badgeSelector);
-                        if (totalBadge) {
-                            totalBadge.textContent = total;
-                        }
-                    }
-                }
             } else if (isShirtSize) {
                 // For shirt size containers
                 const quantityInputs = container.querySelectorAll('.shirt-size-quantity');
@@ -3834,476 +3687,86 @@
                     const value = parseInt(input.value) || 0;
                     total += value;
                 });
-                
-                // Update the corresponding total display
-                // Find the total quantity badge within the same form/container
-                // Based on container type, look for specific badge
-                const form = container.closest('[id*="-form"]');
-                if (form) {
-                    let badgeSelector = '';
-                    
-                    if (containerId.includes('shirt-sizes-container')) {
-                        // For shirt sizes, look for badge with id containing "shirt-total-quantity"
-                        badgeSelector = '[id*="shirt-total-quantity"]';
-                    } else if (containerId.includes('embroidery-shirt-sizes-container')) {
-                        // For embroidery shirt sizes
-                        badgeSelector = '[id*="embroidery-shirt-total-quantity"]';
-                    }
-                    
-                    if (badgeSelector) {
-                        const totalBadge = form.querySelector(badgeSelector);
-                        if (totalBadge) {
-                            totalBadge.textContent = total;
-                    }
-                }
             }
             
-            console.log('DEBUG: Total quantity calculated:', total);
-            return total;
-        }
-        
-        // Function to update simple total quantity for Lanyard, Tarpaulin forms
-        function updateSimpleTotalQuantity(inputId, displayId) {
-            console.log('DEBUG: updateSimpleTotalQuantity called for input:', inputId);
+            console.log('DEBUG: Total quantity for', containerId, ':', total);
             
-            const input = document.getElementById(inputId);
-            const display = document.getElementById(displayId);
-            
-            if (!input || !display) return;
-            
-            const value = parseInt(input.value) || 0;
-            display.textContent = value;
-            
-            console.log('DEBUG: Updated simple total:', value);
-        }
-        
-        // Function to initialize quantity auto-compute for all forms
-        function initializeQuantityAutoCompute() {
-            console.log('DEBUG: Initializing quantity auto-compute');
-            
-            // DTF form quantity listeners
-            const dtfPrintQuantityInputs = document.querySelectorAll('#print-sizes-container .print-size-quantity');
-            dtfPrintQuantityInputs.forEach(input => {
-                input.addEventListener('input', () => calculateTotalQuantity('print-sizes-container'));
-                input.addEventListener('change', () => calculateTotalQuantity('print-sizes-container'));
-            });
-            
-            const dtfShirtQuantityInputs = document.querySelectorAll('#shirt-sizes-container .shirt-size-quantity');
-            dtfShirtQuantityInputs.forEach(input => {
-                input.addEventListener('input', () => calculateTotalQuantity('shirt-sizes-container'));
-                input.addEventListener('change', () => calculateTotalQuantity('shirt-sizes-container'));
-            });
-            
-            // Lanyard form quantity listener
-            const lanyardQuantityInput = document.querySelector('input[name="lanyard_quantity"]');
-            if (lanyardQuantityInput) {
-                lanyardQuantityInput.addEventListener('input', () => updateSimpleTotalQuantity('lanyard-quantity-input', 'lanyard-total-quantity'));
-                lanyardQuantityInput.addEventListener('change', () => updateSimpleTotalQuantity('lanyard-quantity-input', 'lanyard-total-quantity'));
+            // Find the total quantity display for this form
+            // The total display ID should match: dtf-total-quantity, sublimation-total-quantity, embroidery-total-quantity
+            // Or with instance ID: dtf-total-quantity-{instanceId}
+            let totalDisplayId = '';
+            if (containerId.includes('dtf')) {
+                totalDisplayId = containerId.replace('print-sizes-container', 'total-quantity').replace('shirt-sizes-container', 'total-quantity');
+            } else if (containerId.includes('sublimation')) {
+                totalDisplayId = containerId.replace('print-sizes-container', 'total-quantity');
+            } else if (containerId.includes('embroidery')) {
+                totalDisplayId = containerId.replace('print-sizes-container', 'total-quantity').replace('shirt-sizes-container', 'total-quantity');
             }
             
-            // Tarpaulin form quantity listener
-            const tarpaulinQuantityInput = document.querySelector('input[name="tarpaulin_quantity"]');
-            if (tarpaulinQuantityInput) {
-                tarpaulinQuantityInput.addEventListener('input', () => updateSimpleTotalQuantity('tarpaulin-quantity-input', 'tarpaulin-total-quantity'));
-                tarpaulinQuantityInput.addEventListener('change', () => updateSimpleTotalQuantity('tarpaulin-quantity-input', 'tarpaulin-total-quantity'));
-            }
-            
-            // Sublimation form quantity listeners
-            const sublimationQuantityInputs = document.querySelectorAll('#sublimation-print-sizes-container .print-size-quantity');
-            sublimationQuantityInputs.forEach(input => {
-                input.addEventListener('input', () => calculateTotalQuantity('sublimation-print-sizes-container'));
-                input.addEventListener('change', () => calculateTotalQuantity('sublimation-print-sizes-container'));
-            });
-            
-            // Sublimation simple quantity listener
-            const sublimationSimpleQuantityInput = document.querySelector('input[name="sublimation_quantity"]');
-            if (sublimationSimpleQuantityInput) {
-                sublimationSimpleQuantityInput.addEventListener('input', () => {
-                    const value = parseInt(sublimationSimpleQuantityInput.value) || 0;
-                    document.getElementById('sublimation-total-quantity').textContent = value;
-                });
-                sublimationSimpleQuantityInput.addEventListener('change', () => {
-                    const value = parseInt(sublimationSimpleQuantityInput.value) || 0;
-                    document.getElementById('sublimation-total-quantity').textContent = value;
-                });
-            }
-            
-            // Embroidery form quantity listeners
-            const embroideryPrintQuantityInputs = document.querySelectorAll('#embroidery-print-sizes-container .print-size-quantity');
-            embroideryPrintQuantityInputs.forEach(input => {
-                input.addEventListener('input', () => calculateTotalQuantity('embroidery-print-sizes-container'));
-                input.addEventListener('change', () => calculateTotalQuantity('embroidery-print-sizes-container'));
-            });
-            
-            const embroideryShirtQuantityInputs = document.querySelectorAll('#embroidery-shirt-sizes-container .shirt-size-quantity');
-            embroideryShirtQuantityInputs.forEach(input => {
-                input.addEventListener('input', () => calculateTotalQuantity('embroidery-shirt-sizes-container'));
-                input.addEventListener('change', () => calculateTotalQuantity('embroidery-shirt-sizes-container'));
-            });
-            
-            console.log('DEBUG: Quantity auto-compute initialized');
-        }
-        
-        // Function to initialize image upload previews for all forms
-        function initializeImageUploadPreviews() {
-            console.log('DEBUG: Initializing image upload previews');
-            
-            // Check if event listener is already attached
-            if (window.imageUploadPreviewInitialized) {
-                console.log('DEBUG: Image upload preview already initialized');
-                return;
-            }
-            
-            // Mark as initialized
-            window.imageUploadPreviewInitialized = true;
-            
-            // Use event delegation on the document level
-            document.addEventListener('change', function(event) {
-                const target = event.target;
-                const targetId = target.id;
-                
-                // Check if this is one of our image upload inputs
-                if (!targetId || !targetId.includes('image-upload')) {
-                    return;
-                }
-                
-                console.log('DEBUG: Image upload changed via delegation:', targetId, 'Files:', target.files?.length || 0);
-                
-                // Debounce to prevent multiple calls
-                if (window.imageUploadDebounce) {
-                    clearTimeout(window.imageUploadDebounce);
-                }
-                
-                window.imageUploadDebounce = setTimeout(() => {
-                    console.log('DEBUG: Processing file upload via delegation for:', targetId);
-                    
-                    let previewContainerId = '';
-                    let containerToShowId = '';
-                    let isGridLayout = true;
-                    
-                    // Handle DTF image upload (original and instances)
-                    if (targetId === 'dtf-image-upload' || targetId.startsWith('dtf-image-upload-')) {
-                        // For instances, extract the instanceId
-                        let instanceId = '';
-                        if (targetId.includes('-upload-')) {
-                            instanceId = targetId.split('-upload-')[1];
-                        }
-                        
-                        if (instanceId) {
-                            // Instance form: use unique container IDs
-                            previewContainerId = `image-previews-${instanceId}`;
-                            containerToShowId = `image-preview-container-${instanceId}`;
-                        } else {
-                            // Original form
-                            previewContainerId = 'image-previews';
-                            containerToShowId = 'image-preview-container';
-                        }
-                        isGridLayout = true;
-                        
-                    } else if (targetId === 'lanyard-image-upload' || targetId.startsWith('lanyard-image-upload-')) {
-                        let instanceId = '';
-                        if (targetId.includes('-upload-')) {
-                            instanceId = targetId.split('-upload-')[1];
-                        }
-                        
-                        if (instanceId) {
-                            previewContainerId = `lanyard-uploaded-files-list-${instanceId}`;
-                        } else {
-                            previewContainerId = 'lanyard-uploaded-files-list';
-                        }
-                        containerToShowId = null;
-                        isGridLayout = false;
-                        
-                    } else if (targetId === 'tarpaulin-image-upload' || targetId.startsWith('tarpaulin-image-upload-')) {
-                        let instanceId = '';
-                        if (targetId.includes('-upload-')) {
-                            instanceId = targetId.split('-upload-')[1];
-                        }
-                        
-                        if (instanceId) {
-                            previewContainerId = `tarpaulin-image-previews-${instanceId}`;
-                            containerToShowId = `tarpaulin-image-preview-container-${instanceId}`;
-                        } else {
-                            previewContainerId = 'tarpaulin-image-previews';
-                            containerToShowId = 'tarpaulin-image-preview-container';
-                        }
-                        isGridLayout = true;
-                        
-                    } else if (targetId === 'sublimation-image-upload' || targetId.startsWith('sublimation-image-upload-')) {
-                        let instanceId = '';
-                        if (targetId.includes('-upload-')) {
-                            instanceId = targetId.split('-upload-')[1];
-                        }
-                        
-                        if (instanceId) {
-                            previewContainerId = `sublimation-image-previews-${instanceId}`;
-                            containerToShowId = `sublimation-image-preview-container-${instanceId}`;
-                        } else {
-                            previewContainerId = 'sublimation-image-previews';
-                            containerToShowId = 'sublimation-image-preview-container';
-                        }
-                        isGridLayout = true;
-                        
-                    } else if (targetId === 'embroidery-image-upload' || targetId.startsWith('embroidery-image-upload-')) {
-                        let instanceId = '';
-                        if (targetId.includes('-upload-')) {
-                            instanceId = targetId.split('-upload-')[1];
-                        }
-                        
-                        if (instanceId) {
-                            previewContainerId = `embroidery-image-previews-${instanceId}`;
-                            containerToShowId = `embroidery-image-preview-container-${instanceId}`;
-                        } else {
-                            previewContainerId = 'embroidery-image-previews';
-                            containerToShowId = 'embroidery-image-preview-container';
-                        }
-                        isGridLayout = true;
-                    }
-                    
-                    if (previewContainerId) {
-                        handleImageUpload(event, previewContainerId, containerToShowId, isGridLayout);
-                    }
-                }, 100);
-            });
-            
-            console.log('DEBUG: Image upload previews initialized via event delegation');
-        }
-        
-        // Create preview container for embroidery if it doesn't exist
-        function createEmbroideryPreviewContainer() {
-            console.log('DEBUG: Creating embroidery preview container');
-            
-            // Find the embroidery form section
-            const embroideryForm = document.querySelector('#embroidery-form');
-            if (!embroideryForm) return;
-            
-            // Check if container already exists
-            if (document.getElementById('embroidery-image-preview-container')) {
-                console.log('DEBUG: Embroidery preview container already exists');
-                return;
-            }
-            
-            // Create preview container
-            const previewContainer = document.createElement('div');
-            previewContainer.id = 'embroidery-image-preview-container';
-            previewContainer.className = 'd-none mt-3';
-            previewContainer.innerHTML = `
-                <h6 class="mb-2">Uploaded Images:</h6>
-                <div id="embroidery-image-previews" class="row g-2"></div>
-            `;
-            
-            // Insert after the upload tabs
-            const uploadTabs = embroideryForm.querySelector('.tab-content');
-            if (uploadTabs) {
-                uploadTabs.parentNode.insertBefore(previewContainer, uploadTabs.nextSibling);
-                console.log('DEBUG: Embroidery preview container created');
+            const totalDisplay = document.getElementById(totalDisplayId);
+            if (totalDisplay) {
+                totalDisplay.textContent = total;
+                console.log('DEBUG: Updated total display', totalDisplayId, 'to', total);
             }
         }
         
-        // Handle image upload and display preview
-        function handleImageUpload(event, previewContainerId, containerToShowId, isGridLayout = true) {
-            const files = event.target.files;
-            if (!files || files.length === 0) return;
+        // Initialize on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DEBUG: Simple JavaScript loaded');
             
-            // Track how many times this function is called
-            if (!window.handleImageUploadCount) {
-                window.handleImageUploadCount = 0;
-            }
-            window.handleImageUploadCount++;
-            
-            console.log('DEBUG: Files selected:', files.length, 'Grid layout:', isGridLayout, 'Call #:', window.handleImageUploadCount);
-            
-            // Show the preview container
-            if (containerToShowId) {
-                const container = document.getElementById(containerToShowId);
-                if (container) {
-                    container.classList.remove('d-none');
-                }
-            }
-            
-            // Get the preview container
-            const previewContainer = document.getElementById(previewContainerId);
-            if (!previewContainer) {
-                console.error('DEBUG: Preview container not found:', previewContainerId);
-                return;
-            }
-            
-            // Clear "No files attached yet" message if present
-            const noFilesMessage = previewContainer.querySelector('.text-muted.small');
-            if (noFilesMessage && noFilesMessage.textContent.includes('No files attached')) {
-                noFilesMessage.remove();
-            }
-            
-            // Clear existing previews to avoid duplicates
-            // Only clear if this is the first call or if we're replacing files
-            const existingPreviews = previewContainer.querySelectorAll('.col-md-4, .mb-2.p-2.border.rounded');
-            if (existingPreviews.length > 0) {
-                console.log('DEBUG: Clearing', existingPreviews.length, 'existing previews to avoid duplicates');
-                existingPreviews.forEach(preview => preview.remove());
-            }
-            
-            // Process each file
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                
-                if (file.type.startsWith('image/')) {
-                    // For image files, create preview with image
-                    const reader = new FileReader();
+            // Add onclick handlers to all Add Size buttons
+            document.querySelectorAll('[id^="add-print-size"], [id^="add-shirt-size"], [id^="add-embroidery-print-size"], [id^="add-embroidery-shirt-size"]').forEach(button => {
+                button.onclick = function() {
+                    const buttonId = this.id;
+                    console.log('DEBUG: Button clicked:', buttonId);
                     
-                    reader.onload = function(e) {
-                        if (isGridLayout) {
-                            // Grid layout (DTF, Tarpaulin, Sublimation, Embroidery)
-                            const previewCard = document.createElement('div');
-                            previewCard.className = 'col-md-4 col-sm-6 mb-3';
-                            previewCard.innerHTML = `
-                                <div class="card h-100">
-                                    <div class="card-body p-2 text-center">
-                                        <div class="position-relative">
-                                            <img src="${e.target.result}" class="img-fluid rounded" style="max-height: 150px; object-fit: contain;" alt="${file.name}">
-                                            <button type="button" class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-1" onclick="removeImagePreview(this)">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                        <div class="mt-2">
-                                            <small class="text-muted d-block text-truncate" title="${file.name}">${file.name}</small>
-                                            <small class="text-muted">${formatFileSize(file.size)}</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                            previewContainer.appendChild(previewCard);
-                        } else {
-                            // List layout (Lanyard)
-                            const fileItem = document.createElement('div');
-                            fileItem.className = 'mb-2 p-2 border rounded';
-                            fileItem.innerHTML = `
-                                <div class="d-flex align-items-center">
-                                    <div class="me-3">
-                                        <img src="${e.target.result}" class="rounded" style="width: 60px; height: 60px; object-fit: cover;" alt="${file.name}">
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between">
-                                            <small class="fw-semibold text-truncate" style="max-width: 200px;" title="${file.name}">${file.name}</small>
-                                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeImagePreview(this)">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                        <small class="text-muted">${formatFileSize(file.size)}</small>
-                                    </div>
-                                </div>
-                            `;
-                            previewContainer.appendChild(fileItem);
-                        }
-                        console.log('DEBUG: Added image preview for:', file.name);
-                    };
-                    
-                    reader.readAsDataURL(file);
-                } else {
-                    // For non-image files (PDF, PSD, etc.)
-                    if (isGridLayout) {
-                        // Grid layout
-                        const previewCard = document.createElement('div');
-                        previewCard.className = 'col-md-4 col-sm-6 mb-3';
-                        previewCard.innerHTML = `
-                            <div class="card h-100">
-                                <div class="card-body p-2 text-center">
-                                    <div class="position-relative">
-                                        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 150px;">
-                                            <i class="fas fa-file fa-3x text-secondary"></i>
-                                            <button type="button" class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-1" onclick="removeImagePreview(this)">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="mt-2">
-                                        <small class="text-muted d-block text-truncate" title="${file.name}">${file.name}</small>
-                                        <small class="text-muted">${formatFileSize(file.size)}</small>
-                                        <small class="badge bg-info mt-1">${getFileExtension(file.name)}</small>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                        previewContainer.appendChild(previewCard);
-                    } else {
-                        // List layout
-                        const fileItem = document.createElement('div');
-                        fileItem.className = 'mb-2 p-2 border rounded';
-                        fileItem.innerHTML = `
-                            <div class="d-flex align-items-center">
-                                <div class="me-3">
-                                    <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
-                                        <i class="fas fa-file fa-2x text-secondary"></i>
-                                    </div>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between">
-                                        <small class="fw-semibold text-truncate" style="max-width: 200px;" title="${file.name}">${file.name}</small>
-                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeImagePreview(this)">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted">${formatFileSize(file.size)}</small>
-                                    <small class="badge bg-info">${getFileExtension(file.name)}</small>
-                                </div>
-                            </div>
-                        `;
-                        previewContainer.appendChild(fileItem);
-                    }
-                    console.log('DEBUG: Added file preview for:', file.name);
-                }
-            }
-        }
-        
-        // Remove image preview with confirmation
-        function removeImagePreview(button) {
-            // Show professional confirmation modal
-            showConfirmationModal(
-                'Remove Image',
-                'Are you sure you want to remove this image?',
-                () => {
-                    // User clicked Yes
-                    // Try to find the preview item (could be .col-md-4 for grid or .mb-2 for list)
-                    const previewItem = button.closest('.col-md-4, .mb-2.p-2.border.rounded');
-                    if (previewItem) {
-                        previewItem.remove();
-                        console.log('DEBUG: Removed image preview');
-                        
-                        // Check if any previews left
-                        const previewContainer = button.closest('#image-previews, #lanyard-uploaded-files-list, #tarpaulin-image-previews, #sublimation-image-previews, #embroidery-image-previews');
-                        if (previewContainer && previewContainer.children.length === 0) {
-                            // Show "No files" message
-                            const noFilesMessage = document.createElement('div');
-                            noFilesMessage.className = 'text-muted small';
-                            noFilesMessage.textContent = 'No files attached yet';
-                            previewContainer.appendChild(noFilesMessage);
-                            
-                            // Hide the parent container if it exists
-                            const parentContainer = previewContainer.closest('[id$="-preview-container"], [id$="-files-container"]');
-                            if (parentContainer && parentContainer.id !== 'lanyard-uploaded-files-container') {
-                                parentContainer.classList.add('d-none');
+                    if (buttonId.includes('add-print-size')) {
+                        // DTF Print Size
+                        let containerId = 'print-sizes-container';
+                        if (buttonId.includes('-')) {
+                            const instanceId = buttonId.replace('add-print-size-', '');
+                            if (instanceId) {
+                                containerId = `print-sizes-container-${instanceId}`;
                             }
                         }
+                        addPrintSizeRow(containerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
                     }
-                },
-                () => {
-                    // User clicked No
-                    console.log('DEBUG: Image removal cancelled by user');
-                }
-            );
-        }
-        
-        // Format file size
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-        
-        // Get file extension
-        function getFileExtension(filename) {
-            return filename.split('.').pop().toUpperCase();
-        }
+                    else if (buttonId.includes('add-shirt-size')) {
+                        // DTF Shirt Size
+                        let containerId = 'shirt-sizes-container';
+                        if (buttonId.includes('-')) {
+                            const instanceId = buttonId.replace('add-shirt-size-', '');
+                            if (instanceId) {
+                                containerId = `shirt-sizes-container-${instanceId}`;
+                            }
+                        }
+                        addShirtSizeRow(containerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
+                    }
+                    else if (buttonId.includes('add-embroidery-print-size')) {
+                        // Embroidery Print Size
+                        let containerId = 'embroidery-print-sizes-container';
+                        if (buttonId.includes('-')) {
+                            const instanceId = buttonId.replace('add-embroidery-print-size-', '');
+                            if (instanceId) {
+                                containerId = `embroidery-print-sizes-container-${instanceId}`;
+                            }
+                        }
+                        addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
+                    }
+                    else if (buttonId.includes('add-embroidery-shirt-size')) {
+                        // Embroidery Shirt Size
+                        let containerId = 'embroidery-shirt-sizes-container';
+                        if (buttonId.includes('-')) {
+                            const instanceId = buttonId.replace('add-embroidery-shirt-size-', '');
+                            if (instanceId) {
+                                containerId = `embroidery-shirt-sizes-container-${instanceId}`;
+                            }
+                        }
+                        addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
+                    }
+                };
+            });
+        });
     </script>
 @endpush
+    

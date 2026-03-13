@@ -452,15 +452,6 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Unit Price -->
-                                                        <div class="col-md-6">
-                                                            <label class="form-label fw-semibold small">Unit Price (₱)</label>
-                                                            <div class="input-group input-group-sm">
-                                                                <span class="input-group-text">₱</span>
-                                                                <input type="number" class="form-control form-control-sm" name="dtf_unit_price" min="0" step="0.01" placeholder="0.00" value="0.00">
-                                                            </div>
-                                                        </div>
-                                                        
                                                         <!-- Additional Notes -->
                                                         <div class="col-md-12 mt-3">
                                                             <label class="form-label fw-semibold small">Additional Notes</label>
@@ -658,7 +649,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="lanyard_quantity" min="50" value="100">
+                                                            <input type="number" class="form-control form-control-sm" name="lanyard_quantity" id="lanyard-quantity-input" min="50" value="100">
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Length</label>
@@ -677,15 +668,6 @@
                                                                 <option value="swivel">Swivel Hook</option>
                                                             </select>
                                                         </div>
-                                                        <!-- Unit Price -->
-                                                        <div class="col-md-6">
-                                                            <label class="form-label fw-semibold small">Unit Price (₱)</label>
-                                                            <div class="input-group input-group-sm">
-                                                                <span class="input-group-text">₱</span>
-                                                                <input type="number" class="form-control form-control-sm" name="lanyard_unit_price" min="0" step="0.01" placeholder="0.00" value="0.00">
-                                                            </div>
-                                                        </div>
-                                                        
                                                         <!-- Print Details -->
                                                         <div class="col-md-12 mt-3">
                                                             <label class="form-label fw-semibold small">Print Details</label>
@@ -875,17 +857,8 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_quantity" min="1" value="1">
+                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_quantity" id="tarpaulin-quantity-input" min="1" value="1">
                                                         </div>
-                                                        <!-- Unit Price -->
-                                                        <div class="col-md-6">
-                                                            <label class="form-label fw-semibold small">Unit Price (₱)</label>
-                                                            <div class="input-group input-group-sm">
-                                                                <span class="input-group-text">₱</span>
-                                                                <input type="number" class="form-control form-control-sm" name="tarpaulin_unit_price" min="0" step="0.01" placeholder="0.00" value="0.00">
-                                                            </div>
-                                                        </div>
-                                                        
                                                         <!-- Print Specifications -->
                                                         <div class="col-md-12 mt-3">
                                                             <label class="form-label fw-semibold small">Print Specifications</label>
@@ -1057,7 +1030,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="sublimation_quantity" min="1" value="1">
+                                                            <input type="number" class="form-control form-control-sm" name="sublimation_quantity" id="sublimation-simple-quantity" min="1" value="1">
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Print Size</label>
@@ -1076,15 +1049,6 @@
                                                                 <option value="wood">Wood</option>
                                                             </select>
                                                         </div>
-                                                        <!-- Unit Price -->
-                                                        <div class="col-md-6">
-                                                            <label class="form-label fw-semibold small">Unit Price (₱)</label>
-                                                            <div class="input-group input-group-sm">
-                                                                <span class="input-group-text">₱</span>
-                                                                <input type="number" class="form-control form-control-sm" name="sublimation_unit_price" min="0" step="0.01" placeholder="0.00" value="0.00">
-                                                            </div>
-                                                        </div>
-                                                        
                                                         <!-- Design Details -->
                                                         <div class="col-md-12 mt-3">
                                                             <label class="form-label fw-semibold small">Design Details</label>
@@ -1386,15 +1350,6 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Unit Price -->
-                                                        <div class="col-md-6">
-                                                            <label class="form-label fw-semibold small">Unit Price (₱)</label>
-                                                            <div class="input-group input-group-sm">
-                                                                <span class="input-group-text">₱</span>
-                                                                <input type="number" class="form-control form-control-sm" name="embroidery_unit_price" min="0" step="0.01" placeholder="0.00" value="0.00">
-                                                            </div>
-                                                        </div>
-                                                        
                                                         <!-- Additional Notes -->
                                                         <div class="col-md-12 mt-3">
                                                             <label class="form-label fw-semibold small">Additional Notes</label>
@@ -2404,7 +2359,7 @@
 <!-- Bootstrap JS CDN -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        console.log('DEBUG: Minimal JavaScript loaded');
+        console.log('DEBUG: Simple JavaScript loaded');
         
         // Function to show/hide order forms (iPrint, Consol, Class, Cinco)
         function showOrderForm(type) {
@@ -2439,6 +2394,391 @@
         }
         
         // Function to show/hide iPrint option forms (DTF, Lanyard, etc.)
+        // Create a new form instance for a specific item
+        // Reinitialize event listeners for cloned form instances
+        function reinitializeFormEventListeners(form, option, instanceId) {
+            console.log('DEBUG: Reinitializing event listeners for:', form.id, 'option:', option, 'instance:', instanceId);
+            
+            // Initialize quantity auto-compute for this form
+            initializeQuantityAutoComputeForForm(form);
+            
+            // REINITIALIZE IMAGE UPLOAD INPUTS for this form instance
+            reinitializeImageUploadInputs(form, option, instanceId);
+            
+            console.log('DEBUG: Event listeners reinitialized for:', form.id);
+        }
+        
+
+        
+        // Reinitialize image upload inputs for cloned form instances
+        function reinitializeImageUploadInputs(form, option, instanceId) {
+            console.log('DEBUG: Reinitializing image upload inputs for:', form.id);
+            
+            // Find all image upload inputs in this form
+            const imageUploadInputs = form.querySelectorAll('input[type="file"]');
+            imageUploadInputs.forEach(input => {
+                // Clone the input to clear any existing event listeners
+                const newInput = input.cloneNode(true);
+                input.parentNode.replaceChild(newInput, input);
+                
+                console.log('DEBUG: Replaced image upload input:', newInput.id);
+            });
+            
+            // The global event delegation in initializeImageUploadPreviews()
+            // will handle these new inputs automatically
+        }
+        
+        // Initialize quantity auto-compute for a specific form
+        function initializeQuantityAutoComputeForForm(form) {
+            // Find all quantity inputs in this form
+            const quantityInputs = form.querySelectorAll('input[type="number"]');
+            quantityInputs.forEach(input => {
+                // Remove existing listeners first
+                const newInput = input.cloneNode(true);
+                input.parentNode.replaceChild(newInput, input);
+                
+                // Add new listeners
+                newInput.addEventListener('input', function() {
+                    // Determine which container this belongs to
+                    const container = this.closest('tbody');
+                    if (container) {
+                        const containerId = container.id;
+                        // Check for any container with "sizes-container" in ID
+                        if (containerId && containerId.includes('sizes-container')) {
+                            calculateTotalQuantity(containerId);
+                        }
+                    }
+                });
+                
+                newInput.addEventListener('change', function() {
+                    const container = this.closest('tbody');
+                    if (container) {
+                        const containerId = container.id;
+                        // Check for any container with "sizes-container" in ID
+                        if (containerId && containerId.includes('sizes-container')) {
+                            calculateTotalQuantity(containerId);
+                        }
+                    }
+                });
+            });
+            
+            // Also handle simple quantity inputs
+            const simpleQuantityInputs = form.querySelectorAll('[id*="lanyard-quantity-input"], [id*="tarpaulin-quantity-input"], [id*="sublimation-simple-quantity"]');
+            simpleQuantityInputs.forEach(input => {
+                const newInput = input.cloneNode(true);
+                input.parentNode.replaceChild(newInput, input);
+                
+                newInput.addEventListener('input', function() {
+                    updateSimpleTotalQuantity(this.id, this.value);
+                });
+                
+                newInput.addEventListener('change', function() {
+                    updateSimpleTotalQuantity(this.id, this.value);
+                });
+            });
+        }
+        
+        // Restore form data from table details when editing again
+        function restoreFormDataFromTable(instanceId, option, form) {
+            console.log('DEBUG: Restoring form data for:', instanceId, option);
+            
+            // Get the current details from table
+            const detailsElement = document.getElementById(`details-${instanceId}`);
+            if (!detailsElement) return;
+            
+            const detailsText = detailsElement.textContent;
+            console.log('DEBUG: Current details:', detailsText);
+            
+            // If details show "Missing" or "Click Edit", no data to restore
+            if (detailsText.includes('Missing') || detailsText.includes('Click Edit')) {
+                console.log('DEBUG: No saved data to restore');
+                return;
+            }
+            
+            // Parse the details text based on option type
+            if (option === 'dtf') {
+                // Format: "Type: {print_type}, Size: {size}, Qty: {quantity}"
+                const typeMatch = detailsText.match(/Type:\s*([^,]+)/);
+                const sizeMatch = detailsText.match(/Size:\s*([^,]+)/);
+                const qtyMatch = detailsText.match(/Qty:\s*(\d+)/);
+                
+                if (typeMatch) {
+                    const printTypeSelect = form.querySelector('select[name="dtf_print_type"]');
+                    if (printTypeSelect) {
+                        // Find and select the matching option
+                        for (let i = 0; i < printTypeSelect.options.length; i++) {
+                            if (printTypeSelect.options[i].text === typeMatch[1].trim()) {
+                                printTypeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (sizeMatch) {
+                    const sizeSelect = form.querySelector('select[name="dtf_print_size[]"]');
+                    if (sizeSelect) {
+                        for (let i = 0; i < sizeSelect.options.length; i++) {
+                            if (sizeSelect.options[i].text === sizeMatch[1].trim()) {
+                                sizeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (qtyMatch) {
+                    // For DTF, quantity is in the total badge, not a single input
+                    // We'll update the quantity inputs if they exist
+                    const quantityInputs = form.querySelectorAll('input[name="dtf_print_quantity[]"]');
+                    if (quantityInputs.length > 0) {
+                        // Set first quantity input to the total
+                        quantityInputs[0].value = qtyMatch[1];
+                    }
+                }
+                
+            } else if (option === 'lanyard') {
+                // Format: "Type: {type}, Qty: {quantity}"
+                const typeMatch = detailsText.match(/Type:\s*([^,]+)/);
+                const qtyMatch = detailsText.match(/Qty:\s*(\d+)/);
+                
+                if (typeMatch) {
+                    const typeSelect = form.querySelector('select[name="lanyard_type"]');
+                    if (typeSelect) {
+                        for (let i = 0; i < typeSelect.options.length; i++) {
+                            if (typeSelect.options[i].text === typeMatch[1].trim()) {
+                                typeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (qtyMatch) {
+                    const qtyInput = form.querySelector('input[name="lanyard_quantity"]');
+                    if (qtyInput) qtyInput.value = qtyMatch[1];
+                }
+                
+            } else if (option === 'tarpaulin') {
+                // Format: "Size: {size}, Qty: {quantity}"
+                const sizeMatch = detailsText.match(/Size:\s*([^,]+)/);
+                const qtyMatch = detailsText.match(/Qty:\s*(\d+)/);
+                
+                if (sizeMatch) {
+                    const sizeSelect = form.querySelector('select[name="tarpaulin_size"]');
+                    if (sizeSelect) {
+                        for (let i = 0; i < sizeSelect.options.length; i++) {
+                            if (sizeSelect.options[i].text === sizeMatch[1].trim()) {
+                                sizeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (qtyMatch) {
+                    const qtyInput = form.querySelector('input[name="tarpaulin_quantity"]');
+                    if (qtyInput) qtyInput.value = qtyMatch[1];
+                }
+                
+            } else if (option === 'sublimation') {
+                // Format: "Type: {type}, Size: {size}, Qty: {quantity}"
+                const typeMatch = detailsText.match(/Type:\s*([^,]+)/);
+                const sizeMatch = detailsText.match(/Size:\s*([^,]+)/);
+                const qtyMatch = detailsText.match(/Qty:\s*(\d+)/);
+                
+                if (typeMatch) {
+                    const typeSelect = form.querySelector('select[name="sublimation_type"]');
+                    if (typeSelect) {
+                        for (let i = 0; i < typeSelect.options.length; i++) {
+                            if (typeSelect.options[i].text === typeMatch[1].trim()) {
+                                typeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (sizeMatch) {
+                    const sizeSelect = form.querySelector('select[name="sublimation_size"]');
+                    if (sizeSelect) {
+                        for (let i = 0; i < sizeSelect.options.length; i++) {
+                            if (sizeSelect.options[i].text === sizeMatch[1].trim()) {
+                                sizeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (qtyMatch) {
+                    const qtyInput = form.querySelector('input[name="sublimation_quantity"]');
+                    if (qtyInput) qtyInput.value = qtyMatch[1];
+                }
+                
+            } else if (option === 'embroidery') {
+                // Format: "Type: {type}, Size: {size}, Qty: {quantity}"
+                const typeMatch = detailsText.match(/Type:\s*([^,]+)/);
+                const sizeMatch = detailsText.match(/Size:\s*([^,]+)/);
+                const qtyMatch = detailsText.match(/Qty:\s*(\d+)/);
+                
+                if (typeMatch) {
+                    const typeSelect = form.querySelector('select[name="embroidery_type"]');
+                    if (typeSelect) {
+                        for (let i = 0; i < typeSelect.options.length; i++) {
+                            if (typeSelect.options[i].text === typeMatch[1].trim()) {
+                                typeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (sizeMatch) {
+                    const sizeSelect = form.querySelector('select[name="embroidery_size"]');
+                    if (sizeSelect) {
+                        for (let i = 0; i < sizeSelect.options.length; i++) {
+                            if (sizeSelect.options[i].text === sizeMatch[1].trim()) {
+                                sizeSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (qtyMatch) {
+                    const qtyInput = form.querySelector('input[name="embroidery_quantity"]');
+                    if (qtyInput) qtyInput.value = qtyMatch[1];
+                }
+            }
+            
+            console.log('DEBUG: Form data restored for:', instanceId);
+        }
+        
+        function createFormInstance(instanceId, option) {
+            console.log('DEBUG: Creating form instance for:', instanceId, option);
+            
+            // Get the original form template
+            const originalForm = document.getElementById(option + '-form');
+            if (!originalForm) {
+                console.error('DEBUG: Original form not found:', option + '-form');
+                return;
+            }
+            
+            // Clone the form
+            const formClone = originalForm.cloneNode(true);
+            formClone.id = `${option}-form-${instanceId}`;
+            formClone.style.display = 'block';
+            
+            // Add instance ID as data attribute
+            formClone.dataset.instanceId = instanceId;
+            
+            // FIX DUPLICATE IDs in cloned form
+            // Make all IDs unique by appending instanceId
+            const allElements = formClone.querySelectorAll('[id]');
+            console.log('DEBUG: Found', allElements.length, 'elements with IDs in cloned form');
+            allElements.forEach(element => {
+                const originalId = element.id;
+                if (originalId && !originalId.includes(`-${instanceId}`)) {
+                    console.log('DEBUG: Updating ID from', originalId, 'to', `${originalId}-${instanceId}`);
+                    element.id = `${originalId}-${instanceId}`;
+                    
+                    // Also update 'for' attributes in labels
+                    const labels = formClone.querySelectorAll(`label[for="${originalId}"]`);
+                    labels.forEach(label => {
+                        label.setAttribute('for', `${originalId}-${instanceId}`);
+                    });
+                }
+            });
+            
+            // IMPORTANT: Reset all form inputs to default state
+            // This ensures each new instance starts fresh
+            const inputs = formClone.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                if (input.type === 'text' || input.type === 'number') {
+                    input.value = '';
+                } else if (input.tagName === 'SELECT') {
+                    input.selectedIndex = 0; // Reset to first option
+                } else if (input.type === 'checkbox' || input.type === 'radio') {
+                    input.checked = false;
+                }
+            });
+            
+            // Reset quantity badges
+            const quantityBadges = formClone.querySelectorAll('[id$="-total-quantity"]');
+            quantityBadges.forEach(badge => {
+                badge.textContent = '0';
+            });
+            
+            // Reset image preview containers
+            const previewContainers = formClone.querySelectorAll('[id$="-previews"], [id$="-files-list"]');
+            previewContainers.forEach(container => {
+                // Remove all image previews
+                const previews = container.querySelectorAll('.col-md-4, .mb-2.p-2.border.rounded');
+                previews.forEach(preview => preview.remove());
+                
+                // Add "No files" message if empty
+                if (container.children.length === 0) {
+                    const noFilesMessage = document.createElement('div');
+                    noFilesMessage.className = 'text-muted small';
+                    noFilesMessage.textContent = 'No files attached yet';
+                    container.appendChild(noFilesMessage);
+                }
+            });
+            
+            // Hide image preview containers
+            const parentContainers = formClone.querySelectorAll('[id$="-preview-container"], [id$="-files-container"]');
+            parentContainers.forEach(container => {
+                if (container.id !== 'lanyard-uploaded-files-container') {
+                    container.classList.add('d-none');
+                }
+            });
+            
+            // Insert after the original form
+            originalForm.parentNode.insertBefore(formClone, originalForm.nextSibling);
+            
+            // REINITIALIZE EVENT LISTENERS for the cloned form
+            reinitializeFormEventListeners(formClone, option, instanceId);
+            
+            // Show the cloned form
+            showIprintOptionForInstance(instanceId, option);
+            
+            console.log('DEBUG: Created form instance:', formClone.id);
+        }
+        
+        // Show form for a specific instance
+        function showIprintOptionForInstance(instanceId, option) {
+            console.log('DEBUG: showIprintOptionForInstance called for:', instanceId, option);
+            
+            // IMPORTANT: Hide ALL form instances (not just same option)
+            // This ensures only one form is visible at a time
+            const allInstanceForms = document.querySelectorAll('[id*="-form-"]');
+            allInstanceForms.forEach(form => {
+                // Only hide if it's an instance form (contains "-form-" followed by ID)
+                if (form.id.includes('-form-')) {
+                    form.style.display = 'none';
+                }
+            });
+            
+            // Also hide all original forms
+            document.querySelectorAll('.iprint-type-form').forEach(form => {
+                form.style.display = 'none';
+            });
+            
+            // Show the specific instance form
+            const targetForm = document.getElementById(`${option}-form-${instanceId}`);
+            if (targetForm) {
+                targetForm.style.display = 'block';
+                
+                // Show parent container
+                const parent = document.getElementById('iprint-details-container');
+                if (parent) parent.style.display = 'block';
+            } else {
+                // Fallback to original form
+                showIprintOption(option, true);
+            }
+        }
+        
         function showIprintOption(option, skipAddToTable = false) {
             console.log('DEBUG: showIprintOption called with option:', option, 'skipAddToTable:', skipAddToTable);
             
@@ -2447,424 +2787,35 @@
                 form.style.display = 'none';
             });
             
+            // Also hide all instance forms
+            document.querySelectorAll('[id*="-form-"]').forEach(form => {
+                if (form.id.includes('-form-')) {
+                    form.style.display = 'none';
+                }
+            });
+            
             // Show the selected option form
             const targetForm = document.getElementById(option + '-form');
             if (targetForm) {
                 targetForm.style.display = 'block';
                 
                 // Show parent container
-                const details = document.getElementById('iprint-details-container');
-                if (details) details.style.display = 'block';
-                
-                // Update the selected type title
-                updateSelectedTypeTitle(option);
+                const parent = document.getElementById('iprint-details-container');
+                if (parent) parent.style.display = 'block';
             }
             
-            // Add to Order Items table (unless skipping)
+            // Add to table unless skipping
             if (!skipAddToTable) {
                 addPrintingTypeToTable(option);
             }
         }
         
-        // Update the selected type title
-        function updateSelectedTypeTitle(option) {
-            const titleElement = document.getElementById('iprint-selected-type');
-            if (!titleElement) return;
-            
-            // Map option to display name
-            const optionNames = {
-                'dtf': 'DTF & Subli Print',
-                'lanyard': 'Lanyard',
-                'tarpaulin': 'Tarpaulin',
-                'sublimation': 'Sublimation',
-                'embroidery': 'Embroidery',
-                'other': 'Other Items'
-            };
-            
-            const displayName = optionNames[option] || option.toUpperCase();
-            titleElement.textContent = `Selected: ${displayName}`;
-        }
-        
-
-        
-        // Show modal confirmation for removal
-        function showRemoveConfirmation(instanceId, printingType) {
-            currentRemoveInstanceId = instanceId;
-            currentRemovePrintingType = printingType;
-            
-            // Update modal message
-            document.getElementById('remove-confirm-message').textContent = 
-                `Are you sure you want to remove ${printingType} from the order?`;
-            
-            // Show modal
-            const modal = new bootstrap.Modal(document.getElementById('remove-confirm-modal'));
-            modal.show();
-        }
-        
-        // Execute removal after confirmation
-        function confirmRemove() {
-            if (!currentRemoveInstanceId) return;
-            
-            const row = document.getElementById(`printing-type-row-${currentRemoveInstanceId}`);
-            if (row) {
-                row.remove();
-                console.log('DEBUG: Removed item:', currentRemoveInstanceId);
-                updateRowNumbers();
-            }
-            
-            // Reset variables
-            currentRemoveInstanceId = null;
-            currentRemovePrintingType = '';
-            
-            // Hide modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('remove-confirm-modal'));
-            modal.hide();
-        }
-        
-        // Cancel removal
-        function cancelRemove() {
-            currentRemoveInstanceId = null;
-            currentRemovePrintingType = '';
-            
-            // Hide modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('remove-confirm-modal'));
-            modal.hide();
-        }
-        
-        // Store form data for each item
-        const formDataStore = {};
-        
-        // Save form data for an item
-        function saveFormData(instanceId, option) {
-            console.log('DEBUG: Saving form data for:', instanceId, option);
-            
-            // Get the form
-            const form = document.getElementById(option + '-form');
-            if (!form) {
-                console.error('DEBUG: Form not found for saving:', option + '-form');
-                return;
-            }
-            
-            // Collect all form data
-            const formData = {};
-            const inputs = form.querySelectorAll('input, select, textarea');
-            inputs.forEach(input => {
-                if (input.name) {
-                    // Handle checkboxes and radios
-                    if (input.type === 'checkbox' || input.type === 'radio') {
-                        formData[input.name] = input.checked ? input.value : '';
-                    } else {
-                        formData[input.name] = input.value;
-                    }
-                    
-                    // Debug: Log important fields
-                    if (input.name.includes('dtf_print_type') || input.name.includes('dtf_print_size') || input.name.includes('quantity')) {
-                        console.log('DEBUG: Saving field:', input.name, '=', input.value);
-                    }
-                }
-            });
-            
-            // Also save the selected type title
-            const titleElement = document.getElementById('iprint-selected-type');
-            if (titleElement) {
-                formData['_selected_title'] = titleElement.textContent;
-            }
-            
-            // Save to store
-            formDataStore[instanceId] = {
-                option: option,
-                data: formData,
-                timestamp: new Date().toISOString(),
-                saved: true
-            };
-            
-            console.log('DEBUG: Saved data for', instanceId, 'with', Object.keys(formData).length, 'fields');
-            
-            // Update table details
-            console.log('DEBUG: Calling updateTableDetailsInternal for', instanceId);
-            updateTableDetailsInternal(instanceId, option, formData);
-            
-            // Check and update form status
-            checkAndUpdateFormStatus(instanceId, option, formData);
-        }
-        
-        // Update table details column to show what's missing
-        function updateTableDetailsInternal(instanceId, option, formData) {
-            console.log('DEBUG: updateTableDetailsInternal called for:', instanceId, 'option:', option);
-            console.log('DEBUG: Form data keys:', Object.keys(formData));
-            
-            const detailsElement = document.getElementById(`details-${instanceId}`);
-            if (!detailsElement) {
-                console.error('DEBUG: Details element not found for:', `details-${instanceId}`);
-                // Try to find the row first
-                const row = document.getElementById(`printing-type-row-${instanceId}`);
-                if (row) {
-                    console.log('DEBUG: Row found, cells:', row.cells.length);
-                    // The details is in the 4th cell (index 3)
-                    if (row.cells[3]) {
-                        console.log('DEBUG: Found details cell:', row.cells[3]);
-                        // Update it directly
-                        row.cells[3].textContent = 'TEST: Working!';
-                    }
-                }
-                return;
-            }
-            
-            // Check what's missing for completion
-            const missingFields = getMissingFields(option, formData);
-            console.log('DEBUG: Missing fields for', instanceId, ':', missingFields);
-            
-            if (missingFields.length === 0) {
-                // Form is complete - show summary
-                const summary = getFormSummary(option, formData);
-                detailsElement.textContent = summary;
-                detailsElement.className = 'text-success';
-                console.log('DEBUG: Updated details to success:', summary);
-            } else {
-                // Form is incomplete - show what's missing
-                const missingText = `Missing: ${missingFields.join(', ')}`;
-                detailsElement.textContent = missingText;
-                detailsElement.className = 'text-danger';
-                console.log('DEBUG: Updated details to missing:', missingText);
-            }
-        }
-        
-
-        
-        // Get missing required fields for a form
-        function getMissingFields(option, formData) {
-            const missing = [];
-            
-            if (option === 'dtf') {
-                if (!formData['dtf_print_type'] || formData['dtf_print_type'].trim() === '') {
-                    missing.push('Print Type');
-                }
-                if (!formData['dtf_print_size[]'] || formData['dtf_print_size[]'].trim() === '') {
-                    missing.push('Size');
-                }
-                if (!formData['dtf_print_size_quantity[]'] || formData['dtf_print_size_quantity[]'].trim() === '') {
-                    missing.push('Quantity');
-                }
-            }
-            else if (option === 'lanyard') {
-                if (!formData['lanyard_type'] || formData['lanyard_type'].trim() === '') {
-                    missing.push('Lanyard Type');
-                }
-                if (!formData['lanyard_quantity'] || formData['lanyard_quantity'].trim() === '') {
-                    missing.push('Quantity');
-                }
-            }
-            else if (option === 'tarpaulin') {
-                if (!formData['tarpaulin_size'] || formData['tarpaulin_size'].trim() === '') {
-                    missing.push('Size');
-                }
-                if (!formData['tarpaulin_quantity'] || formData['tarpaulin_quantity'].trim() === '') {
-                    missing.push('Quantity');
-                }
-            }
-            else if (option === 'sublimation') {
-                if (!formData['sublimation_type'] || formData['sublimation_type'].trim() === '') {
-                    missing.push('Sublimation Type');
-                }
-                if (!formData['sublimation_quantity'] || formData['sublimation_quantity'].trim() === '') {
-                    missing.push('Quantity');
-                }
-            }
-            else if (option === 'embroidery') {
-                if (!formData['embroidery_type'] || formData['embroidery_type'].trim() === '') {
-                    missing.push('Embroidery Type');
-                }
-                if (!formData['embroidery_quantity'] || formData['embroidery_quantity'].trim() === '') {
-                    missing.push('Quantity');
-                }
-            }
-            else if (option === 'other') {
-                if (!formData['other_item_description'] || formData['other_item_description'].trim() === '') {
-                    missing.push('Description');
-                }
-                if (!formData['other_item_quantity'] || formData['other_item_quantity'].trim() === '') {
-                    missing.push('Quantity');
-                }
-            }
-            
-            return missing;
-        }
-        
-        // Get form summary when complete
-        function getFormSummary(option, formData) {
-            let summary = '';
-            
-            if (option === 'dtf') {
-                summary = `Type: ${formData['dtf_print_type']}`;
-                if (formData['dtf_print_size[]']) {
-                    summary += `, Size: ${formData['dtf_print_size[]']}`;
-                }
-                if (formData['dtf_print_size_quantity[]']) {
-                    summary += `, Qty: ${formData['dtf_print_size_quantity[]']}`;
-                }
-                if (formData['dtf_unit_price'] && parseFloat(formData['dtf_unit_price']) > 0) {
-                    summary += `, Price: ₱${parseFloat(formData['dtf_unit_price']).toFixed(2)}`;
-                }
-            }
-            else if (option === 'lanyard') {
-                summary = `Type: ${formData['lanyard_type']}`;
-                if (formData['lanyard_quantity']) {
-                    summary += `, Qty: ${formData['lanyard_quantity']}`;
-                }
-            }
-            else if (option === 'tarpaulin') {
-                summary = `Size: ${formData['tarpaulin_size']}`;
-                if (formData['tarpaulin_quantity']) {
-                    summary += `, Qty: ${formData['tarpaulin_quantity']}`;
-                }
-            }
-            else if (option === 'sublimation') {
-                summary = `Type: ${formData['sublimation_type']}`;
-                if (formData['sublimation_quantity']) {
-                    summary += `, Qty: ${formData['sublimation_quantity']}`;
-                }
-            }
-            else if (option === 'embroidery') {
-                summary = `Type: ${formData['embroidery_type']}`;
-                if (formData['embroidery_quantity']) {
-                    summary += `, Qty: ${formData['embroidery_quantity']}`;
-                }
-            }
-            else if (option === 'other') {
-                const desc = formData['other_item_description'] || '';
-                summary = `Desc: ${desc.substring(0, 30)}${desc.length > 30 ? '...' : ''}`;
-                if (formData['other_item_quantity']) {
-                    summary += `, Qty: ${formData['other_item_quantity']}`;
-                }
-            }
-            
-            return summary || 'Complete';
-        }
-        
-        // Check if form is complete and update status
-        function checkAndUpdateFormStatus(instanceId, option, formData) {
-            console.log('DEBUG: Checking form completion for:', instanceId, option);
-            
-            const statusBadge = document.getElementById(`status-${instanceId}`);
-            if (!statusBadge) return;
-            
-            let isComplete = false;
-            
-            // Check completion based on form type
-            if (option === 'dtf') {
-                // DTF form: need type, size, and quantity
-                isComplete = formData['dtf_print_type'] && 
-                            formData['dtf_print_size[]'] && 
-                            formData['dtf_print_size_quantity[]'] &&
-                            formData['dtf_print_size[]'].trim() !== '' &&
-                            formData['dtf_print_size_quantity[]'].trim() !== '';
-            }
-            else if (option === 'lanyard') {
-                // Lanyard form: need type and quantity
-                isComplete = formData['lanyard_type'] && 
-                            formData['lanyard_quantity'] &&
-                            formData['lanyard_quantity'].trim() !== '';
-            }
-            else if (option === 'tarpaulin') {
-                // Tarpaulin form: need size and quantity
-                isComplete = formData['tarpaulin_size'] && 
-                            formData['tarpaulin_quantity'] &&
-                            formData['tarpaulin_quantity'].trim() !== '';
-            }
-            else if (option === 'sublimation') {
-                // Sublimation form: need type and quantity
-                isComplete = formData['sublimation_type'] && 
-                            formData['sublimation_quantity'] &&
-                            formData['sublimation_quantity'].trim() !== '';
-            }
-            else if (option === 'embroidery') {
-                // Embroidery form: need type and quantity
-                isComplete = formData['embroidery_type'] && 
-                            formData['embroidery_quantity'] &&
-                            formData['embroidery_quantity'].trim() !== '';
-            }
-            else if (option === 'other') {
-                // Other items form: need description and quantity
-                isComplete = formData['other_item_description'] && 
-                            formData['other_item_quantity'] &&
-                            formData['other_item_description'].trim() !== '' &&
-                            formData['other_item_quantity'].trim() !== '';
-            }
-            
-            // Update status if complete
-            if (isComplete && statusBadge.textContent === 'Pending') {
-                statusBadge.textContent = 'Complete';
-                statusBadge.className = 'badge bg-success status-badge';
-                console.log('DEBUG: Auto-updated status to Complete for:', instanceId);
-                
-                // Update form data store
-                if (formDataStore[instanceId]) {
-                    formDataStore[instanceId].status = 'complete';
-                    formDataStore[instanceId].completedAt = new Date().toISOString();
-                }
-            } else if (!isComplete && statusBadge.textContent === 'Complete') {
-                // If form becomes incomplete again, revert to Pending
-                statusBadge.textContent = 'Pending';
-                statusBadge.className = 'badge bg-warning status-badge';
-                console.log('DEBUG: Reverted status to Pending for:', instanceId);
-                
-                // Update form data store
-                if (formDataStore[instanceId]) {
-                    formDataStore[instanceId].status = 'pending';
-                }
-            }
-        }
-        
-        // Load form data for an item
-        function loadFormData(instanceId, option) {
-            console.log('DEBUG: Loading form data for:', instanceId, option);
-            
-            // Check if we have saved data
-            if (!formDataStore[instanceId]) {
-                console.log('DEBUG: No saved data for', instanceId);
-                return false;
-            }
-            
-            // Get the form
-            const form = document.getElementById(option + '-form');
-            if (!form) {
-                console.error('DEBUG: Form not found for loading:', option + '-form');
-                return false;
-            }
-            
-            // Load the data
-            const savedData = formDataStore[instanceId].data;
-            const inputs = form.querySelectorAll('input, select, textarea');
-            
-            inputs.forEach(input => {
-                if (input.name && savedData[input.name] !== undefined) {
-                    // Special handling for different input types
-                    if (input.type === 'checkbox' || input.type === 'radio') {
-                        input.checked = (savedData[input.name] === input.value);
-                    } else {
-                        input.value = savedData[input.name];
-                        
-                        // Trigger change event for select elements
-                        if (input.tagName === 'SELECT') {
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    }
-                }
-            });
-            
-            console.log('DEBUG: Loaded', Object.keys(savedData).length, 'fields for', instanceId);
-            return true;
-        }
-        
-        // Update addPrintingTypeToTable to save form data
+        // Function to add printing type to the Order Items table
         function addPrintingTypeToTable(option) {
             console.log('DEBUG: addPrintingTypeToTable called with option:', option);
             
             const tableContainer = document.getElementById('selected-printing-types-container');
-            if (!tableContainer) {
-                console.error('DEBUG: Table container not found!');
-                return;
-            }
+            if (!tableContainer) return;
             
             // Show the table container
             tableContainer.style.display = 'block';
@@ -2881,9 +2832,11 @@
             // Get row number
             const rowNumber = tableBody.children.length + 1;
             
-            // Add new row FIRST (so the details element exists)
+            // Add new row
             const newRow = document.createElement('tr');
             newRow.id = `printing-type-row-${instanceId}`;
+            newRow.dataset.instanceId = instanceId;
+            newRow.dataset.option = option;
             newRow.innerHTML = `
                 <td>${rowNumber}</td>
                 <td>${option.toUpperCase()}</td>
@@ -2893,7 +2846,6 @@
                 <td id="details-${instanceId}">Click Edit to add details</td>
                 <td>
                     <button type="button" class="btn btn-sm btn-warning" onclick="editPrintingType('${instanceId}', '${option}')">Edit</button>
-                    <button type="button" class="btn btn-sm btn-primary" onclick="updateTableDetails('${instanceId}', '${option}')">Update</button>
                     <button type="button" class="btn btn-sm btn-danger" onclick="removePrintingType('${instanceId}')">Remove</button>
                 </td>
             `;
@@ -2901,180 +2853,565 @@
             tableBody.appendChild(newRow);
             console.log('DEBUG: Added item to table:', instanceId);
             
-            // NOW save form data (details element exists)
-            saveFormData(instanceId, option);
+            // Show notification for successful add
+            showNotification('Item added to order list', 'success');
         }
         
-        // Track currently editing item
-        let currentlyEditingId = null;
-        let currentlyEditingOption = null;
-        
-
-        
-        // Update editPrintingType to load form data
+        // Simple edit function
         function editPrintingType(instanceId, option) {
             console.log('DEBUG: editPrintingType called for:', instanceId, option);
             
-            // Save current form data before switching (if editing another item)
-            if (currentlyEditingId && currentlyEditingOption) {
-                saveFormData(currentlyEditingId, currentlyEditingOption);
-                console.log('DEBUG: Auto-saved data for previous item:', currentlyEditingId);
-            }
+            // Check if this instance already has a form
+            const existingForm = document.getElementById(`${option}-form-${instanceId}`);
             
-            // Set currently editing
-            currentlyEditingId = instanceId;
-            currentlyEditingOption = option;
-            
-            // Show the form for this option (skip adding to table)
-            showIprintOption(option, true);
-            
-            // Load saved form data
-            const loaded = loadFormData(instanceId, option);
-            
-            if (loaded) {
-                console.log('DEBUG: Successfully loaded form data for editing:', instanceId);
+            if (existingForm) {
+                // Show existing form for this instance
+                showIprintOptionForInstance(instanceId, option);
+                
+                // RESTORE FORM DATA from table details
+                restoreFormDataFromTable(instanceId, option, existingForm);
             } else {
-                console.log('DEBUG: No saved data for:', instanceId, '- showing empty form');
+                // Create new form instance for this item
+                createFormInstance(instanceId, option);
             }
             
-            // Setup form (manual save only)
-            setupForm(instanceId, option);
+            // Setup auto-update for this form
+            setupAutoUpdate(instanceId, option);
         }
         
-        // Setup auto-save for form inputs
-        function setupForm(instanceId, option) {
-            const form = document.getElementById(option + '-form');
-            if (!form) return;
-            
-            console.log('DEBUG: Form setup for:', instanceId, option, '(manual save only)');
-            
-            // No auto-save - manual save only
-            // User will click "Update" button in table to save
-        }
-        
-        // Update removePrintingType to also remove saved data
+        // Remove function with confirmation
         function removePrintingType(instanceId) {
             console.log('DEBUG: removePrintingType called for:', instanceId);
             
-            // Get the row to find what we're removing
-            const row = document.getElementById(`printing-type-row-${instanceId}`);
-            if (!row) return;
-            
-            // Get the printing type from the row (second column)
-            const printingType = row.cells[1]?.textContent || 'this item';
-            
-            // Show modal confirmation
-            showRemoveConfirmation(instanceId, printingType);
+            // Show professional confirmation modal
+            showConfirmationModal(
+                'Remove Item',
+                'Are you sure you want to remove this item?',
+                () => {
+                    // User clicked Yes
+                    const row = document.getElementById(`printing-type-row-${instanceId}`);
+                    if (row) {
+                        row.remove();
+                    }
+                    
+                    // Also remove the form instance if it exists
+                    const formInstance = document.querySelector(`[data-instance-id="${instanceId}"]`);
+                    if (formInstance) {
+                        formInstance.remove();
+                    }
+                    
+                    // Remove any instance form
+                    const instanceForms = document.querySelectorAll(`[id$="-form-${instanceId}"]`);
+                    instanceForms.forEach(form => form.remove());
+                    
+                    // Update row numbers
+                    updateRowNumbers();
+                    
+                    // Show success notification
+                    showNotification('Item has been removed successfully', 'success');
+                },
+                () => {
+                    // User clicked No
+                    console.log('DEBUG: Remove cancelled by user');
+                }
+            );
         }
         
-        // Update confirmRemove to also remove saved data
-        function confirmRemove() {
-            if (!currentRemoveInstanceId) return;
+        // Update row numbers in the table
+        function updateRowNumbers() {
+            const tableBody = document.getElementById('printing-types-tbody');
+            if (!tableBody) return;
             
-            const row = document.getElementById(`printing-type-row-${currentRemoveInstanceId}`);
-            if (row) {
-                row.remove();
-                console.log('DEBUG: Removed item:', currentRemoveInstanceId);
-                
-                // Also remove from form data store
-                if (formDataStore[currentRemoveInstanceId]) {
-                    delete formDataStore[currentRemoveInstanceId];
-                    console.log('DEBUG: Removed form data for:', currentRemoveInstanceId);
+            const rows = tableBody.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                // Update the first cell (row number)
+                if (row.cells[0]) {
+                    row.cells[0].textContent = index + 1;
+                }
+            });
+        }
+        
+        // Confirmation Modal System
+        function showConfirmationModal(title, message, onConfirm, onCancel) {
+            // Remove existing modal if any
+            const existingModal = document.getElementById('confirmation-modal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Create modal overlay
+            const modalOverlay = document.createElement('div');
+            modalOverlay.id = 'confirmation-modal';
+            modalOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.2s ease-out;
+            `;
+            
+            // Create modal content
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = `
+                background: white;
+                border-radius: 0.75rem;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                width: 90%;
+                max-width: 400px;
+                animation: scaleIn 0.3s ease-out;
+            `;
+            
+            // Modal header
+            const modalHeader = document.createElement('div');
+            modalHeader.style.cssText = `
+                padding: 1.5rem 1.5rem 1rem;
+                border-bottom: 1px solid #e5e7eb;
+            `;
+            
+            const modalTitle = document.createElement('h3');
+            modalTitle.style.cssText = `
+                margin: 0;
+                font-size: 1.25rem;
+                font-weight: 600;
+                color: #111827;
+            `;
+            modalTitle.textContent = title;
+            
+            // Modal body
+            const modalBody = document.createElement('div');
+            modalBody.style.cssText = `
+                padding: 1.5rem;
+            `;
+            
+            const modalMessage = document.createElement('p');
+            modalMessage.style.cssText = `
+                margin: 0;
+                color: #6b7280;
+                line-height: 1.5;
+            `;
+            modalMessage.textContent = message;
+            
+            // Modal footer
+            const modalFooter = document.createElement('div');
+            modalFooter.style.cssText = `
+                padding: 1rem 1.5rem 1.5rem;
+                border-top: 1px solid #e5e7eb;
+                display: flex;
+                justify-content: flex-end;
+                gap: 0.75rem;
+            `;
+            
+            // Cancel button
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.textContent = 'Cancel';
+            cancelButton.style.cssText = `
+                padding: 0.5rem 1rem;
+                background: white;
+                border: 1px solid #d1d5db;
+                border-radius: 0.375rem;
+                color: #374151;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+            `;
+            cancelButton.onmouseover = () => cancelButton.style.backgroundColor = '#f9fafb';
+            cancelButton.onmouseout = () => cancelButton.style.backgroundColor = 'white';
+            cancelButton.onclick = () => {
+                modalOverlay.remove();
+                if (onCancel) onCancel();
+            };
+            
+            // Confirm button
+            const confirmButton = document.createElement('button');
+            confirmButton.type = 'button';
+            confirmButton.textContent = 'Yes, Remove';
+            confirmButton.style.cssText = `
+                padding: 0.5rem 1rem;
+                background: #ef4444;
+                border: 1px solid #ef4444;
+                border-radius: 0.375rem;
+                color: white;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+            `;
+            confirmButton.onmouseover = () => confirmButton.style.backgroundColor = '#dc2626';
+            confirmButton.onmouseout = () => confirmButton.style.backgroundColor = '#ef4444';
+            confirmButton.onclick = () => {
+                modalOverlay.remove();
+                if (onConfirm) onConfirm();
+            };
+            
+            // Assemble modal
+            modalHeader.appendChild(modalTitle);
+            modalBody.appendChild(modalMessage);
+            modalFooter.appendChild(cancelButton);
+            modalFooter.appendChild(confirmButton);
+            
+            modalContent.appendChild(modalHeader);
+            modalContent.appendChild(modalBody);
+            modalContent.appendChild(modalFooter);
+            modalOverlay.appendChild(modalContent);
+            
+            // Add animations to style
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
                 }
                 
-                updateRowNumbers();
+                @keyframes scaleIn {
+                    from { transform: scale(0.9); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Add to document
+            document.body.appendChild(modalOverlay);
+            
+            // Close on ESC key
+            const handleKeyDown = (e) => {
+                if (e.key === 'Escape') {
+                    modalOverlay.remove();
+                    document.removeEventListener('keydown', handleKeyDown);
+                    if (onCancel) onCancel();
+                }
+            };
+            document.addEventListener('keydown', handleKeyDown);
+            
+            // Close on overlay click
+            modalOverlay.onclick = (e) => {
+                if (e.target === modalOverlay) {
+                    modalOverlay.remove();
+                    document.removeEventListener('keydown', handleKeyDown);
+                    if (onCancel) onCancel();
+                }
+            };
+        }
+        
+        // Notification system
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification-toast');
+            existingNotifications.forEach(notification => {
+                notification.remove();
+            });
+            
+            // Create notification
+            const notification = document.createElement('div');
+            notification.className = `notification-toast ${type}`;
+            notification.innerHTML = `
+                <div class="notification-icon">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-message">${message}</div>
+                </div>
+                <button class="notification-close" onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+        
+        // Add CSS for notifications if not already present
+        if (!document.querySelector('#notification-styles')) {
+            const notificationStyles = document.createElement('style');
+            notificationStyles.id = 'notification-styles';
+            notificationStyles.textContent = `
+                .notification-toast {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 1.5rem;
+                    background: white;
+                    border-radius: 0.75rem;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                    border-left: 6px solid #3b82f6;
+                    min-width: 350px;
+                    max-width: 450px;
+                    animation: fadeInScale 0.3s ease-out;
+                }
                 
-                // Check if table is now empty
-                const tableBody = document.getElementById('printing-types-tbody');
-                if (tableBody && tableBody.children.length === 0) {
-                    // Hide the table container
-                    const tableContainer = document.getElementById('selected-printing-types-container');
-                    if (tableContainer) {
-                        tableContainer.style.display = 'none';
-                        console.log('DEBUG: Table is empty, hiding container');
+                @keyframes fadeInScale {
+                    from {
+                        transform: translate(-50%, -50%) scale(0.9);
+                        opacity: 0;
                     }
-                    
-                    // Also hide the form if it's showing
-                    const iprintDetailsContainer = document.getElementById('iprint-details-container');
-                    if (iprintDetailsContainer) {
-                        iprintDetailsContainer.style.display = 'none';
-                        console.log('DEBUG: Hiding form container');
+                    to {
+                        transform: translate(-50%, -50%) scale(1);
+                        opacity: 1;
                     }
-                    
-                    // Reset currently editing
-                    currentlyEditingId = null;
-                    currentlyEditingOption = null;
+                }
+                
+                .notification-toast.success {
+                    border-left-color: #10b981;
+                }
+                
+                .notification-toast.error {
+                    border-left-color: #ef4444;
+                }
+                
+                .notification-icon {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                }
+                
+                .notification-toast .notification-icon {
+                    background: rgba(59, 130, 246, 0.1);
+                    color: #3b82f6;
+                }
+                
+                .notification-toast.success .notification-icon {
+                    background: rgba(16, 185, 129, 0.1);
+                    color: #10b981;
+                }
+                
+                .notification-toast.error .notification-icon {
+                    background: rgba(239, 68, 68, 0.1);
+                    color: #ef4444;
+                }
+                
+                .notification-content {
+                    flex: 1;
+                }
+                
+                .notification-message {
+                    font-size: 0.9375rem;
+                    color: #1e293b;
+                    line-height: 1.4;
+                }
+                
+                .notification-close {
+                    background: none;
+                    border: none;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    padding: 0.25rem;
+                    border-radius: 0.25rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                
+                .notification-close:hover {
+                    background: #f1f5f9;
+                    color: #64748b;
+                }
+            `;
+            document.head.appendChild(notificationStyles);
+        }
+        
+        // Setup auto-update for form inputs
+        function setupAutoUpdate(instanceId, option) {
+            // Try to find instance form first, then fallback to original form
+            let form = document.getElementById(`${option}-form-${instanceId}`);
+            if (!form) {
+                form = document.getElementById(option + '-form');
+            }
+            if (!form) return;
+            
+            console.log('DEBUG: Setting up auto-update for:', instanceId, option, 'form:', form.id);
+            
+            // Remove any existing event listeners from this form
+            // We'll use event delegation instead of attaching to individual inputs
+            
+            // Create handler function first
+            const handleFormUpdate = (event) => {
+                // Only handle input, select, and textarea events
+                if (event.target.matches('input, select, textarea')) {
+                    console.log('DEBUG: Form input changed, updating details for:', instanceId, 'target:', event.target.name, 'value:', event.target.value);
+                    // Debounce the update to avoid too many calls
+                    clearTimeout(form._updateTimeout);
+                    form._updateTimeout = setTimeout(() => {
+                        updateTableDetails(instanceId, option);
+                    }, 300);
+                }
+            };
+            
+            // Remove existing listeners if any
+            if (form._updateHandler) {
+                form.removeEventListener('input', form._updateHandler);
+                form.removeEventListener('change', form._updateHandler);
+            }
+            
+            // Store handler on form for later removal
+            form._updateHandler = handleFormUpdate;
+            
+            // Add event listeners using event delegation
+            form.addEventListener('input', handleFormUpdate);
+            form.addEventListener('change', handleFormUpdate);
+            
+            // Also update immediately to show current state
+            updateTableDetails(instanceId, option);
+        }
+        
+        // Update table details based on form data
+        function updateTableDetails(instanceId, option) {
+            console.log('DEBUG: updateTableDetails called for:', instanceId, option, 'at:', new Date().toISOString(), 'NEW LOGIC');
+            
+            // Try to find instance form first, then fallback to original form
+            let form = document.getElementById(`${option}-form-${instanceId}`);
+            if (!form) {
+                form = document.getElementById(option + '-form');
+            }
+            if (!form) return;
+            
+            const detailsElement = document.getElementById(`details-${instanceId}`);
+            if (!detailsElement) return;
+            
+            // Collect form data
+            const formData = {};
+            const inputs = form.querySelectorAll('input, select, textarea');
+            
+            inputs.forEach(input => {
+                if (input.name && input.value) {
+                    formData[input.name] = input.value;
+                }
+            });
+            
+            // Generate summary based on form data - show only what's missing
+            let summary = '';
+            let missingFields = [];
+            
+            if (option === 'dtf') {
+                // Get print type from form
+                const printTypeSelect = form.querySelector('select[name="dtf_print_type"]');
+                const printType = printTypeSelect ? printTypeSelect.value : '';
+                
+                // Get all size selections (multiple rows possible)
+                const sizeSelects = form.querySelectorAll('select[name="dtf_print_size[]"]');
+                const sizes = Array.from(sizeSelects).map(select => select.value).filter(v => v);
+                
+                // Check what's missing
+                if (!printType) missingFields.push('Print Type');
+                if (sizes.length === 0) missingFields.push('Size');
+                
+                if (missingFields.length > 0) {
+                    summary = `Missing: ${missingFields.join(', ')}`;
+                } else {
+                    summary = 'Complete';
+                }
+            } else if (option === 'lanyard') {
+                // Get lanyard type from form
+                const typeSelect = form.querySelector('select[name="lanyard_type"]');
+                const type = typeSelect ? typeSelect.value : '';
+                
+                // Get quantity from form
+                const quantityInput = form.querySelector('input[name="lanyard_quantity"]');
+                const quantity = quantityInput ? quantityInput.value : '';
+                
+                // Check what's missing
+                if (!type) missingFields.push('Type');
+                if (!quantity) missingFields.push('Quantity');
+                
+                if (missingFields.length > 0) {
+                    summary = `Missing: ${missingFields.join(', ')}`;
+                } else {
+                    summary = 'Complete';
+                }
+            } else if (option === 'tarpaulin') {
+                // Get tarpaulin size from form
+                const sizeSelect = form.querySelector('select[name="tarpaulin_size"]');
+                const size = sizeSelect ? sizeSelect.value : '';
+                
+                // Get quantity from form
+                const quantityInput = form.querySelector('input[name="tarpaulin_quantity"]');
+                const quantity = quantityInput ? quantityInput.value : '';
+                
+                // Check what's missing
+                if (!size) missingFields.push('Size');
+                if (!quantity) missingFields.push('Quantity');
+                
+                if (missingFields.length > 0) {
+                    summary = `Missing: ${missingFields.join(', ')}`;
+                } else {
+                    summary = 'Complete';
+                }
+            } else if (option === 'sublimation') {
+                // Get sublimation type from form
+                const typeSelect = form.querySelector('select[name="sublimation_type"]');
+                const type = typeSelect ? typeSelect.value : '';
+                
+                // Get all size selections (multiple rows possible)
+                const sizeSelects = form.querySelectorAll('select[name="sublimation_size[]"]');
+                const sizes = Array.from(sizeSelects).map(select => select.value).filter(v => v);
+                
+                // Check what's missing
+                if (!type) missingFields.push('Type');
+                if (sizes.length === 0) missingFields.push('Size');
+                
+                if (missingFields.length > 0) {
+                    summary = `Missing: ${missingFields.join(', ')}`;
+                } else {
+                    summary = 'Complete';
+                }
+            } else if (option === 'embroidery') {
+                // Get embroidery type from form
+                const typeSelect = form.querySelector('select[name="embroidery_type"]');
+                const type = typeSelect ? typeSelect.value : '';
+                
+                // Get all size selections (multiple rows possible)
+                const sizeSelects = form.querySelectorAll('select[name="embroidery_size[]"]');
+                const sizes = Array.from(sizeSelects).map(select => select.value).filter(v => v);
+                
+                // Check what's missing
+                if (!type) missingFields.push('Type');
+                if (sizes.length === 0) missingFields.push('Size');
+                
+                if (missingFields.length > 0) {
+                    summary = `Missing: ${missingFields.join(', ')}`;
+                } else {
+                    summary = 'Complete';
                 }
             }
             
-            // Reset variables
-            currentRemoveInstanceId = null;
-            currentRemovePrintingType = '';
+            // Update details element
+            detailsElement.textContent = summary;
             
-            // Hide modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('remove-confirm-modal'));
-            modal.hide();
+            // Update status badge
+            const statusBadge = document.getElementById(`status-${instanceId}`);
+            if (statusBadge) {
+                if (summary.includes('Missing:')) {
+                    statusBadge.textContent = 'Pending';
+                    statusBadge.className = 'badge bg-warning status-badge';
+                } else {
+                    statusBadge.textContent = 'Complete';
+                    statusBadge.className = 'badge bg-success status-badge';
+                }
+            }
+            
+            console.log('DEBUG: Updated details:', summary);
         }
-        
-        // Initialize when page loads
-        // Note: DOMContentLoaded is handled in the main script below
     </script>
     
-    <!-- Remove Confirmation Modal -->
-    <div class="modal fade" id="remove-confirm-modal" tabindex="-1" aria-labelledby="remove-confirm-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="remove-confirm-modal-label">Confirm Removal</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="remove-confirm-message">Are you sure you want to remove this item from the order?</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="cancelRemove()">Cancel</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmRemove()">Remove</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <style>
-        #remove-confirm-modal .modal-dialog {
-            max-width: 400px;
-        }
-        #remove-confirm-modal .modal-body {
-            font-size: 16px;
-            padding: 20px;
-        }
-        #remove-confirm-modal .modal-footer {
-            padding: 15px 20px;
-        }
-        
-        /* Status badges */
-        .status-badge {
-            font-size: 0.85em;
-            padding: 0.35em 0.65em;
-            font-weight: 600;
-        }
-        
-        /* Table styling */
-        #selected-printing-types-container table {
-            font-size: 0.9em;
-        }
-        
-        #selected-printing-types-container table td {
-            vertical-align: middle;
-        }
-        
-        /* Success message */
-        .alert {
-            margin-bottom: 1rem;
-            border-radius: 0.375rem;
-        }
-    </style>
-    
-    <!-- Add Print Size Functions -->
     <script>
         // Add event listeners for Add Another Print Size buttons
         document.addEventListener('DOMContentLoaded', function() {
@@ -3084,54 +3421,128 @@
             // Initialize image upload previews for all forms
             initializeImageUploadPreviews();
             
-            // DTF Add Print Size button
-            const addPrintSizeBtn = document.getElementById('add-print-size');
-            if (addPrintSizeBtn) {
-                addPrintSizeBtn.addEventListener('click', function() {
-                    addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
-                });
-            }
+            // USE EVENT DELEGATION for all Add Size buttons
+            // This works for both original forms and form instances
+            document.addEventListener('click', function(event) {
+                // Check if clicked element is an "Add Print Size" button
+                if (event.target.matches('#add-print-size, [id^="add-print-size-"]')) {
+                    // Find the container for this button
+                    const button = event.target;
+                    console.log('DEBUG: Add Print Size button clicked, ID:', button.id);
+                    
+                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
+                    let containerId = 'print-sizes-container';
+                    if (button.id.includes('-')) {
+                        // Get everything after "add-print-size-"
+                        const instanceId = button.id.replace('add-print-size-', '');
+                        if (instanceId) {
+                            containerId = `print-sizes-container-${instanceId}`;
+                        }
+                    }
+                    console.log('DEBUG: Looking for container:', containerId);
+                    
+                    // DEBUG: List all containers with similar IDs
+                    const allContainers = document.querySelectorAll('[id^="print-sizes-container"]');
+                    console.log('DEBUG: All print size containers found:', Array.from(allContainers).map(c => c.id));
+                    
+                    addPrintSizeRow(containerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
+                }
+                
+                // Check if clicked element is an "Add Shirt Size" button
+                if (event.target.matches('#add-shirt-size, [id^="add-shirt-size-"]')) {
+                    // Find the container for this button
+                    const button = event.target;
+                    console.log('DEBUG: Add Shirt Size button clicked, ID:', button.id);
+                    
+                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
+                    let containerId = 'shirt-sizes-container';
+                    if (button.id.includes('-')) {
+                        // Get everything after "add-shirt-size-"
+                        const instanceId = button.id.replace('add-shirt-size-', '');
+                        if (instanceId) {
+                            containerId = `shirt-sizes-container-${instanceId}`;
+                        }
+                    }
+                    console.log('DEBUG: Looking for container:', containerId);
+                    
+                    // DEBUG: List all containers with similar IDs
+                    const allContainers = document.querySelectorAll('[id^="shirt-sizes-container"]');
+                    console.log('DEBUG: All shirt size containers found:', Array.from(allContainers).map(c => c.id));
+                    
+                    addShirtSizeRow(containerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
+                }
+                
+                // Check if clicked element is an "Add Embroidery Print Size" button
+                if (event.target.matches('#add-embroidery-print-size, [id^="add-embroidery-print-size-"]')) {
+                    // Find the container for this button
+                    const button = event.target;
+                    console.log('DEBUG: Add Embroidery Print Size button clicked, ID:', button.id);
+                    
+                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
+                    let containerId = 'embroidery-print-sizes-container';
+                    if (button.id.includes('-')) {
+                        // Get everything after "add-embroidery-print-size-"
+                        const instanceId = button.id.replace('add-embroidery-print-size-', '');
+                        if (instanceId) {
+                            containerId = `embroidery-print-sizes-container-${instanceId}`;
+                        }
+                    }
+                    console.log('DEBUG: Looking for container:', containerId);
+                    
+                    addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
+                }
+                
+                // Check if clicked element is an "Add Embroidery Shirt Size" button
+                if (event.target.matches('#add-embroidery-shirt-size, [id^="add-embroidery-shirt-size-"]')) {
+                    // Find the container for this button
+                    const button = event.target;
+                    console.log('DEBUG: Add Embroidery Shirt Size button clicked, ID:', button.id);
+                    
+                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
+                    let containerId = 'embroidery-shirt-sizes-container';
+                    if (button.id.includes('-')) {
+                        // Get everything after "add-embroidery-shirt-size-"
+                        const instanceId = button.id.replace('add-embroidery-shirt-size-', '');
+                        if (instanceId) {
+                            containerId = `embroidery-shirt-sizes-container-${instanceId}`;
+                        }
+                    }
+                    console.log('DEBUG: Looking for container:', containerId);
+                    
+                    addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
+                }
+                
+                // Check if clicked element is an "Add Sublimation Print Size" button
+                if (event.target.matches('#add-sublimation-print-size, [id^="add-sublimation-print-size-"]')) {
+                    // Find the container for this button
+                    const button = event.target;
+                    console.log('DEBUG: Add Sublimation Print Size button clicked, ID:', button.id);
+                    
+                    // Extract instance ID from button ID - SIMPLIFIED LOGIC
+                    let containerId = 'sublimation-print-sizes-container';
+                    if (button.id.includes('-')) {
+                        // Get everything after "add-sublimation-print-size-"
+                        const instanceId = button.id.replace('add-sublimation-print-size-', '');
+                        if (instanceId) {
+                            containerId = `sublimation-print-sizes-container-${instanceId}`;
+                        }
+                    }
+                    console.log('DEBUG: Looking for container:', containerId);
+                    
+                    addPrintSizeRow(containerId, 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]');
+                }
+            });
             
-            // DTF Add Shirt Size button
-            const addShirtSizeBtn = document.getElementById('add-shirt-size');
-            if (addShirtSizeBtn) {
-                addShirtSizeBtn.addEventListener('click', function() {
-                    addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
-                });
-            }
-            
-            // Embroidery Add Print Size button
-            const addEmbroideryPrintSizeBtn = document.getElementById('add-embroidery-print-size');
-            if (addEmbroideryPrintSizeBtn) {
-                addEmbroideryPrintSizeBtn.addEventListener('click', function() {
-                    addPrintSizeRow('embroidery-print-sizes-container', 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
-                });
-            }
-            
-            // Embroidery Add Shirt Size button
-            const addEmbroideryShirtSizeBtn = document.getElementById('add-embroidery-shirt-size');
-            if (addEmbroideryShirtSizeBtn) {
-                addEmbroideryShirtSizeBtn.addEventListener('click', function() {
-                    addShirtSizeRow('embroidery-shirt-sizes-container', 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
-                });
-            }
-            
-            // Sublimation Add Print Size button (if exists)
-            const addSublimationPrintSizeBtn = document.getElementById('add-sublimation-print-size');
-            if (addSublimationPrintSizeBtn) {
-                addSublimationPrintSizeBtn.addEventListener('click', function() {
-                    addPrintSizeRow('sublimation-print-sizes-container', 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]');
-                });
-            }
+            // Initialize quantity auto-compute
+            initializeQuantityAutoCompute();
         });
         
         // Function to add a new print size row
         function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
-            console.log('DEBUG: addPrintSizeRow called for container:', containerId);
-            
+            console.log('DEBUG: addPrintSizeRow called with containerId:', containerId);
             const container = document.getElementById(containerId);
             if (!container) {
-                console.error('DEBUG: Container not found:', containerId);
+                console.log('DEBUG: Container not found:', containerId);
                 return;
             }
             
@@ -3195,6 +3606,17 @@
                     }
                 });
             }
+            
+            // Add event listener for quantity change to update total
+            const quantityInput = newRow.querySelector('.print-size-quantity');
+            if (quantityInput) {
+                quantityInput.addEventListener('input', function() {
+                    calculateTotalQuantity(containerId);
+                });
+                quantityInput.addEventListener('change', function() {
+                    calculateTotalQuantity(containerId);
+                });
+            }
         }
         
         // Function to add a new shirt size row (3 columns: #, Size, Quantity, Actions)
@@ -3253,6 +3675,17 @@
                 btn.disabled = false;
                 btn.title = 'Delete this size';
             });
+            
+            // Add event listener for quantity change to update total
+            const quantityInput = newRow.querySelector('.shirt-size-quantity');
+            if (quantityInput) {
+                quantityInput.addEventListener('input', function() {
+                    calculateTotalQuantity(containerId);
+                });
+                quantityInput.addEventListener('change', function() {
+                    calculateTotalQuantity(containerId);
+                });
+            }
         }
         
         // Function to delete a shirt size row
@@ -3347,6 +3780,170 @@
             });
         }
         
+        // Function to calculate total quantity for DTF, Sublimation, Embroidery forms
+        function calculateTotalQuantity(containerId) {
+            console.log('DEBUG: calculateTotalQuantity called for:', containerId);
+            
+            let total = 0;
+            
+            // Get all quantity inputs in the container
+            const container = document.getElementById(containerId);
+            if (!container) return 0;
+            
+            // Check if it's a print size container or shirt size container
+            const isPrintSize = containerId.includes('print-sizes');
+            const isShirtSize = containerId.includes('shirt-sizes');
+            
+            if (isPrintSize) {
+                // For print size containers
+                const quantityInputs = container.querySelectorAll('.print-size-quantity');
+                quantityInputs.forEach(input => {
+                    const value = parseInt(input.value) || 0;
+                    total += value;
+                });
+                
+                // Update the corresponding total display
+                // Find the total quantity badge within the same form/container
+                // Based on container type, look for specific badge
+                const form = container.closest('[id*="-form"]');
+                if (form) {
+                    let badgeSelector = '';
+                    
+                    if (containerId.includes('print-sizes-container')) {
+                        // For print sizes, look for badge with id containing "print-total-quantity"
+                        badgeSelector = '[id*="print-total-quantity"]';
+                    } else if (containerId.includes('sublimation-print-sizes-container')) {
+                        // For sublimation print sizes
+                        badgeSelector = '[id*="sublimation-total-quantity"]';
+                    } else if (containerId.includes('embroidery-print-sizes-container')) {
+                        // For embroidery print sizes
+                        badgeSelector = '[id*="embroidery-print-total-quantity"]';
+                    }
+                    
+                    if (badgeSelector) {
+                        const totalBadge = form.querySelector(badgeSelector);
+                        if (totalBadge) {
+                            totalBadge.textContent = total;
+                        }
+                    }
+                }
+            } else if (isShirtSize) {
+                // For shirt size containers
+                const quantityInputs = container.querySelectorAll('.shirt-size-quantity');
+                quantityInputs.forEach(input => {
+                    const value = parseInt(input.value) || 0;
+                    total += value;
+                });
+                
+                // Update the corresponding total display
+                // Find the total quantity badge within the same form/container
+                // Based on container type, look for specific badge
+                const form = container.closest('[id*="-form"]');
+                if (form) {
+                    let badgeSelector = '';
+                    
+                    if (containerId.includes('shirt-sizes-container')) {
+                        // For shirt sizes, look for badge with id containing "shirt-total-quantity"
+                        badgeSelector = '[id*="shirt-total-quantity"]';
+                    } else if (containerId.includes('embroidery-shirt-sizes-container')) {
+                        // For embroidery shirt sizes
+                        badgeSelector = '[id*="embroidery-shirt-total-quantity"]';
+                    }
+                    
+                    if (badgeSelector) {
+                        const totalBadge = form.querySelector(badgeSelector);
+                        if (totalBadge) {
+                            totalBadge.textContent = total;
+                    }
+                }
+            }
+            
+            console.log('DEBUG: Total quantity calculated:', total);
+            return total;
+        }
+        
+        // Function to update simple total quantity for Lanyard, Tarpaulin forms
+        function updateSimpleTotalQuantity(inputId, displayId) {
+            console.log('DEBUG: updateSimpleTotalQuantity called for input:', inputId);
+            
+            const input = document.getElementById(inputId);
+            const display = document.getElementById(displayId);
+            
+            if (!input || !display) return;
+            
+            const value = parseInt(input.value) || 0;
+            display.textContent = value;
+            
+            console.log('DEBUG: Updated simple total:', value);
+        }
+        
+        // Function to initialize quantity auto-compute for all forms
+        function initializeQuantityAutoCompute() {
+            console.log('DEBUG: Initializing quantity auto-compute');
+            
+            // DTF form quantity listeners
+            const dtfPrintQuantityInputs = document.querySelectorAll('#print-sizes-container .print-size-quantity');
+            dtfPrintQuantityInputs.forEach(input => {
+                input.addEventListener('input', () => calculateTotalQuantity('print-sizes-container'));
+                input.addEventListener('change', () => calculateTotalQuantity('print-sizes-container'));
+            });
+            
+            const dtfShirtQuantityInputs = document.querySelectorAll('#shirt-sizes-container .shirt-size-quantity');
+            dtfShirtQuantityInputs.forEach(input => {
+                input.addEventListener('input', () => calculateTotalQuantity('shirt-sizes-container'));
+                input.addEventListener('change', () => calculateTotalQuantity('shirt-sizes-container'));
+            });
+            
+            // Lanyard form quantity listener
+            const lanyardQuantityInput = document.querySelector('input[name="lanyard_quantity"]');
+            if (lanyardQuantityInput) {
+                lanyardQuantityInput.addEventListener('input', () => updateSimpleTotalQuantity('lanyard-quantity-input', 'lanyard-total-quantity'));
+                lanyardQuantityInput.addEventListener('change', () => updateSimpleTotalQuantity('lanyard-quantity-input', 'lanyard-total-quantity'));
+            }
+            
+            // Tarpaulin form quantity listener
+            const tarpaulinQuantityInput = document.querySelector('input[name="tarpaulin_quantity"]');
+            if (tarpaulinQuantityInput) {
+                tarpaulinQuantityInput.addEventListener('input', () => updateSimpleTotalQuantity('tarpaulin-quantity-input', 'tarpaulin-total-quantity'));
+                tarpaulinQuantityInput.addEventListener('change', () => updateSimpleTotalQuantity('tarpaulin-quantity-input', 'tarpaulin-total-quantity'));
+            }
+            
+            // Sublimation form quantity listeners
+            const sublimationQuantityInputs = document.querySelectorAll('#sublimation-print-sizes-container .print-size-quantity');
+            sublimationQuantityInputs.forEach(input => {
+                input.addEventListener('input', () => calculateTotalQuantity('sublimation-print-sizes-container'));
+                input.addEventListener('change', () => calculateTotalQuantity('sublimation-print-sizes-container'));
+            });
+            
+            // Sublimation simple quantity listener
+            const sublimationSimpleQuantityInput = document.querySelector('input[name="sublimation_quantity"]');
+            if (sublimationSimpleQuantityInput) {
+                sublimationSimpleQuantityInput.addEventListener('input', () => {
+                    const value = parseInt(sublimationSimpleQuantityInput.value) || 0;
+                    document.getElementById('sublimation-total-quantity').textContent = value;
+                });
+                sublimationSimpleQuantityInput.addEventListener('change', () => {
+                    const value = parseInt(sublimationSimpleQuantityInput.value) || 0;
+                    document.getElementById('sublimation-total-quantity').textContent = value;
+                });
+            }
+            
+            // Embroidery form quantity listeners
+            const embroideryPrintQuantityInputs = document.querySelectorAll('#embroidery-print-sizes-container .print-size-quantity');
+            embroideryPrintQuantityInputs.forEach(input => {
+                input.addEventListener('input', () => calculateTotalQuantity('embroidery-print-sizes-container'));
+                input.addEventListener('change', () => calculateTotalQuantity('embroidery-print-sizes-container'));
+            });
+            
+            const embroideryShirtQuantityInputs = document.querySelectorAll('#embroidery-shirt-sizes-container .shirt-size-quantity');
+            embroideryShirtQuantityInputs.forEach(input => {
+                input.addEventListener('input', () => calculateTotalQuantity('embroidery-shirt-sizes-container'));
+                input.addEventListener('change', () => calculateTotalQuantity('embroidery-shirt-sizes-container'));
+            });
+            
+            console.log('DEBUG: Quantity auto-compute initialized');
+        }
+        
         // Function to initialize image upload previews for all forms
         function initializeImageUploadPreviews() {
             console.log('DEBUG: Initializing image upload previews');
@@ -3360,135 +3957,116 @@
             // Mark as initialized
             window.imageUploadPreviewInitialized = true;
             
-            // Debounce timer to prevent multiple calls
-            let debounceTimer = null;
-            
-            // Remove any existing event listeners first
-            const uploadInputs = [
-                'dtf-image-upload',
-                'lanyard-image-upload', 
-                'tarpaulin-image-upload',
-                'sublimation-image-upload',
-                'embroidery-image-upload'
-            ];
-            
-            // Add direct event listeners to each input
-            uploadInputs.forEach(id => {
-                const input = document.getElementById(id);
-                if (input) {
-                    // Remove any existing event listeners by cloning
-                    const newInput = input.cloneNode(true);
-                    input.parentNode.replaceChild(newInput, input);
+            // Use event delegation on the document level
+            document.addEventListener('change', function(event) {
+                const target = event.target;
+                const targetId = target.id;
+                
+                // Check if this is one of our image upload inputs
+                if (!targetId || !targetId.includes('image-upload')) {
+                    return;
+                }
+                
+                console.log('DEBUG: Image upload changed via delegation:', targetId, 'Files:', target.files?.length || 0);
+                
+                // Debounce to prevent multiple calls
+                if (window.imageUploadDebounce) {
+                    clearTimeout(window.imageUploadDebounce);
+                }
+                
+                window.imageUploadDebounce = setTimeout(() => {
+                    console.log('DEBUG: Processing file upload via delegation for:', targetId);
                     
-                    // Add our event listener with debouncing
-                    newInput.addEventListener('change', function(event) {
-                        console.log('DEBUG: Direct listener - File input changed:', id, 'Files:', event.target.files?.length || 0, 'Target:', event.target.id);
-                        
-                        // Clear any existing debounce timer
-                        if (debounceTimer) {
-                            clearTimeout(debounceTimer);
+                    let previewContainerId = '';
+                    let containerToShowId = '';
+                    let isGridLayout = true;
+                    
+                    // Handle DTF image upload (original and instances)
+                    if (targetId === 'dtf-image-upload' || targetId.startsWith('dtf-image-upload-')) {
+                        // For instances, extract the instanceId
+                        let instanceId = '';
+                        if (targetId.includes('-upload-')) {
+                            instanceId = targetId.split('-upload-')[1];
                         }
                         
-                        // Debounce to prevent multiple calls
-                        debounceTimer = setTimeout(() => {
-                            // Double-check this is the right element
-                            if (event.target.id !== id) {
-                                console.log('DEBUG: Event target mismatch:', event.target.id, 'expected:', id);
-                                return;
-                            }
-                            
-                            // Determine which form this belongs to based on ID
-                            let previewContainerId = '';
-                            let containerToShowId = '';
-                            let isGridLayout = true;
-                            
-                            if (id === 'dtf-image-upload') {
-                                previewContainerId = 'image-previews';
-                                containerToShowId = 'image-preview-container';
-                                isGridLayout = true;
-                            } else if (id === 'lanyard-image-upload') {
-                                previewContainerId = 'lanyard-uploaded-files-list';
-                                containerToShowId = null;
-                                isGridLayout = false;
-                            } else if (id === 'tarpaulin-image-upload') {
-                                previewContainerId = 'tarpaulin-image-previews';
-                                containerToShowId = 'tarpaulin-image-preview-container';
-                                isGridLayout = true;
-                            } else if (id === 'sublimation-image-upload') {
-                                previewContainerId = 'sublimation-image-previews';
-                                containerToShowId = 'sublimation-image-preview-container';
-                                isGridLayout = true;
-                            } else if (id === 'embroidery-image-upload') {
-                                // Check if embroidery has preview container
-                                previewContainerId = 'embroidery-image-previews';
-                                containerToShowId = 'embroidery-image-preview-container';
-                                isGridLayout = true;
-                                
-                                // Create container if it doesn't exist
-                                if (!document.getElementById(previewContainerId)) {
-                                    createEmbroideryPreviewContainer();
-                                }
-                            }
-                            
-                            // Call the handler
-                            if (previewContainerId) {
-                                handleImageUpload(event, previewContainerId, containerToShowId, isGridLayout);
-                            }
-                        }, 100); // 100ms debounce
-                    });
+                        if (instanceId) {
+                            // Instance form: use unique container IDs
+                            previewContainerId = `image-previews-${instanceId}`;
+                            containerToShowId = `image-preview-container-${instanceId}`;
+                        } else {
+                            // Original form
+                            previewContainerId = 'image-previews';
+                            containerToShowId = 'image-preview-container';
+                        }
+                        isGridLayout = true;
+                        
+                    } else if (targetId === 'lanyard-image-upload' || targetId.startsWith('lanyard-image-upload-')) {
+                        let instanceId = '';
+                        if (targetId.includes('-upload-')) {
+                            instanceId = targetId.split('-upload-')[1];
+                        }
+                        
+                        if (instanceId) {
+                            previewContainerId = `lanyard-uploaded-files-list-${instanceId}`;
+                        } else {
+                            previewContainerId = 'lanyard-uploaded-files-list';
+                        }
+                        containerToShowId = null;
+                        isGridLayout = false;
+                        
+                    } else if (targetId === 'tarpaulin-image-upload' || targetId.startsWith('tarpaulin-image-upload-')) {
+                        let instanceId = '';
+                        if (targetId.includes('-upload-')) {
+                            instanceId = targetId.split('-upload-')[1];
+                        }
+                        
+                        if (instanceId) {
+                            previewContainerId = `tarpaulin-image-previews-${instanceId}`;
+                            containerToShowId = `tarpaulin-image-preview-container-${instanceId}`;
+                        } else {
+                            previewContainerId = 'tarpaulin-image-previews';
+                            containerToShowId = 'tarpaulin-image-preview-container';
+                        }
+                        isGridLayout = true;
+                        
+                    } else if (targetId === 'sublimation-image-upload' || targetId.startsWith('sublimation-image-upload-')) {
+                        let instanceId = '';
+                        if (targetId.includes('-upload-')) {
+                            instanceId = targetId.split('-upload-')[1];
+                        }
+                        
+                        if (instanceId) {
+                            previewContainerId = `sublimation-image-previews-${instanceId}`;
+                            containerToShowId = `sublimation-image-preview-container-${instanceId}`;
+                        } else {
+                            previewContainerId = 'sublimation-image-previews';
+                            containerToShowId = 'sublimation-image-preview-container';
+                        }
+                        isGridLayout = true;
+                        
+                    } else if (targetId === 'embroidery-image-upload' || targetId.startsWith('embroidery-image-upload-')) {
+                        let instanceId = '';
+                        if (targetId.includes('-upload-')) {
+                            instanceId = targetId.split('-upload-')[1];
+                        }
+                        
+                        if (instanceId) {
+                            previewContainerId = `embroidery-image-previews-${instanceId}`;
+                            containerToShowId = `embroidery-image-preview-container-${instanceId}`;
+                        } else {
+                            previewContainerId = 'embroidery-image-previews';
+                            containerToShowId = 'embroidery-image-preview-container';
+                        }
+                        isGridLayout = true;
+                    }
                     
-                    console.log('DEBUG: Added event listener to:', id);
-                }
+                    if (previewContainerId) {
+                        handleImageUpload(event, previewContainerId, containerToShowId, isGridLayout);
+                    }
+                }, 100);
             });
             
-            console.log('DEBUG: Direct event listeners setup complete');
-            
-            // DTF Image Upload
-            const dtfImageUpload = document.getElementById('dtf-image-upload');
-            if (dtfImageUpload) {
-                dtfImageUpload.addEventListener('change', function(event) {
-                    handleImageUpload(event, 'image-previews', 'image-preview-container', true);
-                });
-            }
-            
-            // Lanyard Image Upload
-            const lanyardImageUpload = document.getElementById('lanyard-image-upload');
-            if (lanyardImageUpload) {
-                lanyardImageUpload.addEventListener('change', function(event) {
-                    handleImageUpload(event, 'lanyard-uploaded-files-list', null, false);
-                });
-            }
-            
-            // Tarpaulin Image Upload
-            const tarpaulinImageUpload = document.getElementById('tarpaulin-image-upload');
-            if (tarpaulinImageUpload) {
-                tarpaulinImageUpload.addEventListener('change', function(event) {
-                    handleImageUpload(event, 'tarpaulin-image-previews', 'tarpaulin-image-preview-container', true);
-                });
-            }
-            
-            // Sublimation Image Upload
-            const sublimationImageUpload = document.getElementById('sublimation-image-upload');
-            if (sublimationImageUpload) {
-                sublimationImageUpload.addEventListener('change', function(event) {
-                    handleImageUpload(event, 'sublimation-image-previews', 'sublimation-image-preview-container', true);
-                });
-            }
-            
-            // Embroidery Image Upload - need to check if container exists
-            const embroideryImageUpload = document.getElementById('embroidery-image-upload');
-            if (embroideryImageUpload) {
-                embroideryImageUpload.addEventListener('change', function(event) {
-                    // Check if embroidery has a preview container
-                    const embroideryPreviewContainer = document.getElementById('embroidery-image-previews');
-                    if (embroideryPreviewContainer) {
-                        handleImageUpload(event, 'embroidery-image-previews', 'embroidery-image-preview-container', true);
-                    } else {
-                        // Create a preview container if it doesn't exist
-                        createEmbroideryPreviewContainer(event);
-                    }
-                });
-            }
+            console.log('DEBUG: Image upload previews initialized via event delegation');
         }
         
         // Create preview container for embroidery if it doesn't exist
@@ -3557,8 +4135,7 @@
             }
             
             // Clear existing previews to avoid duplicates
-            // But only if this is a new upload (not adding to existing)
-            // For now, clear all to prevent duplicates
+            // Only clear if this is the first call or if we're replacing files
             const existingPreviews = previewContainer.querySelectorAll('.col-md-4, .mb-2.p-2.border.rounded');
             if (existingPreviews.length > 0) {
                 console.log('DEBUG: Clearing', existingPreviews.length, 'existing previews to avoid duplicates');
@@ -3677,30 +4254,42 @@
             }
         }
         
-        // Remove image preview
+        // Remove image preview with confirmation
         function removeImagePreview(button) {
-            // Try to find the preview item (could be .col-md-4 for grid or .mb-2 for list)
-            const previewItem = button.closest('.col-md-4, .mb-2.p-2.border.rounded');
-            if (previewItem) {
-                previewItem.remove();
-                console.log('DEBUG: Removed image preview');
-                
-                // Check if any previews left
-                const previewContainer = button.closest('#image-previews, #lanyard-uploaded-files-list, #tarpaulin-image-previews, #sublimation-image-previews, #embroidery-image-previews');
-                if (previewContainer && previewContainer.children.length === 0) {
-                    // Show "No files" message
-                    const noFilesMessage = document.createElement('div');
-                    noFilesMessage.className = 'text-muted small';
-                    noFilesMessage.textContent = 'No files attached yet';
-                    previewContainer.appendChild(noFilesMessage);
-                    
-                    // Hide the parent container if it exists
-                    const parentContainer = previewContainer.closest('[id$="-preview-container"], [id$="-files-container"]');
-                    if (parentContainer && parentContainer.id !== 'lanyard-uploaded-files-container') {
-                        parentContainer.classList.add('d-none');
+            // Show professional confirmation modal
+            showConfirmationModal(
+                'Remove Image',
+                'Are you sure you want to remove this image?',
+                () => {
+                    // User clicked Yes
+                    // Try to find the preview item (could be .col-md-4 for grid or .mb-2 for list)
+                    const previewItem = button.closest('.col-md-4, .mb-2.p-2.border.rounded');
+                    if (previewItem) {
+                        previewItem.remove();
+                        console.log('DEBUG: Removed image preview');
+                        
+                        // Check if any previews left
+                        const previewContainer = button.closest('#image-previews, #lanyard-uploaded-files-list, #tarpaulin-image-previews, #sublimation-image-previews, #embroidery-image-previews');
+                        if (previewContainer && previewContainer.children.length === 0) {
+                            // Show "No files" message
+                            const noFilesMessage = document.createElement('div');
+                            noFilesMessage.className = 'text-muted small';
+                            noFilesMessage.textContent = 'No files attached yet';
+                            previewContainer.appendChild(noFilesMessage);
+                            
+                            // Hide the parent container if it exists
+                            const parentContainer = previewContainer.closest('[id$="-preview-container"], [id$="-files-container"]');
+                            if (parentContainer && parentContainer.id !== 'lanyard-uploaded-files-container') {
+                                parentContainer.classList.add('d-none');
+                            }
+                        }
                     }
+                },
+                () => {
+                    // User clicked No
+                    console.log('DEBUG: Image removal cancelled by user');
                 }
-            }
+            );
         }
         
         // Format file size
