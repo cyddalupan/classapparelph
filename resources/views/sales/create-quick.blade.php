@@ -303,7 +303,7 @@
                                                         <div class="col-md-12">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Print Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size" onclick="addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]')">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Print Size
                                                                 </button>
                                                             </div>
@@ -403,7 +403,7 @@
                                                         <div class="col-md-6">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Shirt Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size" onclick="addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]')">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Size
                                                                 </button>
                                                             </div>
@@ -1201,7 +1201,7 @@
                                                         <div class="col-md-12">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Print Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-print-size">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-print-size" onclick="addPrintSizeRow('embroidery-print-sizes-container', 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]')">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Print Size
                                                                 </button>
                                                             </div>
@@ -1301,7 +1301,7 @@
                                                         <div class="col-md-6">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Shirt Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-shirt-size">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-embroidery-shirt-size" onclick="addShirtSizeRow('embroidery-shirt-sizes-container', 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]')">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Size
                                                                 </button>
                                                             </div>
@@ -2397,22 +2397,33 @@
         // Create a new form instance for a specific item
         // Reinitialize event listeners for cloned form instances
         function reinitializeFormEventListeners(form, option, instanceId) {
+            console.log('DEBUG: Reinitializing event listeners for:', form.id, 'option:', option, 'instance:', instanceId);
+            
             // DTF Form Event Listeners
             if (option === 'dtf') {
                 // Initialize quantity auto-compute for this form
                 initializeQuantityAutoComputeForForm(form);
+                
+                // ADD DIRECT EVENT LISTENERS FOR DTF FORM
+                addDirectEventListenersForForm(form, option, instanceId);
             }
             
             // Sublimation Form Event Listeners
             else if (option === 'sublimation') {
                 // Initialize quantity auto-compute for this form
                 initializeQuantityAutoComputeForForm(form);
+                
+                // ADD DIRECT EVENT LISTENERS FOR SUBLIMATION FORM
+                addDirectEventListenersForForm(form, option, instanceId);
             }
             
             // Embroidery Form Event Listeners
             else if (option === 'embroidery') {
                 // Initialize quantity auto-compute for this form
                 initializeQuantityAutoComputeForForm(form);
+                
+                // ADD DIRECT EVENT LISTENERS FOR EMBROIDERY FORM
+                addDirectEventListenersForForm(form, option, instanceId);
             }
             
             // Lanyard, Tarpaulin, Other Items - no size buttons needed
@@ -2421,6 +2432,113 @@
             reinitializeImageUploadInputs(form, option, instanceId);
             
             console.log('DEBUG: Event listeners reinitialized for:', form.id);
+        }
+        
+        // Helper function to add direct event listeners for Add Size buttons
+        function addDirectEventListenersForForm(form, option, instanceId) {
+            console.log('DEBUG: Adding direct event listeners for form:', form.id);
+            
+            // Add Print Size button
+            const addPrintSizeBtn = form.querySelector(`#add-print-size-${instanceId}`);
+            if (addPrintSizeBtn) {
+                console.log('DEBUG: Found Add Print Size button:', addPrintSizeBtn.id);
+                
+                // Remove any existing listeners first by cloning
+                const newBtn = addPrintSizeBtn.cloneNode(true);
+                addPrintSizeBtn.parentNode.replaceChild(newBtn, addPrintSizeBtn);
+                
+                // Add new listener
+                newBtn.addEventListener('click', function() {
+                    console.log('DEBUG: Direct Add Print Size button clicked for instance:', instanceId);
+                    const containerId = `print-sizes-container-${instanceId}`;
+                    console.log('DEBUG: Using container:', containerId);
+                    
+                    if (option === 'dtf') {
+                        addPrintSizeRow(containerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
+                    } else if (option === 'sublimation') {
+                        addPrintSizeRow(containerId, 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]');
+                    } else if (option === 'embroidery') {
+                        addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
+                    }
+                });
+            }
+            
+            // Add Shirt Size button
+            const addShirtSizeBtn = form.querySelector(`#add-shirt-size-${instanceId}`);
+            if (addShirtSizeBtn) {
+                console.log('DEBUG: Found Add Shirt Size button:', addShirtSizeBtn.id);
+                
+                // Remove any existing listeners first by cloning
+                const newBtn = addShirtSizeBtn.cloneNode(true);
+                addShirtSizeBtn.parentNode.replaceChild(newBtn, addShirtSizeBtn);
+                
+                // Add new listener
+                newBtn.addEventListener('click', function() {
+                    console.log('DEBUG: Direct Add Shirt Size button clicked for instance:', instanceId);
+                    const containerId = `shirt-sizes-container-${instanceId}`;
+                    console.log('DEBUG: Using container:', containerId);
+                    
+                    if (option === 'dtf') {
+                        addShirtSizeRow(containerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
+                    } else if (option === 'embroidery') {
+                        addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
+                    }
+                });
+            }
+            
+            // Add Embroidery Print Size button (for embroidery form only)
+            const addEmbroideryPrintSizeBtn = form.querySelector(`#add-embroidery-print-size-${instanceId}`);
+            if (addEmbroideryPrintSizeBtn) {
+                console.log('DEBUG: Found Add Embroidery Print Size button:', addEmbroideryPrintSizeBtn.id);
+                
+                // Remove any existing listeners first by cloning
+                const newBtn = addEmbroideryPrintSizeBtn.cloneNode(true);
+                addEmbroideryPrintSizeBtn.parentNode.replaceChild(newBtn, addEmbroideryPrintSizeBtn);
+                
+                // Add new listener
+                newBtn.addEventListener('click', function() {
+                    console.log('DEBUG: Direct Add Embroidery Print Size button clicked for instance:', instanceId);
+                    const containerId = `embroidery-print-sizes-container-${instanceId}`;
+                    console.log('DEBUG: Using container:', containerId);
+                    addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
+                });
+            }
+            
+            // Add Embroidery Shirt Size button (for embroidery form only)
+            const addEmbroideryShirtSizeBtn = form.querySelector(`#add-embroidery-shirt-size-${instanceId}`);
+            if (addEmbroideryShirtSizeBtn) {
+                console.log('DEBUG: Found Add Embroidery Shirt Size button:', addEmbroideryShirtSizeBtn.id);
+                
+                // Remove any existing listeners first by cloning
+                const newBtn = addEmbroideryShirtSizeBtn.cloneNode(true);
+                addEmbroideryShirtSizeBtn.parentNode.replaceChild(newBtn, addEmbroideryShirtSizeBtn);
+                
+                // Add new listener
+                newBtn.addEventListener('click', function() {
+                    console.log('DEBUG: Direct Add Embroidery Shirt Size button clicked for instance:', instanceId);
+                    const containerId = `embroidery-shirt-sizes-container-${instanceId}`;
+                    console.log('DEBUG: Using container:', containerId);
+                    addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
+                });
+            }
+            
+            // Add Sublimation Print Size button (for sublimation form only)
+            const addSublimationPrintSizeBtn = form.querySelector(`#add-sublimation-print-size-${instanceId}`);
+            if (addSublimationPrintSizeBtn) {
+                console.log('DEBUG: Found Add Sublimation Print Size button:', addSublimationPrintSizeBtn.id);
+                
+                // Remove any existing listeners first by cloning
+                const newBtn = addSublimationPrintSizeBtn.cloneNode(true);
+                addSublimationPrintSizeBtn.parentNode.replaceChild(newBtn, addSublimationPrintSizeBtn);
+                
+                // Add new listener
+                newBtn.addEventListener('click', function() {
+                    console.log('DEBUG: Direct Add Sublimation Print Size button clicked for instance:', instanceId);
+                    const containerId = `sublimation-print-sizes-container-${instanceId}`;
+                    console.log('DEBUG: Using container:', containerId);
+                    addPrintSizeRow(containerId, 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]');
+                });
+            }
         }
         
         // Reinitialize image upload inputs for cloned form instances
