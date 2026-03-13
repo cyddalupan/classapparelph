@@ -303,7 +303,7 @@
                                                         <div class="col-md-12">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Print Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size" onclick="addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]')">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Print Size
                                                                 </button>
                                                             </div>
@@ -403,7 +403,7 @@
                                                         <div class="col-md-6">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Shirt Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size" onclick="addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]')">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Size
                                                                 </button>
                                                             </div>
