@@ -2404,8 +2404,16 @@
                 // Initialize quantity auto-compute for this form
                 initializeQuantityAutoComputeForForm(form);
                 
-                // ADD DIRECT EVENT LISTENERS FOR DTF FORM
-                addDirectEventListenersForForm(form, option, instanceId);
+                // ADD INLINE ONCLICK HANDLERS FOR DTF FORM
+                const addPrintSizeBtn = form.querySelector(`#add-print-size-${instanceId}`);
+                if (addPrintSizeBtn) {
+                    addPrintSizeBtn.setAttribute('onclick', `addPrintSizeRow('print-sizes-container-${instanceId}', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]')`);
+                }
+                
+                const addShirtSizeBtn = form.querySelector(`#add-shirt-size-${instanceId}`);
+                if (addShirtSizeBtn) {
+                    addShirtSizeBtn.setAttribute('onclick', `addShirtSizeRow('shirt-sizes-container-${instanceId}', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]')`);
+                }
             }
             
             // Sublimation Form Event Listeners
@@ -2413,8 +2421,11 @@
                 // Initialize quantity auto-compute for this form
                 initializeQuantityAutoComputeForForm(form);
                 
-                // ADD DIRECT EVENT LISTENERS FOR SUBLIMATION FORM
-                addDirectEventListenersForForm(form, option, instanceId);
+                // ADD INLINE ONCLICK HANDLERS FOR SUBLIMATION FORM
+                const addSublimationPrintSizeBtn = form.querySelector(`#add-sublimation-print-size-${instanceId}`);
+                if (addSublimationPrintSizeBtn) {
+                    addSublimationPrintSizeBtn.setAttribute('onclick', `addPrintSizeRow('sublimation-print-sizes-container-${instanceId}', 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]')`);
+                }
             }
             
             // Embroidery Form Event Listeners
@@ -2422,8 +2433,16 @@
                 // Initialize quantity auto-compute for this form
                 initializeQuantityAutoComputeForForm(form);
                 
-                // ADD DIRECT EVENT LISTENERS FOR EMBROIDERY FORM
-                addDirectEventListenersForForm(form, option, instanceId);
+                // ADD INLINE ONCLICK HANDLERS FOR EMBROIDERY FORM
+                const addEmbroideryPrintSizeBtn = form.querySelector(`#add-embroidery-print-size-${instanceId}`);
+                if (addEmbroideryPrintSizeBtn) {
+                    addEmbroideryPrintSizeBtn.setAttribute('onclick', `addPrintSizeRow('embroidery-print-sizes-container-${instanceId}', 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]')`);
+                }
+                
+                const addEmbroideryShirtSizeBtn = form.querySelector(`#add-embroidery-shirt-size-${instanceId}`);
+                if (addEmbroideryShirtSizeBtn) {
+                    addEmbroideryShirtSizeBtn.setAttribute('onclick', `addShirtSizeRow('embroidery-shirt-sizes-container-${instanceId}', 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]')`);
+                }
             }
             
             // Lanyard, Tarpaulin, Other Items - no size buttons needed
@@ -2434,112 +2453,7 @@
             console.log('DEBUG: Event listeners reinitialized for:', form.id);
         }
         
-        // Helper function to add direct event listeners for Add Size buttons
-        function addDirectEventListenersForForm(form, option, instanceId) {
-            console.log('DEBUG: Adding direct event listeners for form:', form.id);
-            
-            // Add Print Size button
-            const addPrintSizeBtn = form.querySelector(`#add-print-size-${instanceId}`);
-            if (addPrintSizeBtn) {
-                console.log('DEBUG: Found Add Print Size button:', addPrintSizeBtn.id);
-                
-                // Remove any existing listeners first by cloning
-                const newBtn = addPrintSizeBtn.cloneNode(true);
-                addPrintSizeBtn.parentNode.replaceChild(newBtn, addPrintSizeBtn);
-                
-                // Add new listener
-                newBtn.addEventListener('click', function() {
-                    console.log('DEBUG: Direct Add Print Size button clicked for instance:', instanceId);
-                    const containerId = `print-sizes-container-${instanceId}`;
-                    console.log('DEBUG: Using container:', containerId);
-                    
-                    if (option === 'dtf') {
-                        addPrintSizeRow(containerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
-                    } else if (option === 'sublimation') {
-                        addPrintSizeRow(containerId, 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]');
-                    } else if (option === 'embroidery') {
-                        addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
-                    }
-                });
-            }
-            
-            // Add Shirt Size button
-            const addShirtSizeBtn = form.querySelector(`#add-shirt-size-${instanceId}`);
-            if (addShirtSizeBtn) {
-                console.log('DEBUG: Found Add Shirt Size button:', addShirtSizeBtn.id);
-                
-                // Remove any existing listeners first by cloning
-                const newBtn = addShirtSizeBtn.cloneNode(true);
-                addShirtSizeBtn.parentNode.replaceChild(newBtn, addShirtSizeBtn);
-                
-                // Add new listener
-                newBtn.addEventListener('click', function() {
-                    console.log('DEBUG: Direct Add Shirt Size button clicked for instance:', instanceId);
-                    const containerId = `shirt-sizes-container-${instanceId}`;
-                    console.log('DEBUG: Using container:', containerId);
-                    
-                    if (option === 'dtf') {
-                        addShirtSizeRow(containerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
-                    } else if (option === 'embroidery') {
-                        addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
-                    }
-                });
-            }
-            
-            // Add Embroidery Print Size button (for embroidery form only)
-            const addEmbroideryPrintSizeBtn = form.querySelector(`#add-embroidery-print-size-${instanceId}`);
-            if (addEmbroideryPrintSizeBtn) {
-                console.log('DEBUG: Found Add Embroidery Print Size button:', addEmbroideryPrintSizeBtn.id);
-                
-                // Remove any existing listeners first by cloning
-                const newBtn = addEmbroideryPrintSizeBtn.cloneNode(true);
-                addEmbroideryPrintSizeBtn.parentNode.replaceChild(newBtn, addEmbroideryPrintSizeBtn);
-                
-                // Add new listener
-                newBtn.addEventListener('click', function() {
-                    console.log('DEBUG: Direct Add Embroidery Print Size button clicked for instance:', instanceId);
-                    const containerId = `embroidery-print-sizes-container-${instanceId}`;
-                    console.log('DEBUG: Using container:', containerId);
-                    addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
-                });
-            }
-            
-            // Add Embroidery Shirt Size button (for embroidery form only)
-            const addEmbroideryShirtSizeBtn = form.querySelector(`#add-embroidery-shirt-size-${instanceId}`);
-            if (addEmbroideryShirtSizeBtn) {
-                console.log('DEBUG: Found Add Embroidery Shirt Size button:', addEmbroideryShirtSizeBtn.id);
-                
-                // Remove any existing listeners first by cloning
-                const newBtn = addEmbroideryShirtSizeBtn.cloneNode(true);
-                addEmbroideryShirtSizeBtn.parentNode.replaceChild(newBtn, addEmbroideryShirtSizeBtn);
-                
-                // Add new listener
-                newBtn.addEventListener('click', function() {
-                    console.log('DEBUG: Direct Add Embroidery Shirt Size button clicked for instance:', instanceId);
-                    const containerId = `embroidery-shirt-sizes-container-${instanceId}`;
-                    console.log('DEBUG: Using container:', containerId);
-                    addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
-                });
-            }
-            
-            // Add Sublimation Print Size button (for sublimation form only)
-            const addSublimationPrintSizeBtn = form.querySelector(`#add-sublimation-print-size-${instanceId}`);
-            if (addSublimationPrintSizeBtn) {
-                console.log('DEBUG: Found Add Sublimation Print Size button:', addSublimationPrintSizeBtn.id);
-                
-                // Remove any existing listeners first by cloning
-                const newBtn = addSublimationPrintSizeBtn.cloneNode(true);
-                addSublimationPrintSizeBtn.parentNode.replaceChild(newBtn, addSublimationPrintSizeBtn);
-                
-                // Add new listener
-                newBtn.addEventListener('click', function() {
-                    console.log('DEBUG: Direct Add Sublimation Print Size button clicked for instance:', instanceId);
-                    const containerId = `sublimation-print-sizes-container-${instanceId}`;
-                    console.log('DEBUG: Using container:', containerId);
-                    addPrintSizeRow(containerId, 'sublimation_print_size[]', 'sublimation_custom_size[]', 'sublimation_print_size_quantity[]');
-                });
-            }
-        }
+
         
         // Reinitialize image upload inputs for cloned form instances
         function reinitializeImageUploadInputs(form, option, instanceId) {
