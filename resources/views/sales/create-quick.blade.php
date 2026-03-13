@@ -3462,8 +3462,11 @@
             `;
             
             // Add to container
+            console.log('DEBUG: Before append - Container children:', container.children.length);
             container.appendChild(newRow);
+            console.log('DEBUG: After append - Container children:', container.children.length);
             console.log('DEBUG: Added new print size row #', rowNumber);
+            console.log('DEBUG: New row HTML:', newRow.outerHTML.substring(0, 200));
             
             // VISIBILITY TEST: Add red border to see if row is visible
             newRow.style.border = '2px solid red';
@@ -3549,8 +3552,11 @@
             `;
             
             // Add to container
+            console.log('DEBUG: Before append - Container children:', container.children.length);
             container.appendChild(newRow);
+            console.log('DEBUG: After append - Container children:', container.children.length);
             console.log('DEBUG: Added new shirt size row #', rowNumber);
+            console.log('DEBUG: New row HTML:', newRow.outerHTML.substring(0, 200));
             
             // VISIBILITY TEST: Add green border to see if row is visible
             newRow.style.border = '2px solid green';
