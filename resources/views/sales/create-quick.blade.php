@@ -3722,61 +3722,29 @@
         }
         
         // Initialize on DOM ready
+        // SIMPLE: Direct onclick handlers for DTF buttons only
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DEBUG: Simple JavaScript loaded');
+            console.log('DEBUG: SIMPLE JavaScript loaded');
             
-            // Add onclick handlers to all Add Size buttons
-            document.querySelectorAll('[id^="add-print-size"], [id^="add-shirt-size"], [id^="add-embroidery-print-size"], [id^="add-embroidery-shirt-size"]').forEach(button => {
-                button.onclick = function() {
-                    const buttonId = this.id;
-                    console.log('DEBUG: Button clicked:', buttonId);
-                    
-                    if (buttonId.includes('add-print-size')) {
-                        // DTF Print Size
-                        let containerId = 'print-sizes-container';
-                        if (buttonId.includes('-')) {
-                            const instanceId = buttonId.replace('add-print-size-', '');
-                            if (instanceId) {
-                                containerId = `print-sizes-container-${instanceId}`;
-                            }
-                        }
-                        addPrintSizeRow(containerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
-                    }
-                    else if (buttonId.includes('add-shirt-size')) {
-                        // DTF Shirt Size
-                        let containerId = 'shirt-sizes-container';
-                        if (buttonId.includes('-')) {
-                            const instanceId = buttonId.replace('add-shirt-size-', '');
-                            if (instanceId) {
-                                containerId = `shirt-sizes-container-${instanceId}`;
-                            }
-                        }
-                        addShirtSizeRow(containerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
-                    }
-                    else if (buttonId.includes('add-embroidery-print-size')) {
-                        // Embroidery Print Size
-                        let containerId = 'embroidery-print-sizes-container';
-                        if (buttonId.includes('-')) {
-                            const instanceId = buttonId.replace('add-embroidery-print-size-', '');
-                            if (instanceId) {
-                                containerId = `embroidery-print-sizes-container-${instanceId}`;
-                            }
-                        }
-                        addPrintSizeRow(containerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
-                    }
-                    else if (buttonId.includes('add-embroidery-shirt-size')) {
-                        // Embroidery Shirt Size
-                        let containerId = 'embroidery-shirt-sizes-container';
-                        if (buttonId.includes('-')) {
-                            const instanceId = buttonId.replace('add-embroidery-shirt-size-', '');
-                            if (instanceId) {
-                                containerId = `embroidery-shirt-sizes-container-${instanceId}`;
-                            }
-                        }
-                        addShirtSizeRow(containerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
-                    }
+            // DTF Add Print Size button
+            const addPrintBtn = document.getElementById('add-print-size');
+            if (addPrintBtn) {
+                addPrintBtn.onclick = function() {
+                    console.log('DEBUG: DTF Add Print Size clicked');
+                    addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
                 };
-            });
+            }
+            
+            // DTF Add Shirt Size button
+            const addShirtBtn = document.getElementById('add-shirt-size');
+            if (addShirtBtn) {
+                addShirtBtn.onclick = function() {
+                    console.log('DEBUG: DTF Add Shirt Size clicked');
+                    addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
+                };
+            }
+            
+            console.log('DEBUG: Simple event handlers added');
         });
     </script>
 @endpush
