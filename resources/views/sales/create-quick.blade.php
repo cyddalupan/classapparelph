@@ -3469,7 +3469,6 @@
             setTimeout(() => {
                 newRow.style.display = '';
             }, 10);
-        }
             
             // Show/hide custom size input based on selection
             const sizeSelect = newRow.querySelector('.print-size-select');
