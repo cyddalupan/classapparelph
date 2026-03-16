@@ -3632,6 +3632,122 @@
             
             console.log('DEBUG: Simple event handlers added');
         });
+        
+        // ============================================
+        // SIMPLE FUNCTIONS - ADDED AT END TO AVOID ERRORS
+        // ============================================
+        
+        // 1. Add Print Size Row
+        function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
+            console.log('SIMPLE: Adding print size row to', containerId);
+            
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error('Container not found:', containerId);
+                return;
+            }
+            
+            const rowCount = container.querySelectorAll('tr').length;
+            const rowNumber = rowCount + 1;
+            
+            const newRow = document.createElement('tr');
+            newRow.className = 'print-size-row';
+            newRow.innerHTML = `
+                <td class="align-middle text-center">${rowNumber}</td>
+                <td>
+                    <select class="form-select form-select-sm" name="${sizeSelectName}" required>
+                        <option value="" selected disabled>Select print size</option>
+                        <option value="2x3">2x3 inches</option>
+                        <option value="3x4">3x4 inches</option>
+                        <option value="4x6">4x6 inches</option>
+                        <option value="5x7">5x7 inches</option>
+                        <option value="6x9">6x9 inches</option>
+                        <option value="8x10">8x10 inches</option>
+                        <option value="10x12">10x12 inches</option>
+                        <option value="12x18">12x18 inches</option>
+                        <option value="custom">Custom Size</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm" name="${customInputName}" placeholder="Enter custom size" style="display: none;">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            container.appendChild(newRow);
+            console.log('✅ Print size row added! Total:', rowNumber);
+            
+            // Red border for visibility
+            newRow.style.border = '2px solid red';
+        }
+        
+        // 2. Add Shirt Size Row
+        function addShirtSizeRow(containerId, sizeSelectName, quantityInputName) {
+            console.log('SIMPLE: Adding shirt size row to', containerId);
+            
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error('Container not found:', containerId);
+                return;
+            }
+            
+            const rowCount = container.querySelectorAll('tr').length;
+            const rowNumber = rowCount + 1;
+            
+            const newRow = document.createElement('tr');
+            newRow.className = 'shirt-size-row';
+            newRow.innerHTML = `
+                <td class="align-middle text-center">${rowNumber}</td>
+                <td>
+                    <select class="form-select form-select-sm" name="${sizeSelectName}" required>
+                        <option value="" selected disabled>Select size</option>
+                        <option value="xs">XS</option>
+                        <option value="s">S</option>
+                        <option value="m">M</option>
+                        <option value="l">L</option>
+                        <option value="xl">XL</option>
+                        <option value="2xl">2XL</option>
+                        <option value="3xl">3XL</option>
+                        <option value="4xl">4XL</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required>
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            
+            container.appendChild(newRow);
+            console.log('✅ Shirt size row added! Total:', rowNumber);
+            
+            // Green border for visibility
+            newRow.style.border = '2px solid green';
+        }
+        
+        // 3. Update Row Numbers (after delete)
+        function updateRowNumbers(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const rows = container.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                const firstTd = row.querySelector('td:first-child');
+                if (firstTd) {
+                    firstTd.textContent = index + 1;
+                }
+            });
+        }
     </script>
 @endpush
     
