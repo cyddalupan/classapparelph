@@ -3857,69 +3857,7 @@
     
 
 
-<!-- SIMPLE JAVASCRIPT - LOADED AT VERY END -->
-<script>
-    console.log('✅ ULTRA SIMPLE JS LOADED');
-    
-    // Add Print Size Row
-    function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
-        console.log('✅ Adding print size row to', containerId);
-        
-        const container = document.getElementById(containerId);
-        if (!container) {
-            console.error('Container not found:', containerId);
-            return;
-        }
-        
-        const rowCount = container.querySelectorAll('tr').length;
-        const rowNumber = rowCount + 1;
-        
-        const newRow = document.createElement('tr');
-        newRow.className = 'print-size-row';
-        newRow.innerHTML = ;
-        
-        container.appendChild(newRow);
-        console.log('✅ Print size row added! Total:', rowNumber);
-        newRow.style.border = '2px solid red';
-    }
-    
-    // Add Shirt Size Row
-    function addShirtSizeRow(containerId, sizeSelectName, quantityInputName) {
-        console.log('✅ Adding shirt size row to', containerId);
-        
-        const container = document.getElementById(containerId);
-        if (!container) {
-            console.error('Container not found:', containerId);
-            return;
-        }
-        
-        const rowCount = container.querySelectorAll('tr').length;
-        const rowNumber = rowCount + 1;
-        
-        const newRow = document.createElement('tr');
-        newRow.className = 'shirt-size-row';
-        newRow.innerHTML = ;
-        
-        container.appendChild(newRow);
-        console.log('✅ Shirt size row added! Total:', rowNumber);
-        newRow.style.border = '2px solid green';
-    }
-    
-    // Update Row Numbers
-    function updateRowNumbers(containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        const rows = container.querySelectorAll('tr');
-        rows.forEach((row, index) => {
-            const firstTd = row.querySelector('td:first-child');
-            if (firstTd) {
-                firstTd.textContent = index + 1;
-            }
-        });
-    }
-</script>
-<!-- SIMPLE JAVASCRIPT - LOADED AT VERY END -->
+
 <script>
     console.log('✅ ULTRA SIMPLE JS LOADED');
     
@@ -3970,6 +3908,9 @@
         container.appendChild(newRow);
         console.log('✅ Print size row added! Total:', rowNumber);
         newRow.style.border = '2px solid red';
+        
+        // Update row numbers and summary
+        updateRowNumbers(containerId);
     }
     
     // Add Shirt Size Row
@@ -4015,6 +3956,9 @@
         container.appendChild(newRow);
         console.log('✅ Shirt size row added! Total:', rowNumber);
         newRow.style.border = '2px solid green';
+        
+        // Update row numbers and summary
+        updateRowNumbers(containerId);
     }
     
     // Update Row Numbers
