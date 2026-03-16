@@ -303,7 +303,7 @@
                                                         <div class="col-md-12">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Print Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size" onclick="addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]')">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-print-size">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Print Size
                                                                 </button>
                                                             </div>
@@ -403,7 +403,7 @@
                                                         <div class="col-md-6">
                                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                                 <label class="form-label fw-semibold small">Shirt Sizes</label>
-                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size" onclick="addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]')">
+                                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-shirt-size">
                                                                     <i class="fas fa-plus me-1"></i> Add Another Size
                                                                 </button>
                                                             </div>
@@ -3751,3 +3751,229 @@
     </script>
 @endpush
     
+
+
+<!-- SIMPLE JAVASCRIPT - LOADED AT VERY END -->
+<script>
+    console.log('✅ ULTRA SIMPLE JS LOADED');
+    
+    // Add Print Size Row
+    function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
+        console.log('✅ Adding print size row to', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error('Container not found:', containerId);
+            return;
+        }
+        
+        const rowCount = container.querySelectorAll('tr').length;
+        const rowNumber = rowCount + 1;
+        
+        const newRow = document.createElement('tr');
+        newRow.className = 'print-size-row';
+        newRow.innerHTML = ;
+        
+        container.appendChild(newRow);
+        console.log('✅ Print size row added! Total:', rowNumber);
+        newRow.style.border = '2px solid red';
+    }
+    
+    // Add Shirt Size Row
+    function addShirtSizeRow(containerId, sizeSelectName, quantityInputName) {
+        console.log('✅ Adding shirt size row to', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error('Container not found:', containerId);
+            return;
+        }
+        
+        const rowCount = container.querySelectorAll('tr').length;
+        const rowNumber = rowCount + 1;
+        
+        const newRow = document.createElement('tr');
+        newRow.className = 'shirt-size-row';
+        newRow.innerHTML = ;
+        
+        container.appendChild(newRow);
+        console.log('✅ Shirt size row added! Total:', rowNumber);
+        newRow.style.border = '2px solid green';
+    }
+    
+    // Update Row Numbers
+    function updateRowNumbers(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const rows = container.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            const firstTd = row.querySelector('td:first-child');
+            if (firstTd) {
+                firstTd.textContent = index + 1;
+            }
+        });
+    }
+    
+    // Initialize buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ ULTRA SIMPLE JS READY');
+        
+        // Add Print Size button
+        const printBtn = document.getElementById('add-print-size');
+        if (printBtn) {
+            printBtn.onclick = function() {
+                console.log('✅ Add Print Size clicked');
+                addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
+            };
+        }
+        
+        // Add Shirt Size button
+        const shirtBtn = document.getElementById('add-shirt-size');
+        if (shirtBtn) {
+            shirtBtn.onclick = function() {
+                console.log('✅ Add Shirt Size clicked');
+                addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
+            };
+        }
+        
+        console.log('✅ Buttons initialized');
+    });
+</script>
+<!-- SIMPLE JAVASCRIPT - LOADED AT VERY END -->
+<script>
+    console.log('✅ ULTRA SIMPLE JS LOADED');
+    
+    // Add Print Size Row
+    function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
+        console.log('✅ Adding print size row to', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error('Container not found:', containerId);
+            return;
+        }
+        
+        const rowCount = container.querySelectorAll('tr').length;
+        const rowNumber = rowCount + 1;
+        
+        const newRow = document.createElement('tr');
+        newRow.className = 'print-size-row';
+        newRow.innerHTML = `
+            <td class="align-middle text-center">${rowNumber}</td>
+            <td>
+                <select class="form-select form-select-sm" name="${sizeSelectName}" required>
+                    <option value="" selected disabled>Select print size</option>
+                    <option value="2x3">2x3 inches</option>
+                    <option value="3x4">3x4 inches</option>
+                    <option value="4x6">4x6 inches</option>
+                    <option value="5x7">5x7 inches</option>
+                    <option value="6x9">6x9 inches</option>
+                    <option value="8x10">8x10 inches</option>
+                    <option value="10x12">10x12 inches</option>
+                    <option value="12x18">12x18 inches</option>
+                    <option value="custom">Custom Size</option>
+                </select>
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm" name="${customInputName}" placeholder="Enter custom size" style="display: none;">
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
+        container.appendChild(newRow);
+        console.log('✅ Print size row added! Total:', rowNumber);
+        newRow.style.border = '2px solid red';
+    }
+    
+    // Add Shirt Size Row
+    function addShirtSizeRow(containerId, sizeSelectName, quantityInputName) {
+        console.log('✅ Adding shirt size row to', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error('Container not found:', containerId);
+            return;
+        }
+        
+        const rowCount = container.querySelectorAll('tr').length;
+        const rowNumber = rowCount + 1;
+        
+        const newRow = document.createElement('tr');
+        newRow.className = 'shirt-size-row';
+        newRow.innerHTML = `
+            <td class="align-middle text-center">${rowNumber}</td>
+            <td>
+                <select class="form-select form-select-sm" name="${sizeSelectName}" required>
+                    <option value="" selected disabled>Select size</option>
+                    <option value="xs">XS</option>
+                    <option value="s">S</option>
+                    <option value="m">M</option>
+                    <option value="l">L</option>
+                    <option value="xl">XL</option>
+                    <option value="2xl">2XL</option>
+                    <option value="3xl">3XL</option>
+                    <option value="4xl">4XL</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
+        container.appendChild(newRow);
+        console.log('✅ Shirt size row added! Total:', rowNumber);
+        newRow.style.border = '2px solid green';
+    }
+    
+    // Update Row Numbers
+    function updateRowNumbers(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const rows = container.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            const firstTd = row.querySelector('td:first-child');
+            if (firstTd) {
+                firstTd.textContent = index + 1;
+            }
+        });
+    }
+    
+    // Initialize buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('✅ ULTRA SIMPLE JS READY');
+        
+        // Add Print Size button
+        const printBtn = document.getElementById('add-print-size');
+        if (printBtn) {
+            printBtn.onclick = function() {
+                console.log('✅ Add Print Size clicked');
+                addPrintSizeRow('print-sizes-container', 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
+            };
+        }
+        
+        // Add Shirt Size button
+        const shirtBtn = document.getElementById('add-shirt-size');
+        if (shirtBtn) {
+            shirtBtn.onclick = function() {
+                console.log('✅ Add Shirt Size clicked');
+                addShirtSizeRow('shirt-sizes-container', 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
+            };
+        }
+        
+        console.log('✅ Buttons initialized');
+    });
+</script>
