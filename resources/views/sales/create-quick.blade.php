@@ -590,39 +590,7 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Total Quantity Display -->
-                                                        <div class="col-md-12">
-                                                            <div class="alert alert-info p-2">
-                                                                <div class="row">
-                                                                    <div class="col-md-6">
-                                                                        <div class="small fw-semibold mb-2">Print Sizes Summary:</div>
-                                                                        <div id="print-size-breakdown" class="small mb-2">
-                                                                            <div class="d-flex align-items-center mb-1">
-                                                                                <span class="me-2">8x10:</span>
-                                                                                <span class="badge bg-secondary">0</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="mt-2">
-                                                                            <span class="small fw-semibold">Print Total:</span>
-                                                                            <span class="badge bg-primary ms-2" id="print-total-quantity">0</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <div class="small fw-semibold mb-2">Shirt Sizes Summary:</div>
-                                                                        <div id="shirt-size-breakdown" class="small mb-2">
-                                                                            <div class="d-flex align-items-center mb-1">
-                                                                                <span class="me-2">XS:</span>
-                                                                                <span class="badge bg-secondary">0</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="mt-2">
-                                                                            <span class="small fw-semibold">Shirt Total:</span>
-                                                                            <span class="badge bg-primary ms-2" id="shirt-total-quantity">0</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+
                                                     </div>
                                                 </div>
                                                 
@@ -1478,39 +1446,7 @@
                                                             </div>
                                                         </div>
 
-                                                        <!-- Quantity Display Badge -->
-                                                        <div class="col-md-12">
-                                                            <div class="alert alert-info p-2">
-                                                                <div class="row">
-                                                                    <div class="col-md-6">
-                                                                        <div class="small fw-semibold mb-2">Print Sizes Summary:</div>
-                                                                        <div id="embroidery-print-size-breakdown" class="small mb-2">
-                                                                            <div class="d-flex align-items-center mb-1">
-                                                                                <span class="me-2">8x10:</span>
-                                                                                <span class="badge bg-secondary">0</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="mt-2">
-                                                                            <span class="small fw-semibold">Print Total:</span>
-                                                                            <span class="badge bg-primary ms-2" id="embroidery-print-total-quantity">0</span>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <div class="small fw-semibold mb-2">Shirt Sizes Summary:</div>
-                                                                        <div id="embroidery-shirt-size-breakdown" class="small mb-2">
-                                                                            <div class="d-flex align-items-center mb-1">
-                                                                                <span class="me-2">XS:</span>
-                                                                                <span class="badge bg-secondary">0</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="mt-2">
-                                                                            <span class="small fw-semibold">Shirt Total:</span>
-                                                                            <span class="badge bg-primary ms-2" id="embroidery-shirt-total-quantity">0</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+
                                                     </div>
                                                 </div>
                                                 
@@ -3909,11 +3845,8 @@
         console.log('✅ Print size row added! Total:', rowNumber);
         newRow.style.border = '2px solid red';
         
-        // Update row numbers and summary
+        // Update row numbers
         updateRowNumbers(containerId);
-        
-        // Setup event listeners for the new row
-        setupSummaryEventListeners(containerId);
     }
     
     // Add Shirt Size Row
@@ -3960,11 +3893,8 @@
         console.log('✅ Shirt size row added! Total:', rowNumber);
         newRow.style.border = '2px solid green';
         
-        // Update row numbers and summary
+        // Update row numbers
         updateRowNumbers(containerId);
-        
-        // Setup event listeners for the new row
-        setupSummaryEventListeners(containerId);
     }
     
     // Update Row Numbers
@@ -3979,239 +3909,6 @@
                 firstTd.textContent = index + 1;
             }
         });
-        
-        // Also update the summary when row numbers change
-        calculateTotalQuantity(containerId);
-    }
-    
-    // Calculate Total Quantity for a container
-    function calculateTotalQuantity(containerId) {
-        console.log('✅ calculateTotalQuantity called for:', containerId);
-        
-        const container = document.getElementById(containerId);
-        if (!container) return 0;
-        
-        let total = 0;
-        const quantityInputs = container.querySelectorAll('input[type="number"]');
-        
-        quantityInputs.forEach(input => {
-            const value = parseInt(input.value) || 0;
-            total += value;
-        });
-        
-        console.log('✅ Total quantity for', containerId, ':', total);
-        
-        // Update the appropriate summary based on container type
-        updateSizeSummary(containerId, total);
-        
-        return total;
-    }
-    
-    // Setup event listeners for dropdown and quantity changes
-    function setupSummaryEventListeners(containerId) {
-        console.log('✅ Setting up summary event listeners for:', containerId);
-        
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        // Check if listeners already exist (use data attribute)
-        if (container.dataset.summaryListeners === 'true') {
-            console.log('⚠️ Event listeners already exist for:', containerId);
-            return;
-        }
-        
-        // Mark that listeners are setup
-        container.dataset.summaryListeners = 'true';
-        
-        // Add event delegation for change events
-        container.addEventListener('change', function(event) {
-            const target = event.target;
-            
-            // Check if it's a dropdown or quantity input
-            if (target.tagName === 'SELECT' || 
-                (target.tagName === 'INPUT' && target.type === 'number')) {
-                
-                console.log('✅ Change detected in', containerId, 'element:', target.name);
-                
-                // Update the summary
-                calculateTotalQuantity(containerId);
-            }
-        });
-        
-        // Also listen for input events on quantity fields (for real-time updates)
-        container.addEventListener('input', function(event) {
-            const target = event.target;
-            
-            if (target.tagName === 'INPUT' && target.type === 'number') {
-                console.log('✅ Input detected in', containerId, 'quantity:', target.value);
-                
-                // Update the summary
-                calculateTotalQuantity(containerId);
-            }
-        });
-        
-        console.log('✅ Event listeners setup for:', containerId);
-    }
-    
-    // Update Size Summary in the UI
-    function updateSizeSummary(containerId, total) {
-        console.log('✅ updateSizeSummary called for:', containerId, 'total:', total);
-        
-        // Determine which summary to update based on container ID
-        if (containerId.includes('print-sizes-container')) {
-            // DTF Print Sizes
-            const printTotalElement = document.getElementById('print-total-quantity');
-            if (printTotalElement) {
-                printTotalElement.textContent = total;
-                console.log('✅ Updated print total:', total);
-            }
-            
-            // Also update the breakdown
-            updatePrintSizeBreakdown(containerId);
-        } 
-        else if (containerId.includes('shirt-sizes-container')) {
-            // DTF Shirt Sizes
-            const shirtTotalElement = document.getElementById('shirt-total-quantity');
-            if (shirtTotalElement) {
-                shirtTotalElement.textContent = total;
-                console.log('✅ Updated shirt total:', total);
-            }
-            
-            // Also update the breakdown
-            updateShirtSizeBreakdown(containerId);
-        }
-        else if (containerId.includes('embroidery-print-sizes-container')) {
-            // Embroidery Print Sizes
-            const printTotalElement = document.getElementById('embroidery-print-total-quantity');
-            if (printTotalElement) {
-                printTotalElement.textContent = total;
-                console.log('✅ Updated embroidery print total:', total);
-            }
-        }
-        else if (containerId.includes('embroidery-shirt-sizes-container')) {
-            // Embroidery Shirt Sizes
-            const shirtTotalElement = document.getElementById('embroidery-shirt-total-quantity');
-            if (shirtTotalElement) {
-                shirtTotalElement.textContent = total;
-                console.log('✅ Updated embroidery shirt total:', total);
-            }
-        }
-    }
-    
-    // Update Print Size Breakdown
-    function updatePrintSizeBreakdown(containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        const breakdownElement = document.getElementById('print-size-breakdown');
-        if (!breakdownElement) {
-            console.log('⚠️ print-size-breakdown element not found (form might not be visible)');
-            return;
-        }
-        
-        // Collect all size selections and quantities
-        const sizeMap = new Map();
-        const rows = container.querySelectorAll('tr');
-        
-        rows.forEach(row => {
-            const sizeSelect = row.querySelector('select[name*="print_size"]');
-            const quantityInput = row.querySelector('input[name*="print_size_quantity"]');
-            
-            if (sizeSelect && quantityInput) {
-                const size = sizeSelect.value;
-                const quantity = parseInt(quantityInput.value) || 0;
-                
-                if (size && quantity > 0) {
-                    const current = sizeMap.get(size) || 0;
-                    sizeMap.set(size, current + quantity);
-                }
-            }
-        });
-        
-        // Update the breakdown HTML
-        let html = '';
-        sizeMap.forEach((quantity, size) => {
-            if (size && quantity > 0) {
-                const displaySize = size === 'custom' ? 'Custom' : size;
-                html += `
-                    <div class="d-flex align-items-center mb-1">
-                        <span class="me-2">${displaySize}:</span>
-                        <span class="badge bg-secondary">${quantity}</span>
-                    </div>
-                `;
-            }
-        });
-        
-        // If no sizes, show default
-        if (html === '') {
-            html = `
-                <div class="d-flex align-items-center mb-1">
-                    <span class="me-2">8x10:</span>
-                    <span class="badge bg-secondary">0</span>
-                </div>
-            `;
-        }
-        
-        breakdownElement.innerHTML = html;
-        console.log('✅ Updated print size breakdown');
-    }
-    
-    // Update Shirt Size Breakdown
-    function updateShirtSizeBreakdown(containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        const breakdownElement = document.getElementById('shirt-size-breakdown');
-        if (!breakdownElement) {
-            console.log('⚠️ shirt-size-breakdown element not found (form might not be visible)');
-            return;
-        }
-        
-        // Collect all size selections and quantities
-        const sizeMap = new Map();
-        const rows = container.querySelectorAll('tr');
-        
-        rows.forEach(row => {
-            const sizeSelect = row.querySelector('select[name*="shirt_size"]');
-            const quantityInput = row.querySelector('input[name*="shirt_size_quantity"]');
-            
-            if (sizeSelect && quantityInput) {
-                const size = sizeSelect.value;
-                const quantity = parseInt(quantityInput.value) || 0;
-                
-                if (size && quantity > 0) {
-                    const current = sizeMap.get(size) || 0;
-                    sizeMap.set(size, current + quantity);
-                }
-            }
-        });
-        
-        // Update the breakdown HTML
-        let html = '';
-        sizeMap.forEach((quantity, size) => {
-            if (size && quantity > 0) {
-                const displaySize = size.toUpperCase();
-                html += `
-                    <div class="d-flex align-items-center mb-1">
-                        <span class="me-2">${displaySize}:</span>
-                        <span class="badge bg-secondary">${quantity}</span>
-                    </div>
-                `;
-            }
-        });
-        
-        // If no sizes, show default
-        if (html === '') {
-            html = `
-                <div class="d-flex align-items-center mb-1">
-                    <span class="me-2">XS:</span>
-                    <span class="badge bg-secondary">0</span>
-                </div>
-            `;
-        }
-        
-        breakdownElement.innerHTML = html;
-        console.log('✅ Updated shirt size breakdown');
     }
     
     // Initialize buttons
@@ -4330,29 +4027,5 @@
         // (cloned forms will be initialized by reinitializeAddSizeButtons)
         
         console.log('✅ Buttons initialized');
-        
-        // Setup event listeners for EXISTING containers
-        function setupAllExistingContainers() {
-            console.log('✅ Setting up event listeners for existing containers...');
-            
-            // DTF containers
-            const dtfPrintContainer = document.getElementById('print-sizes-container');
-            const dtfShirtContainer = document.getElementById('shirt-sizes-container');
-            
-            if (dtfPrintContainer) setupSummaryEventListeners('print-sizes-container');
-            if (dtfShirtContainer) setupSummaryEventListeners('shirt-sizes-container');
-            
-            // Embroidery containers
-            const embroideryPrintContainer = document.getElementById('embroidery-print-sizes-container');
-            const embroideryShirtContainer = document.getElementById('embroidery-shirt-sizes-container');
-            
-            if (embroideryPrintContainer) setupSummaryEventListeners('embroidery-print-sizes-container');
-            if (embroideryShirtContainer) setupSummaryEventListeners('embroidery-shirt-sizes-container');
-            
-            console.log('✅ All existing containers setup complete');
-        }
-        
-        // Call it
-        setupAllExistingContainers();
     });
 </script>
