@@ -3911,6 +3911,9 @@
         
         // Update row numbers and summary
         updateRowNumbers(containerId);
+        
+        // Setup event listeners for the new row
+        setupSummaryEventListeners(containerId);
     }
     
     // Add Shirt Size Row
@@ -3959,6 +3962,9 @@
         
         // Update row numbers and summary
         updateRowNumbers(containerId);
+        
+        // Setup event listeners for the new row
+        setupSummaryEventListeners(containerId);
     }
     
     // Update Row Numbers
@@ -3999,6 +4005,52 @@
         updateSizeSummary(containerId, total);
         
         return total;
+    }
+    
+    // Setup event listeners for dropdown and quantity changes
+    function setupSummaryEventListeners(containerId) {
+        console.log('✅ Setting up summary event listeners for:', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        // Check if listeners already exist (use data attribute)
+        if (container.dataset.summaryListeners === 'true') {
+            console.log('⚠️ Event listeners already exist for:', containerId);
+            return;
+        }
+        
+        // Mark that listeners are setup
+        container.dataset.summaryListeners = 'true';
+        
+        // Add event delegation for change events
+        container.addEventListener('change', function(event) {
+            const target = event.target;
+            
+            // Check if it's a dropdown or quantity input
+            if (target.tagName === 'SELECT' || 
+                (target.tagName === 'INPUT' && target.type === 'number')) {
+                
+                console.log('✅ Change detected in', containerId, 'element:', target.name);
+                
+                // Update the summary
+                calculateTotalQuantity(containerId);
+            }
+        });
+        
+        // Also listen for input events on quantity fields (for real-time updates)
+        container.addEventListener('input', function(event) {
+            const target = event.target;
+            
+            if (target.tagName === 'INPUT' && target.type === 'number') {
+                console.log('✅ Input detected in', containerId, 'quantity:', target.value);
+                
+                // Update the summary
+                calculateTotalQuantity(containerId);
+            }
+        });
+        
+        console.log('✅ Event listeners setup for:', containerId);
     }
     
     // Update Size Summary in the UI
@@ -4278,5 +4330,29 @@
         // (cloned forms will be initialized by reinitializeAddSizeButtons)
         
         console.log('✅ Buttons initialized');
+        
+        // Setup event listeners for EXISTING containers
+        function setupAllExistingContainers() {
+            console.log('✅ Setting up event listeners for existing containers...');
+            
+            // DTF containers
+            const dtfPrintContainer = document.getElementById('print-sizes-container');
+            const dtfShirtContainer = document.getElementById('shirt-sizes-container');
+            
+            if (dtfPrintContainer) setupSummaryEventListeners('print-sizes-container');
+            if (dtfShirtContainer) setupSummaryEventListeners('shirt-sizes-container');
+            
+            // Embroidery containers
+            const embroideryPrintContainer = document.getElementById('embroidery-print-sizes-container');
+            const embroideryShirtContainer = document.getElementById('embroidery-shirt-sizes-container');
+            
+            if (embroideryPrintContainer) setupSummaryEventListeners('embroidery-print-sizes-container');
+            if (embroideryShirtContainer) setupSummaryEventListeners('embroidery-shirt-sizes-container');
+            
+            console.log('✅ All existing containers setup complete');
+        }
+        
+        // Call it
+        setupAllExistingContainers();
     });
 </script>
