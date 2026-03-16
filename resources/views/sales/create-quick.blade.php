@@ -2415,28 +2415,53 @@
         function reinitializeAddSizeButtons(form, option, instanceId) {
             console.log('DEBUG: Reinitializing Add Size buttons for:', form.id, 'option:', option);
             
-            // Only for DTF form
+            // DTF FORM
             if (option === 'dtf') {
                 // Find Add Print Size button in this form (with appended instanceId)
                 const printBtn = form.querySelector(`#add-print-size-${instanceId}`);
                 if (printBtn) {
                     printBtn.onclick = function() {
-                        console.log('✅ CLONED FORM: Add Print Size clicked for instance:', instanceId);
+                        console.log('✅ CLONED DTF: Add Print Size clicked for instance:', instanceId);
                         // Use the CLONED container ID
                         addPrintSizeRow(`print-sizes-container-${instanceId}`, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
                     };
-                    console.log('✅ Reinitialized Add Print Size button for:', instanceId);
+                    console.log('✅ Reinitialized DTF Print Size button for:', instanceId);
                 }
                 
                 // Find Add Shirt Size button in this form (with appended instanceId)
                 const shirtBtn = form.querySelector(`#add-shirt-size-${instanceId}`);
                 if (shirtBtn) {
                     shirtBtn.onclick = function() {
-                        console.log('✅ CLONED FORM: Add Shirt Size clicked for instance:', instanceId);
+                        console.log('✅ CLONED DTF: Add Shirt Size clicked for instance:', instanceId);
                         // Use the CLONED container ID
                         addShirtSizeRow(`shirt-sizes-container-${instanceId}`, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
                     };
-                    console.log('✅ Reinitialized Add Shirt Size button for:', instanceId);
+                    console.log('✅ Reinitialized DTF Shirt Size button for:', instanceId);
+                }
+            }
+            
+            // EMBROIDERY FORM
+            if (option === 'embroidery') {
+                // Find Add Print Size button in this form (with appended instanceId)
+                const printBtn = form.querySelector(`#add-embroidery-print-size-${instanceId}`);
+                if (printBtn) {
+                    printBtn.onclick = function() {
+                        console.log('✅ CLONED EMBROIDERY: Add Print Size clicked for instance:', instanceId);
+                        // Use the CLONED container ID
+                        addPrintSizeRow(`embroidery-print-sizes-container-${instanceId}`, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
+                    };
+                    console.log('✅ Reinitialized Embroidery Print Size button for:', instanceId);
+                }
+                
+                // Find Add Shirt Size button in this form (with appended instanceId)
+                const shirtBtn = form.querySelector(`#add-embroidery-shirt-size-${instanceId}`);
+                if (shirtBtn) {
+                    shirtBtn.onclick = function() {
+                        console.log('✅ CLONED EMBROIDERY: Add Shirt Size clicked for instance:', instanceId);
+                        // Use the CLONED container ID
+                        addShirtSizeRow(`embroidery-shirt-sizes-container-${instanceId}`, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
+                    };
+                    console.log('✅ Reinitialized Embroidery Shirt Size button for:', instanceId);
                 }
             }
         }
@@ -3968,9 +3993,10 @@
         function initializeAddSizeButtons(formElement) {
             if (!formElement) return;
             
-            // Check if this is DTF form
+            // Check which form type
             const isDtfForm = formElement.id.includes('dtf-form');
-            if (!isDtfForm) return;
+            const isEmbroideryForm = formElement.id.includes('embroidery-form');
+            if (!isDtfForm && !isEmbroideryForm) return;
             
             // Get instance ID from form ID or data attribute
             let instanceId = '';
@@ -3978,30 +4004,60 @@
                 instanceId = formElement.id.split('-form-')[1];
             }
             
-            // Determine container IDs
-            const printContainerId = instanceId ? `print-sizes-container-${instanceId}` : 'print-sizes-container';
-            const shirtContainerId = instanceId ? `shirt-sizes-container-${instanceId}` : 'shirt-sizes-container';
-            const printBtnId = instanceId ? `add-print-size-${instanceId}` : 'add-print-size';
-            const shirtBtnId = instanceId ? `add-shirt-size-${instanceId}` : 'add-shirt-size';
-            
-            // Add Print Size button
-            const printBtn = document.getElementById(printBtnId);
-            if (printBtn) {
-                printBtn.onclick = function() {
-                    console.log('✅ Add Print Size clicked for instance:', instanceId || 'original');
-                    addPrintSizeRow(printContainerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
-                };
-                console.log('✅ Initialized Print Size button:', printBtnId);
+            // DTF FORM
+            if (isDtfForm) {
+                const printContainerId = instanceId ? `print-sizes-container-${instanceId}` : 'print-sizes-container';
+                const shirtContainerId = instanceId ? `shirt-sizes-container-${instanceId}` : 'shirt-sizes-container';
+                const printBtnId = instanceId ? `add-print-size-${instanceId}` : 'add-print-size';
+                const shirtBtnId = instanceId ? `add-shirt-size-${instanceId}` : 'add-shirt-size';
+                
+                // Add Print Size button
+                const printBtn = document.getElementById(printBtnId);
+                if (printBtn) {
+                    printBtn.onclick = function() {
+                        console.log('✅ DTF: Add Print Size clicked for instance:', instanceId || 'original');
+                        addPrintSizeRow(printContainerId, 'dtf_print_size[]', 'dtf_custom_size[]', 'dtf_print_size_quantity[]');
+                    };
+                    console.log('✅ Initialized DTF Print Size button:', printBtnId);
+                }
+                
+                // Add Shirt Size button
+                const shirtBtn = document.getElementById(shirtBtnId);
+                if (shirtBtn) {
+                    shirtBtn.onclick = function() {
+                        console.log('✅ DTF: Add Shirt Size clicked for instance:', instanceId || 'original');
+                        addShirtSizeRow(shirtContainerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
+                    };
+                    console.log('✅ Initialized DTF Shirt Size button:', shirtBtnId);
+                }
             }
             
-            // Add Shirt Size button
-            const shirtBtn = document.getElementById(shirtBtnId);
-            if (shirtBtn) {
-                shirtBtn.onclick = function() {
-                    console.log('✅ Add Shirt Size clicked for instance:', instanceId || 'original');
-                    addShirtSizeRow(shirtContainerId, 'dtf_shirt_size[]', 'dtf_shirt_size_quantity[]');
-                };
-                console.log('✅ Initialized Shirt Size button:', shirtBtnId);
+            // EMBROIDERY FORM
+            if (isEmbroideryForm) {
+                const printContainerId = instanceId ? `embroidery-print-sizes-container-${instanceId}` : 'embroidery-print-sizes-container';
+                const shirtContainerId = instanceId ? `embroidery-shirt-sizes-container-${instanceId}` : 'embroidery-shirt-sizes-container';
+                const printBtnId = instanceId ? `add-embroidery-print-size-${instanceId}` : 'add-embroidery-print-size';
+                const shirtBtnId = instanceId ? `add-embroidery-shirt-size-${instanceId}` : 'add-embroidery-shirt-size';
+                
+                // Add Print Size button
+                const printBtn = document.getElementById(printBtnId);
+                if (printBtn) {
+                    printBtn.onclick = function() {
+                        console.log('✅ EMBROIDERY: Add Print Size clicked for instance:', instanceId || 'original');
+                        addPrintSizeRow(printContainerId, 'embroidery_print_size[]', 'embroidery_custom_size[]', 'embroidery_print_size_quantity[]');
+                    };
+                    console.log('✅ Initialized Embroidery Print Size button:', printBtnId);
+                }
+                
+                // Add Shirt Size button
+                const shirtBtn = document.getElementById(shirtBtnId);
+                if (shirtBtn) {
+                    shirtBtn.onclick = function() {
+                        console.log('✅ EMBROIDERY: Add Shirt Size clicked for instance:', instanceId || 'original');
+                        addShirtSizeRow(shirtContainerId, 'embroidery_shirt_size[]', 'embroidery_shirt_size_quantity[]');
+                    };
+                    console.log('✅ Initialized Embroidery Shirt Size button:', shirtBtnId);
+                }
             }
         }
         
@@ -4009,6 +4065,12 @@
         const originalDtfForm = document.getElementById('dtf-form');
         if (originalDtfForm) {
             initializeAddSizeButtons(originalDtfForm);
+        }
+        
+        // Initialize ORIGINAL EMBROIDERY form buttons
+        const originalEmbroideryForm = document.getElementById('embroidery-form');
+        if (originalEmbroideryForm) {
+            initializeAddSizeButtons(originalEmbroideryForm);
         }
         
         // Also set up event delegation for FUTURE cloned forms
