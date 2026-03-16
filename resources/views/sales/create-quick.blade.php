@@ -2831,10 +2831,53 @@
                 // Show parent container
                 const parent = document.getElementById('iprint-details-container');
                 if (parent) parent.style.display = 'block';
+                
+                // UPDATE THE TITLE based on option
+                updateSelectedTypeTitle(option);
             } else {
                 // Fallback to original form
                 showIprintOption(option, true);
             }
+        }
+        
+        // Function to update the selected type title
+        function updateSelectedTypeTitle(option) {
+            const titleElement = document.getElementById('iprint-selected-type');
+            if (!titleElement) return;
+            
+            let titleText = 'Selected: ';
+            
+            switch(option) {
+                case 'dtf':
+                    titleText += 'DTF and Subli Print';
+                    break;
+                case 'sublimation':
+                    titleText += 'Sublimation Print';
+                    break;
+                case 'embroidery':
+                    titleText += 'Embroidery';
+                    break;
+                case 'heat_transfer':
+                    titleText += 'Heat Transfer';
+                    break;
+                case 'vinyl':
+                    titleText += 'Vinyl';
+                    break;
+                case 'screen_print':
+                    titleText += 'Screen Print';
+                    break;
+                case 'lanyard':
+                    titleText += 'Lanyard';
+                    break;
+                case 'tarpaulin':
+                    titleText += 'Tarpaulin';
+                    break;
+                default:
+                    titleText += option.charAt(0).toUpperCase() + option.slice(1);
+            }
+            
+            titleElement.textContent = titleText;
+            console.log('✅ Updated title to:', titleText);
         }
         
         function showIprintOption(option, skipAddToTable = false) {
@@ -2860,6 +2903,9 @@
                 // Show parent container
                 const parent = document.getElementById('iprint-details-container');
                 if (parent) parent.style.display = 'block';
+                
+                // UPDATE THE TITLE based on option
+                updateSelectedTypeTitle(option);
             }
             
             // Add to table unless skipping
