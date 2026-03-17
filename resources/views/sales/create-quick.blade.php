@@ -2899,8 +2899,8 @@
                 container.style.display = 'none';
             });
             
-            // Hide all instance forms
-            const allInstanceForms = document.querySelectorAll('[data-instance-id]');
+            // Hide all instance forms (forms with data-instance-id)
+            const allInstanceForms = document.querySelectorAll('.iprint-type-form[data-instance-id]');
             allInstanceForms.forEach(form => {
                 form.style.display = 'none';
             });
@@ -2924,6 +2924,15 @@
             tableContainer.style.height = 'auto';
             tableContainer.style.overflow = 'visible';
             console.log('📊 Table container FORCE SHOWN:', tableContainer.id);
+            
+            // UNHIDE any previously hidden table rows
+            const allTableRows = tableBody.querySelectorAll('tr[data-instance-id]');
+            allTableRows.forEach(row => {
+                if (row.style.display === 'none') {
+                    row.style.display = '';
+                    console.log('✅ Unhid table row:', row.id);
+                }
+            });
             
             const tableBody = document.getElementById('printing-types-tbody');
             if (!tableBody) {
