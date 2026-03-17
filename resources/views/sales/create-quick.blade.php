@@ -590,6 +590,39 @@
                                                             </div>
                                                         </div>
 
+                                                        <!-- DTF Form Summary -->
+                                                        <div class="col-md-12 mt-3">
+                                                            <div class="alert alert-info p-2">
+                                                                <div class="row">
+                                                                    <div class="col-md-6">
+                                                                        <div class="small fw-semibold mb-2">Print Sizes Summary:</div>
+                                                                        <div id="dtf-print-size-breakdown" class="small mb-2">
+                                                                            <div class="d-flex align-items-center mb-1">
+                                                                                <span class="me-2">8x10:</span>
+                                                                                <span class="badge bg-secondary">0</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="mt-2">
+                                                                            <span class="small fw-semibold">Print Total:</span>
+                                                                            <span class="badge bg-primary ms-2" id="dtf-print-total-quantity">0</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <div class="small fw-semibold mb-2">Shirt Sizes Summary:</div>
+                                                                        <div id="dtf-shirt-size-breakdown" class="small mb-2">
+                                                                            <div class="d-flex align-items-center mb-1">
+                                                                                <span class="me-2">XS:</span>
+                                                                                <span class="badge bg-secondary">0</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="mt-2">
+                                                                            <span class="small fw-semibold">Shirt Total:</span>
+                                                                            <span class="badge bg-primary ms-2" id="dtf-shirt-total-quantity">0</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
                                                     </div>
                                                 </div>
@@ -3452,28 +3485,7 @@
         }
     </script>
     
-    <script>
-        // SIMPLE GLOBAL FUNCTIONS FOR ADD SIZE BUTTONS
-        // These functions are globally accessible
-        
-        // Function to add a new print size row
-        // ULTRA SIMPLE: Just add a new row
-        function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
-            console.log('ULTRA SIMPLE: Adding print size row');
-            
-            const container = document.getElementById(containerId);
-            if (!container) {
-                alert('Error: Container not found!');
-                return;
-            }
-            
-            // Get row count
-            const rowCount = container.querySelectorAll('.print-size-row').length;
-            const rowNumber = rowCount + 1;
-            
-            // Create SIMPLE row
-            const newRow = document.createElement('tr');
-            newRow.className = 'print-size-row';
+
             newRow.innerHTML = `
                 <td class="align-middle text-center">${rowNumber}</td>
                 <td>
@@ -3787,6 +3799,215 @@
                     firstTd.textContent = index + 1;
                 }
             });
+            
+            // Update DTF summary if this is a DTF container
+            if (containerId.includes('print-sizes-container') || containerId.includes('shirt-sizes-container')) {
+                updateDtfSummary(containerId);
+            }
+        }
+        
+        // 4. Update DTF Summary
+        function updateDtfSummary(containerId) {
+            console.log('✅ Updating DTF summary for:', containerId);
+            
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            let total = 0;
+            const quantityInputs = container.querySelectorAll('input[type="number"]');
+            
+            quantityInputs.forEach(input => {
+                const value = parseInt(input.value) || 0;
+                total += value;
+            });
+            
+            console.log('✅ Total quantity for', containerId, ':', total);
+            
+            // Update the appropriate DTF summary
+            if (containerId.includes('print-sizes-container')) {
+                // DTF Print Sizes
+                const printTotalElement = document.getElementById('dtf-print-total-quantity');
+                if (printTotalElement) {
+                    printTotalElement.textContent = total;
+                    console.log('✅ Updated DTF print total:', total);
+                }
+                
+                // Also update the breakdown
+                updateDtfPrintSizeBreakdown(containerId);
+            } 
+            else if (containerId.includes('shirt-sizes-container')) {
+                // DTF Shirt Sizes
+                const shirtTotalElement = document.getElementById('dtf-shirt-total-quantity');
+                if (shirtTotalElement) {
+                    shirtTotalElement.textContent = total;
+                    console.log('✅ Updated DTF shirt total:', total);
+                }
+                
+                // Also update the breakdown
+                updateDtfShirtSizeBreakdown(containerId);
+            }
+        }
+        
+        // 5. Update DTF Print Size Breakdown
+        function updateDtfPrintSizeBreakdown(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const breakdownElement = document.getElementById('dtf-print-size-breakdown');
+            if (!breakdownElement) {
+                console.log('⚠️ dtf-print-size-breakdown element not found');
+                return;
+            }
+            
+            // Collect all size selections and quantities
+            const sizeMap = new Map();
+            const rows = container.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const sizeSelect = row.querySelector('select[name*="print_size"]');
+                const quantityInput = row.querySelector('input[name*="print_size_quantity"]');
+                
+                if (sizeSelect && quantityInput) {
+                    const size = sizeSelect.value;
+                    const quantity = parseInt(quantityInput.value) || 0;
+                    
+                    if (size && quantity > 0) {
+                        const current = sizeMap.get(size) || 0;
+                        sizeMap.set(size, current + quantity);
+                    }
+                }
+            });
+            
+            // Update the breakdown HTML
+            let html = '';
+            sizeMap.forEach((quantity, size) => {
+                if (size && quantity > 0) {
+                    const displaySize = size === 'custom' ? 'Custom' : size;
+                    html += `
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="me-2">${displaySize}:</span>
+                            <span class="badge bg-secondary">${quantity}</span>
+                        </div>
+                    `;
+                }
+            });
+            
+            // If no sizes, show default
+            if (html === '') {
+                html = `
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="me-2">8x10:</span>
+                        <span class="badge bg-secondary">0</span>
+                    </div>
+                `;
+            }
+            
+            breakdownElement.innerHTML = html;
+            console.log('✅ Updated DTF print size breakdown');
+        }
+        
+        // 6. Update DTF Shirt Size Breakdown
+        function updateDtfShirtSizeBreakdown(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const breakdownElement = document.getElementById('dtf-shirt-size-breakdown');
+            if (!breakdownElement) {
+                console.log('⚠️ dtf-shirt-size-breakdown element not found');
+                return;
+            }
+            
+            // Collect all size selections and quantities
+            const sizeMap = new Map();
+            const rows = container.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const sizeSelect = row.querySelector('select[name*="shirt_size"]');
+                const quantityInput = row.querySelector('input[name*="shirt_size_quantity"]');
+                
+                if (sizeSelect && quantityInput) {
+                    const size = sizeSelect.value;
+                    const quantity = parseInt(quantityInput.value) || 0;
+                    
+                    if (size && quantity > 0) {
+                        const current = sizeMap.get(size) || 0;
+                        sizeMap.set(size, current + quantity);
+                    }
+                }
+            });
+            
+            // Update the breakdown HTML
+            let html = '';
+            sizeMap.forEach((quantity, size) => {
+                if (size && quantity > 0) {
+                    const displaySize = size.toUpperCase();
+                    html += `
+                        <div class="d-flex align-items-center mb-1">
+                            <span class="me-2">${displaySize}:</span>
+                            <span class="badge bg-secondary">${quantity}</span>
+                        </div>
+                    `;
+                }
+            });
+            
+            // If no sizes, show default
+            if (html === '') {
+                html = `
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="me-2">XS:</span>
+                        <span class="badge bg-secondary">0</span>
+                    </div>
+                `;
+            }
+            
+            breakdownElement.innerHTML = html;
+            console.log('✅ Updated DTF shirt size breakdown');
+        }
+        
+        // 7. Setup DTF Summary Event Listeners
+        function setupDtfSummaryEventListeners(containerId) {
+            console.log('✅ Setting up DTF summary event listeners for:', containerId);
+            
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // Check if listeners already exist
+            if (container.dataset.dtfSummaryListeners === 'true') {
+                console.log('⚠️ DTF summary listeners already exist for:', containerId);
+                return;
+            }
+            
+            // Mark that listeners are setup
+            container.dataset.dtfSummaryListeners = 'true';
+            
+            // Add event delegation for change events
+            container.addEventListener('change', function(event) {
+                const target = event.target;
+                
+                // Check if it's a dropdown or quantity input
+                if (target.tagName === 'SELECT' || 
+                    (target.tagName === 'INPUT' && target.type === 'number')) {
+                    
+                    console.log('✅ DTF Change detected in', containerId, 'element:', target.name);
+                    
+                    // Update the DTF summary
+                    updateDtfSummary(containerId);
+                }
+            });
+            
+            // Also listen for input events on quantity fields (for real-time updates)
+            container.addEventListener('input', function(event) {
+                const target = event.target;
+                
+                if (target.tagName === 'INPUT' && target.type === 'number') {
+                    console.log('✅ DTF Input detected in', containerId, 'quantity:', target.value);
+                    
+                    // Update the DTF summary
+                    updateDtfSummary(containerId);
+                }
+            });
+            
+            console.log('✅ DTF event listeners setup for:', containerId);
         }
     </script>
 @endpush
@@ -3847,6 +4068,9 @@
         
         // Update row numbers
         updateRowNumbers(containerId);
+        
+        // Setup DTF summary event listeners
+        setupDtfSummaryEventListeners(containerId);
     }
     
     // Add Shirt Size Row
@@ -3895,6 +4119,9 @@
         
         // Update row numbers
         updateRowNumbers(containerId);
+        
+        // Setup DTF summary event listeners
+        setupDtfSummaryEventListeners(containerId);
     }
     
     // Update Row Numbers
@@ -3909,35 +4136,220 @@
                 firstTd.textContent = index + 1;
             }
         });
+        
+        // Update DTF summary if this is a DTF container
+        if (containerId.includes('print-sizes-container') || containerId.includes('shirt-sizes-container')) {
+            updateDtfSummary(containerId);
+        }
+    }
+    
+    // Update DTF Summary
+    function updateDtfSummary(containerId) {
+        console.log('✅ Updating DTF summary for:', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        let total = 0;
+        const quantityInputs = container.querySelectorAll('input[type="number"]');
+        
+        quantityInputs.forEach(input => {
+            const value = parseInt(input.value) || 0;
+            total += value;
+        });
+        
+        console.log('✅ Total quantity for', containerId, ':', total);
+        
+        // Update the appropriate DTF summary
+        if (containerId.includes('print-sizes-container')) {
+            // DTF Print Sizes
+            const printTotalElement = document.getElementById('dtf-print-total-quantity');
+            if (printTotalElement) {
+                printTotalElement.textContent = total;
+                console.log('✅ Updated DTF print total:', total);
+            }
+            
+            // Also update the breakdown
+            updateDtfPrintSizeBreakdown(containerId);
+        } 
+        else if (containerId.includes('shirt-sizes-container')) {
+            // DTF Shirt Sizes
+            const shirtTotalElement = document.getElementById('dtf-shirt-total-quantity');
+            if (shirtTotalElement) {
+                shirtTotalElement.textContent = total;
+                console.log('✅ Updated DTF shirt total:', total);
+            }
+            
+            // Also update the breakdown
+            updateDtfShirtSizeBreakdown(containerId);
+        }
+    }
+    
+    // Update DTF Print Size Breakdown
+    function updateDtfPrintSizeBreakdown(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const breakdownElement = document.getElementById('dtf-print-size-breakdown');
+        if (!breakdownElement) {
+            console.log('⚠️ dtf-print-size-breakdown element not found');
+            return;
+        }
+        
+        // Collect all size selections and quantities
+        const sizeMap = new Map();
+        const rows = container.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const sizeSelect = row.querySelector('select[name*="print_size"]');
+            const quantityInput = row.querySelector('input[name*="print_size_quantity"]');
+            
+            if (sizeSelect && quantityInput) {
+                const size = sizeSelect.value;
+                const quantity = parseInt(quantityInput.value) || 0;
+                
+                if (size && quantity > 0) {
+                    const current = sizeMap.get(size) || 0;
+                    sizeMap.set(size, current + quantity);
+                }
+            }
+        });
+        
+        // Update the breakdown HTML
+        let html = '';
+        sizeMap.forEach((quantity, size) => {
+            if (size && quantity > 0) {
+                const displaySize = size === 'custom' ? 'Custom' : size;
+                html += `
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="me-2">${displaySize}:</span>
+                        <span class="badge bg-secondary">${quantity}</span>
+                    </div>
+                `;
+            }
+        });
+        
+        // If no sizes, show default
+        if (html === '') {
+            html = `
+                <div class="d-flex align-items-center mb-1">
+                    <span class="me-2">8x10:</span>
+                    <span class="badge bg-secondary">0</span>
+                </div>
+            `;
+        }
+        
+        breakdownElement.innerHTML = html;
+        console.log('✅ Updated DTF print size breakdown');
+    }
+    
+    // Update DTF Shirt Size Breakdown
+    function updateDtfShirtSizeBreakdown(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const breakdownElement = document.getElementById('dtf-shirt-size-breakdown');
+        if (!breakdownElement) {
+            console.log('⚠️ dtf-shirt-size-breakdown element not found');
+            return;
+        }
+        
+        // Collect all size selections and quantities
+        const sizeMap = new Map();
+        const rows = container.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const sizeSelect = row.querySelector('select[name*="shirt_size"]');
+            const quantityInput = row.querySelector('input[name*="shirt_size_quantity"]');
+            
+            if (sizeSelect && quantityInput) {
+                const size = sizeSelect.value;
+                const quantity = parseInt(quantityInput.value) || 0;
+                
+                if (size && quantity > 0) {
+                    const current = sizeMap.get(size) || 0;
+                    sizeMap.set(size, current + quantity);
+                }
+            }
+        });
+        
+        // Update the breakdown HTML
+        let html = '';
+        sizeMap.forEach((quantity, size) => {
+            if (size && quantity > 0) {
+                const displaySize = size.toUpperCase();
+                html += `
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="me-2">${displaySize}:</span>
+                        <span class="badge bg-secondary">${quantity}</span>
+                    </div>
+                `;
+            }
+        });
+        
+        // If no sizes, show default
+        if (html === '') {
+            html = `
+                <div class="d-flex align-items-center mb-1">
+                    <span class="me-2">XS:</span>
+                    <span class="badge bg-secondary">0</span>
+                </div>
+            `;
+        }
+        
+        breakdownElement.innerHTML = html;
+        console.log('✅ Updated DTF shirt size breakdown');
+    }
+    
+    // Setup DTF Summary Event Listeners
+    function setupDtfSummaryEventListeners(containerId) {
+        console.log('✅ Setting up DTF summary event listeners for:', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        // Check if listeners already exist
+        if (container.dataset.dtfSummaryListeners === 'true') {
+            console.log('⚠️ DTF summary listeners already exist for:', containerId);
+            return;
+        }
+        
+        // Mark that listeners are setup
+        container.dataset.dtfSummaryListeners = 'true';
+        
+        // Add event delegation for change events
+        container.addEventListener('change', function(event) {
+            const target = event.target;
+            
+            // Check if it's a dropdown or quantity input
+            if (target.tagName === 'SELECT' || 
+                (target.tagName === 'INPUT' && target.type === 'number')) {
+                
+                console.log('✅ DTF Change detected in', containerId, 'element:', target.name);
+                
+                // Update the DTF summary
+                updateDtfSummary(containerId);
+            }
+        });
+        
+        // Also listen for input events on quantity fields (for real-time updates)
+        container.addEventListener('input', function(event) {
+            const target = event.target;
+            
+            if (target.tagName === 'INPUT' && target.type === 'number') {
+                console.log('✅ DTF Input detected in', containerId, 'quantity:', target.value);
+                
+                // Update the DTF summary
+                updateDtfSummary(containerId);
+            }
+        });
+        
+        console.log('✅ DTF event listeners setup for:', containerId);
     }
     
     // Initialize buttons
     document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ ULTRA SIMPLE JS READY');
-        
-        // Initialize ALL summaries to ZERO on page load
-        function initializeAllSummaries() {
-            console.log('✅ Initializing all summaries to zero...');
-            
-            // DTF Summary
-            const printTotalElement = document.getElementById('print-total-quantity');
-            if (printTotalElement) printTotalElement.textContent = '0';
-            
-            const shirtTotalElement = document.getElementById('shirt-total-quantity');
-            if (shirtTotalElement) shirtTotalElement.textContent = '0';
-            
-            // Embroidery Summary
-            const embroideryPrintTotal = document.getElementById('embroidery-print-total-quantity');
-            if (embroideryPrintTotal) embroideryPrintTotal.textContent = '0';
-            
-            const embroideryShirtTotal = document.getElementById('embroidery-shirt-total-quantity');
-            if (embroideryShirtTotal) embroideryShirtTotal.textContent = '0';
-            
-            console.log('✅ All summaries initialized to zero');
-        }
-        
-        // Call initialization
-        initializeAllSummaries();
         
         // Function to initialize buttons for ANY form
         function initializeAddSizeButtons(formElement) {
@@ -4027,5 +4439,22 @@
         // (cloned forms will be initialized by reinitializeAddSizeButtons)
         
         console.log('✅ Buttons initialized');
+        
+        // Setup DTF summary event listeners for EXISTING containers
+        function setupExistingDtfContainers() {
+            console.log('✅ Setting up DTF summary event listeners for existing containers...');
+            
+            // DTF containers
+            const dtfPrintContainer = document.getElementById('print-sizes-container');
+            const dtfShirtContainer = document.getElementById('shirt-sizes-container');
+            
+            if (dtfPrintContainer) setupDtfSummaryEventListeners('print-sizes-container');
+            if (dtfShirtContainer) setupDtfSummaryEventListeners('shirt-sizes-container');
+            
+            console.log('✅ DTF existing containers setup complete');
+        }
+        
+        // Call it
+        setupExistingDtfContainers();
     });
 </script>
