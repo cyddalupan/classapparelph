@@ -2917,9 +2917,13 @@
             const tableContainer = document.getElementById('selected-printing-types-container');
             if (!tableContainer) return;
             
-            // Show the table container
+            // Show the table container - FORCE VISIBLE
             tableContainer.style.display = 'block';
-            console.log('📊 Table container shown:', tableContainer.id);
+            tableContainer.style.visibility = 'visible';
+            tableContainer.style.opacity = '1';
+            tableContainer.style.height = 'auto';
+            tableContainer.style.overflow = 'visible';
+            console.log('📊 Table container FORCE SHOWN:', tableContainer.id);
             
             const tableBody = document.getElementById('printing-types-tbody');
             if (!tableBody) {
@@ -2961,7 +2965,19 @@
             // Show notification for successful add
             showNotification('Item added to order list', 'success');
             
+            // DEBUG: Check what's actually in the table
             console.log('🔵 addPrintingTypeToTable COMPLETE for option:', option);
+            console.log('🔍 TABLE STATE CHECK:');
+            console.log('  - Table container display:', tableContainer.style.display);
+            console.log('  - Table container visibility:', tableContainer.style.visibility);
+            console.log('  - Table container height:', tableContainer.offsetHeight);
+            console.log('  - Table rows in DOM:', tableBody.children.length);
+            
+            // Log each row's HTML
+            const rows = tableBody.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                console.log(`  - Row ${index + 1}:`, row.outerHTML.substring(0, 200) + '...');
+            });
         }
         
         // Simple edit function
