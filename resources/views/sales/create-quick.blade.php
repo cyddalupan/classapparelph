@@ -4302,6 +4302,13 @@
     }
     
     // Update DTF Summary
+    // Simple function to calculate total quantity (for auto-compute feature)
+    // This just calls updateDtfSummary to avoid errors
+    function calculateTotalQuantity(containerId) {
+        console.log('📊 calculateTotalQuantity called for:', containerId);
+        updateDtfSummary(containerId);
+    }
+    
     function updateDtfSummary(containerId) {
         console.log('✅ Updating DTF summary for:', containerId);
         
