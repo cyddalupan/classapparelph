@@ -4297,6 +4297,7 @@
         
         // Update DTF summary if this is a DTF container
         if (containerId.includes('print-sizes-container') || containerId.includes('shirt-sizes-container')) {
+            console.log('📢 updateRowNumbers calling updateDtfSummary for:', containerId);
             updateDtfSummary(containerId);
         }
     }
