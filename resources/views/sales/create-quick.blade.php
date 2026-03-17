@@ -2909,7 +2909,7 @@
         }
         
         function addPrintingTypeToTable(option) {
-            console.log('DEBUG: addPrintingTypeToTable called with option:', option);
+            console.log('🔵 addPrintingTypeToTable START for option:', option);
             
             // FIRST: Hide ALL existing forms
             hideAllIprintForms();
@@ -2951,10 +2951,15 @@
             `;
             
             tableBody.appendChild(newRow);
-            console.log('DEBUG: Added item to table:', instanceId);
+            console.log('✅ Added NEW row to table. Instance ID:', instanceId, 'Row HTML:', newRow.innerHTML);
+            
+            // Update table row numbers
+            updateTableRowNumbers();
             
             // Show notification for successful add
             showNotification('Item added to order list', 'success');
+            
+            console.log('🔵 addPrintingTypeToTable COMPLETE for option:', option);
         }
         
         // Simple edit function
@@ -3065,7 +3070,7 @@
                     cleanupFormInstance(instanceId);
                     
                     // Update row numbers
-                    updateRowNumbers();
+                    updateTableRowNumbers();
                     
                     // Show success notification
                     showNotification('Item has been removed successfully', 'success');
@@ -3077,8 +3082,8 @@
             );
         }
         
-        // Update row numbers in the table
-        function updateRowNumbers() {
+        // Update row numbers in the ORDER DETAILS TABLE
+        function updateTableRowNumbers() {
             const tableBody = document.getElementById('printing-types-tbody');
             if (!tableBody) return;
             
@@ -3089,6 +3094,7 @@
                     row.cells[0].textContent = index + 1;
                 }
             });
+            console.log('✅ Updated table row numbers. Total rows:', rows.length);
         }
         
         // Confirmation Modal System
