@@ -4050,47 +4050,7 @@
             }
         }
         
-        // 4. Update DTF Summary
-        function updateDtfSummary(containerId) {
-            console.log('✅ Updating DTF summary for:', containerId);
-            
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            
-            let total = 0;
-            const quantityInputs = container.querySelectorAll('input[type="number"]');
-            
-            quantityInputs.forEach(input => {
-                const value = parseInt(input.value) || 0;
-                total += value;
-            });
-            
-            console.log('✅ Total quantity for', containerId, ':', total);
-            
-            // Update the appropriate DTF summary
-            if (containerId.includes('print-sizes-container')) {
-                // DTF Print Sizes
-                const printTotalElement = document.getElementById('dtf-print-total-quantity');
-                if (printTotalElement) {
-                    printTotalElement.textContent = total;
-                    console.log('✅ Updated DTF print total:', total);
-                }
-                
-                // Also update the breakdown
-                updateDtfPrintSizeBreakdown(containerId);
-            } 
-            else if (containerId.includes('shirt-sizes-container')) {
-                // DTF Shirt Sizes
-                const shirtTotalElement = document.getElementById('dtf-shirt-total-quantity');
-                if (shirtTotalElement) {
-                    shirtTotalElement.textContent = total;
-                    console.log('✅ Updated DTF shirt total:', total);
-                }
-                
-                // Also update the breakdown
-                updateDtfShirtSizeBreakdown(containerId);
-            }
-        }
+
         
         // 5. Update DTF Print Size Breakdown
         function updateDtfPrintSizeBreakdown(containerId) {
@@ -4206,52 +4166,6 @@
             
             breakdownElement.innerHTML = html;
             console.log('✅ Updated DTF shirt size breakdown');
-        }
-        
-        // 7. Setup DTF Summary Event Listeners
-        function setupDtfSummaryEventListeners(containerId) {
-            console.log('✅ Setting up DTF summary event listeners for:', containerId);
-            
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            
-            // Check if listeners already exist
-            if (container.dataset.dtfSummaryListeners === 'true') {
-                console.log('⚠️ DTF summary listeners already exist for:', containerId);
-                return;
-            }
-            
-            // Mark that listeners are setup
-            container.dataset.dtfSummaryListeners = 'true';
-            
-            // Add event delegation for change events
-            container.addEventListener('change', function(event) {
-                const target = event.target;
-                
-                // Check if it's a dropdown or quantity input
-                if (target.tagName === 'SELECT' || 
-                    (target.tagName === 'INPUT' && target.type === 'number')) {
-                    
-                    console.log('✅ DTF Change detected in', containerId, 'element:', target.name);
-                    
-                    // Update the DTF summary
-                    updateDtfSummary(containerId);
-                }
-            });
-            
-            // Also listen for input events on quantity fields (for real-time updates)
-            container.addEventListener('input', function(event) {
-                const target = event.target;
-                
-                if (target.tagName === 'INPUT' && target.type === 'number') {
-                    console.log('✅ DTF Input detected in', containerId, 'quantity:', target.value);
-                    
-                    // Update the DTF summary
-                    updateDtfSummary(containerId);
-                }
-            });
-            
-            console.log('✅ DTF event listeners setup for:', containerId);
         }
     </script>
 @endpush
