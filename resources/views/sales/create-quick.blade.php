@@ -2453,11 +2453,135 @@
                 const newInput = input.cloneNode(true);
                 input.parentNode.replaceChild(newInput, input);
                 
-                console.log('DEBUG: Replaced image upload input:', newInput.id);
+                console.log('✅ Replaced image upload input:', newInput.id);
+                
+                // Now set up the image upload preview for this specific input
+                // We need to find the corresponding preview containers
+                const inputId = newInput.id;
+                
+                // Map input IDs to their preview containers
+                const previewMap = {
+                    'dtf-image-upload': ['image-preview-container', 'image-previews'],
+                    'lanyard-image-upload': ['lanyard-uploaded-files-container', 'lanyard-uploaded-files-list'],
+                    'tarpaulin-image-upload': ['tarpaulin-uploaded-files-container', 'tarpaulin-uploaded-files-list'],
+                    'sublimation-image-upload': ['sublimation-uploaded-files-container', 'sublimation-uploaded-files-list'],
+                    'embroidery-image-upload': ['embroidery-uploaded-files-container', 'embroidery-uploaded-files-list']
+                };
+                
+                // Check if this is a cloned form (has instance ID in element IDs)
+                let containerId = inputId;
+                let previewContainerId, previewsId;
+                
+                if (instanceId && inputId.includes('-')) {
+                    // This is a cloned form, need to find the actual IDs
+                    // The input ID might be like "dtf-image-upload-123456"
+                    const baseId = inputId.replace(`-${instanceId}`, '');
+                    
+                    if (previewMap[baseId]) {
+                        previewContainerId = `${previewMap[baseId][0]}-${instanceId}`;
+                        previewsId = `${previewMap[baseId][1]}-${instanceId}`;
+                    }
+                } else if (previewMap[inputId]) {
+                    // Original form
+                    previewContainerId = previewMap[inputId][0];
+                    previewsId = previewMap[inputId][1];
+                }
+                
+                if (previewContainerId && previewsId) {
+                    // Set up the image upload preview
+                    console.log('🖼️ Setting up image preview for:', inputId, '->', previewContainerId, previewsId);
+                    
+                    // Add event listener directly to this input
+                    newInput.addEventListener('change', function(event) {
+                        handleImageUpload(event, previewContainerId, previewsId);
+                    });
+                }
             });
+        }
+        
+        // Helper function to handle image upload for any input
+        function handleImageUpload(event, previewContainerId, previewsId) {
+            const files = event.target.files;
+            const container = document.getElementById(previewContainerId);
+            const previews = document.getElementById(previewsId);
             
-            // The global event delegation in initializeImageUploadPreviews()
-            // will handle these new inputs automatically
+            if (!container || !previews) {
+                console.error('❌ Image upload containers not found:', previewContainerId, previewsId);
+                return;
+            }
+            
+            if (files.length > 0) {
+                // Show preview container
+                container.classList.remove('d-none');
+                
+                // Clear "No files" message if present
+                const noFilesMsg = previews.querySelector('.text-muted.small');
+                if (noFilesMsg) noFilesMsg.remove();
+                
+                console.log('📸 Processing', files.length, 'file(s) for:', previewContainerId);
+                
+                // Process each file
+                Array.from(files).forEach((file, index) => {
+                    // Check file size (10MB max)
+                    if (file.size > 10 * 1024 * 1024) {
+                        showNotification(`File "${file.name}" exceeds 10MB limit`, 'error');
+                        return;
+                    }
+                    
+                    // Create preview element
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        const previewCard = document.createElement('div');
+                        previewCard.className = 'col-md-4 col-sm-6 mb-3';
+                        
+                        if (file.type.startsWith('image/')) {
+                            // Image file
+                            previewCard.innerHTML = `
+                                <div class="card h-100">
+                                    <div class="card-body p-2 text-center">
+                                        <div class="position-relative">
+                                            <img src="${e.target.result}" class="img-fluid rounded" style="max-height: 120px;" alt="${file.name}">
+                                            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="removeImagePreview(this)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <p class="small text-muted mt-2 mb-0">${file.name}</p>
+                                        <p class="small text-muted">${(file.size / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            // Non-image file (PDF, PSD, etc.)
+                            const fileType = file.name.split('.').pop().toUpperCase();
+                            previewCard.innerHTML = `
+                                <div class="card h-100">
+                                    <div class="card-body p-2 text-center">
+                                        <div class="position-relative">
+                                            <div class="bg-light rounded p-3 mb-2">
+                                                <i class="fas fa-file fa-3x text-secondary"></i>
+                                                <div class="small mt-1">${fileType}</div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="removeImagePreview(this)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <p class="small text-muted mt-2 mb-0">${file.name}</p>
+                                        <p class="small text-muted">${(file.size / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        previews.appendChild(previewCard);
+                        console.log('✅ Added preview for:', file.name);
+                    };
+                    
+                    reader.readAsDataURL(file);
+                });
+                
+                showNotification(`Added ${files.length} file(s)`, 'success');
+            }
         }
         
         // Initialize quantity auto-compute for a specific form
@@ -4601,5 +4725,142 @@
         
         // Call it
         setupExistingDtfContainers();
+    });
+    
+    // ============================================
+    // IMAGE UPLOAD PREVIEW FUNCTIONALITY
+    // ============================================
+    
+    // Universal function to handle image upload previews
+    function setupImageUploadPreview(inputId, previewContainerId, previewsId) {
+        const input = document.getElementById(inputId);
+        const container = document.getElementById(previewContainerId);
+        const previews = document.getElementById(previewsId);
+        
+        if (!input || !container || !previews) {
+            console.log('⚠️ Image upload elements not found for:', inputId);
+            return;
+        }
+        
+        console.log('✅ Setting up image upload preview for:', inputId);
+        
+        // Remove any existing event listeners by cloning
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        
+        // Add new event listener
+        newInput.addEventListener('change', function(event) {
+            const files = event.target.files;
+            
+            if (files.length > 0) {
+                // Show preview container
+                container.classList.remove('d-none');
+                previews.innerHTML = '';
+                
+                console.log('📸 Processing', files.length, 'file(s) for:', inputId);
+                
+                // Process each file
+                Array.from(files).forEach((file, index) => {
+                    // Check file size (10MB max)
+                    if (file.size > 10 * 1024 * 1024) {
+                        showNotification(`File "${file.name}" exceeds 10MB limit`, 'error');
+                        return;
+                    }
+                    
+                    // Create preview element
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        const previewCard = document.createElement('div');
+                        previewCard.className = 'col-md-4 col-sm-6 mb-3';
+                        
+                        if (file.type.startsWith('image/')) {
+                            // Image file
+                            previewCard.innerHTML = `
+                                <div class="card h-100">
+                                    <div class="card-body p-2 text-center">
+                                        <div class="position-relative">
+                                            <img src="${e.target.result}" class="img-fluid rounded" style="max-height: 120px;" alt="${file.name}">
+                                            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="removeImagePreview(this)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <p class="small text-muted mt-2 mb-0">${file.name}</p>
+                                        <p class="small text-muted">${(file.size / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                </div>
+                            `;
+                        } else {
+                            // Non-image file (PDF, PSD, etc.)
+                            const fileType = file.name.split('.').pop().toUpperCase();
+                            previewCard.innerHTML = `
+                                <div class="card h-100">
+                                    <div class="card-body p-2 text-center">
+                                        <div class="position-relative">
+                                            <div class="bg-light rounded p-3 mb-2">
+                                                <i class="fas fa-file fa-3x text-secondary"></i>
+                                                <div class="small mt-1">${fileType}</div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="removeImagePreview(this)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <p class="small text-muted mt-2 mb-0">${file.name}</p>
+                                        <p class="small text-muted">${(file.size / 1024).toFixed(1)} KB</p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        previews.appendChild(previewCard);
+                        console.log('✅ Added preview for:', file.name);
+                    };
+                    
+                    reader.readAsDataURL(file);
+                });
+                
+                showNotification(`Added ${files.length} file(s)`, 'success');
+            }
+        });
+    }
+    
+    // Function to remove image preview
+    function removeImagePreview(button) {
+        const previewCard = button.closest('.col-md-4');
+        if (previewCard) {
+            previewCard.remove();
+            showNotification('File removed from preview', 'info');
+            
+            // Check if any previews left
+            const container = button.closest('[id$="-previews"]');
+            if (container && container.children.length === 0) {
+                const parentContainer = container.closest('[id$="-preview-container"]');
+                if (parentContainer) {
+                    parentContainer.classList.add('d-none');
+                }
+            }
+        }
+    }
+    
+    // Initialize image upload previews on DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🖼️ Setting up image upload previews...');
+        
+        // DTF Form
+        setupImageUploadPreview('dtf-image-upload', 'image-preview-container', 'image-previews');
+        
+        // Lanyard Form  
+        setupImageUploadPreview('lanyard-image-upload', 'lanyard-uploaded-files-container', 'lanyard-uploaded-files-list');
+        
+        // Tarpaulin Form
+        setupImageUploadPreview('tarpaulin-image-upload', 'tarpaulin-uploaded-files-container', 'tarpaulin-uploaded-files-list');
+        
+        // Sublimation Form
+        setupImageUploadPreview('sublimation-image-upload', 'sublimation-uploaded-files-container', 'sublimation-uploaded-files-list');
+        
+        // Embroidery Form
+        setupImageUploadPreview('embroidery-image-upload', 'embroidery-uploaded-files-container', 'embroidery-uploaded-files-list');
+        
+        console.log('✅ All image upload previews initialized');
     });
 </script>
