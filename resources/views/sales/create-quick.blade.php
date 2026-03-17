@@ -3930,11 +3930,11 @@
         });
         
         // ============================================
-        // SIMPLE FUNCTIONS - ADDED AT END TO AVOID ERRORS
+        // SIMPLE FUNCTIONS - REMOVED (DUPLICATE - USING MAIN FUNCTIONS INSTEAD)
         // ============================================
         
-        // 1. Add Print Size Row
-        function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
+        // 1. Add Print Size Row - REMOVED (DUPLICATE - USING MAIN FUNCTION INSTEAD)
+        // function addPrintSizeRow(containerId, sizeSelectName, customInputName, quantityInputName) {
             console.log('SIMPLE: Adding print size row to', containerId);
             
             const container = document.getElementById(containerId);
@@ -4194,7 +4194,8 @@
         newRow.innerHTML = `
             <td class="align-middle text-center">${rowNumber}</td>
             <td>
-                <select class="form-select form-select-sm" name="${sizeSelectName}" required>
+                <select class="form-select form-select-sm" name="${sizeSelectName}" required 
+                        onchange="updateDtfSummary('${containerId}')">
                     <option value="" selected disabled>Select print size</option>
                     <option value="2x3">2x3 inches</option>
                     <option value="3x4">3x4 inches</option>
@@ -4211,7 +4212,9 @@
                 <input type="text" class="form-control form-control-sm" name="${customInputName}" placeholder="Enter custom size" style="display: none;">
             </td>
             <td>
-                <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required>
+                <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required 
+                       onchange="updateDtfSummary('${containerId}')" 
+                       oninput="updateDtfSummary('${containerId}')">
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
@@ -4249,7 +4252,8 @@
         newRow.innerHTML = `
             <td class="align-middle text-center">${rowNumber}</td>
             <td>
-                <select class="form-select form-select-sm" name="${sizeSelectName}" required>
+                <select class="form-select form-select-sm" name="${sizeSelectName}" required 
+                        onchange="updateDtfSummary('${containerId}')">
                     <option value="" selected disabled>Select size</option>
                     <option value="xs">XS</option>
                     <option value="s">S</option>
@@ -4262,7 +4266,9 @@
                 </select>
             </td>
             <td>
-                <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required>
+                <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required 
+                       onchange="updateDtfSummary('${containerId}')" 
+                       oninput="updateDtfSummary('${containerId}')">
             </td>
             <td class="text-center">
                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
@@ -4499,14 +4505,25 @@
         const container = document.getElementById(containerId);
         if (!container) return;
         
-        // Check if listeners already exist
-        if (container.dataset.dtfSummaryListeners === 'true') {
-            console.log('⚠️ DTF summary listeners already exist for:', containerId);
-            return;
+        // Always set up fresh event listeners
+        // We remove any existing listeners first to prevent duplicates
+        const newContainer = container.cloneNode(false); // Clone without children
+        const oldContainer = container;
+        
+        // Move all children to the new container
+        while (oldContainer.firstChild) {
+            newContainer.appendChild(oldContainer.firstChild);
         }
         
+        // Replace the old container with the new one
+        oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+        
+        // Now get the updated container
+        const updatedContainer = document.getElementById(containerId);
+        if (!updatedContainer) return;
+        
         // Mark that listeners are setup
-        container.dataset.dtfSummaryListeners = 'true';
+        updatedContainer.dataset.dtfSummaryListeners = 'true';
         
         // Add event delegation for change events
         container.addEventListener('change', function(event) {
