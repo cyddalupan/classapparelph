@@ -2407,6 +2407,11 @@
                     };
                     console.log('✅ Reinitialized DTF Shirt Size button for:', instanceId);
                 }
+                
+                // Setup DTF summary event listeners for CLONED containers
+                console.log('✅ Setting up DTF summary event listeners for cloned form:', instanceId);
+                setupDtfSummaryEventListeners(`print-sizes-container-${instanceId}`);
+                setupDtfSummaryEventListeners(`shirt-sizes-container-${instanceId}`);
             }
             
             // EMBROIDERY FORM
@@ -4160,39 +4165,62 @@
         
         console.log('✅ Total quantity for', containerId, ':', total);
         
+        // Extract instance ID from containerId
+        let instanceId = '';
+        if (containerId.includes('-')) {
+            const parts = containerId.split('-');
+            if (parts.length > 3) {
+                // Format: print-sizes-container-dtf_1773422722196_453
+                instanceId = parts.slice(3).join('-'); // Get everything after third dash
+                console.log('✅ Extracted instance ID:', instanceId);
+            }
+        }
+        
+        // Build dynamic IDs
+        const printTotalId = instanceId ? `dtf-print-total-quantity-${instanceId}` : 'dtf-print-total-quantity';
+        const shirtTotalId = instanceId ? `dtf-shirt-total-quantity-${instanceId}` : 'dtf-shirt-total-quantity';
+        const printBreakdownId = instanceId ? `dtf-print-size-breakdown-${instanceId}` : 'dtf-print-size-breakdown';
+        const shirtBreakdownId = instanceId ? `dtf-shirt-size-breakdown-${instanceId}` : 'dtf-shirt-size-breakdown';
+        
         // Update the appropriate DTF summary
         if (containerId.includes('print-sizes-container')) {
             // DTF Print Sizes
-            const printTotalElement = document.getElementById('dtf-print-total-quantity');
+            const printTotalElement = document.getElementById(printTotalId);
             if (printTotalElement) {
                 printTotalElement.textContent = total;
-                console.log('✅ Updated DTF print total:', total);
+                console.log('✅ Updated DTF print total (ID:', printTotalId, '):', total);
+            } else {
+                console.log('⚠️ DTF print total element not found:', printTotalId);
             }
             
             // Also update the breakdown
-            updateDtfPrintSizeBreakdown(containerId);
+            updateDtfPrintSizeBreakdown(containerId, instanceId);
         } 
         else if (containerId.includes('shirt-sizes-container')) {
             // DTF Shirt Sizes
-            const shirtTotalElement = document.getElementById('dtf-shirt-total-quantity');
+            const shirtTotalElement = document.getElementById(shirtTotalId);
             if (shirtTotalElement) {
                 shirtTotalElement.textContent = total;
-                console.log('✅ Updated DTF shirt total:', total);
+                console.log('✅ Updated DTF shirt total (ID:', shirtTotalId, '):', total);
+            } else {
+                console.log('⚠️ DTF shirt total element not found:', shirtTotalId);
             }
             
             // Also update the breakdown
-            updateDtfShirtSizeBreakdown(containerId);
+            updateDtfShirtSizeBreakdown(containerId, instanceId);
         }
     }
     
     // Update DTF Print Size Breakdown
-    function updateDtfPrintSizeBreakdown(containerId) {
+    function updateDtfPrintSizeBreakdown(containerId, instanceId = '') {
         const container = document.getElementById(containerId);
         if (!container) return;
         
-        const breakdownElement = document.getElementById('dtf-print-size-breakdown');
+        // Build dynamic ID
+        const breakdownId = instanceId ? `dtf-print-size-breakdown-${instanceId}` : 'dtf-print-size-breakdown';
+        const breakdownElement = document.getElementById(breakdownId);
         if (!breakdownElement) {
-            console.log('⚠️ dtf-print-size-breakdown element not found');
+            console.log('⚠️ dtf-print-size-breakdown element not found:', breakdownId);
             return;
         }
         
@@ -4244,13 +4272,15 @@
     }
     
     // Update DTF Shirt Size Breakdown
-    function updateDtfShirtSizeBreakdown(containerId) {
+    function updateDtfShirtSizeBreakdown(containerId, instanceId = '') {
         const container = document.getElementById(containerId);
         if (!container) return;
         
-        const breakdownElement = document.getElementById('dtf-shirt-size-breakdown');
+        // Build dynamic ID
+        const breakdownId = instanceId ? `dtf-shirt-size-breakdown-${instanceId}` : 'dtf-shirt-size-breakdown';
+        const breakdownElement = document.getElementById(breakdownId);
         if (!breakdownElement) {
-            console.log('⚠️ dtf-shirt-size-breakdown element not found');
+            console.log('⚠️ dtf-shirt-size-breakdown element not found:', breakdownId);
             return;
         }
         
