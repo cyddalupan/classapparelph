@@ -2919,6 +2919,7 @@
             
             // Show the table container
             tableContainer.style.display = 'block';
+            console.log('📊 Table container shown:', tableContainer.id);
             
             const tableBody = document.getElementById('printing-types-tbody');
             if (!tableBody) {
@@ -2951,7 +2952,8 @@
             `;
             
             tableBody.appendChild(newRow);
-            console.log('✅ Added NEW row to table. Instance ID:', instanceId, 'Row HTML:', newRow.innerHTML);
+            console.log('✅ Added NEW row to table. Instance ID:', instanceId);
+            console.log('📋 Table body now has', tableBody.children.length, 'rows');
             
             // Update table row numbers
             updateTableRowNumbers();
