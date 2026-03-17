@@ -2917,6 +2917,12 @@
             const tableContainer = document.getElementById('selected-printing-types-container');
             if (!tableContainer) return;
             
+            const tableBody = document.getElementById('printing-types-tbody');
+            if (!tableBody) {
+                console.error('DEBUG: Table body not found! Looking for: printing-types-tbody');
+                return;
+            }
+            
             // Show the table container - FORCE VISIBLE
             tableContainer.style.display = 'block';
             tableContainer.style.visibility = 'visible';
@@ -2933,12 +2939,6 @@
                     console.log('✅ Unhid table row:', row.id);
                 }
             });
-            
-            const tableBody = document.getElementById('printing-types-tbody');
-            if (!tableBody) {
-                console.error('DEBUG: Table body not found! Looking for: printing-types-tbody');
-                return;
-            }
             
             // Generate unique ID
             const instanceId = `${option}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
