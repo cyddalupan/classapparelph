@@ -2889,8 +2889,30 @@
         }
         
         // Function to add printing type to the Order Items table
+        // Hide ALL iPrint forms
+        function hideAllIprintForms() {
+            console.log('🚫 Hiding ALL iPrint forms...');
+            
+            // Hide all form containers
+            const allFormContainers = document.querySelectorAll('.iprint-type-form');
+            allFormContainers.forEach(container => {
+                container.style.display = 'none';
+            });
+            
+            // Hide all instance forms
+            const allInstanceForms = document.querySelectorAll('[data-instance-id]');
+            allInstanceForms.forEach(form => {
+                form.style.display = 'none';
+            });
+            
+            console.log('✅ All iPrint forms hidden');
+        }
+        
         function addPrintingTypeToTable(option) {
             console.log('DEBUG: addPrintingTypeToTable called with option:', option);
+            
+            // FIRST: Hide ALL existing forms
+            hideAllIprintForms();
             
             const tableContainer = document.getElementById('selected-printing-types-container');
             if (!tableContainer) return;
@@ -2939,22 +2961,95 @@
         function editPrintingType(instanceId, option) {
             console.log('DEBUG: editPrintingType called for:', instanceId, option);
             
-            // Check if this instance already has a form
-            const existingForm = document.getElementById(`${option}-form-${instanceId}`);
+            // FIRST: Check if this instance was previously removed
+            // Look for ANY elements with this instanceId
+            const anyElementsExist = document.querySelectorAll(`[id$="-${instanceId}"]`).length > 0;
             
-            if (existingForm) {
-                // Show existing form for this instance
-                showIprintOptionForInstance(instanceId, option);
-                
-                // RESTORE FORM DATA from table details
-                restoreFormDataFromTable(instanceId, option, existingForm);
-            } else {
+            if (!anyElementsExist) {
+                console.log('⚠️ Instance was previously removed. Creating NEW form.');
                 // Create new form instance for this item
                 createFormInstance(instanceId, option);
+            } else {
+                // Check if this instance already has a form
+                const existingForm = document.getElementById(`${option}-form-${instanceId}`);
+                
+                if (existingForm) {
+                    // Show existing form for this instance
+                    showIprintOptionForInstance(instanceId, option);
+                    
+                    // RESTORE FORM DATA from table details
+                    restoreFormDataFromTable(instanceId, option, existingForm);
+                } else {
+                    // Create new form instance for this item
+                    createFormInstance(instanceId, option);
+                }
             }
             
             // Setup auto-update for this form
             setupAutoUpdate(instanceId, option);
+        }
+        
+        // Comprehensive cleanup for form instance
+        function cleanupFormInstance(instanceId) {
+            console.log('🚮 COMPREHENSIVE CLEANUP for instance:', instanceId);
+            
+            // 1. Remove table row
+            const row = document.getElementById(`printing-type-row-${instanceId}`);
+            if (row) {
+                row.remove();
+                console.log('✅ Removed table row');
+            }
+            
+            // 2. Remove ALL form instances with this instanceId
+            const formInstances = document.querySelectorAll(`[data-instance-id="${instanceId}"]`);
+            formInstances.forEach(form => {
+                form.remove();
+                console.log('✅ Removed form instance with data-instance-id');
+            });
+            
+            // 3. Remove ANY element ending with -${instanceId}
+            const allElementsWithInstanceId = document.querySelectorAll(`[id$="-${instanceId}"]`);
+            allElementsWithInstanceId.forEach(el => {
+                el.remove();
+                console.log('✅ Removed element with ID ending in -' + instanceId + ':', el.id);
+            });
+            
+            // 4. Remove DTF summary containers (if any)
+            const dtfSummaryElements = [
+                `dtf-print-total-quantity-${instanceId}`,
+                `dtf-shirt-total-quantity-${instanceId}`,
+                `dtf-print-size-breakdown-${instanceId}`,
+                `dtf-shirt-size-breakdown-${instanceId}`
+            ];
+            
+            dtfSummaryElements.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.remove();
+                    console.log('✅ Removed DTF summary element:', id);
+                }
+            });
+            
+            // 5. Remove any orphaned containers
+            const orphanedContainers = [
+                `print-sizes-container-${instanceId}`,
+                `shirt-sizes-container-${instanceId}`,
+                `embroidery-print-sizes-container-${instanceId}`,
+                `embroidery-shirt-sizes-container-${instanceId}`
+            ];
+            
+            orphanedContainers.forEach(id => {
+                const container = document.getElementById(id);
+                if (container) {
+                    container.remove();
+                    console.log('✅ Removed orphaned container:', id);
+                }
+            });
+            
+            // 6. Clean up event listeners (by removing parent elements)
+            // Event listeners will be automatically garbage collected when elements are removed
+            
+            console.log('✅ COMPLETE: Cleanup finished for instance:', instanceId);
         }
         
         // Remove function with confirmation
@@ -2966,21 +3061,8 @@
                 'Remove Item',
                 'Are you sure you want to remove this item?',
                 () => {
-                    // User clicked Yes
-                    const row = document.getElementById(`printing-type-row-${instanceId}`);
-                    if (row) {
-                        row.remove();
-                    }
-                    
-                    // Also remove the form instance if it exists
-                    const formInstance = document.querySelector(`[data-instance-id="${instanceId}"]`);
-                    if (formInstance) {
-                        formInstance.remove();
-                    }
-                    
-                    // Remove any instance form
-                    const instanceForms = document.querySelectorAll(`[id$="-form-${instanceId}"]`);
-                    instanceForms.forEach(form => form.remove());
+                    // User clicked Yes - COMPREHENSIVE CLEANUP
+                    cleanupFormInstance(instanceId);
                     
                     // Update row numbers
                     updateRowNumbers();
