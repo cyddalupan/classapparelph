@@ -650,7 +650,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="lanyard_quantity" id="lanyard-quantity-input" min="50" value="100">
+                                                            <input type="number" class="form-control form-control-sm" name="lanyard_quantity" id="lanyard-quantity-input" min="50" value="100" onchange="updateSimpleTotalQuantity('lanyard-quantity-input', this.value)" oninput="updateSimpleTotalQuantity('lanyard-quantity-input', this.value)">
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Length</label>
@@ -858,7 +858,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_quantity" id="tarpaulin-quantity-input" min="1" value="1">
+                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_quantity" id="tarpaulin-quantity-input" min="1" value="1" onchange="updateSimpleTotalQuantity('tarpaulin-quantity-input', this.value)" oninput="updateSimpleTotalQuantity('tarpaulin-quantity-input', this.value)">
                                                         </div>
                                                         <!-- Print Specifications -->
                                                         <div class="col-md-12 mt-3">
@@ -1031,7 +1031,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="sublimation_quantity" id="sublimation-simple-quantity" min="1" value="1">
+                                                            <input type="number" class="form-control form-control-sm" name="sublimation_quantity" id="sublimation-simple-quantity" min="1" value="1" onchange="updateSimpleTotalQuantity('sublimation-simple-quantity', this.value)" oninput="updateSimpleTotalQuantity('sublimation-simple-quantity', this.value)">
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Print Size</label>
@@ -4802,4 +4802,42 @@
         
         console.log('✅ All image upload previews initialized');
     });
+    
+    // Update Simple Total Quantity (for Lanyard, Tarpaulin, Sublimation forms)
+    function updateSimpleTotalQuantity(inputId, value) {
+        console.log('📊 updateSimpleTotalQuantity called for:', inputId, 'value:', value);
+        
+        // Parse the value
+        const quantity = parseInt(value) || 0;
+        
+        // Determine which form this is for based on input ID
+        if (inputId.includes('lanyard-quantity-input')) {
+            // Update lanyard total quantity
+            const totalElement = document.getElementById('lanyard-total-quantity');
+            if (totalElement) {
+                totalElement.textContent = quantity;
+                console.log('✅ Updated lanyard-total-quantity to:', quantity);
+            } else {
+                console.log('⚠️ lanyard-total-quantity element not found');
+            }
+        } else if (inputId.includes('tarpaulin-quantity-input')) {
+            // Update tarpaulin total quantity
+            const totalElement = document.getElementById('tarpaulin-total-quantity');
+            if (totalElement) {
+                totalElement.textContent = quantity;
+                console.log('✅ Updated tarpaulin-total-quantity to:', quantity);
+            } else {
+                console.log('⚠️ tarpaulin-total-quantity element not found');
+            }
+        } else if (inputId.includes('sublimation-simple-quantity')) {
+            // Update sublimation total quantity
+            const totalElement = document.getElementById('sublimation-total-quantity');
+            if (totalElement) {
+                totalElement.textContent = quantity;
+                console.log('✅ Updated sublimation-total-quantity to:', quantity);
+            } else {
+                console.log('⚠️ sublimation-total-quantity element not found');
+            }
+        }
+    }
 </script>
