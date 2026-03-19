@@ -1538,15 +1538,11 @@
                                                             <label class="form-label fw-semibold small">Item Name</label>
                                                             <input type="text" class="form-control form-control-sm" name="other_item" placeholder="e.g., Pens, Mugs, Banners">
                                                         </div>
-                                                        <div class="col-md-4">
+                                                        <div class="col-md-6">
                                                             <label class="form-label fw-semibold small">Quantity</label>
                                                             <input type="number" class="form-control form-control-sm" name="other_quantity" min="1" value="1">
                                                         </div>
-                                                        <div class="col-md-4">
-                                                            <label class="form-label fw-semibold small">Unit Price (₱)</label>
-                                                            <input type="number" class="form-control form-control-sm" name="other_price" min="0" step="0.01" placeholder="0.00">
-                                                        </div>
-                                                        <div class="col-md-4">
+                                                        <div class="col-md-6">
                                                             <label class="form-label fw-semibold small">Material</label>
                                                             <input type="text" class="form-control form-control-sm" name="other_material" placeholder="e.g., Plastic, Metal, Paper">
                                                         </div>
@@ -2844,6 +2840,23 @@
                     const qtyInput = form.querySelector('input[name="embroidery_quantity"]');
                     if (qtyInput) qtyInput.value = qtyMatch[1];
                 }
+            } else if (option === 'other') {
+                // Format: "{item} ({quantity} pcs)"
+                const itemMatch = detailsText.match(/^([^(]+)/);
+                const qtyMatch = detailsText.match(/\((\d+)\s*pcs\)/);
+                
+                if (itemMatch) {
+                    const itemInput = form.querySelector('input[name="other_item"]');
+                    if (itemInput) itemInput.value = itemMatch[1].trim();
+                }
+                
+                if (qtyMatch) {
+                    const qtyInput = form.querySelector('input[name="other_quantity"]');
+                    if (qtyInput) qtyInput.value = qtyMatch[1];
+                }
+                
+                // Also try to restore category if we can parse it from the details
+                // For now, we'll just restore what we have
             }
             
             console.log('DEBUG: Form data restored for:', instanceId);
@@ -3745,6 +3758,34 @@
                     summary = `Missing: ${missingFields.join(', ')}`;
                 } else {
                     summary = 'Complete';
+                }
+            } else if (option === 'other') {
+                // Get other item category from form
+                const categorySelect = form.querySelector('select[name="other_category"]');
+                const category = categorySelect ? categorySelect.value : '';
+                
+                // Get item name from form
+                const itemInput = form.querySelector('input[name="other_item"]');
+                const item = itemInput ? itemInput.value : '';
+                
+                // Get quantity from form
+                const quantityInput = form.querySelector('input[name="other_quantity"]');
+                const quantity = quantityInput ? quantityInput.value : '';
+                
+                // Get material from form
+                const materialInput = form.querySelector('input[name="other_material"]');
+                const material = materialInput ? materialInput.value : '';
+                
+                // Check what's missing
+                if (!category) missingFields.push('Category');
+                if (!item) missingFields.push('Item Name');
+                if (!quantity) missingFields.push('Quantity');
+                if (!material) missingFields.push('Material');
+                
+                if (missingFields.length > 0) {
+                    summary = `Missing: ${missingFields.join(', ')}`;
+                } else {
+                    summary = `${item} (${quantity} pcs)`;
                 }
             }
             
