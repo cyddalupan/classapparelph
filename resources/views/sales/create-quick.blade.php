@@ -1390,6 +1390,11 @@
                                                                                     Supported formats: JPG, PNG, GIF, PDF, PSD, AI, EPS. Max file size: 10MB per file.
                                                                                 </div>
                                                                             </div>
+                                                                            
+                                                                            <!-- Uploaded Files Preview -->
+                                                                            <div id="embroidery-uploaded-files-container" class="mt-3">
+                                                                                <div id="embroidery-uploaded-files-list" class="mb-2"></div>
+                                                                            </div>
                                                                         </div>
                                                                         
                                                                         <!-- Paste Screenshot Tab -->
@@ -2463,8 +2468,8 @@
                 const previewMap = {
                     'dtf-image-upload': ['image-preview-container', 'image-previews'],
                     'lanyard-image-upload': ['lanyard-uploaded-files-container', 'lanyard-uploaded-files-list'],
-                    'tarpaulin-image-upload': ['tarpaulin-uploaded-files-container', 'tarpaulin-uploaded-files-list'],
-                    'sublimation-image-upload': ['sublimation-uploaded-files-container', 'sublimation-uploaded-files-list'],
+                    'tarpaulin-image-upload': ['tarpaulin-image-preview-container', 'tarpaulin-image-previews'],
+                    'sublimation-image-upload': ['sublimation-image-preview-container', 'sublimation-image-previews'],
                     'embroidery-image-upload': ['embroidery-uploaded-files-container', 'embroidery-uploaded-files-list']
                 };
                 
@@ -4792,10 +4797,10 @@
         setupImageUploadPreview('lanyard-image-upload', 'lanyard-uploaded-files-container', 'lanyard-uploaded-files-list');
         
         // Tarpaulin Form
-        setupImageUploadPreview('tarpaulin-image-upload', 'tarpaulin-uploaded-files-container', 'tarpaulin-uploaded-files-list');
+        setupImageUploadPreview('tarpaulin-image-upload', 'tarpaulin-image-preview-container', 'tarpaulin-image-previews');
         
         // Sublimation Form
-        setupImageUploadPreview('sublimation-image-upload', 'sublimation-uploaded-files-container', 'sublimation-uploaded-files-list');
+        setupImageUploadPreview('sublimation-image-upload', 'sublimation-image-preview-container', 'sublimation-image-previews');
         
         // Embroidery Form
         setupImageUploadPreview('embroidery-image-upload', 'embroidery-uploaded-files-container', 'embroidery-uploaded-files-list');
