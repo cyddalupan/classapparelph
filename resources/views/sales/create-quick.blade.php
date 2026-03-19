@@ -1484,6 +1484,39 @@
                                                             </div>
                                                         </div>
 
+                                                        <!-- Embroidery Form Summary -->
+                                                        <div class="col-md-12 mt-3">
+                                                            <div class="alert alert-info p-2">
+                                                                <div class="row">
+                                                                    <div class="col-md-6">
+                                                                        <div class="small fw-semibold mb-2">Print Sizes Summary:</div>
+                                                                        <div id="embroidery-print-size-breakdown" class="small mb-2">
+                                                                            <div class="d-flex align-items-center mb-1">
+                                                                                <span class="me-2">8x10:</span>
+                                                                                <span class="badge bg-secondary">0</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="mt-2">
+                                                                            <span class="small fw-semibold">Print Total:</span>
+                                                                            <span class="badge bg-primary ms-2" id="embroidery-print-total-quantity">0</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <div class="small fw-semibold mb-2">Shirt Sizes Summary:</div>
+                                                                        <div id="embroidery-shirt-size-breakdown" class="small mb-2">
+                                                                            <div class="d-flex align-items-center mb-1">
+                                                                                <span class="me-2">XS:</span>
+                                                                                <span class="badge bg-secondary">0</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="mt-2">
+                                                                            <span class="small fw-semibold">Shirt Total:</span>
+                                                                            <span class="badge bg-primary ms-2" id="embroidery-shirt-total-quantity">0</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
 
                                                     </div>
                                                 </div>
@@ -4191,6 +4224,11 @@
             return;
         }
         
+        // Determine if this is for DTF or Embroidery
+        const isEmbroidery = containerId.includes('embroidery');
+        const summaryFunction = isEmbroidery ? 'updateEmbroiderySummary' : 'updateDtfSummary';
+        const summarySetupFunction = isEmbroidery ? 'setupEmbroiderySummaryEventListeners' : 'setupDtfSummaryEventListeners';
+        
         const rowCount = container.querySelectorAll('tr').length;
         const rowNumber = rowCount + 1;
         
@@ -4200,7 +4238,7 @@
             <td class="align-middle text-center">${rowNumber}</td>
             <td>
                 <select class="form-select form-select-sm" name="${sizeSelectName}" required 
-                        onchange="updateDtfSummary('${containerId}')">
+                        onchange="${summaryFunction}('${containerId}')">
                     <option value="" selected disabled>Select print size</option>
                     <option value="2x3">2x3 inches</option>
                     <option value="3x4">3x4 inches</option>
@@ -4218,11 +4256,11 @@
             </td>
             <td>
                 <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required 
-                       onchange="updateDtfSummary('${containerId}')" 
-                       oninput="updateDtfSummary('${containerId}')">
+                       onchange="${summaryFunction}('${containerId}')" 
+                       oninput="${summaryFunction}('${containerId}')">
             </td>
             <td class="text-center">
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}'); ${summaryFunction}('${containerId}');">
                     <i class="fas fa-trash"></i>
                 </button>
             </td>
@@ -4235,8 +4273,14 @@
         // Update row numbers
         updateRowNumbers(containerId);
         
-        // Setup DTF summary event listeners
-        setupDtfSummaryEventListeners(containerId);
+        // Setup appropriate summary event listeners
+        if (isEmbroidery) {
+            // We'll call setupEmbroiderySummaryEventListeners when we create it
+            console.log('✅ Embroidery print size row added - summary will be updated');
+            updateEmbroiderySummary(containerId);
+        } else {
+            setupDtfSummaryEventListeners(containerId);
+        }
     }
     
     // Add Shirt Size Row
@@ -4249,6 +4293,11 @@
             return;
         }
         
+        // Determine if this is for DTF or Embroidery
+        const isEmbroidery = containerId.includes('embroidery');
+        const summaryFunction = isEmbroidery ? 'updateEmbroiderySummary' : 'updateDtfSummary';
+        const summarySetupFunction = isEmbroidery ? 'setupEmbroiderySummaryEventListeners' : 'setupDtfSummaryEventListeners';
+        
         const rowCount = container.querySelectorAll('tr').length;
         const rowNumber = rowCount + 1;
         
@@ -4258,7 +4307,7 @@
             <td class="align-middle text-center">${rowNumber}</td>
             <td>
                 <select class="form-select form-select-sm" name="${sizeSelectName}" required 
-                        onchange="updateDtfSummary('${containerId}')">
+                        onchange="${summaryFunction}('${containerId}')">
                     <option value="" selected disabled>Select size</option>
                     <option value="xs">XS</option>
                     <option value="s">S</option>
@@ -4272,11 +4321,11 @@
             </td>
             <td>
                 <input type="number" class="form-control form-control-sm" name="${quantityInputName}" min="1" value="1" required 
-                       onchange="updateDtfSummary('${containerId}')" 
-                       oninput="updateDtfSummary('${containerId}')">
+                       onchange="${summaryFunction}('${containerId}')" 
+                       oninput="${summaryFunction}('${containerId}')">
             </td>
             <td class="text-center">
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}');">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); updateRowNumbers('${containerId}'); ${summaryFunction}('${containerId}');">
                     <i class="fas fa-trash"></i>
                 </button>
             </td>
@@ -4289,8 +4338,14 @@
         // Update row numbers
         updateRowNumbers(containerId);
         
-        // Setup DTF summary event listeners
-        setupDtfSummaryEventListeners(containerId);
+        // Setup appropriate summary event listeners
+        if (isEmbroidery) {
+            // We'll call setupEmbroiderySummaryEventListeners when we create it
+            console.log('✅ Embroidery shirt size row added - summary will be updated');
+            updateEmbroiderySummary(containerId);
+        } else {
+            setupDtfSummaryEventListeners(containerId);
+        }
     }
     
     // Update Row Numbers
@@ -4560,6 +4615,63 @@
         console.log('✅ DTF event listeners setup for:', containerId);
     }
     
+    // Setup Embroidery Summary Event Listeners
+    function setupEmbroiderySummaryEventListeners(containerId) {
+        console.log('✅ Setting up Embroidery summary event listeners for:', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        // Always set up fresh event listeners
+        // We remove any existing listeners first to prevent duplicates
+        const newContainer = container.cloneNode(false); // Clone without children
+        const oldContainer = container;
+        
+        // Move all children to the new container
+        while (oldContainer.firstChild) {
+            newContainer.appendChild(oldContainer.firstChild);
+        }
+        
+        // Replace the old container with the new one
+        oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+        
+        // Now get the updated container
+        const updatedContainer = document.getElementById(containerId);
+        if (!updatedContainer) return;
+        
+        // Mark that listeners are setup
+        updatedContainer.dataset.embroiderySummaryListeners = 'true';
+        
+        // Add event delegation for change events
+        container.addEventListener('change', function(event) {
+            const target = event.target;
+            
+            // Check if it's a dropdown or quantity input
+            if (target.tagName === 'SELECT' || 
+                (target.tagName === 'INPUT' && target.type === 'number')) {
+                
+                console.log('✅ Embroidery Change detected in', containerId, 'element:', target.name);
+                
+                // Update the Embroidery summary
+                updateEmbroiderySummary(containerId);
+            }
+        });
+        
+        // Also listen for input events on quantity fields (for real-time updates)
+        container.addEventListener('input', function(event) {
+            const target = event.target;
+            
+            if (target.tagName === 'INPUT' && target.type === 'number') {
+                console.log('✅ Embroidery Input detected in', containerId, 'quantity:', target.value);
+                
+                // Update the Embroidery summary
+                updateEmbroiderySummary(containerId);
+            }
+        });
+        
+        console.log('✅ Embroidery event listeners setup for:', containerId);
+    }
+    
     // Initialize buttons
     document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ ULTRA SIMPLE JS READY');
@@ -4667,8 +4779,30 @@
             console.log('✅ DTF existing containers setup complete');
         }
         
-        // Call it
+        function setupExistingEmbroideryContainers() {
+            console.log('✅ Setting up Embroidery summary event listeners for existing containers...');
+            
+            // Embroidery containers
+            const embroideryPrintContainer = document.getElementById('embroidery-print-sizes-container');
+            const embroideryShirtContainer = document.getElementById('embroidery-shirt-sizes-container');
+            
+            if (embroideryPrintContainer) {
+                setupEmbroiderySummaryEventListeners('embroidery-print-sizes-container');
+                // Initialize the summary
+                updateEmbroiderySummary('embroidery-print-sizes-container');
+            }
+            if (embroideryShirtContainer) {
+                setupEmbroiderySummaryEventListeners('embroidery-shirt-sizes-container');
+                // Initialize the summary
+                updateEmbroiderySummary('embroidery-shirt-sizes-container');
+            }
+            
+            console.log('✅ Embroidery existing containers setup complete');
+        }
+        
+        // Call them
         setupExistingDtfContainers();
+        setupExistingEmbroideryContainers();
     });
     
     // ============================================
@@ -4807,6 +4941,187 @@
         
         console.log('✅ All image upload previews initialized');
     });
+    
+    // Embroidery Form Summary Functions
+    function updateEmbroiderySummary(containerId) {
+        console.log('✅ Updating Embroidery summary for:', containerId);
+        
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        let total = 0;
+        const quantityInputs = container.querySelectorAll('input[type="number"]');
+        
+        quantityInputs.forEach(input => {
+            const value = parseInt(input.value) || 0;
+            total += value;
+        });
+        
+        console.log('✅ Total quantity for', containerId, ':', total);
+        
+        // Extract instance ID from containerId
+        let instanceId = '';
+        if (containerId.includes('-')) {
+            const parts = containerId.split('-');
+            if (parts.length > 4) {
+                // Format: embroidery-print-sizes-container-dtf_1773422722196_453
+                instanceId = parts.slice(4).join('-'); // Get everything after fourth dash
+                console.log('✅ Extracted instance ID:', instanceId);
+            }
+        }
+        
+        // Build dynamic IDs
+        const printTotalId = instanceId ? `embroidery-print-total-quantity-${instanceId}` : 'embroidery-print-total-quantity';
+        const shirtTotalId = instanceId ? `embroidery-shirt-total-quantity-${instanceId}` : 'embroidery-shirt-total-quantity';
+        const printBreakdownId = instanceId ? `embroidery-print-size-breakdown-${instanceId}` : 'embroidery-print-size-breakdown';
+        const shirtBreakdownId = instanceId ? `embroidery-shirt-size-breakdown-${instanceId}` : 'embroidery-shirt-size-breakdown';
+        
+        // Update the appropriate Embroidery summary
+        if (containerId.includes('embroidery-print-sizes-container')) {
+            // Embroidery Print Sizes
+            const printTotalElement = document.getElementById(printTotalId);
+            if (printTotalElement) {
+                printTotalElement.textContent = total;
+                console.log('✅ Updated Embroidery print total (ID:', printTotalId, '):', total);
+            } else {
+                console.log('⚠️ Embroidery print total element not found:', printTotalId);
+            }
+            
+            // Also update the breakdown
+            updateEmbroideryPrintSizeBreakdown(containerId, instanceId);
+        } 
+        else if (containerId.includes('embroidery-shirt-sizes-container')) {
+            // Embroidery Shirt Sizes
+            const shirtTotalElement = document.getElementById(shirtTotalId);
+            if (shirtTotalElement) {
+                shirtTotalElement.textContent = total;
+                console.log('✅ Updated Embroidery shirt total (ID:', shirtTotalId, '):', total);
+            } else {
+                console.log('⚠️ Embroidery shirt total element not found:', shirtTotalId);
+            }
+            
+            // Also update the breakdown
+            updateEmbroideryShirtSizeBreakdown(containerId, instanceId);
+        }
+    }
+    
+    function updateEmbroideryPrintSizeBreakdown(containerId, instanceId = '') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        // Build dynamic ID
+        const breakdownId = instanceId ? `embroidery-print-size-breakdown-${instanceId}` : 'embroidery-print-size-breakdown';
+        const breakdownElement = document.getElementById(breakdownId);
+        if (!breakdownElement) {
+            console.log('⚠️ embroidery-print-size-breakdown element not found:', breakdownId);
+            return;
+        }
+        
+        // Collect all size selections and quantities
+        const sizeMap = new Map();
+        const rows = container.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const sizeSelect = row.querySelector('select[name*="embroidery_print_size"]');
+            const quantityInput = row.querySelector('input[name*="embroidery_print_size_quantity"]');
+            
+            if (sizeSelect && quantityInput) {
+                const size = sizeSelect.value;
+                const quantity = parseInt(quantityInput.value) || 0;
+                
+                if (size && quantity > 0) {
+                    const current = sizeMap.get(size) || 0;
+                    sizeMap.set(size, current + quantity);
+                }
+            }
+        });
+        
+        // Update the breakdown HTML
+        let html = '';
+        sizeMap.forEach((quantity, size) => {
+            if (size && quantity > 0) {
+                const displaySize = size === 'custom' ? 'Custom' : size.replace('x', '×');
+                html += `
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="me-2">${displaySize}:</span>
+                        <span class="badge bg-secondary">${quantity}</span>
+                    </div>
+                `;
+            }
+        });
+        
+        // If no sizes, show default
+        if (html === '') {
+            html = `
+                <div class="d-flex align-items-center mb-1">
+                    <span class="me-2">8x10:</span>
+                    <span class="badge bg-secondary">0</span>
+                </div>
+            `;
+        }
+        
+        breakdownElement.innerHTML = html;
+        console.log('✅ Updated Embroidery print size breakdown');
+    }
+    
+    function updateEmbroideryShirtSizeBreakdown(containerId, instanceId = '') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        // Build dynamic ID
+        const breakdownId = instanceId ? `embroidery-shirt-size-breakdown-${instanceId}` : 'embroidery-shirt-size-breakdown';
+        const breakdownElement = document.getElementById(breakdownId);
+        if (!breakdownElement) {
+            console.log('⚠️ embroidery-shirt-size-breakdown element not found:', breakdownId);
+            return;
+        }
+        
+        // Collect all size selections and quantities
+        const sizeMap = new Map();
+        const rows = container.querySelectorAll('tr');
+        
+        rows.forEach(row => {
+            const sizeSelect = row.querySelector('select[name*="embroidery_shirt_size"]');
+            const quantityInput = row.querySelector('input[name*="embroidery_shirt_size_quantity"]');
+            
+            if (sizeSelect && quantityInput) {
+                const size = sizeSelect.value;
+                const quantity = parseInt(quantityInput.value) || 0;
+                
+                if (size && quantity > 0) {
+                    const current = sizeMap.get(size) || 0;
+                    sizeMap.set(size, current + quantity);
+                }
+            }
+        });
+        
+        // Update the breakdown HTML
+        let html = '';
+        sizeMap.forEach((quantity, size) => {
+            if (size && quantity > 0) {
+                const displaySize = size.toUpperCase();
+                html += `
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="me-2">${displaySize}:</span>
+                        <span class="badge bg-secondary">${quantity}</span>
+                    </div>
+                `;
+            }
+        });
+        
+        // If no sizes, show default
+        if (html === '') {
+            html = `
+                <div class="d-flex align-items-center mb-1">
+                    <span class="me-2">XS:</span>
+                    <span class="badge bg-secondary">0</span>
+                </div>
+            `;
+        }
+        
+        breakdownElement.innerHTML = html;
+        console.log('✅ Updated Embroidery shirt size breakdown');
+    }
     
     // Update Simple Total Quantity (for Lanyard, Tarpaulin, Sublimation forms)
     function updateSimpleTotalQuantity(inputId, value) {
