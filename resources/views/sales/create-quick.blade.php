@@ -650,7 +650,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="lanyard_quantity" id="lanyard-quantity-input" min="50" value="100" onchange="updateSimpleTotalQuantity('lanyard-quantity-input', this.value)" oninput="updateSimpleTotalQuantity('lanyard-quantity-input', this.value)">
+                                                            <input type="number" class="form-control form-control-sm" name="lanyard_quantity" id="lanyard-quantity-input" min="50" value="100" onchange="updateSimpleTotalQuantity(this.id, this.value)" oninput="updateSimpleTotalQuantity(this.id, this.value)">
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Length</label>
@@ -858,7 +858,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_quantity" id="tarpaulin-quantity-input" min="1" value="1" onchange="updateSimpleTotalQuantity('tarpaulin-quantity-input', this.value)" oninput="updateSimpleTotalQuantity('tarpaulin-quantity-input', this.value)">
+                                                            <input type="number" class="form-control form-control-sm" name="tarpaulin_quantity" id="tarpaulin-quantity-input" min="1" value="1" onchange="updateSimpleTotalQuantity(this.id, this.value)" oninput="updateSimpleTotalQuantity(this.id, this.value)">
                                                         </div>
                                                         <!-- Print Specifications -->
                                                         <div class="col-md-12 mt-3">
@@ -1031,7 +1031,7 @@
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Quantity</label>
-                                                            <input type="number" class="form-control form-control-sm" name="sublimation_quantity" id="sublimation-simple-quantity" min="1" value="1" onchange="updateSimpleTotalQuantity('sublimation-simple-quantity', this.value)" oninput="updateSimpleTotalQuantity('sublimation-simple-quantity', this.value)">
+                                                            <input type="number" class="form-control form-control-sm" name="sublimation_quantity" id="sublimation-simple-quantity" min="1" value="1" onchange="updateSimpleTotalQuantity(this.id, this.value)" oninput="updateSimpleTotalQuantity(this.id, this.value)">
                                                         </div>
                                                         <div class="col-md-4">
                                                             <label class="form-label fw-semibold small">Print Size</label>
@@ -4810,33 +4810,59 @@
         // Parse the value
         const quantity = parseInt(value) || 0;
         
+        // Extract instance ID from input ID (if any)
+        // Format: lanyard-quantity-input OR lanyard-quantity-input-dtf_123456789_123
+        let instanceId = '';
+        if (inputId.includes('-')) {
+            const parts = inputId.split('-');
+            // Check if last part looks like an instance ID (contains underscore)
+            const lastPart = parts[parts.length - 1];
+            if (lastPart.includes('_')) {
+                // This is a cloned form, instanceId is the last part
+                instanceId = lastPart;
+                console.log('✅ Extracted instance ID:', instanceId);
+            }
+        }
+        
         // Determine which form this is for based on input ID
         if (inputId.includes('lanyard-quantity-input')) {
+            // Build total quantity element ID
+            const totalElementId = instanceId ? `lanyard-total-quantity-${instanceId}` : 'lanyard-total-quantity';
+            console.log('✅ Looking for lanyard total element with ID:', totalElementId);
+            
             // Update lanyard total quantity
-            const totalElement = document.getElementById('lanyard-total-quantity');
+            const totalElement = document.getElementById(totalElementId);
             if (totalElement) {
                 totalElement.textContent = quantity;
-                console.log('✅ Updated lanyard-total-quantity to:', quantity);
+                console.log('✅ Updated', totalElementId, 'to:', quantity);
             } else {
-                console.log('⚠️ lanyard-total-quantity element not found');
+                console.log('⚠️ lanyard total quantity element not found:', totalElementId);
             }
         } else if (inputId.includes('tarpaulin-quantity-input')) {
+            // Build total quantity element ID
+            const totalElementId = instanceId ? `tarpaulin-total-quantity-${instanceId}` : 'tarpaulin-total-quantity';
+            console.log('✅ Looking for tarpaulin total element with ID:', totalElementId);
+            
             // Update tarpaulin total quantity
-            const totalElement = document.getElementById('tarpaulin-total-quantity');
+            const totalElement = document.getElementById(totalElementId);
             if (totalElement) {
                 totalElement.textContent = quantity;
-                console.log('✅ Updated tarpaulin-total-quantity to:', quantity);
+                console.log('✅ Updated', totalElementId, 'to:', quantity);
             } else {
-                console.log('⚠️ tarpaulin-total-quantity element not found');
+                console.log('⚠️ tarpaulin total quantity element not found:', totalElementId);
             }
         } else if (inputId.includes('sublimation-simple-quantity')) {
+            // Build total quantity element ID
+            const totalElementId = instanceId ? `sublimation-total-quantity-${instanceId}` : 'sublimation-total-quantity';
+            console.log('✅ Looking for sublimation total element with ID:', totalElementId);
+            
             // Update sublimation total quantity
-            const totalElement = document.getElementById('sublimation-total-quantity');
+            const totalElement = document.getElementById(totalElementId);
             if (totalElement) {
                 totalElement.textContent = quantity;
-                console.log('✅ Updated sublimation-total-quantity to:', quantity);
+                console.log('✅ Updated', totalElementId, 'to:', quantity);
             } else {
-                console.log('⚠️ sublimation-total-quantity element not found');
+                console.log('⚠️ sublimation total quantity element not found:', totalElementId);
             }
         }
     }
