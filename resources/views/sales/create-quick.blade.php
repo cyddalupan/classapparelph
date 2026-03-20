@@ -3146,6 +3146,16 @@
             if (targetForm) {
                 targetForm.style.display = 'block';
                 
+                // Initialize summary for Other Items cloned form when shown
+                if (option === 'other') {
+                    console.log('🔄 Initializing Other Items summary for cloned form:', instanceId);
+                    const clonedFormId = `other-form-${instanceId}`;
+                    // Re-initialize event listeners just in case
+                    setupOtherItemsSummaryEventListeners(clonedFormId);
+                    // Update summary with current values
+                    updateOtherItemsSummary(clonedFormId);
+                }
+                
                 // Show parent container
                 const parent = document.getElementById('iprint-details-container');
                 if (parent) parent.style.display = 'block';
@@ -3220,6 +3230,15 @@
             const targetForm = document.getElementById(option + '-form');
             if (targetForm) {
                 targetForm.style.display = 'block';
+                
+                // Initialize summary for Other Items form when shown
+                if (option === 'other') {
+                    console.log('🔄 Initializing Other Items summary when form shown');
+                    // Re-initialize event listeners just in case
+                    setupOtherItemsSummaryEventListeners('other-form');
+                    // Update summary with current values
+                    updateOtherItemsSummary('other-form');
+                }
                 
                 // Show parent container
                 const parent = document.getElementById('iprint-details-container');
