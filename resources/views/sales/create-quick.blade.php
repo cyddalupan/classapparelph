@@ -1550,6 +1550,90 @@
                                                             <label class="form-label fw-semibold small">Item Description</label>
                                                             <textarea class="form-control form-control-sm" name="other_notes" rows="3" placeholder="Detailed description, specifications, customization requirements..."></textarea>
                                                         </div>
+                                                        
+                                                        <!-- Photo Upload Section -->
+                                                        <div class="col-md-12 mt-3">
+                                                            <label class="form-label fw-semibold small">Attach Photos/Designs</label>
+                                                            
+                                                            <!-- Upload Tabs -->
+                                                            <ul class="nav nav-tabs nav-tabs-sm mb-3" id="other-upload-tabs" role="tablist">
+                                                                <li class="nav-item" role="presentation">
+                                                                    <button class="nav-link active" id="other-file-tab" data-bs-toggle="tab" data-bs-target="#other-file-tab-pane" type="button" role="tab">
+                                                                        <i class="fas fa-upload me-1"></i> File Upload
+                                                                    </button>
+                                                                </li>
+                                                                <li class="nav-item" role="presentation">
+                                                                    <button class="nav-link" id="other-paste-tab" data-bs-toggle="tab" data-bs-target="#other-paste-tab-pane" type="button" role="tab">
+                                                                        <i class="fas fa-paste me-1"></i> Paste Screenshot
+                                                                    </button>
+                                                                </li>
+                                                            </ul>
+                                                            
+                                                            <div class="tab-content" id="other-upload-tabs-content">
+                                                                <!-- File Upload Tab -->
+                                                                <div class="tab-pane fade show active" id="other-file-tab-pane" role="tabpanel">
+                                                                    <div class="mb-3">
+                                                                        <input type="file" class="form-control form-control-sm" id="other-image-upload" name="other_image[]" accept="image/*,.pdf,.psd,.ai,.eps" multiple>
+                                                                        <div class="form-text small">
+                                                                            Supported formats: JPG, PNG, GIF, PDF, PSD, AI, EPS. Max file size: 10MB per file.
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <!-- Paste Screenshot Tab -->
+                                                                <div class="tab-pane fade" id="other-paste-tab-pane" role="tabpanel">
+                                                                    <div class="text-center">
+                                                                        <div class="mb-3">
+                                                                            <div class="paste-area border-2 border-dashed rounded p-4" id="other-paste-area" style="border-color: #dee2e6; min-height: 150px; background-color: #f8f9fa;">
+                                                                                <i class="fas fa-paste fa-3x text-muted mb-3"></i>
+                                                                                <h6 class="mb-2">Paste Screenshot Here</h6>
+                                                                                <p class="small text-muted mb-3">
+                                                                                    Take screenshot (Shift+Alt+S or any tool) then paste with Ctrl+V
+                                                                                </p>
+                                                                                <div class="paste-instructions small">
+                                                                                    <div class="row">
+                                                                                        <div class="col-6">
+                                                                                            <div class="mb-2">
+                                                                                                <i class="fas fa-desktop text-primary me-1"></i>
+                                                                                                <strong>Windows:</strong> Alt+PrtScn
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div class="col-6">
+                                                                                            <div class="mb-2">
+                                                                                                <i class="fas fa-laptop text-primary me-1"></i>
+                                                                                                <strong>Mac:</strong> Cmd+Shift+4
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div id="other-pasted-image-container" class="mt-3" style="display: none;">
+                                                                            <div class="alert alert-info small mb-2">
+                                                                                <i class="fas fa-info-circle me-1"></i>
+                                                                                Screenshot pasted! Click "Add to Files" to attach it.
+                                                                            </div>
+                                                                            <div class="text-center">
+                                                                                <img id="other-pasted-image-preview" class="img-fluid rounded border" style="max-height: 200px;">
+                                                                                <div class="mt-2">
+                                                                                    <button type="button" class="btn btn-sm btn-success" id="other-add-pasted-btn">
+                                                                                        <i class="fas fa-plus me-1"></i> Add to Files
+                                                                                    </button>
+                                                                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="other-clear-pasted-btn">
+                                                                                        <i class="fas fa-times me-1"></i> Clear
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <!-- Uploaded Files Preview -->
+                                                            <div id="other-uploaded-files-container" class="mt-3">
+                                                                <div id="other-uploaded-files-list" class="mb-2"></div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2122,6 +2206,36 @@
         box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
     }
     
+    /* Other Items Image Upload Styles */
+    #other-uploaded-files-container .d-flex {
+        transition: all 0.2s;
+    }
+    
+    #other-uploaded-files-container .d-flex:hover {
+        background-color: #f8f9fa;
+    }
+    
+    #other-uploaded-files-container img {
+        object-fit: cover;
+    }
+    
+    #other-image-upload {
+        border: 2px dashed #dee2e6;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        transition: all 0.3s;
+    }
+    
+    #other-image-upload:hover {
+        border-color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+    
+    #other-image-upload:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
     #lanyard-paste-area {
         cursor: pointer;
         transition: all 0.3s;
@@ -2499,7 +2613,8 @@
                     'lanyard-image-upload': ['lanyard-uploaded-files-container', 'lanyard-uploaded-files-list'],
                     'tarpaulin-image-upload': ['tarpaulin-image-preview-container', 'tarpaulin-image-previews'],
                     'sublimation-image-upload': ['sublimation-image-preview-container', 'sublimation-image-previews'],
-                    'embroidery-image-upload': ['embroidery-uploaded-files-container', 'embroidery-uploaded-files-list']
+                    'embroidery-image-upload': ['embroidery-uploaded-files-container', 'embroidery-uploaded-files-list'],
+                    'other-image-upload': ['other-uploaded-files-container', 'other-uploaded-files-list']
                 };
                 
                 // Check if this is a cloned form (has instance ID in element IDs)
@@ -4979,6 +5094,9 @@
         
         // Embroidery Form
         setupImageUploadPreview('embroidery-image-upload', 'embroidery-uploaded-files-container', 'embroidery-uploaded-files-list');
+        
+        // Other Items Form
+        setupImageUploadPreview('other-image-upload', 'other-uploaded-files-container', 'other-uploaded-files-list');
         
         console.log('✅ All image upload previews initialized');
     });
