@@ -5110,7 +5110,11 @@
             console.log('✅ Setting up Other Items summary event listeners for:', formId);
             
             const form = document.getElementById(formId);
-            if (!form) return;
+            console.log('✅ Looking for form with ID:', formId, '->', form ? 'FOUND' : 'NOT FOUND');
+            if (!form) {
+                console.log('❌ Form not found:', formId);
+                return;
+            }
             
             // Get all input elements
             const categorySelect = form.querySelector('select[name="other_category"]');
@@ -5118,28 +5122,46 @@
             const quantityInput = form.querySelector('input[name="other_quantity"]');
             const materialInput = form.querySelector('input[name="other_material"]');
             
+            console.log('✅ Found form elements:', {
+                categorySelect: categorySelect ? 'FOUND' : 'NOT FOUND',
+                itemInput: itemInput ? 'FOUND' : 'NOT FOUND',
+                quantityInput: quantityInput ? 'FOUND' : 'NOT FOUND',
+                materialInput: materialInput ? 'FOUND' : 'NOT FOUND'
+            });
+            
             // Create update function
-            const updateSummary = () => updateOtherItemsSummary(formId);
+            const updateSummary = () => {
+                console.log('🔄 Triggering updateOtherItemsSummary for:', formId);
+                updateOtherItemsSummary(formId);
+            };
             
             // Add event listeners
             if (categorySelect) {
                 categorySelect.addEventListener('change', updateSummary);
                 console.log('✅ Added event listener to category select');
+            } else {
+                console.log('❌ categorySelect not found in form');
             }
             
             if (itemInput) {
                 itemInput.addEventListener('input', updateSummary);
                 console.log('✅ Added event listener to item input');
+            } else {
+                console.log('❌ itemInput not found in form');
             }
             
             if (quantityInput) {
                 quantityInput.addEventListener('input', updateSummary);
                 console.log('✅ Added event listener to quantity input');
+            } else {
+                console.log('❌ quantityInput not found in form');
             }
             
             if (materialInput) {
                 materialInput.addEventListener('input', updateSummary);
                 console.log('✅ Added event listener to material input');
+            } else {
+                console.log('❌ materialInput not found in form');
             }
             
             console.log('✅ Other Items event listeners setup complete');
@@ -5151,10 +5173,18 @@
             
             // Check if main Other Items form exists
             const otherForm = document.getElementById('other-form');
+            console.log('✅ Looking for other-form element:', otherForm ? 'FOUND' : 'NOT FOUND');
             if (otherForm) {
+                console.log('✅ other-form element details:', {
+                    id: otherForm.id,
+                    style: otherForm.style.display,
+                    className: otherForm.className
+                });
                 setupOtherItemsSummaryEventListeners('other-form');
                 // Initialize the summary
                 updateOtherItemsSummary('other-form');
+            } else {
+                console.log('❌ other-form element not found in DOM');
             }
             
             console.log('✅ Other Items existing containers setup complete');
