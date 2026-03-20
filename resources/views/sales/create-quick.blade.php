@@ -1634,6 +1634,48 @@
                                                                 <div id="other-uploaded-files-list" class="mb-2"></div>
                                                             </div>
                                                         </div>
+                                                        
+                                                        <!-- Other Items Order Summary -->
+                                                        <div class="col-md-12 mt-4">
+                                                            <div class="card border-primary">
+                                                                <div class="card-header bg-primary text-white py-2">
+                                                                    <h6 class="mb-0"><i class="fas fa-clipboard-list me-2"></i> Order Summary</h6>
+                                                                </div>
+                                                                <div class="card-body p-3">
+                                                                    <div class="row">
+                                                                        <div class="col-md-6">
+                                                                            <div class="mb-2">
+                                                                                <span class="small text-muted">Item:</span>
+                                                                                <div id="other-item-summary" class="fw-semibold">-</div>
+                                                                            </div>
+                                                                            <div class="mb-2">
+                                                                                <span class="small text-muted">Material:</span>
+                                                                                <div id="other-material-summary" class="fw-semibold">-</div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <div class="mb-2">
+                                                                                <span class="small text-muted">Quantity:</span>
+                                                                                <div class="d-flex align-items-center">
+                                                                                    <span id="other-quantity-summary" class="fw-semibold fs-5 me-2">0</span>
+                                                                                    <span class="badge bg-primary">pcs</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="mb-2">
+                                                                                <span class="small text-muted">Category:</span>
+                                                                                <div id="other-category-summary" class="fw-semibold">-</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="mt-3 pt-3 border-top">
+                                                                        <div class="small text-muted mb-1">Order Details:</div>
+                                                                        <div id="other-order-details" class="fw-semibold text-primary">
+                                                                            No item selected
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2586,6 +2628,18 @@
                     console.log('✅ Reinitialized Embroidery Shirt Size button for:', instanceId);
                 }
             }
+            
+            // OTHER ITEMS FORM
+            if (option === 'other') {
+                console.log('✅ Setting up Other Items summary event listeners for cloned form:', instanceId);
+                
+                // Setup Other Items summary event listeners for CLONED form
+                const clonedFormId = `other-form-${instanceId}`;
+                setupOtherItemsSummaryEventListeners(clonedFormId);
+                
+                // Initialize the summary
+                updateOtherItemsSummary(clonedFormId);
+            }
         }
         
 
@@ -3126,6 +3180,9 @@
                     break;
                 case 'vinyl':
                     titleText += 'Vinyl';
+                    break;
+                case 'other':
+                    titleText += 'Other Items';
                     break;
                 case 'screen_print':
                     titleText += 'Screen Print';
@@ -4839,7 +4896,8 @@
             // Check which form type
             const isDtfForm = formElement.id.includes('dtf-form');
             const isEmbroideryForm = formElement.id.includes('embroidery-form');
-            if (!isDtfForm && !isEmbroideryForm) return;
+            const isOtherForm = formElement.id.includes('other-form');
+            if (!isDtfForm && !isEmbroideryForm && !isOtherForm) return;
             
             // Get instance ID from form ID or data attribute
             let instanceId = '';
@@ -4902,6 +4960,17 @@
                     console.log('✅ Initialized Embroidery Shirt Size button:', shirtBtnId);
                 }
             }
+            
+            // OTHER ITEMS FORM
+            if (isOtherForm) {
+                console.log('✅ Setting up Other Items summary event listeners for form:', formElement.id);
+                
+                // Setup Other Items summary event listeners
+                setupOtherItemsSummaryEventListeners(formElement.id);
+                
+                // Initialize the summary
+                updateOtherItemsSummary(formElement.id);
+            }
         }
         
         // Initialize ORIGINAL DTF form buttons
@@ -4914,6 +4983,12 @@
         const originalEmbroideryForm = document.getElementById('embroidery-form');
         if (originalEmbroideryForm) {
             initializeAddSizeButtons(originalEmbroideryForm);
+        }
+        
+        // Initialize ORIGINAL OTHER ITEMS form buttons
+        const originalOtherForm = document.getElementById('other-form');
+        if (originalOtherForm) {
+            initializeAddSizeButtons(originalOtherForm);
         }
         
         // Also set up event delegation for FUTURE cloned forms
@@ -4956,9 +5031,139 @@
             console.log('✅ Embroidery existing containers setup complete');
         }
         
+        // ============================================
+        // OTHER ITEMS FORM SUMMARY FUNCTIONS
+        // ============================================
+        
+        // Function to update Other Items summary
+        function updateOtherItemsSummary(formId) {
+            console.log('✅ Updating Other Items summary for:', formId);
+            
+            const form = document.getElementById(formId);
+            if (!form) return;
+            
+            // Get form values
+            const categorySelect = form.querySelector('select[name="other_category"]');
+            const itemInput = form.querySelector('input[name="other_item"]');
+            const quantityInput = form.querySelector('input[name="other_quantity"]');
+            const materialInput = form.querySelector('input[name="other_material"]');
+            
+            const category = categorySelect ? categorySelect.value : '';
+            const item = itemInput ? itemInput.value.trim() : '';
+            const quantity = quantityInput ? parseInt(quantityInput.value) || 0 : 0;
+            const material = materialInput ? materialInput.value.trim() : '';
+            
+            console.log('✅ Other Items values:', { category, item, quantity, material });
+            
+            // Extract instance ID from formId
+            let instanceId = '';
+            if (formId.includes('-')) {
+                const parts = formId.split('-');
+                if (parts.length > 2) {
+                    // Format: other-form-dtf_1773422722196_453
+                    instanceId = parts.slice(2).join('-'); // Get everything after second dash
+                    console.log('✅ Extracted instance ID:', instanceId);
+                }
+            }
+            
+            // Build dynamic IDs
+            const itemSummaryId = instanceId ? `other-item-summary-${instanceId}` : 'other-item-summary';
+            const materialSummaryId = instanceId ? `other-material-summary-${instanceId}` : 'other-material-summary';
+            const quantitySummaryId = instanceId ? `other-quantity-summary-${instanceId}` : 'other-quantity-summary';
+            const categorySummaryId = instanceId ? `other-category-summary-${instanceId}` : 'other-category-summary';
+            const orderDetailsId = instanceId ? `other-order-details-${instanceId}` : 'other-order-details';
+            
+            // Update summary elements
+            const itemSummary = document.getElementById(itemSummaryId);
+            const materialSummary = document.getElementById(materialSummaryId);
+            const quantitySummary = document.getElementById(quantitySummaryId);
+            const categorySummary = document.getElementById(categorySummaryId);
+            const orderDetails = document.getElementById(orderDetailsId);
+            
+            if (itemSummary) itemSummary.textContent = item || '-';
+            if (materialSummary) materialSummary.textContent = material || '-';
+            if (quantitySummary) quantitySummary.textContent = quantity || '0';
+            if (categorySummary) categorySummary.textContent = category || '-';
+            
+            // Update order details
+            if (orderDetails) {
+                if (item && material && quantity > 0) {
+                    orderDetails.textContent = `${item} (${material}) - ${quantity} pcs`;
+                    orderDetails.className = 'fw-semibold text-success';
+                } else if (item && quantity > 0) {
+                    orderDetails.textContent = `${item} - ${quantity} pcs`;
+                    orderDetails.className = 'fw-semibold text-primary';
+                } else if (item) {
+                    orderDetails.textContent = `${item}`;
+                    orderDetails.className = 'fw-semibold text-warning';
+                } else {
+                    orderDetails.textContent = 'No item selected';
+                    orderDetails.className = 'fw-semibold text-muted';
+                }
+            }
+            
+            console.log('✅ Other Items summary updated');
+        }
+        
+        // Function to setup event listeners for Other Items form
+        function setupOtherItemsSummaryEventListeners(formId) {
+            console.log('✅ Setting up Other Items summary event listeners for:', formId);
+            
+            const form = document.getElementById(formId);
+            if (!form) return;
+            
+            // Get all input elements
+            const categorySelect = form.querySelector('select[name="other_category"]');
+            const itemInput = form.querySelector('input[name="other_item"]');
+            const quantityInput = form.querySelector('input[name="other_quantity"]');
+            const materialInput = form.querySelector('input[name="other_material"]');
+            
+            // Create update function
+            const updateSummary = () => updateOtherItemsSummary(formId);
+            
+            // Add event listeners
+            if (categorySelect) {
+                categorySelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to category select');
+            }
+            
+            if (itemInput) {
+                itemInput.addEventListener('input', updateSummary);
+                console.log('✅ Added event listener to item input');
+            }
+            
+            if (quantityInput) {
+                quantityInput.addEventListener('input', updateSummary);
+                console.log('✅ Added event listener to quantity input');
+            }
+            
+            if (materialInput) {
+                materialInput.addEventListener('input', updateSummary);
+                console.log('✅ Added event listener to material input');
+            }
+            
+            console.log('✅ Other Items event listeners setup complete');
+        }
+        
+        // Function to setup existing Other Items containers
+        function setupExistingOtherItemsContainers() {
+            console.log('✅ Setting up Other Items summary event listeners for existing containers...');
+            
+            // Check if main Other Items form exists
+            const otherForm = document.getElementById('other-form');
+            if (otherForm) {
+                setupOtherItemsSummaryEventListeners('other-form');
+                // Initialize the summary
+                updateOtherItemsSummary('other-form');
+            }
+            
+            console.log('✅ Other Items existing containers setup complete');
+        }
+        
         // Call them
         setupExistingDtfContainers();
         setupExistingEmbroideryContainers();
+        setupExistingOtherItemsContainers();
     });
     
     // ============================================
