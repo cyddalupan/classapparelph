@@ -5099,10 +5099,49 @@
             const categorySummary = document.getElementById(categorySummaryId);
             const orderDetails = document.getElementById(orderDetailsId);
             
-            if (itemSummary) itemSummary.textContent = item || '-';
-            if (materialSummary) materialSummary.textContent = material || '-';
-            if (quantitySummary) quantitySummary.textContent = quantity || '0';
-            if (categorySummary) categorySummary.textContent = category || '-';
+            console.log('🔍 Looking for summary elements with IDs:', {
+                itemSummaryId,
+                materialSummaryId,
+                quantitySummaryId,
+                categorySummaryId,
+                orderDetailsId
+            });
+            
+            console.log('🔍 Found summary elements:', {
+                itemSummary: itemSummary ? 'FOUND' : 'NOT FOUND',
+                materialSummary: materialSummary ? 'FOUND' : 'NOT FOUND',
+                quantitySummary: quantitySummary ? 'FOUND' : 'NOT FOUND',
+                categorySummary: categorySummary ? 'FOUND' : 'NOT FOUND',
+                orderDetails: orderDetails ? 'FOUND' : 'NOT FOUND'
+            });
+            
+            if (itemSummary) {
+                itemSummary.textContent = item || '-';
+                console.log('✅ Updated itemSummary:', item || '-');
+            } else {
+                console.log('❌ itemSummary element not found with ID:', itemSummaryId);
+            }
+            
+            if (materialSummary) {
+                materialSummary.textContent = material || '-';
+                console.log('✅ Updated materialSummary:', material || '-');
+            } else {
+                console.log('❌ materialSummary element not found with ID:', materialSummaryId);
+            }
+            
+            if (quantitySummary) {
+                quantitySummary.textContent = quantity || '0';
+                console.log('✅ Updated quantitySummary:', quantity || '0');
+            } else {
+                console.log('❌ quantitySummary element not found with ID:', quantitySummaryId);
+            }
+            
+            if (categorySummary) {
+                categorySummary.textContent = category || '-';
+                console.log('✅ Updated categorySummary:', category || '-');
+            } else {
+                console.log('❌ categorySummary element not found with ID:', categorySummaryId);
+            }
             
             // Update order details
             if (orderDetails) {
