@@ -2552,6 +2552,185 @@
             if (table) table.style.display = 'none';
         }
         
+        // OTHER ITEMS FORM SUMMARY FUNCTIONS
+        // ============================================
+        
+        // Function to update Other Items summary
+        function updateOtherItemsSummary(formId) {
+            console.log('✅ Updating Other Items summary for:', formId);
+            
+            const form = document.getElementById(formId);
+            if (!form) return;
+            
+            // Get form values
+            const categorySelect = form.querySelector('select[name="other_category"]');
+            const itemInput = form.querySelector('input[name="other_item"]');
+            const quantityInput = form.querySelector('input[name="other_quantity"]');
+            const materialInput = form.querySelector('input[name="other_material"]');
+            
+            const category = categorySelect ? categorySelect.value : '';
+            const item = itemInput ? itemInput.value.trim() : '';
+            const quantity = quantityInput ? parseInt(quantityInput.value) || 0 : 0;
+            const material = materialInput ? materialInput.value.trim() : '';
+            
+            console.log('✅ Other Items values:', {category, item, quantity, material});
+            
+            // Extract instance ID from form ID if it's a cloned form
+            // Format: other-form OR other-form-dtf_123456789_123
+            let instanceSuffix = '';
+            if (formId.includes('-form-')) {
+                // This is a cloned form, extract the instance ID suffix
+                const parts = formId.split('-');
+                // Join parts after 'form-' to get the full instance ID
+                instanceSuffix = parts.slice(2).join('-');
+                console.log('✅ Extracted instance suffix:', instanceSuffix);
+            }
+            
+            // Build dynamic element IDs
+            const itemSummaryId = instanceSuffix ? `other-item-summary-${instanceSuffix}` : 'other-item-summary';
+            const materialSummaryId = instanceSuffix ? `other-material-summary-${instanceSuffix}` : 'other-material-summary';
+            const quantitySummaryId = instanceSuffix ? `other-quantity-summary-${instanceSuffix}` : 'other-quantity-summary';
+            const categorySummaryId = instanceSuffix ? `other-category-summary-${instanceSuffix}` : 'other-category-summary';
+            const orderDetailsId = instanceSuffix ? `other-order-details-${instanceSuffix}` : 'other-order-details';
+            
+            console.log('🔍 Looking for summary elements with IDs:', {
+                itemSummaryId, materialSummaryId, quantitySummaryId, categorySummaryId, orderDetailsId
+            });
+            
+            // Update summary elements
+            const itemSummary = document.getElementById(itemSummaryId);
+            const materialSummary = document.getElementById(materialSummaryId);
+            const quantitySummary = document.getElementById(quantitySummaryId);
+            const categorySummary = document.getElementById(categorySummaryId);
+            const orderDetails = document.getElementById(orderDetailsId);
+            
+            console.log('🔍 Found summary elements:', {
+                itemSummary: itemSummary ? 'FOUND' : 'NOT FOUND',
+                materialSummary: materialSummary ? 'FOUND' : 'NOT FOUND',
+                quantitySummary: quantitySummary ? 'FOUND' : 'NOT FOUND',
+                categorySummary: categorySummary ? 'FOUND' : 'NOT FOUND',
+                orderDetails: orderDetails ? 'FOUND' : 'NOT FOUND'
+            });
+            
+            if (itemSummary) {
+                itemSummary.textContent = item || '-';
+                console.log('✅ Updated itemSummary:', item || '-');
+            }
+            if (materialSummary) {
+                materialSummary.textContent = material || '-';
+                console.log('✅ Updated materialSummary:', material || '-');
+            }
+            if (quantitySummary) {
+                quantitySummary.textContent = quantity;
+                console.log('✅ Updated quantitySummary:', quantity);
+            }
+            if (categorySummary) {
+                categorySummary.textContent = category || '-';
+                console.log('✅ Updated categorySummary:', category || '-');
+            }
+            if (orderDetails) {
+                // Build order details string
+                let details = '';
+                if (item) details += item;
+                if (quantity > 0) details += ` (${quantity} pcs)`;
+                if (material) details += ` - ${material}`;
+                if (category) details += ` [${category}]`;
+                
+                orderDetails.textContent = details || 'No details yet';
+                console.log('✅ Updated orderDetails:', details || 'No details yet');
+            }
+            
+            console.log('✅ Other Items summary updated');
+        }
+        
+        // Function to setup event listeners for Other Items form
+        function setupOtherItemsSummaryEventListeners(formId) {
+            console.log('✅ Setting up Other Items summary event listeners for:', formId);
+            
+            const form = document.getElementById(formId);
+            console.log('✅ Looking for form with ID:', formId, '->', form ? 'FOUND' : 'NOT FOUND');
+            if (!form) {
+                console.log('❌ Form not found:', formId);
+                return;
+            }
+            
+            // Get all input elements
+            const categorySelect = form.querySelector('select[name="other_category"]');
+            const itemInput = form.querySelector('input[name="other_item"]');
+            const quantityInput = form.querySelector('input[name="other_quantity"]');
+            const materialInput = form.querySelector('input[name="other_material"]');
+            
+            console.log('✅ Found form elements:', {
+                categorySelect: categorySelect ? 'FOUND' : 'NOT FOUND',
+                itemInput: itemInput ? 'FOUND' : 'NOT FOUND',
+                quantityInput: quantityInput ? 'FOUND' : 'NOT FOUND',
+                materialInput: materialInput ? 'FOUND' : 'NOT FOUND'
+            });
+            
+            // Create update function
+            const updateSummary = () => {
+                console.log('🔄 Triggering updateOtherItemsSummary for:', formId);
+                updateOtherItemsSummary(formId);
+            };
+            
+            // Add event listeners
+            if (categorySelect) {
+                categorySelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to category select');
+            }
+            if (itemInput) {
+                itemInput.addEventListener('input', updateSummary);
+                console.log('✅ Added event listener to item input');
+            }
+            if (quantityInput) {
+                quantityInput.addEventListener('input', updateSummary);
+                console.log('✅ Added event listener to quantity input');
+            }
+            if (materialInput) {
+                materialInput.addEventListener('input', updateSummary);
+                console.log('✅ Added event listener to material input');
+            }
+            
+            console.log('✅ Other Items event listeners setup complete');
+        }
+        
+        // Function to setup Other Items summary for existing containers on page load
+        function setupExistingOtherItemsContainers() {
+            console.log('✅ Setting up Other Items summary event listeners for existing containers...');
+            
+            // Look for original other-form
+            const originalForm = document.getElementById('other-form');
+            console.log('✅ Looking for other-form element:', originalForm ? 'FOUND' : 'NOT FOUND');
+            if (originalForm) {
+                console.log('✅ other-form element details:', {
+                    id: originalForm.id,
+                    style: originalForm.style.display,
+                    className: originalForm.className
+                });
+                setupOtherItemsSummaryEventListeners('other-form');
+            }
+            
+            // Look for cloned forms (with instance IDs)
+            const clonedForms = document.querySelectorAll('[id^="other-form-"]');
+            console.log('✅ Found', clonedForms.length, 'cloned Other Items forms');
+            clonedForms.forEach(form => {
+                console.log('✅ Setting up Other Items summary for cloned form:', form.id);
+                setupOtherItemsSummaryEventListeners(form.id);
+            });
+            
+            console.log('✅ Other Items containers setup complete');
+        }
+        
+        // Initialize Other Items summary on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ DOMContentLoaded - Initializing Other Items summary...');
+            setupExistingOtherItemsContainers();
+        });
+        
+        // ============================================
+        // END OTHER ITEMS FORM SUMMARY FUNCTIONS
+        // ============================================
+        
         // Function to show/hide iPrint option forms (DTF, Lanyard, etc.)
         // Create a new form instance for a specific item
         // Reinitialize event listeners for cloned form instances
