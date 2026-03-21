@@ -5348,7 +5348,7 @@
             console.log('✅ Other Items summary updated');
         }
         
-        // Function to setup event listeners for Other Items form
+        /* DUPLICATE - Function to setup event listeners for Other Items form
         function setupOtherItemsSummaryEventListeners(formId) {
             console.log('✅ Setting up Other Items summary event listeners for:', formId);
             
@@ -5409,8 +5409,9 @@
             
             console.log('✅ Other Items event listeners setup complete');
         }
+        */
         
-        // Function to setup existing Other Items containers
+        /* DUPLICATE - Function to setup existing Other Items containers
         function setupExistingOtherItemsContainers() {
             console.log('✅ Setting up Other Items summary event listeners for existing containers...');
             
@@ -5432,11 +5433,12 @@
             
             console.log('✅ Other Items existing containers setup complete');
         }
+        */
         
         // Call them
         setupExistingDtfContainers();
         setupExistingEmbroideryContainers();
-        setupExistingOtherItemsContainers();
+        // setupExistingOtherItemsContainers(); // DUPLICATE - Function defined in first script tag
     });
     
     // ============================================
