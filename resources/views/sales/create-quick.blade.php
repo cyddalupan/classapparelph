@@ -458,6 +458,68 @@
                                                             <textarea class="form-control form-control-sm" name="dtf_notes" rows="2" placeholder="Special instructions, design details, file information..."></textarea>
                                                         </div>
 
+                                                        <!-- DTF Form Summary (Similar to Other Items) -->
+                                                        <div class="col-md-12 mt-3">
+                                                            <div class="card border-primary">
+                                                                <div class="card-header bg-primary text-white py-2">
+                                                                    <h6 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Order Summary</h6>
+                                                                </div>
+                                                                <div class="card-body p-3">
+                                                                    <div class="row g-2">
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Type of Print</small>
+                                                                                <span class="fw-semibold" id="dtf-print-type-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Material Type</small>
+                                                                                <span class="fw-semibold" id="dtf-material-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Brand</small>
+                                                                                <span class="fw-semibold" id="dtf-brand-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Color</small>
+                                                                                <span class="fw-semibold" id="dtf-color-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="row g-2 mt-2">
+                                                                        <div class="col-md-12">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Print Sizes & Quantities</small>
+                                                                                <span class="fw-semibold" id="dtf-print-sizes-summary">No sizes added yet</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="row g-2 mt-2">
+                                                                        <div class="col-md-12">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Shirt Sizes & Quantities</small>
+                                                                                <span class="fw-semibold" id="dtf-shirt-sizes-summary">No shirt sizes added yet</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="row g-2 mt-2">
+                                                                        <div class="col-md-12">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Total Quantity</small>
+                                                                                <span class="fw-semibold text-primary" id="dtf-total-quantity-summary">0</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <!-- End DTF Form Summary -->
+
                                                         <!-- Attach Picture/Image -->
                                                         <div class="col-md-12">
                                                             <label class="form-label fw-semibold small">Attach Picture/Image</label>
@@ -1055,6 +1117,52 @@
                                                             <label class="form-label fw-semibold small">Design Details</label>
                                                             <textarea class="form-control form-control-sm" name="sublimation_notes" rows="2" placeholder="Design file, color requirements, special effects..."></textarea>
                                                         </div>
+                                                        
+                                                        <!-- Sublimation Form Summary (Similar to Other Items) -->
+                                                        <div class="col-md-12 mt-3">
+                                                            <div class="card border-primary">
+                                                                <div class="card-header bg-primary text-white py-2">
+                                                                    <h6 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Order Summary</h6>
+                                                                </div>
+                                                                <div class="card-body p-3">
+                                                                    <div class="row g-2">
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Sublimation Type</small>
+                                                                                <span class="fw-semibold" id="sublimation-type-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Item Type</small>
+                                                                                <span class="fw-semibold" id="sublimation-item-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Print Size</small>
+                                                                                <span class="fw-semibold" id="sublimation-size-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-md-3">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Material</small>
+                                                                                <span class="fw-semibold" id="sublimation-material-summary">-</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="row g-2 mt-2">
+                                                                        <div class="col-md-12">
+                                                                            <div class="border rounded p-2 bg-light">
+                                                                                <small class="text-muted d-block">Quantity</small>
+                                                                                <span class="fw-semibold text-primary" id="sublimation-quantity-summary">1</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <!-- End Sublimation Form Summary -->
                                                         
                                                         <!-- Attach Picture/Image -->
                                                         <div class="col-md-12">
@@ -2731,6 +2839,463 @@
         // END OTHER ITEMS FORM SUMMARY FUNCTIONS
         // ============================================
         
+        // ============================================
+        // DTF FORM SUMMARY FUNCTIONS
+        // ============================================
+        
+        // Function to update DTF summary
+        function updateDtfSummary(formId) {
+            console.log('✅ Updating DTF summary for:', formId);
+            
+            const form = document.getElementById(formId);
+            if (!form) return;
+            
+            // Get form values
+            const printTypeSelect = form.querySelector('select[name="dtf_print_type"]');
+            const materialSelect = form.querySelector('select[name="dtf_material_type"]');
+            const brandSelect = form.querySelector('select[name="dtf_brand"]');
+            const colorSelect = form.querySelector('select[name="dtf_color"]');
+            
+            const printType = printTypeSelect ? printTypeSelect.value : '';
+            const material = materialSelect ? materialSelect.value : '';
+            const brand = brandSelect ? brandSelect.value : '';
+            const color = colorSelect ? colorSelect.value : '';
+            
+            console.log('✅ DTF values:', { printType, material, brand, color });
+            
+            // Extract instance ID from form ID if it's a cloned form
+            // Format: dtf-form OR dtf-form-dtf_123456789_123
+            let instanceSuffix = '';
+            if (formId.includes('-form-')) {
+                // This is a cloned form, extract the instance ID suffix
+                const parts = formId.split('-');
+                // Join parts after 'form-' to get the full instance ID
+                instanceSuffix = parts.slice(2).join('-');
+                console.log('✅ Extracted DTF instance suffix:', instanceSuffix);
+            }
+            
+            // Build dynamic element IDs
+            const printTypeSummaryId = instanceSuffix ? `dtf-print-type-summary-${instanceSuffix}` : 'dtf-print-type-summary';
+            const materialSummaryId = instanceSuffix ? `dtf-material-summary-${instanceSuffix}` : 'dtf-material-summary';
+            const brandSummaryId = instanceSuffix ? `dtf-brand-summary-${instanceSuffix}` : 'dtf-brand-summary';
+            const colorSummaryId = instanceSuffix ? `dtf-color-summary-${instanceSuffix}` : 'dtf-color-summary';
+            const printSizesSummaryId = instanceSuffix ? `dtf-print-sizes-summary-${instanceSuffix}` : 'dtf-print-sizes-summary';
+            const shirtSizesSummaryId = instanceSuffix ? `dtf-shirt-sizes-summary-${instanceSuffix}` : 'dtf-shirt-sizes-summary';
+            const totalQuantitySummaryId = instanceSuffix ? `dtf-total-quantity-summary-${instanceSuffix}` : 'dtf-total-quantity-summary';
+            
+            console.log('🔍 Looking for DTF summary elements with IDs:', {
+                printTypeSummaryId, materialSummaryId, brandSummaryId, colorSummaryId,
+                printSizesSummaryId, shirtSizesSummaryId, totalQuantitySummaryId
+            });
+            
+            // Update summary elements
+            const printTypeSummary = document.getElementById(printTypeSummaryId);
+            const materialSummary = document.getElementById(materialSummaryId);
+            const brandSummary = document.getElementById(brandSummaryId);
+            const colorSummary = document.getElementById(colorSummaryId);
+            const printSizesSummary = document.getElementById(printSizesSummaryId);
+            const shirtSizesSummary = document.getElementById(shirtSizesSummaryId);
+            const totalQuantitySummary = document.getElementById(totalQuantitySummaryId);
+            
+            console.log('🔍 Found DTF summary elements:', {
+                printTypeSummary: printTypeSummary ? 'FOUND' : 'NOT FOUND',
+                materialSummary: materialSummary ? 'FOUND' : 'NOT FOUND',
+                brandSummary: brandSummary ? 'FOUND' : 'NOT FOUND',
+                colorSummary: colorSummary ? 'FOUND' : 'NOT FOUND',
+                printSizesSummary: printSizesSummary ? 'FOUND' : 'NOT FOUND',
+                shirtSizesSummary: shirtSizesSummary ? 'FOUND' : 'NOT FOUND',
+                totalQuantitySummary: totalQuantitySummary ? 'FOUND' : 'NOT FOUND'
+            });
+            
+            if (printTypeSummary) {
+                printTypeSummary.textContent = printType || '-';
+                console.log('✅ Updated printTypeSummary:', printType || '-');
+            }
+            if (materialSummary) {
+                materialSummary.textContent = material || '-';
+                console.log('✅ Updated materialSummary:', material || '-');
+            }
+            if (brandSummary) {
+                brandSummary.textContent = brand || '-';
+                console.log('✅ Updated brandSummary:', brand || '-');
+            }
+            if (colorSummary) {
+                colorSummary.textContent = color || '-';
+                console.log('✅ Updated colorSummary:', color || '-');
+            }
+            
+            // Calculate print sizes and quantities
+            let printSizeQuantities = [];
+            let totalPrintQuantity = 0;
+            
+            // Get all print size rows
+            const printSizeSelects = form.querySelectorAll('select[name="dtf_print_size[]"]');
+            const printQuantityInputs = form.querySelectorAll('input[name="dtf_print_size_quantity[]"]');
+            
+            for (let i = 0; i < printSizeSelects.length; i++) {
+                const size = printSizeSelects[i].value;
+                const quantity = printQuantityInputs[i] ? parseInt(printQuantityInputs[i].value) || 0 : 0;
+                
+                if (size && quantity > 0) {
+                    printSizeQuantities.push(`${size}: ${quantity}`);
+                    totalPrintQuantity += quantity;
+                }
+            }
+            
+            // Calculate shirt sizes and quantities
+            let shirtSizeQuantities = [];
+            let totalShirtQuantity = 0;
+            
+            // Get all shirt size rows
+            const shirtSizeSelects = form.querySelectorAll('select[name="dtf_shirt_size[]"]');
+            const shirtQuantityInputs = form.querySelectorAll('input[name="dtf_shirt_size_quantity[]"]');
+            
+            for (let i = 0; i < shirtSizeSelects.length; i++) {
+                const size = shirtSizeSelects[i].value;
+                const quantity = shirtQuantityInputs[i] ? parseInt(shirtQuantityInputs[i].value) || 0 : 0;
+                
+                if (size && quantity > 0) {
+                    shirtSizeQuantities.push(`${size}: ${quantity}`);
+                    totalShirtQuantity += quantity;
+                }
+            }
+            
+            // Update print sizes summary
+            if (printSizesSummary) {
+                if (printSizeQuantities.length > 0) {
+                    printSizesSummary.textContent = printSizeQuantities.join(', ');
+                } else {
+                    printSizesSummary.textContent = 'No sizes added yet';
+                }
+                console.log('✅ Updated printSizesSummary:', printSizeQuantities.length > 0 ? printSizeQuantities.join(', ') : 'No sizes added yet');
+            }
+            
+            // Update shirt sizes summary
+            if (shirtSizesSummary) {
+                if (shirtSizeQuantities.length > 0) {
+                    shirtSizesSummary.textContent = shirtSizeQuantities.join(', ');
+                } else {
+                    shirtSizesSummary.textContent = 'No shirt sizes added yet';
+                }
+                console.log('✅ Updated shirtSizesSummary:', shirtSizeQuantities.length > 0 ? shirtSizeQuantities.join(', ') : 'No shirt sizes added yet');
+            }
+            
+            // Update total quantity
+            const totalQuantity = totalPrintQuantity + totalShirtQuantity;
+            if (totalQuantitySummary) {
+                totalQuantitySummary.textContent = totalQuantity;
+                console.log('✅ Updated totalQuantitySummary:', totalQuantity);
+            }
+            
+            console.log('✅ DTF summary updated');
+        }
+        
+        // Function to setup event listeners for DTF form
+        function setupDtfSummaryEventListeners(formId) {
+            console.log('✅ Setting up DTF summary event listeners for:', formId);
+            
+            const form = document.getElementById(formId);
+            console.log('✅ Looking for DTF form with ID:', formId, '->', form ? 'FOUND' : 'NOT FOUND');
+            if (!form) {
+                console.log('❌ DTF form not found:', formId);
+                return;
+            }
+            
+            // Get all input elements
+            const printTypeSelect = form.querySelector('select[name="dtf_print_type"]');
+            const materialSelect = form.querySelector('select[name="dtf_material_type"]');
+            const brandSelect = form.querySelector('select[name="dtf_brand"]');
+            const colorSelect = form.querySelector('select[name="dtf_color"]');
+            
+            console.log('✅ Found DTF form elements:', {
+                printTypeSelect: printTypeSelect ? 'FOUND' : 'NOT FOUND',
+                materialSelect: materialSelect ? 'FOUND' : 'NOT FOUND',
+                brandSelect: brandSelect ? 'FOUND' : 'NOT FOUND',
+                colorSelect: colorSelect ? 'FOUND' : 'NOT FOUND'
+            });
+            
+            // Create update function
+            const updateSummary = () => {
+                console.log('🔄 Triggering updateDtfSummary for:', formId);
+                updateDtfSummary(formId);
+            };
+            
+            // Add event listeners to dropdowns
+            if (printTypeSelect) {
+                printTypeSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to print type select');
+            }
+            if (materialSelect) {
+                materialSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to material select');
+            }
+            if (brandSelect) {
+                brandSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to brand select');
+            }
+            if (colorSelect) {
+                colorSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to color select');
+            }
+            
+            // Also need to listen to print size and shirt size changes
+            // We'll use event delegation for dynamic rows
+            const printSizesContainer = form.querySelector('[id^="print-sizes-container"]');
+            const shirtSizesContainer = form.querySelector('[id^="shirt-sizes-container"]');
+            
+            if (printSizesContainer) {
+                printSizesContainer.addEventListener('change', function(event) {
+                    if (event.target.matches('select[name="dtf_print_size[]"], input[name="dtf_print_size_quantity[]"]')) {
+                        console.log('🔄 Print size/quantity changed, updating DTF summary');
+                        updateSummary();
+                    }
+                });
+                printSizesContainer.addEventListener('input', function(event) {
+                    if (event.target.matches('input[name="dtf_print_size_quantity[]"]')) {
+                        console.log('🔄 Print quantity input changed, updating DTF summary');
+                        updateSummary();
+                    }
+                });
+                console.log('✅ Added event listeners to print sizes container');
+            }
+            
+            if (shirtSizesContainer) {
+                shirtSizesContainer.addEventListener('change', function(event) {
+                    if (event.target.matches('select[name="dtf_shirt_size[]"], input[name="dtf_shirt_size_quantity[]"]')) {
+                        console.log('🔄 Shirt size/quantity changed, updating DTF summary');
+                        updateSummary();
+                    }
+                });
+                shirtSizesContainer.addEventListener('input', function(event) {
+                    if (event.target.matches('input[name="dtf_shirt_size_quantity[]"]')) {
+                        console.log('🔄 Shirt quantity input changed, updating DTF summary');
+                        updateSummary();
+                    }
+                });
+                console.log('✅ Added event listeners to shirt sizes container');
+            }
+            
+            console.log('✅ DTF event listeners setup complete');
+        }
+        
+        // Function to setup DTF summary for existing containers on page load
+        function setupExistingDtfContainers() {
+            console.log('✅ Setting up DTF summary event listeners for existing containers...');
+            
+            // Look for original dtf-form
+            const originalForm = document.getElementById('dtf-form');
+            console.log('✅ Looking for dtf-form element:', originalForm ? 'FOUND' : 'NOT FOUND');
+            if (originalForm) {
+                console.log('✅ dtf-form element details:', {
+                    id: originalForm.id,
+                    style: originalForm.style.display,
+                    className: originalForm.className
+                });
+                setupDtfSummaryEventListeners('dtf-form');
+            }
+            
+            // Look for cloned forms (with instance IDs)
+            const clonedForms = document.querySelectorAll('[id^="dtf-form-"]');
+            console.log('✅ Found', clonedForms.length, 'cloned DTF forms');
+            clonedForms.forEach(form => {
+                console.log('✅ Setting up DTF summary for cloned form:', form.id);
+                setupDtfSummaryEventListeners(form.id);
+            });
+            
+            console.log('✅ DTF containers setup complete');
+        }
+        
+        // Initialize DTF summary on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ DOMContentLoaded - Initializing DTF summary...');
+            setupExistingDtfContainers();
+        });
+        
+        // ============================================
+        // END DTF FORM SUMMARY FUNCTIONS
+        // ============================================
+        
+        // ============================================
+        // SUBLIMATION FORM SUMMARY FUNCTIONS
+        // ============================================
+        
+        // Function to update Sublimation summary
+        function updateSublimationSummary(formId) {
+            console.log('✅ Updating Sublimation summary for:', formId);
+            
+            const form = document.getElementById(formId);
+            if (!form) return;
+            
+            // Get form values
+            const typeSelect = form.querySelector('select[name="sublimation_type"]');
+            const itemSelect = form.querySelector('select[name="sublimation_item"]');
+            const sizeSelect = form.querySelector('select[name="sublimation_size"]');
+            const materialSelect = form.querySelector('select[name="sublimation_material"]');
+            const quantityInput = form.querySelector('input[name="sublimation_quantity"]');
+            
+            const type = typeSelect ? typeSelect.value : '';
+            const item = itemSelect ? itemSelect.value : '';
+            const size = sizeSelect ? sizeSelect.value : '';
+            const material = materialSelect ? materialSelect.value : '';
+            const quantity = quantityInput ? parseInt(quantityInput.value) || 1 : 1;
+            
+            console.log('✅ Sublimation values:', { type, item, size, material, quantity });
+            
+            // Extract instance ID from form ID if it's a cloned form
+            // Format: sublimation-form OR sublimation-form-dtf_123456789_123
+            let instanceSuffix = '';
+            if (formId.includes('-form-')) {
+                // This is a cloned form, extract the instance ID suffix
+                const parts = formId.split('-');
+                // Join parts after 'form-' to get the full instance ID
+                instanceSuffix = parts.slice(2).join('-');
+                console.log('✅ Extracted Sublimation instance suffix:', instanceSuffix);
+            }
+            
+            // Build dynamic element IDs
+            const typeSummaryId = instanceSuffix ? `sublimation-type-summary-${instanceSuffix}` : 'sublimation-type-summary';
+            const itemSummaryId = instanceSuffix ? `sublimation-item-summary-${instanceSuffix}` : 'sublimation-item-summary';
+            const sizeSummaryId = instanceSuffix ? `sublimation-size-summary-${instanceSuffix}` : 'sublimation-size-summary';
+            const materialSummaryId = instanceSuffix ? `sublimation-material-summary-${instanceSuffix}` : 'sublimation-material-summary';
+            const quantitySummaryId = instanceSuffix ? `sublimation-quantity-summary-${instanceSuffix}` : 'sublimation-quantity-summary';
+            
+            console.log('🔍 Looking for Sublimation summary elements with IDs:', {
+                typeSummaryId, itemSummaryId, sizeSummaryId, materialSummaryId, quantitySummaryId
+            });
+            
+            // Update summary elements
+            const typeSummary = document.getElementById(typeSummaryId);
+            const itemSummary = document.getElementById(itemSummaryId);
+            const sizeSummary = document.getElementById(sizeSummaryId);
+            const materialSummary = document.getElementById(materialSummaryId);
+            const quantitySummary = document.getElementById(quantitySummaryId);
+            
+            console.log('🔍 Found Sublimation summary elements:', {
+                typeSummary: typeSummary ? 'FOUND' : 'NOT FOUND',
+                itemSummary: itemSummary ? 'FOUND' : 'NOT FOUND',
+                sizeSummary: sizeSummary ? 'FOUND' : 'NOT FOUND',
+                materialSummary: materialSummary ? 'FOUND' : 'NOT FOUND',
+                quantitySummary: quantitySummary ? 'FOUND' : 'NOT FOUND'
+            });
+            
+            if (typeSummary) {
+                typeSummary.textContent = type || '-';
+                console.log('✅ Updated typeSummary:', type || '-');
+            }
+            if (itemSummary) {
+                itemSummary.textContent = item || '-';
+                console.log('✅ Updated itemSummary:', item || '-');
+            }
+            if (sizeSummary) {
+                sizeSummary.textContent = size || '-';
+                console.log('✅ Updated sizeSummary:', size || '-');
+            }
+            if (materialSummary) {
+                materialSummary.textContent = material || '-';
+                console.log('✅ Updated materialSummary:', material || '-');
+            }
+            if (quantitySummary) {
+                quantitySummary.textContent = quantity;
+                console.log('✅ Updated quantitySummary:', quantity);
+            }
+            
+            console.log('✅ Sublimation summary updated');
+        }
+        
+        // Function to setup event listeners for Sublimation form
+        function setupSublimationSummaryEventListeners(formId) {
+            console.log('✅ Setting up Sublimation summary event listeners for:', formId);
+            
+            const form = document.getElementById(formId);
+            console.log('✅ Looking for Sublimation form with ID:', formId, '->', form ? 'FOUND' : 'NOT FOUND');
+            if (!form) {
+                console.log('❌ Sublimation form not found:', formId);
+                return;
+            }
+            
+            // Get all input elements
+            const typeSelect = form.querySelector('select[name="sublimation_type"]');
+            const itemSelect = form.querySelector('select[name="sublimation_item"]');
+            const sizeSelect = form.querySelector('select[name="sublimation_size"]');
+            const materialSelect = form.querySelector('select[name="sublimation_material"]');
+            const quantityInput = form.querySelector('input[name="sublimation_quantity"]');
+            
+            console.log('✅ Found Sublimation form elements:', {
+                typeSelect: typeSelect ? 'FOUND' : 'NOT FOUND',
+                itemSelect: itemSelect ? 'FOUND' : 'NOT FOUND',
+                sizeSelect: sizeSelect ? 'FOUND' : 'NOT FOUND',
+                materialSelect: materialSelect ? 'FOUND' : 'NOT FOUND',
+                quantityInput: quantityInput ? 'FOUND' : 'NOT FOUND'
+            });
+            
+            // Create update function
+            const updateSummary = () => {
+                console.log('🔄 Triggering updateSublimationSummary for:', formId);
+                updateSublimationSummary(formId);
+            };
+            
+            // Add event listeners to dropdowns
+            if (typeSelect) {
+                typeSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to type select');
+            }
+            if (itemSelect) {
+                itemSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to item select');
+            }
+            if (sizeSelect) {
+                sizeSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to size select');
+            }
+            if (materialSelect) {
+                materialSelect.addEventListener('change', updateSummary);
+                console.log('✅ Added event listener to material select');
+            }
+            if (quantityInput) {
+                quantityInput.addEventListener('input', updateSummary);
+                console.log('✅ Added event listener to quantity input');
+            }
+            
+            console.log('✅ Sublimation event listeners setup complete');
+        }
+        
+        // Function to setup Sublimation summary for existing containers on page load
+        function setupExistingSublimationContainers() {
+            console.log('✅ Setting up Sublimation summary event listeners for existing containers...');
+            
+            // Look for original sublimation-form
+            const originalForm = document.getElementById('sublimation-form');
+            console.log('✅ Looking for sublimation-form element:', originalForm ? 'FOUND' : 'NOT FOUND');
+            if (originalForm) {
+                console.log('✅ sublimation-form element details:', {
+                    id: originalForm.id,
+                    style: originalForm.style.display,
+                    className: originalForm.className
+                });
+                setupSublimationSummaryEventListeners('sublimation-form');
+            }
+            
+            // Look for cloned forms (with instance IDs)
+            const clonedForms = document.querySelectorAll('[id^="sublimation-form-"]');
+            console.log('✅ Found', clonedForms.length, 'cloned Sublimation forms');
+            clonedForms.forEach(form => {
+                console.log('✅ Setting up Sublimation summary for cloned form:', form.id);
+                setupSublimationSummaryEventListeners(form.id);
+            });
+            
+            console.log('✅ Sublimation containers setup complete');
+        }
+        
+        // Initialize Sublimation summary on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ DOMContentLoaded - Initializing Sublimation summary...');
+            setupExistingSublimationContainers();
+        });
+        
+        // ============================================
+        // END SUBLIMATION FORM SUMMARY FUNCTIONS
+        // ============================================
+        
         // Function to show/hide iPrint option forms (DTF, Lanyard, etc.)
         // Create a new form instance for a specific item
         // Reinitialize event listeners for cloned form instances
@@ -3410,8 +3975,20 @@
             if (targetForm) {
                 targetForm.style.display = 'block';
                 
-                // Initialize summary for Other Items form when shown
-                if (option === 'other') {
+                // Initialize summary for forms when shown
+                if (option === 'dtf') {
+                    console.log('🔄 Initializing DTF summary when form shown');
+                    // Re-initialize event listeners just in case
+                    setupDtfSummaryEventListeners('dtf-form');
+                    // Update summary with current values
+                    updateDtfSummary('dtf-form');
+                } else if (option === 'sublimation') {
+                    console.log('🔄 Initializing Sublimation summary when form shown');
+                    // Re-initialize event listeners just in case
+                    setupSublimationSummaryEventListeners('sublimation-form');
+                    // Update summary with current values
+                    updateSublimationSummary('sublimation-form');
+                } else if (option === 'other') {
                     console.log('🔄 Initializing Other Items summary when form shown');
                     // Re-initialize event listeners just in case
                     setupOtherItemsSummaryEventListeners('other-form');
@@ -3996,6 +4573,15 @@
                     clearTimeout(form._updateTimeout);
                     form._updateTimeout = setTimeout(() => {
                         updateTableDetails(instanceId, option);
+                        
+                        // Also update form summary if applicable
+                        if (option === 'dtf') {
+                            updateDtfSummary(form.id);
+                        } else if (option === 'sublimation') {
+                            updateSublimationSummary(form.id);
+                        } else if (option === 'other') {
+                            updateOtherItemsSummary(form.id);
+                        }
                     }, 300);
                 }
             };
@@ -4015,6 +4601,21 @@
             
             // Also update immediately to show current state
             updateTableDetails(instanceId, option);
+            
+            // Initialize form summary if applicable
+            if (option === 'dtf') {
+                console.log('🔄 Initializing DTF summary for form:', form.id);
+                setupDtfSummaryEventListeners(form.id);
+                updateDtfSummary(form.id);
+            } else if (option === 'sublimation') {
+                console.log('🔄 Initializing Sublimation summary for form:', form.id);
+                setupSublimationSummaryEventListeners(form.id);
+                updateSublimationSummary(form.id);
+            } else if (option === 'other') {
+                console.log('🔄 Initializing Other Items summary for form:', form.id);
+                setupOtherItemsSummaryEventListeners(form.id);
+                updateOtherItemsSummary(form.id);
+            }
         }
         
         // Update table details based on form data
@@ -4050,18 +4651,70 @@
                 const printTypeSelect = form.querySelector('select[name="dtf_print_type"]');
                 const printType = printTypeSelect ? printTypeSelect.value : '';
                 
-                // Get all size selections (multiple rows possible)
-                const sizeSelects = form.querySelectorAll('select[name="dtf_print_size[]"]');
-                const sizes = Array.from(sizeSelects).map(select => select.value).filter(v => v);
+                // Get material type from form
+                const materialSelect = form.querySelector('select[name="dtf_material_type"]');
+                const material = materialSelect ? materialSelect.value : '';
+                
+                // Get brand from form
+                const brandSelect = form.querySelector('select[name="dtf_brand"]');
+                const brand = brandSelect ? brandSelect.value : '';
+                
+                // Get color from form
+                const colorSelect = form.querySelector('select[name="dtf_color"]');
+                const color = colorSelect ? colorSelect.value : '';
+                
+                // Get all print size selections (multiple rows possible)
+                const printSizeSelects = form.querySelectorAll('select[name="dtf_print_size[]"]');
+                const printSizes = Array.from(printSizeSelects).map(select => select.value).filter(v => v);
+                
+                // Get all shirt size selections (multiple rows possible)
+                const shirtSizeSelects = form.querySelectorAll('select[name="dtf_shirt_size[]"]');
+                const shirtSizes = Array.from(shirtSizeSelects).map(select => select.value).filter(v => v);
+                
+                // Calculate total quantity
+                let totalQuantity = 0;
+                const printQuantityInputs = form.querySelectorAll('input[name="dtf_print_size_quantity[]"]');
+                const shirtQuantityInputs = form.querySelectorAll('input[name="dtf_shirt_size_quantity[]"]');
+                
+                printQuantityInputs.forEach(input => {
+                    totalQuantity += parseInt(input.value) || 0;
+                });
+                shirtQuantityInputs.forEach(input => {
+                    totalQuantity += parseInt(input.value) || 0;
+                });
                 
                 // Check what's missing
                 if (!printType) missingFields.push('Print Type');
-                if (sizes.length === 0) missingFields.push('Size');
+                if (!material) missingFields.push('Material Type');
+                if (!brand) missingFields.push('Brand');
+                if (!color) missingFields.push('Color');
+                if (printSizes.length === 0 && shirtSizes.length === 0) missingFields.push('Size');
                 
                 if (missingFields.length > 0) {
                     summary = `Missing: ${missingFields.join(', ')}`;
                 } else {
-                    summary = 'Complete';
+                    // Build detailed summary
+                    let details = [];
+                    if (printType) details.push(printType);
+                    if (material) details.push(material);
+                    if (brand) details.push(brand);
+                    if (color) details.push(color);
+                    
+                    // Add size info
+                    let sizeInfo = [];
+                    if (printSizes.length > 0) sizeInfo.push(`${printSizes.length} print size(s)`);
+                    if (shirtSizes.length > 0) sizeInfo.push(`${shirtSizes.length} shirt size(s)`);
+                    
+                    if (sizeInfo.length > 0) {
+                        details.push(sizeInfo.join(', '));
+                    }
+                    
+                    // Add quantity
+                    if (totalQuantity > 0) {
+                        details.push(`${totalQuantity} pcs`);
+                    }
+                    
+                    summary = details.join(' | ');
                 }
             } else if (option === 'lanyard') {
                 // Get lanyard type from form
@@ -4104,18 +4757,41 @@
                 const typeSelect = form.querySelector('select[name="sublimation_type"]');
                 const type = typeSelect ? typeSelect.value : '';
                 
-                // Get all size selections (multiple rows possible)
-                const sizeSelects = form.querySelectorAll('select[name="sublimation_size[]"]');
-                const sizes = Array.from(sizeSelects).map(select => select.value).filter(v => v);
+                // Get item type from form
+                const itemSelect = form.querySelector('select[name="sublimation_item"]');
+                const item = itemSelect ? itemSelect.value : '';
+                
+                // Get size from form
+                const sizeSelect = form.querySelector('select[name="sublimation_size"]');
+                const size = sizeSelect ? sizeSelect.value : '';
+                
+                // Get material from form
+                const materialSelect = form.querySelector('select[name="sublimation_material"]');
+                const material = materialSelect ? materialSelect.value : '';
+                
+                // Get quantity from form
+                const quantityInput = form.querySelector('input[name="sublimation_quantity"]');
+                const quantity = quantityInput ? quantityInput.value : '';
                 
                 // Check what's missing
-                if (!type) missingFields.push('Type');
-                if (sizes.length === 0) missingFields.push('Size');
+                if (!type) missingFields.push('Sublimation Type');
+                if (!item) missingFields.push('Item Type');
+                if (!size) missingFields.push('Print Size');
+                if (!material) missingFields.push('Material');
+                if (!quantity) missingFields.push('Quantity');
                 
                 if (missingFields.length > 0) {
                     summary = `Missing: ${missingFields.join(', ')}`;
                 } else {
-                    summary = 'Complete';
+                    // Build detailed summary
+                    let details = [];
+                    if (type) details.push(type);
+                    if (item) details.push(item);
+                    if (size) details.push(size);
+                    if (material) details.push(material);
+                    if (quantity) details.push(`${quantity} pcs`);
+                    
+                    summary = details.join(' | ');
                 }
             } else if (option === 'embroidery') {
                 // Get embroidery type from form
