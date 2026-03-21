@@ -3340,6 +3340,11 @@
             // Show notification for successful add
             showNotification('Item added to order list', 'success');
             
+            // Setup auto-update for the original form
+            // This allows the form to update the table details as user types
+            console.log('🔄 Setting up auto-update for original form with instance ID:', instanceId);
+            setupAutoUpdate(instanceId, option);
+            
             // DEBUG: Check what's actually in the table
             console.log('🔵 addPrintingTypeToTable COMPLETE for option:', option);
             console.log('🔍 TABLE STATE CHECK:');
