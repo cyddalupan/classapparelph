@@ -3803,6 +3803,7 @@
             if (!form) return;
             
             console.log('DEBUG: Setting up auto-update for:', instanceId, option, 'form:', form.id);
+            console.log('🔗 Form will update table row with instance ID:', instanceId);
             
             // Remove any existing event listeners from this form
             // We'll use event delegation instead of attaching to individual inputs
