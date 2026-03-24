@@ -19,6 +19,134 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @stack('styles')
+        
+        <!-- Custom Styles for Inventory Dropdown -->
+        <style>
+            .nav-dropdown {
+                position: relative;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.75rem 1.5rem;
+                color: #64748b;
+                text-decoration: none;
+                transition: all 0.2s;
+                border-left: 3px solid transparent;
+            }
+            
+            .nav-dropdown:hover {
+                background: #f1f5f9;
+                color: #2563eb;
+                border-left-color: #2563eb;
+            }
+            
+            .nav-dropdown.active {
+                background: #eff6ff;
+                color: #2563eb;
+                border-left-color: #2563eb;
+                font-weight: 600;
+            }
+            
+            .nav-dropdown-toggle {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                flex: 1;
+                cursor: pointer;
+            }
+            
+            .nav-dropdown i:first-child {
+                width: 20px;
+                text-align: center;
+                font-size: 1.125rem;
+                flex-shrink: 0;
+            }
+            
+            /* Ensure dropdown menu is visible even when parent scrolls */
+            .nav-dropdown-menu {
+                position: absolute;
+                z-index: 9999;
+            }
+            
+            .nav-dropdown-arrow {
+                margin-left: auto;
+                font-size: 0.75rem;
+                transition: transform 0.2s;
+                flex-shrink: 0;
+            }
+            
+            .nav-dropdown.active .nav-dropdown-arrow {
+                transform: rotate(180deg);
+            }
+            
+            .nav-dropdown-menu {
+                display: none;
+                position: absolute;
+                top: calc(100% + 0.25rem);
+                left: 0;
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 0.375rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                padding: 0.25rem 0;
+                z-index: 9999;
+                min-width: 220px;
+                max-width: 250px;
+            }
+            
+            .nav-dropdown.active .nav-dropdown-menu {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+            
+            .nav-dropdown-item {
+                display: flex;
+                align-items: center;
+                padding: 0.5rem 1rem;
+                color: #64748b;
+                text-decoration: none;
+                transition: all 0.2s;
+                font-size: 0.875rem;
+                gap: 0.5rem;
+            }
+            
+            .nav-dropdown-item:hover {
+                background: #f1f5f9;
+                color: #2563eb;
+            }
+            
+            .nav-dropdown-item.active {
+                background: #eff6ff;
+                color: #2563eb;
+                font-weight: 500;
+            }
+            
+            .nav-dropdown-item i {
+                width: 16px;
+                text-align: center;
+                font-size: 0.875rem;
+                flex-shrink: 0;
+            }
+            
+            .nav-dropdown-item span {
+                flex: 1;
+            }
+            
+            /* Mobile responsive */
+            @media (max-width: 768px) {
+                .nav-dropdown-menu {
+                    position: static;
+                    box-shadow: none;
+                    border: none;
+                    border-left: 3px solid #2563eb;
+                    margin-left: 2rem;
+                    margin-top: 0;
+                    margin-bottom: 0.5rem;
+                }
+            }
+        </style>
     </head>
     <body class="app-body">
         <div class="app-container">
@@ -99,17 +227,34 @@
                             <span class="nav-badge">24</span>
                         </a>
                         <a href="{{ route('products.index') }}" class="nav-item {{ request()->routeIs('products.*') ? 'active' : '' }}">
-                            <i class="fas fa-tshirt"></i>
-                            <span class="nav-text">Products</span>
+                            <i class="fas fa-money-bill-wave"></i>
+                            <span class="nav-text">Product Pricing</span>
                         </a>
                         <a href="{{ route('customers.index') }}" class="nav-item {{ request()->routeIs('customers.*') ? 'active' : '' }}">
                             <i class="fas fa-users"></i>
                             <span class="nav-text">Customers</span>
                         </a>
-                        <a href="{{ route('inventory.index') }}" class="nav-item {{ request()->routeIs('inventory.*') ? 'active' : '' }}">
-                            <i class="fas fa-boxes"></i>
-                            <span class="nav-text">Inventory</span>
-                        </a>
+                        <div class="nav-item nav-dropdown {{ request()->routeIs('inventory.*') ? 'active' : '' }}">
+                            <div class="nav-dropdown-toggle">
+                                <i class="fas fa-boxes"></i>
+                                <span class="nav-text">Inventory Management</span>
+                                <i class="fas fa-chevron-down nav-dropdown-arrow"></i>
+                            </div>
+                            <div class="nav-dropdown-menu">
+                                <a href="{{ route('inventory.index') }}" class="nav-dropdown-item {{ request()->routeIs('inventory.index') ? 'active' : '' }}">
+                                    <i class="fas fa-tachometer-alt"></i>
+                                    <span>Dashboard</span>
+                                </a>
+                                <a href="{{ route('inventory.action') }}" class="nav-dropdown-item {{ request()->routeIs('inventory.action') ? 'active' : '' }}">
+                                    <i class="fas fa-plus-circle"></i>
+                                    <span>Inventory Action</span>
+                                </a>
+                                <a href="{{ route('products.index') }}" class="nav-dropdown-item {{ request()->routeIs('products.*') ? 'active' : '' }}">
+                                    <i class="fas fa-cube"></i>
+                                    <span>Product</span>
+                                </a>
+                            </div>
+                        </div>
                         <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.*') ? 'active' : '' }}">
                             <i class="fas fa-cogs"></i>
                             <span class="nav-text">Production</span>
@@ -121,10 +266,6 @@
                     @if(Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
                     <div class="nav-section">
                         <div class="nav-section-title">Sales Operations</div>
-                        <a href="{{ route('sales.products') }}" class="nav-item {{ request()->routeIs('sales.products') ? 'active' : '' }}">
-                            <i class="fas fa-list-alt"></i>
-                            <span class="nav-text">Product Catalog</span>
-                        </a>
                         <a href="{{ route('sales.pricing') }}" class="nav-item {{ request()->routeIs('sales.pricing') ? 'active' : '' }}">
                             <i class="fas fa-tags"></i>
                             <span class="nav-text">Product Pricing</span>
@@ -403,6 +544,39 @@
                 });
             });
 
+            // Inventory dropdown toggle
+            document.querySelectorAll('.nav-dropdown-toggle').forEach(toggle => {
+                toggle.addEventListener('click', function(e) {
+                    console.log('Dropdown toggle clicked');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const dropdown = this.closest('.nav-dropdown');
+                    console.log('Toggling dropdown active state');
+                    dropdown.classList.toggle('active');
+                    
+                    // Close other dropdowns
+                    document.querySelectorAll('.nav-dropdown').forEach(other => {
+                        if (other !== dropdown) {
+                            other.classList.remove('active');
+                        }
+                    });
+                    
+                    // Debug: log current state
+                    console.log('Dropdown active:', dropdown.classList.contains('active'));
+                    console.log('Dropdown menu:', dropdown.querySelector('.nav-dropdown-menu'));
+                });
+            });
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.nav-dropdown')) {
+                    document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
+                        dropdown.classList.remove('active');
+                    });
+                }
+            });
+
             // Responsive behavior - update on resize
             window.addEventListener('resize', function() {
                 const sidebar = document.getElementById('sidebar');
@@ -422,6 +596,10 @@
                 }
             });
         </script>
+        
+        <!-- Bootstrap 5 JavaScript Bundle with Popper -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+        
         @stack('scripts')
     </body>
 </html>

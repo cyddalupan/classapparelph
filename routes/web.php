@@ -14,7 +14,34 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('dashboard');
 
+// TEST PAGE FOR DEBUGGING
+Route::get('/test-navigation', function () {
+    return view('test-navigation');
+})->name('test-navigation');
+
 Route::middleware('auth')->group(function () {
+    // INVENTORY CATEGORY SELECTION PAGE
+    Route::get('/inventory/select-category', function () {
+        // Log access for debugging
+        \Log::info('Category selection page accessed', [
+            'ip' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'referer' => request()->header('referer'),
+            'time' => now()
+        ]);
+        
+        return view('inventory.select-category');
+    })->name('inventory.select-category');
+    
+    // SIMPLE TEST VERSION (no JavaScript)
+    Route::get('/inventory/select-category-simple', function () {
+        return view('inventory.select-category-simple');
+    })->name('inventory.select-category-simple');
+    
+    // ULTRA SIMPLE VERSION (standalone HTML, no Laravel layout)
+    Route::get('/inventory/select-category-test', function () {
+        return view('inventory.select-category-ultra-simple');
+    })->name('inventory.select-category-test');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -53,13 +80,21 @@ Route::middleware('auth')->group(function () {
         return view('orders.show', ['id' => $id]);
     })->name('orders.show');
     
-    Route::get('/products', function () {
-        return view('products.index');
-    })->name('products.index');
+    // Product Management Routes
+    Route::resource('products', \App\Http\Controllers\ProductController::class)->except(['show']);
     
-    Route::get('/products/{id}', function ($id) {
-        return view('products.show', ['id' => $id]);
-    })->name('products.show');
+    // Additional product routes
+    Route::get('/products/trashed', [\App\Http\Controllers\ProductController::class, 'trashed'])
+        ->name('products.trashed');
+    
+    Route::post('/products/{product}/restore', [\App\Http\Controllers\ProductController::class, 'restore'])
+        ->name('products.restore');
+    
+    Route::delete('/products/{product}/force-delete', [\App\Http\Controllers\ProductController::class, 'forceDelete'])
+        ->name('products.force-delete');
+    
+    Route::post('/products/{product}/update-stock', [\App\Http\Controllers\ProductController::class, 'updateStock'])
+        ->name('products.update-stock');
     
     Route::get('/customers', function () {
         return view('customers.index');
@@ -77,9 +112,27 @@ Route::middleware('auth')->group(function () {
         return view('analytics.dashboard');
     })->name('analytics.dashboard');
     
-    Route::get('/inventory', function () {
-        return view('inventory.index');
-    })->name('inventory.index');
+    Route::get('/inventory', [\App\Http\Controllers\InventoryController::class, 'index'])->name('inventory.index');
+    Route::get('/inventory/create', [\App\Http\Controllers\InventoryController::class, 'create'])->name('inventory.create');
+    
+    // INVENTORY ACTION - Direct link to create page with shirt category
+    Route::get('/inventoryaction', function (\Illuminate\Http\Request $request) {
+        // Add category=shirt parameter to the request
+        $request->merge(['category' => 'shirt']);
+        
+        // Call the controller method
+        $controller = app(\App\Http\Controllers\InventoryController::class);
+        return $controller->create();
+    })->name('inventory.action');
+    Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store'])->name('inventory.store');
+    Route::get('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'show'])->name('inventory.show');
+    Route::get('/inventory/{inventory}/edit', [\App\Http\Controllers\InventoryController::class, 'edit'])->name('inventory.edit');
+    Route::put('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'update'])->name('inventory.update');
+    Route::delete('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'destroy'])->name('inventory.destroy');
+    Route::get('/inventory/trashed', [\App\Http\Controllers\InventoryController::class, 'trashed'])->name('inventory.trashed');
+    Route::post('/inventory/{inventory}/restore', [\App\Http\Controllers\InventoryController::class, 'restore'])->name('inventory.restore');
+    Route::delete('/inventory/{inventory}/force', [\App\Http\Controllers\InventoryController::class, 'forceDelete'])->name('inventory.forceDelete');
+    Route::post('/inventory/{inventory}/stock', [\App\Http\Controllers\InventoryController::class, 'updateStock'])->name('inventory.updateStock');
     
     Route::get('/production', function () {
         return view('production.tracking');
@@ -114,13 +167,6 @@ Route::middleware('auth')->group(function () {
     
     // Sales Agent Routes (Only for sales agents and representatives)
     Route::middleware(['auth'])->group(function () {
-        Route::get('/sales/products', function () {
-            if (!Gate::allows('access-sales-agent')) {
-                abort(403, 'Unauthorized access.');
-            }
-            return view('sales.products');
-        })->name('sales.products');
-        
         Route::get('/sales/pricing', function () {
             if (!Gate::allows('access-sales-agent')) {
                 abort(403, 'Unauthorized access.');

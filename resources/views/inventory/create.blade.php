@@ -1,0 +1,968 @@
+<x-app-layout>
+    @section('page-title', 'Add New Inventory Item')
+    
+    <x-slot name="header">
+        <div class="page-header-content">
+            <h1 class="page-title">
+                <i class="fas fa-plus-circle"></i>
+                Add New Inventory Item
+            </h1>
+            <p class="page-subtitle">Select a category and fill in the details</p>
+        </div>
+    </x-slot>
+
+    @section('content')
+    <div class="page-content">
+        <!-- Success/Error Messages -->
+        @if ($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Please fix the following errors:</strong>
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ route('inventory.store') }}" method="POST" id="inventory-form">
+                    @csrf
+                    <input type="hidden" name="category" id="category" value="">
+                    <!-- Hidden inputs for required database fields -->
+                    <input type="hidden" name="name" value="Unnamed Item">
+                    <input type="hidden" name="type" value="finished_good">
+                    <input type="hidden" name="unit_price" value="0.00">
+                    <input type="hidden" name="unit_of_measure" value="piece">
+                    <input type="hidden" name="current_stock" value="0">
+                    <input type="hidden" name="minimum_stock" value="0">
+                    <input type="hidden" name="is_active" value="1">
+                    
+                    <!-- STEP 1: SELECT CATEGORY (4 BOXES) -->
+                    <div class="mb-5">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="mb-0">
+                                <i class="fas fa-layer-group text-primary me-2"></i>
+                                Step 1: Select Category
+                            </h5>
+                            
+                            <!-- PERMANENT ADD NEW ITEM BUTTON - TOP RIGHT CORNER -->
+                            <div id="general-add-button">
+                                <button type="button" class="btn btn-primary" id="add-new-item-btn">
+                                    <i class="fas fa-plus-circle me-2"></i>Add New Item
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <p class="text-muted mb-4">Click on one of the boxes below to select a category</p>
+                        
+                        <!-- 4 BOXES DESIGN - SIDE BY SIDE! -->
+                        <div class="row gx-4 justify-content-center">
+                            <!-- Box 1: Shirt Products -->
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Shirt Products" id="box-shirt">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-tshirt fa-2x text-primary"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Shirt Products</h6>
+                                        <p class="card-text text-muted small mb-0">T-shirts, polo shirts, hoodies</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 2: Other Items -->
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Other Items" id="box-other">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-box fa-2x text-info"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Other Items</h6>
+                                        <p class="card-text text-muted small mb-0">Miscellaneous items</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 3: Office Supplies -->
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Office Supplies" id="box-office">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-clipboard-list fa-2x text-warning"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Office Supplies</h6>
+                                        <p class="card-text text-muted small mb-0">Paper, pens, folders</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 4: Machine and Equipments -->
+                            <div class="col-md-3 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Machine and Equipments" id="box-machine">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-tools fa-2x text-danger"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Machine and Equipments</h6>
+                                        <p class="card-text text-muted small mb-0">Printers, computers, tools</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden field for selected category -->
+                        <input type="hidden" name="category" id="selected-category" value="" required>
+                        
+                        <!-- SHIRT PRODUCTS SPECIFIC BUTTONS (HIDDEN BY DEFAULT) -->
+                        <div class="mt-4 d-flex justify-content-center gap-3" id="shirt-products-buttons" style="display: none;">
+                            <button type="button" class="btn" id="shirt-add-item-btn">
+                                <i class="fas fa-plus-circle me-2"></i>Add Shirt Product
+                            </button>
+                            <button type="button" class="btn" id="shirt-deduct-item-btn">
+                                <i class="fas fa-minus-circle me-2"></i>Deduct Shirt Product
+                            </button>
+                        </div>
+                    </div>
+                    
+
+                    
+
+                </form>
+            </div>
+        </div>
+    </div>
+    @endsection
+
+    @push('styles')
+    <style>
+        /* 4 BOXES DESIGN - SIDE BY SIDE! - USING FLEX FOR 4 COLUMNS! */
+        .category-box {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-color: #dee2e6 !important;
+            margin: 0.5rem;
+            /* Make it square */
+            aspect-ratio: 1 / 1; /* Perfect square */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Make boxes MALAKI NA! - 120px × 120px (NO MORE CRAMPED!) */
+            height: 120px !important; /* MALAKI NA! */
+            min-height: 120px !important; /* MALAKI NA! */
+            max-height: 120px !important; /* Don't grow! */
+            /* Ensure square on all screens */
+            width: 100% !important;
+            /* KUNTING RADIUS SA MGA KANTO - AS REQUESTED BY USER! */
+            border-radius: 10px !important; /* SOFT ROUNDED CORNERS! */
+        }
+        
+        .category-box:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-color: #0d6efd !important;
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS ON HOVER */
+        }
+        
+        .category-box.selected {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.05);
+            box-shadow: 0 5px 20px rgba(13, 110, 253, 0.2);
+            transform: scale(1.02);
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS WHEN SELECTED */
+        }
+        
+        /* FLEX CONTAINER FOR 4 COLUMNS - AS REQUESTED BY USER! */
+        .row.gx-4.justify-content-center {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            gap: 1rem !important;
+        }
+        
+        /* MAKE SURE EACH BOX TAKES 25% WIDTH FOR 4 COLUMNS */
+        .row.gx-4.justify-content-center > div {
+            flex: 0 0 calc(25% - 1rem) !important; /* 4 columns with gap */
+            max-width: calc(25% - 1rem) !important;
+        }
+        
+        .category-icon {
+            height: 40px !important; /* MAS MALAKI NA ICON HEIGHT! */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem !important; /* MAS MALAKI NA SPACING! */
+        }
+        
+        .category-icon i {
+            font-size: 2rem !important; /* MAS MALAKI NA ICONS! (from fa-2x) */
+        }
+        
+        .category-box .card-title {
+            font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+        }
+        
+        /* Center content in square box */
+        .category-box .card-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem !important;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Better spacing for separated columns - HORIZONTAL ONLY */
+        .row.gx-4 {
+            --bs-gutter-x: 2rem;
+            --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+        }
+        
+        /* Make boxes stand out more */
+        .category-box .card-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            text-align: center;
+            font-size: 0.9rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.7rem !important;
+            line-height: 1;
+            text-align: center;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Square box adjustments */
+        .category-box .selected-indicator {
+            margin-top: 0.5rem;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            /* FOR TABLET: 2 COLUMNS */
+            .row.gx-4.justify-content-center > div {
+                flex: 0 0 calc(50% - 1rem) !important; /* 2 columns with gap */
+                max-width: calc(50% - 1rem) !important;
+            }
+            
+            .category-box {
+                margin: 0.25rem;
+                min-height: 100px !important; /* MAS MALAKI PA! */
+            }
+            
+            .category-icon {
+                height: 25px; /* MAS MAIKLI PA! */
+            }
+            
+            .category-icon i {
+                font-size: 1.75rem !important; /* MAS MALAKI PA NA ICONS! */
+            }
+            
+            .category-box .card-body {
+                padding: 0.75rem !important; /* MAS MALAKI NA PADDING! */
+            }
+            
+            .category-box .card-title {
+                font-size: 0.95rem !important; /* MAS MALAKI NA TEXT! */
+            }
+            
+            .category-box .card-text {
+                font-size: 0.75rem !important; /* MAS MALAKI NA TEXT! */
+            }
+        }
+        
+        @media (max-width: 576px) {
+            /* FOR MOBILE: 1 COLUMN */
+            .row.gx-4.justify-content-center > div {
+                flex: 0 0 100% !important; /* 1 column */
+                max-width: 100% !important;
+            }
+            
+            .category-box {
+                min-height: 90px !important; /* MAS MALAKI PA! */
+            }
+            
+            .category-icon {
+                height: 20px; /* PINAKAMAIKLI! */
+            }
+            
+            .category-icon i {
+                font-size: 1.5rem !important; /* MAS MALAKI PA NA ICONS! */
+            }
+            
+            .row.gx-4 {
+                --bs-gutter-x: 0.5rem;
+                --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+            }
+            
+            .category-box .card-title {
+                font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            }
+            
+            .category-box .card-text {
+                font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+            }
+        }
+        
+        /* Fallback for browsers that don't support aspect-ratio */
+        @supports not (aspect-ratio: 1 / 1) {
+            .category-box::before {
+                content: "";
+                display: block;
+                padding-top: 100%; /* 1:1 Aspect Ratio */
+            }
+            
+            .category-box .card-body {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+            
+            .category-box {
+                position: relative;
+            }
+        }
+        
+        /* =========================================== */
+        /* BUTTON CONTAINER STYLING - CENTERED + SPACING */
+        /* =========================================== */
+        
+        /* PERMANENT ADD NEW ITEM BUTTON - TOP RIGHT CORNER */
+        #general-add-button {
+            display: flex;
+            justify-content: flex-end !important; /* RIGHT ALIGNED IN TOP RIGHT CORNER */
+            align-items: center;
+            padding: 0;
+        }
+        
+        /* Shirt Products specific buttons - BELOW CATEGORY BOXES */
+        #shirt-products-buttons {
+            width: 100%;
+            display: flex;
+            justify-content: center !important; /* CENTERED BELOW CATEGORY BOXES */
+            align-items: center;
+            margin-top: 2rem !important; /* SPACING FROM CATEGORY BOXES */
+            padding: 1rem 0; /* VERTICAL PADDING */
+            gap: 2rem !important; /* MAS MALAKI NA SPACING BETWEEN BUTTONS */
+        }
+        
+        /* Button styling - MAS MALAKI NA BUTTONS! */
+        #add-new-item-btn, #shirt-add-item-btn, #shirt-deduct-item-btn {
+            min-width: 180px !important; /* MAS MALAKI NA BUTTON WIDTH */
+            padding: 0.75rem 1.5rem !important; /* MAS MALAKI NA PADDING */
+            font-size: 1.1rem !important; /* MAS MALAKI NA TEXT */
+            font-weight: 600 !important; /* MAS MAKAPAL NA TEXT */
+            border-radius: 8px !important; /* SOFT ROUNDED CORNERS */
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        }
+        
+        /* Button hover effects */
+        #add-new-item-btn:hover, #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover {
+            transform: translateY(-3px) scale(1.05) !important;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
+        }
+        
+        /* Shirt buttons specific hover - LIGHT GRAY HOVER WITH BLUE TEXT */
+        #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover {
+            background: #e9ecef !important; /* SLIGHTLY DARKER GRAY ON HOVER */
+            border-color: #adb5bd !important; /* SLIGHTLY DARKER BORDER */
+            color: #0a58ca !important; /* DARKER BLUE TEXT ON HOVER */
+        }
+        
+        /* Button active effects */
+        #add-new-item-btn:active, #shirt-add-item-btn:active, #shirt-deduct-item-btn:active {
+            transform: translateY(-1px) scale(1.02) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+        }
+        
+        /* Shirt buttons specific active - EVEN DARKER GRAY */
+        #shirt-add-item-btn:active, #shirt-deduct-item-btn:active {
+            background: #dee2e6 !important; /* DARKER GRAY ON ACTIVE */
+            border-color: #6c757d !important; /* DARKER BORDER */
+            color: #0a58ca !important; /* DARKER BLUE TEXT ON ACTIVE */
+        }
+        
+        /* Specific button colors */
+        #add-new-item-btn {
+            background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;
+            border: none !important;
+        }
+        
+        #shirt-add-item-btn {
+            background: #f8f9fa !important; /* LIGHT GRAY BACKGROUND */
+            color: #0d6efd !important; /* BLUE TEXT */
+            border: 1px solid #dee2e6 !important; /* LIGHT BORDER */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* SUBTLE SHADOW */
+        }
+        
+        #shirt-deduct-item-btn {
+            background: #f8f9fa !important; /* SAME LIGHT GRAY BACKGROUND */
+            color: #0d6efd !important; /* BLUE TEXT */
+            border: 1px solid #dee2e6 !important; /* SAME LIGHT BORDER */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* SAME SUBTLE SHADOW */
+        }
+        
+        /* Responsive button adjustments */
+        @media (max-width: 768px) {
+            /* Shirt Products buttons - stack vertically on mobile */
+            #shirt-products-buttons {
+                flex-direction: column; /* STACK VERTICALLY ON MOBILE */
+                gap: 1.5rem !important; /* MAS MALAKI PA NA SPACING ON MOBILE */
+            }
+            
+            /* All buttons - larger on mobile */
+            #add-new-item-btn, #shirt-add-item-btn, #shirt-deduct-item-btn {
+                min-width: 200px !important; /* MAS MALAKI PA ON MOBILE */
+                width: 100% !important; /* FULL WIDTH ON MOBILE */
+                max-width: 250px !important; /* BUT NOT TOO WIDE */
+            }
+            
+            /* Top right button - adjust for mobile */
+            #general-add-button {
+                justify-content: center !important; /* CENTER ON MOBILE FOR BETTER UX */
+                margin-top: 1rem !important; /* ADD SPACING ON MOBILE */
+            }
+        }
+        
+        @media (max-width: 576px) {
+            #add-new-item-btn, #shirt-add-item-btn, #shirt-deduct-item-btn {
+                min-width: 100% !important; /* FULL WIDTH ON SMALL MOBILE */
+                font-size: 1rem !important; /* SLIGHTLY SMALLER TEXT */
+                padding: 0.65rem 1.25rem !important;
+            }
+            
+            /* Shirt Products buttons - adjust spacing on small mobile */
+            #shirt-products-buttons {
+                margin-top: 1.5rem !important;
+                padding: 0.5rem 0;
+            }
+            
+            /* Top right button - adjust spacing on small mobile */
+            #general-add-button {
+                margin-top: 0.75rem !important;
+            }
+        }
+    </style>
+    @endpush
+
+    @push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Category selection
+            const categoryBoxes = document.querySelectorAll('.category-box');
+            const selectedCategoryField = document.getElementById('selected-category');
+            const form = document.getElementById('inventory-form');
+            
+            // Button containers
+            const generalAddButton = document.getElementById('general-add-button');
+            const shirtProductsButtons = document.getElementById('shirt-products-buttons');
+            
+            // Category selection handler
+            categoryBoxes.forEach(box => {
+                box.addEventListener('click', function() {
+                    // Remove selection from all boxes
+                    categoryBoxes.forEach(b => {
+                        b.classList.remove('selected');
+                    });
+                    
+                    // Add selection to clicked box
+                    this.classList.add('selected');
+                    
+                    // Set category value
+                    const category = this.getAttribute('data-category');
+                    selectedCategoryField.value = category;
+                    
+                    // SPECIAL HANDLING FOR SHIRT PRODUCTS
+                    if (category === 'Shirt Products') {
+                        // Show shirt products buttons (Add New Item button is always visible at top left)
+                        shirtProductsButtons.style.display = 'flex';
+                    } else {
+                        // Hide shirt products buttons
+                        shirtProductsButtons.style.display = 'none';
+                    }
+                });
+            });
+            
+            // AUTO-SELECT CATEGORY BASED ON URL PARAMETER OR ROUTE
+            // Check if we're on /inventoryaction route (clean URL)
+            const isInventoryActionRoute = window.location.pathname === '/inventoryaction';
+            
+            // Check if category parameter is in URL (e.g., ?category=shirt)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlCategory = urlParams.get('category');
+            
+            // Determine which category to auto-select
+            let categoryToSelect = null;
+            
+            if (isInventoryActionRoute) {
+                // On /inventoryaction route, auto-select shirt
+                categoryToSelect = 'shirt';
+                console.log('Auto-selecting shirt category for /inventoryaction route');
+            } else if (urlCategory) {
+                // Use URL parameter if available
+                categoryToSelect = urlCategory;
+                console.log('Auto-selecting category from URL parameter:', urlCategory);
+            }
+            
+            if (categoryToSelect) {
+                // Map URL category values to data-category values
+                const categoryMap = {
+                    'shirt': 'Shirt Products',
+                    'other': 'Other Items',
+                    'office': 'Office Supplies',
+                    'machine': 'Machine and Equipment'
+                };
+                
+                const mappedCategory = categoryMap[categoryToSelect];
+                
+                if (mappedCategory) {
+                    // Find and click the corresponding category box
+                    const targetBox = document.querySelector(`.category-box[data-category="${mappedCategory}"]`);
+                    if (targetBox) {
+                        // Simulate click on the category box
+                        targetBox.click();
+                        
+                        // If it's shirt category and (action=add OR on inventoryaction route), open shirt modal
+                        const shouldOpenShirtModal = (categoryToSelect === 'shirt' && urlParams.get('action') === 'add') || 
+                                                    (isInventoryActionRoute && categoryToSelect === 'shirt');
+                        
+                        if (shouldOpenShirtModal) {
+                            // Open shirt modal after a short delay
+                            setTimeout(() => {
+                                const shirtModalElement = document.getElementById('addShirtProductModal');
+                                if (shirtModalElement && typeof bootstrap !== 'undefined') {
+                                    const addShirtProductModal = new bootstrap.Modal(shirtModalElement);
+                                    addShirtProductModal.show();
+                                }
+                            }, 500);
+                        }
+                    }
+                }
+            }
+            
+            // Add New Item button functionality (for non-shirt categories)
+            const addNewItemBtn = document.getElementById('add-new-item-btn');
+            if (addNewItemBtn) {
+                addNewItemBtn.addEventListener('click', function() {
+                    // Open Category Selection Modal instead of submitting
+                    const categoryModalElement = document.getElementById('categorySelectionModal');
+                    
+                    // Try multiple times to find the modal (DOM might not be ready yet)
+                    let attempts = 0;
+                    const maxAttempts = 5;
+                    
+                    function tryOpenModal() {
+                        attempts++;
+                        if (categoryModalElement && typeof bootstrap !== 'undefined') {
+                            const categorySelectionModal = new bootstrap.Modal(categoryModalElement);
+                            categorySelectionModal.show();
+                        } else if (attempts < maxAttempts) {
+                            // Try again after a short delay
+                            setTimeout(tryOpenModal, 100);
+                        } else {
+                            console.error('Category selection modal not found or Bootstrap not loaded after ' + maxAttempts + ' attempts!');
+                            console.log('Modal element:', categoryModalElement);
+                            console.log('Bootstrap:', typeof bootstrap);
+                            // Fallback: submit form directly
+                            form.submit();
+                        }
+                    }
+                    
+                    // Start trying to open the modal
+                    tryOpenModal();
+                });
+            }
+            
+            // Shirt Products: Add Item button functionality
+            const shirtAddItemBtn = document.getElementById('shirt-add-item-btn');
+            if (shirtAddItemBtn) {
+                shirtAddItemBtn.addEventListener('click', function() {
+                    // Open the Add Shirt Product modal
+                    const shirtModalElement = document.getElementById('addShirtProductModal');
+                    
+                    // Try multiple times to find the modal (DOM might not be ready yet)
+                    let attempts = 0;
+                    const maxAttempts = 5;
+                    
+                    function tryOpenShirtModal() {
+                        attempts++;
+                        if (shirtModalElement && typeof bootstrap !== 'undefined') {
+                            const addShirtProductModal = new bootstrap.Modal(shirtModalElement);
+                            addShirtProductModal.show();
+                        } else if (attempts < maxAttempts) {
+                            // Try again after a short delay
+                            setTimeout(tryOpenShirtModal, 100);
+                        } else {
+                            console.error('Add shirt product modal not found or Bootstrap not loaded after ' + maxAttempts + ' attempts!');
+                            console.log('Modal element:', shirtModalElement);
+                            console.log('Bootstrap:', typeof bootstrap);
+                        }
+                    }
+                    
+                    // Start trying to open the modal
+                    tryOpenShirtModal();
+                });
+            }
+            
+            // Shirt Products: Deduct Item button functionality
+            const shirtDeductItemBtn = document.getElementById('shirt-deduct-item-btn');
+            if (shirtDeductItemBtn) {
+                shirtDeductItemBtn.addEventListener('click', function() {
+                    // For now, just submit the form (we'll handle deduction logic later)
+                    // TODO: Implement deduction logic
+                    form.submit();
+                });
+            }
+            
+            // Category Selection Modal functionality
+            const categoryOptions = document.querySelectorAll('.category-option');
+            categoryOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    const selectedCategory = this.getAttribute('data-category');
+                    
+                    // Close the category selection modal
+                    const categoryModalElement = document.getElementById('categorySelectionModal');
+                    if (categoryModalElement) {
+                        const categoryModal = bootstrap.Modal.getInstance(categoryModalElement);
+                        if (categoryModal) {
+                            categoryModal.hide();
+                        }
+                    }
+                    
+                    // Handle based on category
+                    if (selectedCategory === 'Shirt Products') {
+                        // Open Shirt Product modal
+                        const shirtModalElement = document.getElementById('addShirtProductModal');
+                        if (shirtModalElement) {
+                            const shirtProductModal = new bootstrap.Modal(shirtModalElement);
+                            shirtProductModal.show();
+                        } else {
+                            console.error('Shirt product modal not found!');
+                        }
+                    } else {
+                        // For other categories, set the category and submit the form
+                        const categoryInput = document.getElementById('category');
+                        if (categoryInput) {
+                            categoryInput.value = selectedCategory;
+                        }
+                        
+                        // Submit the form
+                        form.submit();
+                    }
+                });
+            });
+            
+            // Pre-select if category exists from old form data
+            const oldCategory = "{{ old('category') }}";
+            if (oldCategory) {
+                // Find and click the matching box
+                categoryBoxes.forEach(box => {
+                    if (box.getAttribute('data-category') === oldCategory) {
+                        box.click();
+                    }
+                });
+            }
+            
+            // Add Shirt Product Form Submission
+            const submitShirtProductBtn = document.getElementById('submitShirtProductBtn');
+            if (submitShirtProductBtn) {
+                submitShirtProductBtn.addEventListener('click', function() {
+                    const shirtForm = document.getElementById('addShirtProductForm');
+                    
+                    // Validate form
+                    if (!shirtForm.checkValidity()) {
+                        shirtForm.reportValidity();
+                        return;
+                    }
+                    
+                    // Get form data
+                    const formData = new FormData(shirtForm);
+                    
+                    // Show loading state
+                    const originalText = submitShirtProductBtn.innerHTML;
+                    submitShirtProductBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+                    submitShirtProductBtn.disabled = true;
+                    
+                    // Submit via AJAX
+                    fetch('{{ route("inventory.store") }}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Show success message
+                            alert('Shirt product added successfully!');
+                            
+                            // Close modal
+                            const shirtModalElement = document.getElementById('addShirtProductModal');
+                            if (shirtModalElement) {
+                                const modal = bootstrap.Modal.getInstance(shirtModalElement);
+                                if (modal) {
+                                    modal.hide();
+                                }
+                            }
+                            
+                            // Reset form
+                            shirtForm.reset();
+                            
+                            // Optionally refresh page or update UI
+                            window.location.reload();
+                        } else {
+                            // Show error message
+                            alert('Error: ' + (data.message || 'Failed to add shirt product'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Network error. Please try again.');
+                    })
+                    .finally(() => {
+                        // Restore button state
+                        submitShirtProductBtn.innerHTML = originalText;
+                        submitShirtProductBtn.disabled = false;
+                    });
+                });
+            }
+            
+            // Clear form when modal is hidden
+            const addShirtProductModal = document.getElementById('addShirtProductModal');
+            if (addShirtProductModal) {
+                addShirtProductModal.addEventListener('hidden.bs.modal', function () {
+                    document.getElementById('addShirtProductForm').reset();
+                });
+            }
+        });
+    </script>
+    @endpush
+
+    <!-- ADD SHIRT PRODUCT MODAL -->
+    <div class="modal fade" id="addShirtProductModal" tabindex="-1" aria-labelledby="addShirtProductModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addShirtProductModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Add Shirt Product
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addShirtProductForm">
+                        @csrf
+                        <input type="hidden" name="category" value="Shirt Products">
+                        
+                        <div class="row g-3">
+                            <!-- SKU -->
+                            <div class="col-md-6">
+                                <label for="shirt_sku" class="form-label">SKU <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_sku" name="shirt_sku" placeholder="Enter SKU (e.g., SHIRT-001)" required>
+                                <div class="form-text">Unique identifier for this shirt product</div>
+                            </div>
+                            
+                            <!-- Brand -->
+                            <div class="col-md-6">
+                                <label for="shirt_brand" class="form-label">Brand <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_brand" name="shirt_brand" placeholder="Enter brand name" required>
+                                <div class="form-text">Brand of the shirt (e.g., Nike, Adidas, Uniqlo)</div>
+                            </div>
+                            
+                            <!-- Type of Shirt -->
+                            <div class="col-md-6">
+                                <label for="shirt_type" class="form-label">Type of Shirt <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_type" name="shirt_type" required>
+                                    <option value="" selected disabled>Select shirt type</option>
+                                    <option value="Polo">Polo</option>
+                                    <option value="T-Shirt">T-Shirt</option>
+                                    <option value="Long Sleeve">Long Sleeve</option>
+                                    <option value="Dress Shirt">Dress Shirt</option>
+                                    <option value="Tank Top">Tank Top</option>
+                                    <option value="Hoodie">Hoodie</option>
+                                    <option value="Sweatshirt">Sweatshirt</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <div class="form-text">Select the type of shirt</div>
+                            </div>
+                            
+                            <!-- Color -->
+                            <div class="col-md-6">
+                                <label for="shirt_color" class="form-label">Color <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_color" name="shirt_color" placeholder="Enter color (e.g., Red, Blue, Black)" required>
+                                <div class="form-text">Color of the shirt</div>
+                            </div>
+                            
+                            <!-- Size -->
+                            <div class="col-md-6">
+                                <label for="shirt_size" class="form-label">Size <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_size" name="shirt_size" required>
+                                    <option value="" selected disabled>Select size</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                    <option value="Custom">Custom Size</option>
+                                </select>
+                                <div class="form-text">Select the shirt size</div>
+                            </div>
+                            
+                            <!-- Price -->
+                            <div class="col-md-6">
+                                <label for="shirt_price" class="form-label">Price (₱) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control" id="shirt_price" name="shirt_price" placeholder="0.00" step="0.01" min="0" required>
+                                </div>
+                                <div class="form-text">Selling price per unit</div>
+                            </div>
+                            
+                            <!-- Current Stock/s -->
+                            <div class="col-md-6">
+                                <label for="current_stock" class="form-label">Current Stock/s <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="current_stock" name="current_stock" placeholder="0" min="0" required>
+                                <div class="form-text">Current quantity in inventory</div>
+                            </div>
+                            
+                            <!-- Add Stock/s -->
+                            <div class="col-md-6">
+                                <label for="add_stock" class="form-label">Add Stock/s <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="add_stock" name="add_stock" placeholder="0" min="0" required>
+                                <div class="form-text">Quantity to add to inventory</div>
+                            </div>
+                            
+                            <!-- Supplier -->
+                            <div class="col-md-6">
+                                <label for="shirt_supplier" class="form-label">Supplier</label>
+                                <input type="text" class="form-control" id="shirt_supplier" name="shirt_supplier" placeholder="Enter supplier name">
+                                <div class="form-text">Supplier of this shirt product</div>
+                            </div>
+                            
+                            <!-- Shop -->
+                            <div class="col-md-6">
+                                <label for="shirt_shop" class="form-label">Shop</label>
+                                <input type="text" class="form-control" id="shirt_shop" name="shirt_shop" placeholder="Enter shop name">
+                                <div class="form-text">Shop where this product is sold</div>
+                            </div>
+                            
+                            <!-- Additional Notes -->
+                            <div class="col-12">
+                                <label for="shirt_notes" class="form-label">Additional Notes</label>
+                                <textarea class="form-control" id="shirt_notes" name="shirt_notes" rows="2" placeholder="Any additional notes about this shirt product"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" id="submitShirtProductBtn">
+                        <i class="fas fa-save me-2"></i>Save Shirt Product
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- CATEGORY SELECTION MODAL (for Add New Item button) -->
+    <div class="modal fade" id="categorySelectionModal" tabindex="-1" aria-labelledby="categorySelectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="categorySelectionModalLabel">
+                        <i class="fas fa-layer-group me-2"></i>Select Category
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-4">Please select a category for the new item:</p>
+                    
+                    <div class="row g-3">
+                        <!-- Shirt Product -->
+                        <div class="col-12">
+                            <button type="button" class="btn btn-outline-primary w-100 text-start py-3 category-option" data-category="Shirt Products">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="fas fa-tshirt fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Shirt Product</h6>
+                                        <p class="text-muted small mb-0">T-shirts, polo shirts, hoodies, etc.</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <!-- Other Items -->
+                        <div class="col-12">
+                            <button type="button" class="btn btn-outline-info w-100 text-start py-3 category-option" data-category="Other Items">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="fas fa-box fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Other Items</h6>
+                                        <p class="text-muted small mb-0">Miscellaneous items and products</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <!-- Office Supplies -->
+                        <div class="col-12">
+                            <button type="button" class="btn btn-outline-warning w-100 text-start py-3 category-option" data-category="Office Supplies">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="fas fa-clipboard-list fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Office Supplies</h6>
+                                        <p class="text-muted small mb-0">Paper, pens, folders, stationery</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        
+                        <!-- Machine and Equipment -->
+                        <div class="col-12">
+                            <button type="button" class="btn btn-outline-danger w-100 text-start py-3 category-option" data-category="Machine and Equipments">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="fas fa-tools fa-2x"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">Machine and Equipment</h6>
+                                        <p class="text-muted small mb-0">Printers, computers, tools, machinery</p>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</x-app-layout>
