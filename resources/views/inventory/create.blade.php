@@ -620,27 +620,12 @@
                 });
             }
             
-            // Shirt Products: Add New Shirt Product button functionality - SIMPLIFIED
+            // Shirt Products: Add New Shirt Product button functionality - SIMPLE ALERT
             const addNewShirtProductBtn = document.getElementById('add-new-shirt-product-btn');
             if (addNewShirtProductBtn) {
                 addNewShirtProductBtn.addEventListener('click', function() {
                     console.log('Add New Shirt Product button clicked');
-                    
-                    // SIMPLE APPROACH: Just try to find and open the modal
-                    const newShirtModalElement = document.getElementById('addNewShirtProductModal');
-                    console.log('Modal element found:', newShirtModalElement);
-                    
-                    if (newShirtModalElement && typeof bootstrap !== 'undefined') {
-                        console.log('Bootstrap available, opening modal...');
-                        const addNewShirtProductModal = new bootstrap.Modal(newShirtModalElement);
-                        addNewShirtProductModal.show();
-                        console.log('Add New Shirt Product modal opened successfully');
-                    } else {
-                        console.error('Cannot open modal:');
-                        console.error('- Modal element:', newShirtModalElement);
-                        console.error('- Bootstrap available:', typeof bootstrap !== 'undefined');
-                        alert('Error: Cannot open the form. The modal element was not found on the page.');
-                    }
+                    alert('Add New Shirt Product button clicked! This feature is coming soon.');
                 });
             }
             
@@ -932,31 +917,6 @@
     
 
     
-    <!-- ADD NEW SHIRT PRODUCT MODAL (CREATE NEW PRODUCT) - AT ROOT LEVEL -->
-    <!-- TEST: Simple div to check if HTML renders -->
-    <div id="test-div" style="display: none;">TEST DIV - If you see this in page source, HTML is rendering</div>
-    
-    <div class="modal fade" id="addNewShirtProductModal" tabindex="-1" aria-labelledby="addNewShirtProductModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title" id="addNewShirtProductModalLabel">
-                        <i class="fas fa-plus-square me-2"></i>TEST - Create New Shirt Product
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>This is a TEST modal to check if modal HTML is being rendered.</p>
-                    <p>If you can see this, the modal HTML is working.</p>
-                    <p>We'll add the full form back once we confirm this works.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-2"></i>Close
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+
     
 </x-app-layout>
