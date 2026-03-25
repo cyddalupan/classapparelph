@@ -1,13 +1,13 @@
 <x-app-layout>
-    @section('page-title', 'Add New Inventory Item')
+    @section('page-title', 'Inventory Action')
     
     <x-slot name="header">
         <div class="page-header-content">
             <h1 class="page-title">
                 <i class="fas fa-plus-circle"></i>
-                Add New Inventory Item
+                Inventory Action
             </h1>
-            <p class="page-subtitle">Select a category and fill in the details</p>
+            <p class="page-subtitle">Select a category for your inventory action</p>
         </div>
     </x-slot>
 
@@ -41,28 +41,21 @@
                     <input type="hidden" name="minimum_stock" value="0">
                     <input type="hidden" name="is_active" value="1">
                     
-                    <!-- STEP 1: SELECT CATEGORY (4 BOXES) -->
+                    <!-- STEP 1: SELECT CATEGORY (5 BOXES) -->
                     <div class="mb-5">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h5 class="mb-0">
                                 <i class="fas fa-layer-group text-primary me-2"></i>
                                 Step 1: Select Category
                             </h5>
-                            
-                            <!-- PERMANENT ADD NEW ITEM BUTTON - TOP RIGHT CORNER -->
-                            <div id="general-add-button">
-                                <button type="button" class="btn btn-primary" id="add-new-item-btn">
-                                    <i class="fas fa-plus-circle me-2"></i>Add New Item
-                                </button>
-                            </div>
                         </div>
                         
                         <p class="text-muted mb-4">Click on one of the boxes below to select a category</p>
                         
-                        <!-- 4 BOXES DESIGN - SIDE BY SIDE! -->
+                        <!-- 5 BOXES DESIGN - SIDE BY SIDE! -->
                         <div class="row gx-4 justify-content-center">
                             <!-- Box 1: Shirt Products -->
-                            <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="col-md-2 col-sm-6 mb-3">
                                 <div class="category-box card border-3 mx-2" data-category="Shirt Products" id="box-shirt">
                                     <div class="card-body text-center">
                                         <div class="category-icon mb-2">
@@ -75,7 +68,7 @@
                             </div>
                             
                             <!-- Box 2: Other Items -->
-                            <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="col-md-2 col-sm-6 mb-3">
                                 <div class="category-box card border-3 mx-2" data-category="Other Items" id="box-other">
                                     <div class="card-body text-center">
                                         <div class="category-icon mb-2">
@@ -87,21 +80,34 @@
                                 </div>
                             </div>
                             
-                            <!-- Box 3: Office Supplies -->
-                            <div class="col-md-3 col-sm-6 mb-3">
-                                <div class="category-box card border-3 mx-2" data-category="Office Supplies" id="box-office">
+                            <!-- Box 3: Garment Materials (NEW) -->
+                            <div class="col-md-2 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment">
                                     <div class="card-body text-center">
                                         <div class="category-icon mb-2">
-                                            <i class="fas fa-clipboard-list fa-2x text-warning"></i>
+                                            <i class="fas fa-cut fa-2x" style="color: #6f42c1;"></i>
                                         </div>
-                                        <h6 class="card-title mb-1">Office Supplies</h6>
-                                        <p class="card-text text-muted small mb-0">Paper, pens, folders</p>
+                                        <h6 class="card-title mb-1">Garment Materials</h6>
+                                        <p class="card-text text-muted small mb-0">Fabric, thread, buttons, zippers</p>
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Box 4: Machine and Equipments -->
-                            <div class="col-md-3 col-sm-6 mb-3">
+                            <!-- Box 4: Printing and Office Supplies -->
+                            <div class="col-md-2 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-print fa-2x text-warning"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Printing and Office Supplies</h6>
+                                        <p class="card-text text-muted small mb-0">Printers, ink, paper, pens</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 5: Machine and Equipments -->
+                            <div class="col-md-2 col-sm-6 mb-3">
                                 <div class="category-box card border-3 mx-2" data-category="Machine and Equipments" id="box-machine">
                                     <div class="card-body text-center">
                                         <div class="category-icon mb-2">
@@ -125,6 +131,9 @@
                             <button type="button" class="btn" id="shirt-deduct-item-btn">
                                 <i class="fas fa-minus-circle me-2"></i>Deduct Shirt Product
                             </button>
+                            <button type="button" class="btn btn-success" id="add-new-shirt-product-btn">
+                                <i class="fas fa-plus-square me-2"></i>Add New Shirt Product
+                            </button>
                         </div>
                     </div>
                     
@@ -139,7 +148,7 @@
 
     @push('styles')
     <style>
-        /* 4 BOXES DESIGN - SIDE BY SIDE! - USING FLEX FOR 4 COLUMNS! */
+        /* 5 BOXES DESIGN - SIDE BY SIDE! - USING FLEX FOR 5 COLUMNS! */
         .category-box {
             cursor: pointer;
             transition: all 0.3s ease;
@@ -336,6 +345,7 @@
         }
         
         /* =========================================== */
+        /* =========================================== */
         /* BUTTON CONTAINER STYLING - CENTERED + SPACING */
         /* =========================================== */
         
@@ -359,7 +369,7 @@
         }
         
         /* Button styling - MAS MALAKI NA BUTTONS! */
-        #add-new-item-btn, #shirt-add-item-btn, #shirt-deduct-item-btn {
+        #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
             min-width: 180px !important; /* MAS MALAKI NA BUTTON WIDTH */
             padding: 0.75rem 1.5rem !important; /* MAS MALAKI NA PADDING */
             font-size: 1.1rem !important; /* MAS MALAKI NA TEXT */
@@ -370,7 +380,7 @@
         }
         
         /* Button hover effects */
-        #add-new-item-btn:hover, #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover {
+        #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover, #add-new-shirt-product-btn:hover {
             transform: translateY(-3px) scale(1.05) !important;
             box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
         }
@@ -382,8 +392,14 @@
             color: #0a58ca !important; /* DARKER BLUE TEXT ON HOVER */
         }
         
+        /* Add New Shirt Product button hover - DARKER GREEN */
+        #add-new-shirt-product-btn:hover {
+            background: linear-gradient(135deg, #157347, #146c43) !important; /* DARKER GREEN GRADIENT */
+            box-shadow: 0 8px 20px rgba(25, 135, 84, 0.35) !important; /* STRONGER GREEN SHADOW */
+        }
+        
         /* Button active effects */
-        #add-new-item-btn:active, #shirt-add-item-btn:active, #shirt-deduct-item-btn:active {
+        #shirt-add-item-btn:active, #shirt-deduct-item-btn:active, #add-new-shirt-product-btn:active {
             transform: translateY(-1px) scale(1.02) !important;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
         }
@@ -395,12 +411,13 @@
             color: #0a58ca !important; /* DARKER BLUE TEXT ON ACTIVE */
         }
         
-        /* Specific button colors */
-        #add-new-item-btn {
-            background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;
-            border: none !important;
+        /* Add New Shirt Product button active - EVEN DARKER GREEN */
+        #add-new-shirt-product-btn:active {
+            background: linear-gradient(135deg, #146c43, #13653f) !important; /* EVEN DARKER GREEN */
+            box-shadow: 0 2px 8px rgba(25, 135, 84, 0.2) !important; /* SUBTLER SHADOW */
         }
         
+        /* Specific button colors */
         #shirt-add-item-btn {
             background: #f8f9fa !important; /* LIGHT GRAY BACKGROUND */
             color: #0d6efd !important; /* BLUE TEXT */
@@ -415,6 +432,13 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* SAME SUBTLE SHADOW */
         }
         
+        #add-new-shirt-product-btn {
+            background: linear-gradient(135deg, #198754, #157347) !important; /* GREEN GRADIENT */
+            color: white !important; /* WHITE TEXT */
+            border: none !important; /* NO BORDER */
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.25) !important; /* GREEN-TINTED SHADOW */
+        }
+        
         /* Responsive button adjustments */
         @media (max-width: 768px) {
             /* Shirt Products buttons - stack vertically on mobile */
@@ -424,7 +448,7 @@
             }
             
             /* All buttons - larger on mobile */
-            #add-new-item-btn, #shirt-add-item-btn, #shirt-deduct-item-btn {
+            #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
                 min-width: 200px !important; /* MAS MALAKI PA ON MOBILE */
                 width: 100% !important; /* FULL WIDTH ON MOBILE */
                 max-width: 250px !important; /* BUT NOT TOO WIDE */
@@ -438,7 +462,7 @@
         }
         
         @media (max-width: 576px) {
-            #add-new-item-btn, #shirt-add-item-btn, #shirt-deduct-item-btn {
+            #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
                 min-width: 100% !important; /* FULL WIDTH ON SMALL MOBILE */
                 font-size: 1rem !important; /* SLIGHTLY SMALLER TEXT */
                 padding: 0.65rem 1.25rem !important;
@@ -522,7 +546,8 @@
                 const categoryMap = {
                     'shirt': 'Shirt Products',
                     'other': 'Other Items',
-                    'office': 'Office Supplies',
+                    'garment': 'Garment Materials',
+                    'office': 'Printing and Office Supplies',
                     'machine': 'Machine and Equipment'
                 };
                 
@@ -553,38 +578,9 @@
                 }
             }
             
-            // Add New Item button functionality (for non-shirt categories)
-            const addNewItemBtn = document.getElementById('add-new-item-btn');
-            if (addNewItemBtn) {
-                addNewItemBtn.addEventListener('click', function() {
-                    // Open Category Selection Modal instead of submitting
-                    const categoryModalElement = document.getElementById('categorySelectionModal');
-                    
-                    // Try multiple times to find the modal (DOM might not be ready yet)
-                    let attempts = 0;
-                    const maxAttempts = 5;
-                    
-                    function tryOpenModal() {
-                        attempts++;
-                        if (categoryModalElement && typeof bootstrap !== 'undefined') {
-                            const categorySelectionModal = new bootstrap.Modal(categoryModalElement);
-                            categorySelectionModal.show();
-                        } else if (attempts < maxAttempts) {
-                            // Try again after a short delay
-                            setTimeout(tryOpenModal, 100);
-                        } else {
-                            console.error('Category selection modal not found or Bootstrap not loaded after ' + maxAttempts + ' attempts!');
-                            console.log('Modal element:', categoryModalElement);
-                            console.log('Bootstrap:', typeof bootstrap);
-                            // Fallback: submit form directly
-                            form.submit();
-                        }
-                    }
-                    
-                    // Start trying to open the modal
-                    tryOpenModal();
-                });
-            }
+
+            
+
             
             // Shirt Products: Add Item button functionality
             const shirtAddItemBtn = document.getElementById('shirt-add-item-btn');
@@ -627,43 +623,20 @@
                 });
             }
             
-            // Category Selection Modal functionality
-            const categoryOptions = document.querySelectorAll('.category-option');
-            categoryOptions.forEach(option => {
-                option.addEventListener('click', function() {
-                    const selectedCategory = this.getAttribute('data-category');
+            // Shirt Products: Add New Shirt Product button functionality
+            const addNewShirtProductBtn = document.getElementById('add-new-shirt-product-btn');
+            if (addNewShirtProductBtn) {
+                addNewShirtProductBtn.addEventListener('click', function() {
+                    // For now, show an alert that this feature is coming soon
+                    alert('Add New Shirt Product feature is coming soon!');
+                    console.log('Add New Shirt Product button clicked - feature to be implemented');
                     
-                    // Close the category selection modal
-                    const categoryModalElement = document.getElementById('categorySelectionModal');
-                    if (categoryModalElement) {
-                        const categoryModal = bootstrap.Modal.getInstance(categoryModalElement);
-                        if (categoryModal) {
-                            categoryModal.hide();
-                        }
-                    }
-                    
-                    // Handle based on category
-                    if (selectedCategory === 'Shirt Products') {
-                        // Open Shirt Product modal
-                        const shirtModalElement = document.getElementById('addShirtProductModal');
-                        if (shirtModalElement) {
-                            const shirtProductModal = new bootstrap.Modal(shirtModalElement);
-                            shirtProductModal.show();
-                        } else {
-                            console.error('Shirt product modal not found!');
-                        }
-                    } else {
-                        // For other categories, set the category and submit the form
-                        const categoryInput = document.getElementById('category');
-                        if (categoryInput) {
-                            categoryInput.value = selectedCategory;
-                        }
-                        
-                        // Submit the form
-                        form.submit();
-                    }
+                    // TODO: Implement "Add New Shirt Product" functionality
+                    // This could open a modal for creating a new shirt product
+                    // Or redirect to a new shirt product creation page
+                    // Or show a form inline
                 });
-            });
+            }
             
             // Pre-select if category exists from old form data
             const oldCategory = "{{ old('category') }}";
@@ -882,87 +855,5 @@
         </div>
     </div>
     
-    <!-- CATEGORY SELECTION MODAL (for Add New Item button) -->
-    <div class="modal fade" id="categorySelectionModal" tabindex="-1" aria-labelledby="categorySelectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="categorySelectionModalLabel">
-                        <i class="fas fa-layer-group me-2"></i>Select Category
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted mb-4">Please select a category for the new item:</p>
-                    
-                    <div class="row g-3">
-                        <!-- Shirt Product -->
-                        <div class="col-12">
-                            <button type="button" class="btn btn-outline-primary w-100 text-start py-3 category-option" data-category="Shirt Products">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-3">
-                                        <i class="fas fa-tshirt fa-2x"></i>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1">Shirt Product</h6>
-                                        <p class="text-muted small mb-0">T-shirts, polo shirts, hoodies, etc.</p>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-                        
-                        <!-- Other Items -->
-                        <div class="col-12">
-                            <button type="button" class="btn btn-outline-info w-100 text-start py-3 category-option" data-category="Other Items">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-3">
-                                        <i class="fas fa-box fa-2x"></i>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1">Other Items</h6>
-                                        <p class="text-muted small mb-0">Miscellaneous items and products</p>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-                        
-                        <!-- Office Supplies -->
-                        <div class="col-12">
-                            <button type="button" class="btn btn-outline-warning w-100 text-start py-3 category-option" data-category="Office Supplies">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-3">
-                                        <i class="fas fa-clipboard-list fa-2x"></i>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1">Office Supplies</h6>
-                                        <p class="text-muted small mb-0">Paper, pens, folders, stationery</p>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-                        
-                        <!-- Machine and Equipment -->
-                        <div class="col-12">
-                            <button type="button" class="btn btn-outline-danger w-100 text-start py-3 category-option" data-category="Machine and Equipments">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-3">
-                                        <i class="fas fa-tools fa-2x"></i>
-                                    </div>
-                                    <div>
-                                        <h6 class="mb-1">Machine and Equipment</h6>
-                                        <p class="text-muted small mb-0">Printers, computers, tools, machinery</p>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-2"></i>Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+
 </x-app-layout>
