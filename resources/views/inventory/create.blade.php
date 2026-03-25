@@ -137,9 +137,6 @@
                         </div>
                     </div>
                     
-
-                    
-
                 </form>
             </div>
         </div>
@@ -623,18 +620,27 @@
                 });
             }
             
-            // Shirt Products: Add New Shirt Product button functionality
+            // Shirt Products: Add New Shirt Product button functionality - SIMPLIFIED
             const addNewShirtProductBtn = document.getElementById('add-new-shirt-product-btn');
             if (addNewShirtProductBtn) {
                 addNewShirtProductBtn.addEventListener('click', function() {
-                    // For now, show an alert that this feature is coming soon
-                    alert('Add New Shirt Product feature is coming soon!');
-                    console.log('Add New Shirt Product button clicked - feature to be implemented');
+                    console.log('Add New Shirt Product button clicked');
                     
-                    // TODO: Implement "Add New Shirt Product" functionality
-                    // This could open a modal for creating a new shirt product
-                    // Or redirect to a new shirt product creation page
-                    // Or show a form inline
+                    // SIMPLE APPROACH: Just try to find and open the modal
+                    const newShirtModalElement = document.getElementById('addNewShirtProductModal');
+                    console.log('Modal element found:', newShirtModalElement);
+                    
+                    if (newShirtModalElement && typeof bootstrap !== 'undefined') {
+                        console.log('Bootstrap available, opening modal...');
+                        const addNewShirtProductModal = new bootstrap.Modal(newShirtModalElement);
+                        addNewShirtProductModal.show();
+                        console.log('Add New Shirt Product modal opened successfully');
+                    } else {
+                        console.error('Cannot open modal:');
+                        console.error('- Modal element:', newShirtModalElement);
+                        console.error('- Bootstrap available:', typeof bootstrap !== 'undefined');
+                        alert('Error: Cannot open the form. The modal element was not found on the page.');
+                    }
                 });
             }
             
@@ -722,6 +728,71 @@
                     document.getElementById('addShirtProductForm').reset();
                 });
             }
+            
+            // Add New Shirt Product Form Submission (CREATE NEW PRODUCT)
+            const submitNewShirtProductBtn = document.getElementById('submitNewShirtProductBtn');
+            if (submitNewShirtProductBtn) {
+                submitNewShirtProductBtn.addEventListener('click', function() {
+                    const newShirtForm = document.getElementById('addNewShirtProductForm');
+                    
+                    if (!newShirtForm.checkValidity()) {
+                        // If form is invalid, show validation messages
+                        newShirtForm.reportValidity();
+                        return;
+                    }
+                    
+                    // Disable button and show loading state
+                    const originalText = submitNewShirtProductBtn.innerHTML;
+                    submitNewShirtProductBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating...';
+                    submitNewShirtProductBtn.disabled = true;
+                    
+                    // Get form data
+                    const formData = new FormData(newShirtForm);
+                    
+                    // For now, just show what would be submitted
+                    console.log('New Shirt Product Form Data:', Object.fromEntries(formData));
+                    
+                    // TODO: Implement actual form submission to create new product
+                    // This would typically be an AJAX request to a backend endpoint
+                    // Example: fetch('/api/products', { method: 'POST', body: formData })
+                    
+                    // Show success message (temporary - replace with actual submission)
+                    setTimeout(() => {
+                        alert('New shirt product created successfully! (This is a demo - backend integration needed)');
+                        
+                        // Close modal
+                        const newShirtModalElement = document.getElementById('addNewShirtProductModal');
+                        if (newShirtModalElement && typeof bootstrap !== 'undefined') {
+                            const addNewShirtProductModal = bootstrap.Modal.getInstance(newShirtModalElement);
+                            if (addNewShirtProductModal) {
+                                addNewShirtProductModal.hide();
+                            }
+                        }
+                        
+                        // Reset form
+                        newShirtForm.reset();
+                        
+                        // Restore button state
+                        submitNewShirtProductBtn.innerHTML = originalText;
+                        submitNewShirtProductBtn.disabled = false;
+                    }, 1500);
+                });
+            }
+            
+            // Clear form when new shirt product modal is hidden - SIMPLIFIED
+            // Wait for DOM to be fully loaded
+            document.addEventListener('DOMContentLoaded', function() {
+                const addNewShirtProductModal = document.getElementById('addNewShirtProductModal');
+                if (addNewShirtProductModal) {
+                    addNewShirtProductModal.addEventListener('hidden.bs.modal', function () {
+                        // Note: We don't have a form in the test modal yet
+                        console.log('New shirt product modal hidden');
+                    });
+                    console.log('New shirt product modal reset handler attached');
+                } else {
+                    console.warn('New shirt product modal not found for reset handler');
+                }
+            });
         });
     </script>
     @endpush
@@ -856,4 +927,36 @@
     </div>
     
 
+    
+
+    
+
+    
+    <!-- ADD NEW SHIRT PRODUCT MODAL (CREATE NEW PRODUCT) - AT ROOT LEVEL -->
+    <!-- TEST: Simple div to check if HTML renders -->
+    <div id="test-div" style="display: none;">TEST DIV - If you see this in page source, HTML is rendering</div>
+    
+    <div class="modal fade" id="addNewShirtProductModal" tabindex="-1" aria-labelledby="addNewShirtProductModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="addNewShirtProductModalLabel">
+                        <i class="fas fa-plus-square me-2"></i>TEST - Create New Shirt Product
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>This is a TEST modal to check if modal HTML is being rendered.</p>
+                    <p>If you can see this, the modal HTML is working.</p>
+                    <p>We'll add the full form back once we confirm this works.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
 </x-app-layout>
