@@ -249,9 +249,9 @@
                                     <i class="fas fa-plus-circle"></i>
                                     <span>Inventory Action</span>
                                 </a>
-                                <a href="{{ route('products.index') }}" class="nav-dropdown-item {{ request()->routeIs('products.*') ? 'active' : '' }}">
+                                <a href="{{ route('productlist.index') }}" class="nav-dropdown-item {{ request()->routeIs('productlist.index') ? 'active' : '' }}">
                                     <i class="fas fa-cube"></i>
-                                    <span>Product</span>
+                                    <span>Product List</span>
                                 </a>
                             </div>
                         </div>

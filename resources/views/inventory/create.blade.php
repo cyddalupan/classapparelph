@@ -624,8 +624,172 @@
             const addNewShirtProductBtn = document.getElementById('add-new-shirt-product-btn');
             if (addNewShirtProductBtn) {
                 addNewShirtProductBtn.addEventListener('click', function() {
-                    console.log('Add New Shirt Product button clicked');
-                    alert('Add New Shirt Product button clicked! This feature is coming soon.');
+                    console.log('Add New Shirt Product button clicked - Showing simple form');
+                    
+                    // Create or get simple form container
+                    let formContainer = document.getElementById('simple-shirt-form-container');
+                    
+                    if (!formContainer) {
+                        // Create form container if it doesn't exist
+                        formContainer = document.createElement('div');
+                        formContainer.id = 'simple-shirt-form-container';
+                        formContainer.style.cssText = `
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                            z-index: 9999;
+                            min-width: 450px;
+                            display: none;
+                        `;
+                        
+                        // Create form HTML
+                        formContainer.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #2c3e50;">
+                                    <i class="fas fa-plus-circle me-2"></i>Add New Shirt Product
+                                </h4>
+                                <button id="close-simple-form" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
+                            </div>
+                            
+                            <form id="simple-shirt-form">
+                                @csrf
+                                <input type="hidden" name="category" value="Shirt Products">
+                                
+                                <!-- SKU -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">SKU *</label>
+                                    <input type="text" name="sku" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter SKU (e.g., SHIRT-001)" required>
+                                </div>
+                                
+                                <!-- Brand -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Brand *</label>
+                                    <input type="text" name="brand" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter brand name" required>
+                                </div>
+                                
+                                <!-- Type of Shirt -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Type of Shirt *</label>
+                                    <select name="type" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required>
+                                        <option value="">Select type</option>
+                                        <option value="Polo">Polo</option>
+                                        <option value="T-Shirt">T-Shirt</option>
+                                        <option value="Long Sleeve">Long Sleeve</option>
+                                        <option value="Dress Shirt">Dress Shirt</option>
+                                        <option value="Tank Top">Tank Top</option>
+                                        <option value="Hoodie">Hoodie</option>
+                                        <option value="Sweatshirt">Sweatshirt</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Color -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Color *</label>
+                                    <input type="text" name="color" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter color (e.g., Red, Blue, Black)" required>
+                                </div>
+                                
+                                <!-- Size -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Size *</label>
+                                    <select name="size" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required>
+                                        <option value="">Select size</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                        <option value="Custom">Custom Size</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Price -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Price (₱) *</label>
+                                    <div style="display: flex; align-items: center;">
+                                        <span style="padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-right: none; border-radius: 4px 0 0 4px;">₱</span>
+                                        <input type="number" name="price" step="0.01" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 0 4px 4px 0;" placeholder="0.00" required>
+                                    </div>
+                                </div>
+                                
+                                <!-- Starting Stock/s -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Starting Stock/s *</label>
+                                    <input type="number" name="starting_stock" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="0" required>
+                                </div>
+                                
+                                <!-- Supplier -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Supplier</label>
+                                    <input type="text" name="supplier" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter supplier name">
+                                </div>
+                                
+                                <!-- Shop -->
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Shop</label>
+                                    <input type="text" name="shop" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter shop name">
+                                </div>
+                                
+                                <div style="display: flex; gap: 10px;">
+                                    <button type="button" id="cancel-simple-form" style="flex: 1; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Save Product
+                                    </button>
+                                </div>
+                            </form>
+                        `;
+                        
+                        document.body.appendChild(formContainer);
+                        
+                        // Add event listeners
+                        document.getElementById('close-simple-form').addEventListener('click', hideSimpleForm);
+                        document.getElementById('cancel-simple-form').addEventListener('click', hideSimpleForm);
+                        
+                        // Form submission
+                        document.getElementById('simple-shirt-form').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            alert('Form submitted! (This will save to database later)');
+                            hideSimpleForm();
+                        });
+                        
+                        // Click outside to close
+                        formContainer.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                        });
+                        
+                        document.addEventListener('click', function(e) {
+                            if (formContainer.style.display === 'block' && !formContainer.contains(e.target) && e.target.id !== 'add-new-shirt-product-btn') {
+                                hideSimpleForm();
+                            }
+                        });
+                        
+                        // ESC key to close
+                        document.addEventListener('keydown', function(e) {
+                            if (e.key === 'Escape' && formContainer.style.display === 'block') {
+                                hideSimpleForm();
+                            }
+                        });
+                    }
+                    
+                    // Show the form
+                    formContainer.style.display = 'block';
+                    
+                    // Function to hide form
+                    function hideSimpleForm() {
+                        const formContainer = document.getElementById('simple-shirt-form-container');
+                        if (formContainer) {
+                            formContainer.style.display = 'none';
+                        }
+                    }
                 });
             }
             

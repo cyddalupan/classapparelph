@@ -1,13 +1,13 @@
 <x-app-layout>
-    @section('page-title', 'Products')
+    @section('page-title', 'Product List')
     
     <x-slot name="header">
         <div class="page-header-content">
             <h1 class="page-title">
                 <i class="fas fa-tshirt"></i>
-                Products
+                Product List
             </h1>
-            <p class="page-subtitle">Manage product catalog and inventory</p>
+            <p class="page-subtitle">Manage product and Inventory</p>
         </div>
     </x-slot>
 
@@ -16,14 +16,14 @@
             <div class="placeholder-icon">
                 <i class="fas fa-tshirt fa-4x"></i>
             </div>
-            <h2 class="placeholder-title">Product Catalog</h2>
+            <h2 class="placeholder-title">Product List Catalog</h2>
             <p class="placeholder-text">
                 Manage your t-shirt products, categories, pricing, and inventory.
             </p>
             <div class="placeholder-features">
                 <div class="feature-card">
                     <i class="fas fa-boxes"></i>
-                    <h3>Product Management</h3>
+                    <h3>Product List Management</h3>
                     <p>Add, edit, and organize products</p>
                 </div>
                 <div class="feature-card">

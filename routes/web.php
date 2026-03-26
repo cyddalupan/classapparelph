@@ -83,6 +83,9 @@ Route::middleware('auth')->group(function () {
     // Product Management Routes
     Route::resource('products', \App\Http\Controllers\ProductController::class)->except(['show']);
     
+    // New route for Inventory Management Product List
+    Route::get('/productlist', [\App\Http\Controllers\ProductController::class, 'index'])->name('productlist.index');
+    
     // Additional product routes
     Route::get('/products/trashed', [\App\Http\Controllers\ProductController::class, 'trashed'])
         ->name('products.trashed');
