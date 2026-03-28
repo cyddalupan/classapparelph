@@ -1,0 +1,1086 @@
+<x-app-layout>
+    @section('page-title', 'Product List')
+    
+    <x-slot name="header">
+        <div class="page-header-content">
+            <h1 class="page-title">
+                <i class="fas fa-list"></i>
+                Product List
+            </h1>
+            <p class="page-subtitle">Browse and manage all products</p>
+        </div>
+    </x-slot>
+
+    @section('content')
+    <div class="page-content">
+        <!-- Success/Error Messages -->
+        @if ($errors->any())
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Please fix the following errors:</strong>
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ route('inventory.store') }}" method="POST" id="inventory-form">
+                    @csrf
+                    <input type="hidden" name="category" id="category" value="">
+                    <!-- Hidden inputs for required database fields -->
+                    <input type="hidden" name="name" value="Unnamed Item">
+                    <input type="hidden" name="type" value="finished_good">
+                    <input type="hidden" name="unit_price" value="0.00">
+                    <input type="hidden" name="unit_of_measure" value="piece">
+                    <input type="hidden" name="current_stock" value="0">
+                    <input type="hidden" name="minimum_stock" value="0">
+                    <input type="hidden" name="is_active" value="1">
+                    
+                    <!-- STEP 1: SELECT CATEGORY (5 BOXES) -->
+                    <div class="mb-5">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="mb-0">
+                                <i class="fas fa-layer-group text-primary me-2"></i>
+                                Step 1: Select Category
+                            </h5>
+                        </div>
+                        
+                        <p class="text-muted mb-4">Click on one of the boxes below to select a category</p>
+                        
+                        <!-- 5 BOXES DESIGN - SIDE BY SIDE! -->
+                        <div class="row gx-4 justify-content-center">
+                            <!-- Box 1: Shirt Products -->
+                            <div class="col-md-2 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Shirt Products" id="box-shirt">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-tshirt fa-2x text-primary"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Shirt Products</h6>
+                                        <p class="card-text text-muted small mb-0">T-shirts, polo shirts, hoodies</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 2: Other Items -->
+                            <div class="col-md-2 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Other Items" id="box-other">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-box fa-2x text-info"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Other Items</h6>
+                                        <p class="card-text text-muted small mb-0">Miscellaneous items</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 3: Garment Materials (NEW) -->
+                            <div class="col-md-2 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-cut fa-2x" style="color: #6f42c1;"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Garment Materials</h6>
+                                        <p class="card-text text-muted small mb-0">Fabric, thread, buttons, zippers</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 4: Printing and Office Supplies -->
+                            <div class="col-md-2 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-print fa-2x text-warning"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Printing and Office Supplies</h6>
+                                        <p class="card-text text-muted small mb-0">Printers, ink, paper, pens</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Box 5: Machine and Equipments -->
+                            <div class="col-md-2 col-sm-6 mb-3">
+                                <div class="category-box card border-3 mx-2" data-category="Machine and Equipments" id="box-machine">
+                                    <div class="card-body text-center">
+                                        <div class="category-icon mb-2">
+                                            <i class="fas fa-tools fa-2x text-danger"></i>
+                                        </div>
+                                        <h6 class="card-title mb-1">Machine and Equipments</h6>
+                                        <p class="card-text text-muted small mb-0">Printers, computers, tools</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden field for selected category -->
+                        <input type="hidden" name="category" id="selected-category" value="" required>
+                        
+                        <!-- SHIRT PRODUCTS SPECIFIC BUTTONS (HIDDEN BY DEFAULT) -->
+                        <div class="mt-4 d-flex justify-content-center gap-3" id="shirt-products-buttons" style="display: none;">
+                            <button type="button" class="btn" id="shirt-add-item-btn">
+                                <i class="fas fa-plus-circle me-2"></i>Add Shirt Product
+                            </button>
+                            <button type="button" class="btn" id="shirt-deduct-item-btn">
+                                <i class="fas fa-minus-circle me-2"></i>Deduct Shirt Product
+                            </button>
+                            <button type="button" class="btn btn-success" id="add-new-shirt-product-btn">
+                                <i class="fas fa-plus-square me-2"></i>Add New Shirt Product
+                            </button>
+                        </div>
+                    </div>
+                    
+                </form>
+            </div>
+        </div>
+    </div>
+    @endsection
+
+    @push('styles')
+    <style>
+        /* 5 BOXES DESIGN - SIDE BY SIDE! - USING FLEX FOR 5 COLUMNS! */
+        .category-box {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-color: #dee2e6 !important;
+            margin: 0.5rem;
+            /* Make it square */
+            aspect-ratio: 1 / 1; /* Perfect square */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Make boxes MALAKI NA! - 120px × 120px (NO MORE CRAMPED!) */
+            height: 120px !important; /* MALAKI NA! */
+            min-height: 120px !important; /* MALAKI NA! */
+            max-height: 120px !important; /* Don't grow! */
+            /* Ensure square on all screens */
+            width: 100% !important;
+            /* KUNTING RADIUS SA MGA KANTO - AS REQUESTED BY USER! */
+            border-radius: 10px !important; /* SOFT ROUNDED CORNERS! */
+        }
+        
+        .category-box:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-color: #0d6efd !important;
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS ON HOVER */
+        }
+        
+        .category-box.selected {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.05);
+            box-shadow: 0 5px 20px rgba(13, 110, 253, 0.2);
+            transform: scale(1.02);
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS WHEN SELECTED */
+        }
+        
+        /* FLEX CONTAINER FOR 4 COLUMNS - AS REQUESTED BY USER! */
+        .row.gx-4.justify-content-center {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            gap: 1rem !important;
+        }
+        
+        /* MAKE SURE EACH BOX TAKES 25% WIDTH FOR 4 COLUMNS */
+        .row.gx-4.justify-content-center > div {
+            flex: 0 0 calc(25% - 1rem) !important; /* 4 columns with gap */
+            max-width: calc(25% - 1rem) !important;
+        }
+        
+        .category-icon {
+            height: 40px !important; /* MAS MALAKI NA ICON HEIGHT! */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem !important; /* MAS MALAKI NA SPACING! */
+        }
+        
+        .category-icon i {
+            font-size: 2rem !important; /* MAS MALAKI NA ICONS! (from fa-2x) */
+        }
+        
+        .category-box .card-title {
+            font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+        }
+        
+        /* Center content in square box */
+        .category-box .card-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem !important;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Better spacing for separated columns - HORIZONTAL ONLY */
+        .row.gx-4 {
+            --bs-gutter-x: 2rem;
+            --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+        }
+        
+        /* Make boxes stand out more */
+        .category-box .card-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            text-align: center;
+            font-size: 0.9rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.7rem !important;
+            line-height: 1;
+            text-align: center;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Square box adjustments */
+        .category-box .selected-indicator {
+            margin-top: 0.5rem;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            /* FOR TABLET: 2 COLUMNS */
+            .row.gx-4.justify-content-center > div {
+                flex: 0 0 calc(50% - 1rem) !important; /* 2 columns with gap */
+                max-width: calc(50% - 1rem) !important;
+            }
+            
+            .category-box {
+                margin: 0.25rem;
+                min-height: 100px !important; /* MAS MALAKI PA! */
+            }
+            
+            .category-icon {
+                height: 25px; /* MAS MAIKLI PA! */
+            }
+            
+            .category-icon i {
+                font-size: 1.75rem !important; /* MAS MALAKI PA NA ICONS! */
+            }
+            
+            .category-box .card-body {
+                padding: 0.75rem !important; /* MAS MALAKI NA PADDING! */
+            }
+            
+            .category-box .card-title {
+                font-size: 0.95rem !important; /* MAS MALAKI NA TEXT! */
+            }
+            
+            .category-box .card-text {
+                font-size: 0.75rem !important; /* MAS MALAKI NA TEXT! */
+            }
+        }
+        
+        @media (max-width: 576px) {
+            /* FOR MOBILE: 1 COLUMN */
+            .row.gx-4.justify-content-center > div {
+                flex: 0 0 100% !important; /* 1 column */
+                max-width: 100% !important;
+            }
+            
+            .category-box {
+                min-height: 90px !important; /* MAS MALAKI PA! */
+            }
+            
+            .category-icon {
+                height: 20px; /* PINAKAMAIKLI! */
+            }
+            
+            .category-icon i {
+                font-size: 1.5rem !important; /* MAS MALAKI PA NA ICONS! */
+            }
+            
+            .row.gx-4 {
+                --bs-gutter-x: 0.5rem;
+                --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+            }
+            
+            .category-box .card-title {
+                font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            }
+            
+            .category-box .card-text {
+                font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+            }
+        }
+        
+        /* Fallback for browsers that don't support aspect-ratio */
+        @supports not (aspect-ratio: 1 / 1) {
+            .category-box::before {
+                content: "";
+                display: block;
+                padding-top: 100%; /* 1:1 Aspect Ratio */
+            }
+            
+            .category-box .card-body {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+            
+            .category-box {
+                position: relative;
+            }
+        }
+        
+        /* =========================================== */
+        /* =========================================== */
+        /* BUTTON CONTAINER STYLING - CENTERED + SPACING */
+        /* =========================================== */
+        
+        /* PERMANENT ADD NEW ITEM BUTTON - TOP RIGHT CORNER */
+        #general-add-button {
+            display: flex;
+            justify-content: flex-end !important; /* RIGHT ALIGNED IN TOP RIGHT CORNER */
+            align-items: center;
+            padding: 0;
+        }
+        
+        /* Shirt Products specific buttons - BELOW CATEGORY BOXES */
+        #shirt-products-buttons {
+            width: 100%;
+            display: flex;
+            justify-content: center !important; /* CENTERED BELOW CATEGORY BOXES */
+            align-items: center;
+            margin-top: 2rem !important; /* SPACING FROM CATEGORY BOXES */
+            padding: 1rem 0; /* VERTICAL PADDING */
+            gap: 2rem !important; /* MAS MALAKI NA SPACING BETWEEN BUTTONS */
+        }
+        
+        /* Button styling - MAS MALAKI NA BUTTONS! */
+        #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
+            min-width: 180px !important; /* MAS MALAKI NA BUTTON WIDTH */
+            padding: 0.75rem 1.5rem !important; /* MAS MALAKI NA PADDING */
+            font-size: 1.1rem !important; /* MAS MALAKI NA TEXT */
+            font-weight: 600 !important; /* MAS MAKAPAL NA TEXT */
+            border-radius: 8px !important; /* SOFT ROUNDED CORNERS */
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        }
+        
+        /* Button hover effects */
+        #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover, #add-new-shirt-product-btn:hover {
+            transform: translateY(-3px) scale(1.05) !important;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
+        }
+        
+        /* Shirt buttons specific hover - LIGHT GRAY HOVER WITH BLUE TEXT */
+        #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover {
+            background: #e9ecef !important; /* SLIGHTLY DARKER GRAY ON HOVER */
+            border-color: #adb5bd !important; /* SLIGHTLY DARKER BORDER */
+            color: #0a58ca !important; /* DARKER BLUE TEXT ON HOVER */
+        }
+        
+        /* Add New Shirt Product button hover - DARKER GREEN */
+        #add-new-shirt-product-btn:hover {
+            background: linear-gradient(135deg, #157347, #146c43) !important; /* DARKER GREEN GRADIENT */
+            box-shadow: 0 8px 20px rgba(25, 135, 84, 0.35) !important; /* STRONGER GREEN SHADOW */
+        }
+        
+        /* Button active effects */
+        #shirt-add-item-btn:active, #shirt-deduct-item-btn:active, #add-new-shirt-product-btn:active {
+            transform: translateY(-1px) scale(1.02) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+        }
+        
+        /* Shirt buttons specific active - EVEN DARKER GRAY */
+        #shirt-add-item-btn:active, #shirt-deduct-item-btn:active {
+            background: #dee2e6 !important; /* DARKER GRAY ON ACTIVE */
+            border-color: #6c757d !important; /* DARKER BORDER */
+            color: #0a58ca !important; /* DARKER BLUE TEXT ON ACTIVE */
+        }
+        
+        /* Add New Shirt Product button active - EVEN DARKER GREEN */
+        #add-new-shirt-product-btn:active {
+            background: linear-gradient(135deg, #146c43, #13653f) !important; /* EVEN DARKER GREEN */
+            box-shadow: 0 2px 8px rgba(25, 135, 84, 0.2) !important; /* SUBTLER SHADOW */
+        }
+        
+        /* Specific button colors */
+        #shirt-add-item-btn {
+            background: #f8f9fa !important; /* LIGHT GRAY BACKGROUND */
+            color: #0d6efd !important; /* BLUE TEXT */
+            border: 1px solid #dee2e6 !important; /* LIGHT BORDER */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* SUBTLE SHADOW */
+        }
+        
+        #shirt-deduct-item-btn {
+            background: #f8f9fa !important; /* SAME LIGHT GRAY BACKGROUND */
+            color: #0d6efd !important; /* BLUE TEXT */
+            border: 1px solid #dee2e6 !important; /* SAME LIGHT BORDER */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* SAME SUBTLE SHADOW */
+        }
+        
+        #add-new-shirt-product-btn {
+            background: linear-gradient(135deg, #198754, #157347) !important; /* GREEN GRADIENT */
+            color: white !important; /* WHITE TEXT */
+            border: none !important; /* NO BORDER */
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.25) !important; /* GREEN-TINTED SHADOW */
+        }
+        
+        /* Responsive button adjustments */
+        @media (max-width: 768px) {
+            /* Shirt Products buttons - stack vertically on mobile */
+            #shirt-products-buttons {
+                flex-direction: column; /* STACK VERTICALLY ON MOBILE */
+                gap: 1.5rem !important; /* MAS MALAKI PA NA SPACING ON MOBILE */
+            }
+            
+            /* All buttons - larger on mobile */
+            #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
+                min-width: 200px !important; /* MAS MALAKI PA ON MOBILE */
+                width: 100% !important; /* FULL WIDTH ON MOBILE */
+                max-width: 250px !important; /* BUT NOT TOO WIDE */
+            }
+            
+            /* Top right button - adjust for mobile */
+            #general-add-button {
+                justify-content: center !important; /* CENTER ON MOBILE FOR BETTER UX */
+                margin-top: 1rem !important; /* ADD SPACING ON MOBILE */
+            }
+        }
+        
+        @media (max-width: 576px) {
+            #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
+                min-width: 100% !important; /* FULL WIDTH ON SMALL MOBILE */
+                font-size: 1rem !important; /* SLIGHTLY SMALLER TEXT */
+                padding: 0.65rem 1.25rem !important;
+            }
+            
+            /* Shirt Products buttons - adjust spacing on small mobile */
+            #shirt-products-buttons {
+                margin-top: 1.5rem !important;
+                padding: 0.5rem 0;
+            }
+            
+            /* Top right button - adjust spacing on small mobile */
+            #general-add-button {
+                margin-top: 0.75rem !important;
+            }
+        }
+    </style>
+    @endpush
+
+    @push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Category selection
+            const categoryBoxes = document.querySelectorAll('.category-box');
+            const selectedCategoryField = document.getElementById('selected-category');
+            const form = document.getElementById('inventory-form');
+            
+            // Button containers
+            const generalAddButton = document.getElementById('general-add-button');
+            const shirtProductsButtons = document.getElementById('shirt-products-buttons');
+            
+            // Category selection handler
+            categoryBoxes.forEach(box => {
+                box.addEventListener('click', function() {
+                    // Remove selection from all boxes
+                    categoryBoxes.forEach(b => {
+                        b.classList.remove('selected');
+                    });
+                    
+                    // Add selection to clicked box
+                    this.classList.add('selected');
+                    
+                    // Set category value
+                    const category = this.getAttribute('data-category');
+                    selectedCategoryField.value = category;
+                    
+                    // SPECIAL HANDLING FOR SHIRT PRODUCTS
+                    if (category === 'Shirt Products') {
+                        // Show shirt products buttons (Add New Item button is always visible at top left)
+                        shirtProductsButtons.style.display = 'flex';
+                    } else {
+                        // Hide shirt products buttons
+                        shirtProductsButtons.style.display = 'none';
+                    }
+                });
+            });
+            
+            // AUTO-SELECT CATEGORY BASED ON URL PARAMETER OR ROUTE
+            // Check if we're on /inventoryaction route (clean URL)
+            const isInventoryActionRoute = window.location.pathname === '/inventoryaction';
+            
+            // Check if category parameter is in URL (e.g., ?category=shirt)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlCategory = urlParams.get('category');
+            
+            // Determine which category to auto-select
+            let categoryToSelect = null;
+            
+            if (isInventoryActionRoute) {
+                // On /inventoryaction route, auto-select shirt
+                categoryToSelect = 'shirt';
+                console.log('Auto-selecting shirt category for /inventoryaction route');
+            } else if (urlCategory) {
+                // Use URL parameter if available
+                categoryToSelect = urlCategory;
+                console.log('Auto-selecting category from URL parameter:', urlCategory);
+            }
+            
+            if (categoryToSelect) {
+                // Map URL category values to data-category values
+                const categoryMap = {
+                    'shirt': 'Shirt Products',
+                    'other': 'Other Items',
+                    'garment': 'Garment Materials',
+                    'office': 'Printing and Office Supplies',
+                    'machine': 'Machine and Equipment'
+                };
+                
+                const mappedCategory = categoryMap[categoryToSelect];
+                
+                if (mappedCategory) {
+                    // Find and click the corresponding category box
+                    const targetBox = document.querySelector(`.category-box[data-category="${mappedCategory}"]`);
+                    if (targetBox) {
+                        // Simulate click on the category box
+                        targetBox.click();
+                        
+                        // If it's shirt category and (action=add OR on inventoryaction route), open shirt modal
+                        const shouldOpenShirtModal = (categoryToSelect === 'shirt' && urlParams.get('action') === 'add') || 
+                                                    (isInventoryActionRoute && categoryToSelect === 'shirt');
+                        
+                        if (shouldOpenShirtModal) {
+                            // Open shirt modal after a short delay
+                            setTimeout(() => {
+                                const shirtModalElement = document.getElementById('addShirtProductModal');
+                                if (shirtModalElement && typeof bootstrap !== 'undefined') {
+                                    const addShirtProductModal = new bootstrap.Modal(shirtModalElement);
+                                    addShirtProductModal.show();
+                                }
+                            }, 500);
+                        }
+                    }
+                }
+            }
+            
+
+            
+
+            
+            // Shirt Products: Add Item button functionality
+            const shirtAddItemBtn = document.getElementById('shirt-add-item-btn');
+            if (shirtAddItemBtn) {
+                shirtAddItemBtn.addEventListener('click', function() {
+                    // Open the Add Shirt Product modal
+                    const shirtModalElement = document.getElementById('addShirtProductModal');
+                    
+                    // Try multiple times to find the modal (DOM might not be ready yet)
+                    let attempts = 0;
+                    const maxAttempts = 5;
+                    
+                    function tryOpenShirtModal() {
+                        attempts++;
+                        if (shirtModalElement && typeof bootstrap !== 'undefined') {
+                            const addShirtProductModal = new bootstrap.Modal(shirtModalElement);
+                            addShirtProductModal.show();
+                        } else if (attempts < maxAttempts) {
+                            // Try again after a short delay
+                            setTimeout(tryOpenShirtModal, 100);
+                        } else {
+                            console.error('Add shirt product modal not found or Bootstrap not loaded after ' + maxAttempts + ' attempts!');
+                            console.log('Modal element:', shirtModalElement);
+                            console.log('Bootstrap:', typeof bootstrap);
+                        }
+                    }
+                    
+                    // Start trying to open the modal
+                    tryOpenShirtModal();
+                });
+            }
+            
+            // Shirt Products: Deduct Item button functionality
+            const shirtDeductItemBtn = document.getElementById('shirt-deduct-item-btn');
+            if (shirtDeductItemBtn) {
+                shirtDeductItemBtn.addEventListener('click', function() {
+                    // For now, just submit the form (we'll handle deduction logic later)
+                    // TODO: Implement deduction logic
+                    form.submit();
+                });
+            }
+            
+            // Shirt Products: Add New Shirt Product button functionality - SIMPLE ALERT
+            const addNewShirtProductBtn = document.getElementById('add-new-shirt-product-btn');
+            if (addNewShirtProductBtn) {
+                addNewShirtProductBtn.addEventListener('click', function() {
+                    console.log('Add New Shirt Product button clicked - Showing simple form');
+                    
+                    // Create or get simple form container
+                    let formContainer = document.getElementById('simple-shirt-form-container');
+                    
+                    if (!formContainer) {
+                        // Create form container if it doesn't exist
+                        formContainer = document.createElement('div');
+                        formContainer.id = 'simple-shirt-form-container';
+                        formContainer.style.cssText = `
+                            position: fixed;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            background: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+                            z-index: 9999;
+                            min-width: 450px;
+                            display: none;
+                        `;
+                        
+                        // Create form HTML
+                        formContainer.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h4 style="margin: 0; color: #2c3e50;">
+                                    <i class="fas fa-plus-circle me-2"></i>Add New Shirt Product
+                                </h4>
+                                <button id="close-simple-form" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
+                            </div>
+                            
+                            <form id="simple-shirt-form">
+                                @csrf
+                                <input type="hidden" name="category" value="Shirt Products">
+                                
+                                <!-- SKU -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">SKU *</label>
+                                    <input type="text" name="sku" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter SKU (e.g., SHIRT-001)" required>
+                                </div>
+                                
+                                <!-- Brand -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Brand *</label>
+                                    <input type="text" name="brand" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter brand name" required>
+                                </div>
+                                
+                                <!-- Type of Shirt -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Type of Shirt *</label>
+                                    <select name="type" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required>
+                                        <option value="">Select type</option>
+                                        <option value="Polo">Polo</option>
+                                        <option value="T-Shirt">T-Shirt</option>
+                                        <option value="Long Sleeve">Long Sleeve</option>
+                                        <option value="Dress Shirt">Dress Shirt</option>
+                                        <option value="Tank Top">Tank Top</option>
+                                        <option value="Hoodie">Hoodie</option>
+                                        <option value="Sweatshirt">Sweatshirt</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Color -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Color *</label>
+                                    <input type="text" name="color" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter color (e.g., Red, Blue, Black)" required>
+                                </div>
+                                
+                                <!-- Size -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Size *</label>
+                                    <select name="size" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" required>
+                                        <option value="">Select size</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                        <option value="Custom">Custom Size</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Price -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Price (₱) *</label>
+                                    <div style="display: flex; align-items: center;">
+                                        <span style="padding: 8px 12px; background: #f8f9fa; border: 1px solid #ddd; border-right: none; border-radius: 4px 0 0 4px;">₱</span>
+                                        <input type="number" name="price" step="0.01" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 0 4px 4px 0;" placeholder="0.00" required>
+                                    </div>
+                                </div>
+                                
+                                <!-- Starting Stock/s -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Starting Stock/s *</label>
+                                    <input type="number" name="starting_stock" min="0" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="0" required>
+                                </div>
+                                
+                                <!-- Supplier -->
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Supplier</label>
+                                    <input type="text" name="supplier" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter supplier name">
+                                </div>
+                                
+                                <!-- Shop -->
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Shop</label>
+                                    <input type="text" name="shop" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="Enter shop name">
+                                </div>
+                                
+                                <div style="display: flex; gap: 10px;">
+                                    <button type="button" id="cancel-simple-form" style="flex: 1; padding: 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Save Product
+                                    </button>
+                                </div>
+                            </form>
+                        `;
+                        
+                        document.body.appendChild(formContainer);
+                        
+                        // Add event listeners
+                        document.getElementById('close-simple-form').addEventListener('click', hideSimpleForm);
+                        document.getElementById('cancel-simple-form').addEventListener('click', hideSimpleForm);
+                        
+                        // Form submission
+                        document.getElementById('simple-shirt-form').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            alert('Form submitted! (This will save to database later)');
+                            hideSimpleForm();
+                        });
+                        
+                        // Click outside to close
+                        formContainer.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                        });
+                        
+                        document.addEventListener('click', function(e) {
+                            if (formContainer.style.display === 'block' && !formContainer.contains(e.target) && e.target.id !== 'add-new-shirt-product-btn') {
+                                hideSimpleForm();
+                            }
+                        });
+                        
+                        // ESC key to close
+                        document.addEventListener('keydown', function(e) {
+                            if (e.key === 'Escape' && formContainer.style.display === 'block') {
+                                hideSimpleForm();
+                            }
+                        });
+                    }
+                    
+                    // Show the form
+                    formContainer.style.display = 'block';
+                    
+                    // Function to hide form
+                    function hideSimpleForm() {
+                        const formContainer = document.getElementById('simple-shirt-form-container');
+                        if (formContainer) {
+                            formContainer.style.display = 'none';
+                        }
+                    }
+                });
+            }
+            
+            // Pre-select if category exists from old form data
+            const oldCategory = "{{ old('category') }}";
+            if (oldCategory) {
+                // Find and click the matching box
+                categoryBoxes.forEach(box => {
+                    if (box.getAttribute('data-category') === oldCategory) {
+                        box.click();
+                    }
+                });
+            }
+            
+            // Add Shirt Product Form Submission
+            const submitShirtProductBtn = document.getElementById('submitShirtProductBtn');
+            if (submitShirtProductBtn) {
+                submitShirtProductBtn.addEventListener('click', function() {
+                    const shirtForm = document.getElementById('addShirtProductForm');
+                    
+                    // Validate form
+                    if (!shirtForm.checkValidity()) {
+                        shirtForm.reportValidity();
+                        return;
+                    }
+                    
+                    // Get form data
+                    const formData = new FormData(shirtForm);
+                    
+                    // Show loading state
+                    const originalText = submitShirtProductBtn.innerHTML;
+                    submitShirtProductBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+                    submitShirtProductBtn.disabled = true;
+                    
+                    // Submit via AJAX
+                    fetch('{{ route("inventory.store") }}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Show success message
+                            alert('Shirt product added successfully!');
+                            
+                            // Close modal
+                            const shirtModalElement = document.getElementById('addShirtProductModal');
+                            if (shirtModalElement) {
+                                const modal = bootstrap.Modal.getInstance(shirtModalElement);
+                                if (modal) {
+                                    modal.hide();
+                                }
+                            }
+                            
+                            // Reset form
+                            shirtForm.reset();
+                            
+                            // Optionally refresh page or update UI
+                            window.location.reload();
+                        } else {
+                            // Show error message
+                            alert('Error: ' + (data.message || 'Failed to add shirt product'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Network error. Please try again.');
+                    })
+                    .finally(() => {
+                        // Restore button state
+                        submitShirtProductBtn.innerHTML = originalText;
+                        submitShirtProductBtn.disabled = false;
+                    });
+                });
+            }
+            
+            // Clear form when modal is hidden
+            const addShirtProductModal = document.getElementById('addShirtProductModal');
+            if (addShirtProductModal) {
+                addShirtProductModal.addEventListener('hidden.bs.modal', function () {
+                    document.getElementById('addShirtProductForm').reset();
+                });
+            }
+            
+            // Add New Shirt Product Form Submission (CREATE NEW PRODUCT)
+            const submitNewShirtProductBtn = document.getElementById('submitNewShirtProductBtn');
+            if (submitNewShirtProductBtn) {
+                submitNewShirtProductBtn.addEventListener('click', function() {
+                    const newShirtForm = document.getElementById('addNewShirtProductForm');
+                    
+                    if (!newShirtForm.checkValidity()) {
+                        // If form is invalid, show validation messages
+                        newShirtForm.reportValidity();
+                        return;
+                    }
+                    
+                    // Disable button and show loading state
+                    const originalText = submitNewShirtProductBtn.innerHTML;
+                    submitNewShirtProductBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating...';
+                    submitNewShirtProductBtn.disabled = true;
+                    
+                    // Get form data
+                    const formData = new FormData(newShirtForm);
+                    
+                    // For now, just show what would be submitted
+                    console.log('New Shirt Product Form Data:', Object.fromEntries(formData));
+                    
+                    // TODO: Implement actual form submission to create new product
+                    // This would typically be an AJAX request to a backend endpoint
+                    // Example: fetch('/api/products', { method: 'POST', body: formData })
+                    
+                    // Show success message (temporary - replace with actual submission)
+                    setTimeout(() => {
+                        alert('New shirt product created successfully! (This is a demo - backend integration needed)');
+                        
+                        // Close modal
+                        const newShirtModalElement = document.getElementById('addNewShirtProductModal');
+                        if (newShirtModalElement && typeof bootstrap !== 'undefined') {
+                            const addNewShirtProductModal = bootstrap.Modal.getInstance(newShirtModalElement);
+                            if (addNewShirtProductModal) {
+                                addNewShirtProductModal.hide();
+                            }
+                        }
+                        
+                        // Reset form
+                        newShirtForm.reset();
+                        
+                        // Restore button state
+                        submitNewShirtProductBtn.innerHTML = originalText;
+                        submitNewShirtProductBtn.disabled = false;
+                    }, 1500);
+                });
+            }
+            
+            // Clear form when new shirt product modal is hidden - SIMPLIFIED
+            // Wait for DOM to be fully loaded
+            document.addEventListener('DOMContentLoaded', function() {
+                const addNewShirtProductModal = document.getElementById('addNewShirtProductModal');
+                if (addNewShirtProductModal) {
+                    addNewShirtProductModal.addEventListener('hidden.bs.modal', function () {
+                        // Note: We don't have a form in the test modal yet
+                        console.log('New shirt product modal hidden');
+                    });
+                    console.log('New shirt product modal reset handler attached');
+                } else {
+                    console.warn('New shirt product modal not found for reset handler');
+                }
+            });
+        });
+    </script>
+    @endpush
+
+    <!-- ADD SHIRT PRODUCT MODAL -->
+    <div class="modal fade" id="addShirtProductModal" tabindex="-1" aria-labelledby="addShirtProductModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addShirtProductModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Add Shirt Product
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addShirtProductForm">
+                        @csrf
+                        <input type="hidden" name="category" value="Shirt Products">
+                        
+                        <div class="row g-3">
+                            <!-- SKU -->
+                            <div class="col-md-6">
+                                <label for="shirt_sku" class="form-label">SKU <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_sku" name="shirt_sku" placeholder="Enter SKU (e.g., SHIRT-001)" required>
+                                <div class="form-text">Unique identifier for this shirt product</div>
+                            </div>
+                            
+                            <!-- Brand -->
+                            <div class="col-md-6">
+                                <label for="shirt_brand" class="form-label">Brand <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_brand" name="shirt_brand" placeholder="Enter brand name" required>
+                                <div class="form-text">Brand of the shirt (e.g., Nike, Adidas, Uniqlo)</div>
+                            </div>
+                            
+                            <!-- Type of Shirt -->
+                            <div class="col-md-6">
+                                <label for="shirt_type" class="form-label">Type of Shirt <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_type" name="shirt_type" required>
+                                    <option value="" selected disabled>Select shirt type</option>
+                                    <option value="Polo">Polo</option>
+                                    <option value="T-Shirt">T-Shirt</option>
+                                    <option value="Long Sleeve">Long Sleeve</option>
+                                    <option value="Dress Shirt">Dress Shirt</option>
+                                    <option value="Tank Top">Tank Top</option>
+                                    <option value="Hoodie">Hoodie</option>
+                                    <option value="Sweatshirt">Sweatshirt</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <div class="form-text">Select the type of shirt</div>
+                            </div>
+                            
+                            <!-- Color -->
+                            <div class="col-md-6">
+                                <label for="shirt_color" class="form-label">Color <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_color" name="shirt_color" placeholder="Enter color (e.g., Red, Blue, Black)" required>
+                                <div class="form-text">Color of the shirt</div>
+                            </div>
+                            
+                            <!-- Size -->
+                            <div class="col-md-6">
+                                <label for="shirt_size" class="form-label">Size <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_size" name="shirt_size" required>
+                                    <option value="" selected disabled>Select size</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                    <option value="Custom">Custom Size</option>
+                                </select>
+                                <div class="form-text">Select the shirt size</div>
+                            </div>
+                            
+                            <!-- Price -->
+                            <div class="col-md-6">
+                                <label for="shirt_price" class="form-label">Price (₱) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control" id="shirt_price" name="shirt_price" placeholder="0.00" step="0.01" min="0" required>
+                                </div>
+                                <div class="form-text">Selling price per unit</div>
+                            </div>
+                            
+                            <!-- Current Stock/s -->
+                            <div class="col-md-6">
+                                <label for="current_stock" class="form-label">Current Stock/s <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="current_stock" name="current_stock" placeholder="0" min="0" required>
+                                <div class="form-text">Current quantity in inventory</div>
+                            </div>
+                            
+                            <!-- Add Stock/s -->
+                            <div class="col-md-6">
+                                <label for="add_stock" class="form-label">Add Stock/s <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="add_stock" name="add_stock" placeholder="0" min="0" required>
+                                <div class="form-text">Quantity to add to inventory</div>
+                            </div>
+                            
+                            <!-- Supplier -->
+                            <div class="col-md-6">
+                                <label for="shirt_supplier" class="form-label">Supplier</label>
+                                <input type="text" class="form-control" id="shirt_supplier" name="shirt_supplier" placeholder="Enter supplier name">
+                                <div class="form-text">Supplier of this shirt product</div>
+                            </div>
+                            
+                            <!-- Shop -->
+                            <div class="col-md-6">
+                                <label for="shirt_shop" class="form-label">Shop</label>
+                                <input type="text" class="form-control" id="shirt_shop" name="shirt_shop" placeholder="Enter shop name">
+                                <div class="form-text">Shop where this product is sold</div>
+                            </div>
+                            
+                            <!-- Additional Notes -->
+                            <div class="col-12">
+                                <label for="shirt_notes" class="form-label">Additional Notes</label>
+                                <textarea class="form-control" id="shirt_notes" name="shirt_notes" rows="2" placeholder="Any additional notes about this shirt product"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" id="submitShirtProductBtn">
+                        <i class="fas fa-save me-2"></i>Save Shirt Product
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+    
+
+    
+
+    
+
+    
+</x-app-layout>

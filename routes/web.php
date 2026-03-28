@@ -83,8 +83,10 @@ Route::middleware('auth')->group(function () {
     // Product Management Routes
     Route::resource('products', \App\Http\Controllers\ProductController::class)->except(['show']);
     
-    // New route for Inventory Management Product List
-    Route::get('/productlist', [\App\Http\Controllers\ProductController::class, 'index'])->name('productlist.index');
+    // Product List Route (Same as Inventory Action - Requires Authentication)
+    Route::get('/productlist', function () {
+        return view('productlist.index');
+    })->name('productlist.index');
     
     // Additional product routes
     Route::get('/products/trashed', [\App\Http\Controllers\ProductController::class, 'trashed'])
@@ -194,4 +196,39 @@ require __DIR__.'/auth.php';
 Route::middleware(['auth'])->group(function () {
     Route::get('/dtf/create', [App\Http\Controllers\DtfController::class, 'create'])->name('dtf.create');
     Route::post('/dtf', [App\Http\Controllers\DtfController::class, 'store'])->name('dtf.store');
+});
+
+// JavaScript Test Route
+Route::middleware(['auth'])->get('/test-js', function () {
+    return view('products.test-js');
+});
+
+// Product List Test Route
+Route::middleware(['auth'])->get('/test-productlist', function () {
+    return view('products.test-productlist');
+});
+
+// Debug Route
+Route::middleware(['auth'])->get('/debug-test', function () {
+    return view('products.debug');
+});
+
+// Show Source Route
+Route::middleware(['auth'])->get('/show-source', function () {
+    return view('products.show-source');
+});
+
+// Simple Test Route
+Route::middleware(['auth'])->get('/simple-test', function () {
+    return view('products.simple-test');
+});
+
+// Inventory Style Test Route
+Route::middleware(['auth'])->get('/inventory-style-test', function () {
+    return view('products.inventory-style-test');
+});
+
+// Fixed Test Route
+Route::middleware(['auth'])->get('/fixed-test', function () {
+    return view('products.fixed-test');
 });
