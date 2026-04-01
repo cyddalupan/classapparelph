@@ -621,11 +621,28 @@
             }
             
             // Shirt Products: Add New Shirt Product button functionality - OPEN REAL MODAL
+            const addNewShirtProductBtn = document.getElementById('add-new-shirt-product-btn');
+            if (addNewShirtProductBtn) {
+                addNewShirtProductBtn.addEventListener('click', function() {
+                    console.log('Add New Shirt Product button clicked - Opening real modal');
+                    
+                    // Open the REAL Add Shirt Product modal (same as shirt-add-item-btn)
+                    const shirtModalElement = document.getElementById('addShirtProductModal');
+                    
+                    // Try multiple times to find the modal (DOM might not be ready yet)
+                    let attempts = 0;
+                    const maxAttempts = 5;
+                    
+                    function tryOpenShirtModal() {
+                        attempts++;
+                        if (shirtModalElement && typeof bootstrap !== 'undefined') {
+                            const addShirtProductModal = new bootstrap.Modal(shirtModalElement);
+                            addShirtProductModal.show();
+                        } else if (attempts < maxAttempts) {
+                            // Try again after a short delay
                             setTimeout(tryOpenShirtModal, 100);
                         } else {
                             console.error('Add Shirt Product modal not found after multiple attempts');
-                            console.error('shirtModalElement:', shirtModalElement);
-                            console.error('bootstrap:', typeof bootstrap);
                             alert('Error: Could not open the shirt product form. Please try again.');
                         }
                     }
@@ -951,6 +968,91 @@
     @endpush
 
     <!-- ADD SHIRT PRODUCT MODAL -->
+    <div class="modal fade" id="addShirtProductModal" tabindex="-1" aria-labelledby="addShirtProductModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addShirtProductModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Add Shirt Product
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addShirtProductForm">
+                        @csrf
+                        <input type="hidden" name="category" value="Shirt Products">
+                        
+                        <div class="row g-3">
+                            <!-- SKU -->
+                            <div class="col-md-6">
+                                <label for="shirt_sku" class="form-label">SKU <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_sku" name="shirt_sku" placeholder="Enter SKU (e.g., SHIRT-001)" required>
+                                <div class="form-text">Unique identifier for this shirt product</div>
+                            </div>
+                            
+                            <!-- Brand -->
+                            <div class="col-md-6">
+                                <label for="shirt_brand" class="form-label">Brand <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_brand" name="shirt_brand" placeholder="Enter brand name" required>
+                                <div class="form-text">Brand of the shirt (e.g., Nike, Adidas, Uniqlo)</div>
+                            </div>
+                            
+                            <!-- Type of Shirt -->
+                            <div class="col-md-6">
+                                <label for="shirt_type" class="form-label">Type of Shirt <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_type" name="shirt_type" required>
+                                    <option value="" selected disabled>Select shirt type</option>
+                                    <option value="Polo">Polo</option>
+                                    <option value="T-Shirt">T-Shirt</option>
+                                    <option value="Long Sleeve">Long Sleeve</option>
+                                    <option value="Dress Shirt">Dress Shirt</option>
+                                    <option value="Tank Top">Tank Top</option>
+                                    <option value="Hoodie">Hoodie</option>
+                                    <option value="Sweatshirt">Sweatshirt</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <div class="form-text">Select the type of shirt</div>
+                            </div>
+                            
+                            <!-- Color -->
+                            <div class="col-md-6">
+                                <label for="shirt_color" class="form-label">Color <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_color" name="shirt_color" placeholder="Enter color (e.g., Red, Blue, Black)" required>
+                                <div class="form-text">Color of the shirt</div>
+                            </div>
+                            
+                            <!-- Size -->
+                            <div class="col-md-6">
+                                <label for="shirt_size" class="form-label">Size <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_size" name="shirt_size" required>
+                                    <option value="" selected disabled>Select size</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                    <option value="Custom">Custom Size</option>
+                                </select>
+                                <div class="form-text">Select the shirt size</div>
+                            </div>
+                            
+                            <!-- Price -->
+                            <div class="col-md-6">
+                                <label for="shirt_price" class="form-label">Price (₱) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control" id="shirt_price" name="shirt_price" placeholder="0.00" step="0.01" min="0" required>
+                                </div>
+                                <div class="form-text">Selling price per unit</div>
+                            </div>
+                            
+                            <!-- Current Stock/s -->
+                            <div class="col-md-6">
+                                <label for="current_stock" class="form-label">Current Stock/s <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="current_stock" name="current_stock" placeholder="0" min="0" required>
+                                <div class="form-text">Current quantity in inventory</div>
                             </div>
                             
                             <!-- Add Stock/s -->

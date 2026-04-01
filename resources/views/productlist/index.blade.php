@@ -124,16 +124,49 @@
                         <input type="hidden" name="category" id="selected-category" value="" required>
                         
                         <!-- SHIRT PRODUCTS SPECIFIC BUTTONS (HIDDEN BY DEFAULT) -->
-                        <div class="mt-4 d-flex justify-content-center gap-3" id="shirt-products-buttons" style="display: none;">
-                            <button type="button" class="btn" id="shirt-add-item-btn">
-                                <i class="fas fa-plus-circle me-2"></i>Add Shirt Product
-                            </button>
-                            <button type="button" class="btn" id="shirt-deduct-item-btn">
-                                <i class="fas fa-minus-circle me-2"></i>Deduct Shirt Product
-                            </button>
-                            <button type="button" class="btn btn-success" id="add-new-shirt-product-btn">
-                                <i class="fas fa-plus-square me-2"></i>Add New Shirt Product
-                            </button>
+                        <!-- PRODUCT TABLE AREA (initially hidden) -->
+                        <div class="mt-5" id="product-table-area" style="display: none;">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-table me-2"></i>
+                                        <span id="table-category-title">Products</span>
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover table-striped" id="product-table">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>SKU</th>
+                                                    <th>Brand</th>
+                                                    <th>Type</th>
+                                                    <th>Color</th>
+                                                    <th>Size</th>
+                                                    <th>Price</th>
+                                                    <th>Stock</th>
+                                                    <th>Supplier</th>
+                                                    <th>Shop</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="product-table-body">
+                                                <!-- Products will be loaded here -->
+                                                <tr id="no-products-row">
+                                                    <td colspan="9" class="text-center text-muted py-4">
+                                                        <i class="fas fa-info-circle me-2"></i>
+                                                        No products found in this category.
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div class="mt-3 text-muted small">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Showing products for: <span id="current-category-label">None selected</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -482,12 +515,101 @@
     @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // PRODUCT LIST FUNCTION: Show product table for selected category
+            function showProductTable(category) {
+                console.log('Showing product table for category:', category);
+                
+                // Get table elements
+                const tableArea = document.getElementById('product-table-area');
+                const tableTitle = document.getElementById('table-category-title');
+                const categoryLabel = document.getElementById('current-category-label');
+                const tableBody = document.getElementById('product-table-body');
+                const noProductsRow = document.getElementById('no-products-row');
+                
+                // Update titles
+                tableTitle.textContent = category + ' Products';
+                categoryLabel.textContent = category;
+                
+                // Show the table area
+                tableArea.style.display = 'block';
+                
+                // Show loading message
+                noProductsRow.innerHTML = `
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        Loading products...
+                    </td>
+                `;
+                noProductsRow.style.display = 'table-row';
+                
+                // Clear any existing product rows (except the no-products row)
+                const productRows = tableBody.querySelectorAll('tr.product-row');
+                productRows.forEach(row => row.remove());
+                
+                // FETCH PRODUCTS FROM SERVER
+                fetch(`/api/products-by-category?category=${encodeURIComponent(category)}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(products => {
+                        console.log('Products loaded:', products.length);
+                        
+                        if (products.length > 0) {
+                            noProductsRow.style.display = 'none';
+                            
+                            products.forEach(product => {
+                                // Parse specifications JSON
+                                let specs = {};
+                                try {
+                                    specs = product.specifications ? JSON.parse(product.specifications) : {};
+                                } catch (e) {
+                                    console.warn('Failed to parse specifications:', e);
+                                }
+                                
+                                const row = document.createElement('tr');
+                                row.className = 'product-row';
+                                row.innerHTML = `
+                                    <td>${product.sku || 'N/A'}</td>
+                                    <td>${specs.brand || 'N/A'}</td>
+                                    <td>${specs.shirt_type || 'N/A'}</td>
+                                    <td>${specs.color || 'N/A'}</td>
+                                    <td>${specs.size || 'N/A'}</td>
+                                    <td>${product.unit_price ? '₱' + parseFloat(product.unit_price).toFixed(2) : 'N/A'}</td>
+                                    <td>${product.current_stock || '0'}</td>
+                                    <td>${specs.supplier || specs.shirt_supplier || 'N/A'}</td>
+                                    <td>${specs.shop || specs.shirt_shop || 'N/A'}</td>
+                                `;
+                                tableBody.appendChild(row);
+                            });
+                        } else {
+                            noProductsRow.innerHTML = `
+                                <td colspan="9" class="text-center text-muted py-4">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    No products found in this category.
+                                </td>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading products:', error);
+                        noProductsRow.innerHTML = `
+                            <td colspan="9" class="text-center text-danger py-4">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Error loading products. Please try again.
+                            </td>
+                        `;
+                    });
+            }
+            
             // Category selection
             const categoryBoxes = document.querySelectorAll('.category-box');
             const selectedCategoryField = document.getElementById('selected-category');
             const form = document.getElementById('inventory-form');
             
-            // Button containers
+            // Button containers (not used in Product List, but kept for compatibility)
             const generalAddButton = document.getElementById('general-add-button');
             const shirtProductsButtons = document.getElementById('shirt-products-buttons');
             
@@ -506,74 +628,13 @@
                     const category = this.getAttribute('data-category');
                     selectedCategoryField.value = category;
                     
-                    // SPECIAL HANDLING FOR SHIRT PRODUCTS
-                    if (category === 'Shirt Products') {
-                        // Show shirt products buttons (Add New Item button is always visible at top left)
-                        shirtProductsButtons.style.display = 'flex';
-                    } else {
-                        // Hide shirt products buttons
-                        shirtProductsButtons.style.display = 'none';
-                    }
+                            // PRODUCT LIST: Show product table for selected category
+                    showProductTable(category);
                 });
             });
             
-            // AUTO-SELECT CATEGORY BASED ON URL PARAMETER OR ROUTE
-            // Check if we're on /inventoryaction route (clean URL)
-            const isInventoryActionRoute = window.location.pathname === '/inventoryaction';
-            
-            // Check if category parameter is in URL (e.g., ?category=shirt)
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlCategory = urlParams.get('category');
-            
-            // Determine which category to auto-select
-            let categoryToSelect = null;
-            
-            if (isInventoryActionRoute) {
-                // On /inventoryaction route, auto-select shirt
-                categoryToSelect = 'shirt';
-                console.log('Auto-selecting shirt category for /inventoryaction route');
-            } else if (urlCategory) {
-                // Use URL parameter if available
-                categoryToSelect = urlCategory;
-                console.log('Auto-selecting category from URL parameter:', urlCategory);
-            }
-            
-            if (categoryToSelect) {
-                // Map URL category values to data-category values
-                const categoryMap = {
-                    'shirt': 'Shirt Products',
-                    'other': 'Other Items',
-                    'garment': 'Garment Materials',
-                    'office': 'Printing and Office Supplies',
-                    'machine': 'Machine and Equipment'
-                };
-                
-                const mappedCategory = categoryMap[categoryToSelect];
-                
-                if (mappedCategory) {
-                    // Find and click the corresponding category box
-                    const targetBox = document.querySelector(`.category-box[data-category="${mappedCategory}"]`);
-                    if (targetBox) {
-                        // Simulate click on the category box
-                        targetBox.click();
-                        
-                        // If it's shirt category and (action=add OR on inventoryaction route), open shirt modal
-                        const shouldOpenShirtModal = (categoryToSelect === 'shirt' && urlParams.get('action') === 'add') || 
-                                                    (isInventoryActionRoute && categoryToSelect === 'shirt');
-                        
-                        if (shouldOpenShirtModal) {
-                            // Open shirt modal after a short delay
-                            setTimeout(() => {
-                                const shirtModalElement = document.getElementById('addShirtProductModal');
-                                if (shirtModalElement && typeof bootstrap !== 'undefined') {
-                                    const addShirtProductModal = new bootstrap.Modal(shirtModalElement);
-                                    addShirtProductModal.show();
-                                }
-                            }, 500);
-                        }
-                    }
-                }
-            }
+            // PRODUCT LIST: No auto-select needed
+            // User must click a category box to see products
             
 
             

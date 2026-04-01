@@ -356,4 +356,61 @@ class InventoryController extends Controller
             'equipment' => $userCategories,
         ];
     }
+
+    /**
+     * Show the clean version of inventory creation form.
+     */
+    public function createClean()
+    {
+        return view('inventory.create-clean');
+    }
+
+    /**
+     * Store a new shirt product.
+     */
+    public function storeShirtProduct(Request $request)
+    {
+        // Validate the request
+        $validated = $request->validate([
+            'sku' => 'required|string|max:50|unique:inventories,sku',
+            'brand' => 'required|string|max:100',
+            'type' => 'required|string|max:50',
+            'color' => 'required|string|max:50',
+            'size' => 'required|string|max:10',
+            'price' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
+            'supplier' => 'nullable|string|max:100',
+            'shop' => 'nullable|string|max:100',
+            'notes' => 'nullable|string',
+        ]);
+
+        // Create the inventory item
+        $inventory = Inventory::create([
+            'sku' => $validated['sku'],
+            'name' => $validated['brand'] . ' ' . $validated['type'] . ' - ' . $validated['color'] . ' (' . $validated['size'] . ')',
+            'description' => $validated['notes'] ?? '',
+            'category' => 'Shirt Products',
+            'type' => 'finished_good',
+            'unit_price' => $validated['price'],
+            'unit_of_measure' => 'pieces',
+            'current_stock' => $validated['stock'],
+            'minimum_stock' => 0,
+            'supplier_id' => null, // Will link to supplier if exists
+            'storage_location' => $validated['shop'] ?? 'Main Store',
+            'is_active' => true,
+        ]);
+
+        // Return success response
+        return response()->json([
+            'success' => true,
+            'message' => 'Shirt product added successfully!',
+            'data' => [
+                'id' => $inventory->id,
+                'sku' => $inventory->sku,
+                'name' => $inventory->name,
+                'price' => $inventory->unit_price,
+                'stock' => $inventory->current_stock,
+            ]
+        ], 201);
+    }
 }

@@ -1,0 +1,456 @@
+<x-app-layout>
+    @section('page-title', 'Product List')
+    
+    <x-slot name="header">
+        <div class="page-header-content">
+            <h1 class="page-title">
+                <i class="fas fa-tshirt"></i>
+                Product List
+            </h1>
+            <p class="page-subtitle">Manage product and Inventory</p>
+        </div>
+    </x-slot>
+
+    @section('content')
+    <div class="page-content">
+        <div class="container-fluid">
+            <!-- Info Alert -->
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Products are categorized into 5 boxes matching Inventory Action. Items added in Inventory Action appear here automatically.
+            </div>
+
+        <!-- Five Category Boxes - SAME DESIGN AS INVENTORY ACTION -->
+        <div class="row gx-4 justify-content-center">
+            <!-- Box 1: Shirt Products -->
+            <div class="col-md-2 col-sm-6 mb-3">
+                <div class="category-box card border-3 mx-2" data-category="Shirt Products" id="box-shirt">
+                    <div class="card-body text-center">
+                        <div class="category-icon mb-2">
+                            <i class="fas fa-tshirt fa-2x text-primary"></i>
+                        </div>
+                        <h6 class="card-title mb-1">Shirt Products</h6>
+                        <p class="card-text text-muted small mb-0">T-shirts, polo shirts, hoodies</p>
+                        
+                        <!-- Item Count (SAME STYLE AS INVENTORY ACTION) -->
+                        <div class="mt-2">
+                            <span class="badge bg-primary rounded-pill">
+                                @if(isset($shirtProducts) && $shirtProducts->count() > 0)
+                                    {{ $shirtProducts->count() }} items
+                                @else
+                                    0 items
+                                @endif
+                            </span>
+                        </div>
+                        
+                        <!-- Product List -->
+                        <div class="product-list-container mt-3">
+                            @if(isset($shirtProducts) && $shirtProducts->count() > 0)
+                                <div class="list-group list-group-flush">
+                                    @foreach($shirtProducts as $product)
+                                        <div class="list-group-item border-0 py-2">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-0">{{ $product->name ?? 'Unnamed Product' }}</h6>
+                                                    <small class="text-muted">
+                                                        SKU: {{ $product->sku ?? 'N/A' }} | 
+                                                        Stock: {{ $product->current_stock ?? 0 }}
+                                                    </small>
+                                                </div>
+                                                <span class="badge bg-success">₱{{ number_format($product->unit_price ?? 0, 2) }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-center py-3">
+                                    <i class="fas fa-box-open fa-lg text-muted mb-2"></i>
+                                    <p class="text-muted mb-0 small">No shirt products yet</p>
+                                    <small class="text-muted">Add items in Inventory Action</small>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Box 2: Other Items -->
+            <div class="col-md-2 col-sm-6 mb-3">
+                <div class="category-box card border-3 mx-2" data-category="Other Items" id="box-other">
+                    <div class="card-body text-center">
+                        <div class="category-icon mb-2">
+                            <i class="fas fa-box fa-2x text-info"></i>
+                        </div>
+                        <h6 class="card-title mb-1">Other Items</h6>
+                        <p class="card-text text-muted small mb-0">Miscellaneous items</p>
+                        
+                        <!-- Item Count (SAME STYLE AS INVENTORY ACTION) -->
+                        <div class="mt-2">
+                            <span class="badge bg-info rounded-pill">
+                                @if(isset($otherItems) && $otherItems->count() > 0)
+                                    {{ $otherItems->count() }} items
+                                @else
+                                    0 items
+                                @endif
+                            </span>
+                        </div>
+                        
+                        <!-- Product List -->
+                        <div class="product-list-container mt-3">
+                            @if(isset($otherItems) && $otherItems->count() > 0)
+                                <div class="list-group list-group-flush">
+                                    @foreach($otherItems as $product)
+                                        <div class="list-group-item border-0 py-2">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-0">{{ $product->name ?? 'Unnamed Product' }}</h6>
+                                                    <small class="text-muted">
+                                                        SKU: {{ $product->sku ?? 'N/A' }} | 
+                                                        Stock: {{ $product->current_stock ?? 0 }}
+                                                    </small>
+                                                </div>
+                                                <span class="badge bg-success">₱{{ number_format($product->unit_price ?? 0, 2) }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-center py-3">
+                                    <i class="fas fa-box-open fa-lg text-muted mb-2"></i>
+                                    <p class="text-muted mb-0 small">No other items yet</p>
+                                    <small class="text-muted">Add items in Inventory Action</small>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Box 3: Garment Materials -->
+            <div class="col-md-2 col-sm-6 mb-3">
+                <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment">
+                    <div class="card-body text-center">
+                        <div class="category-icon mb-2">
+                            <i class="fas fa-cut fa-2x" style="color: #6f42c1;"></i>
+                        </div>
+                        <h6 class="card-title mb-1">Garment Materials</h6>
+                        <p class="card-text text-muted small mb-0">Fabric, thread, buttons, zippers</p>
+                        
+                        <!-- Item Count -->
+                        <div class="mt-2">
+                            <span class="badge rounded-pill" style="background-color: #6f42c1;">
+                                @if(isset($garmentMaterials) && $garmentMaterials->count() > 0)
+                                    {{ $garmentMaterials->count() }} items
+                                @else
+                                    0 items
+                                @endif
+                            </span>
+                        </div>
+                        
+                        <!-- Product List -->
+                        <div class="product-list-container mt-3">
+                            @if(isset($garmentMaterials) && $garmentMaterials->count() > 0)
+                                <div class="list-group list-group-flush">
+                                    @foreach($garmentMaterials as $product)
+                                        <div class="list-group-item border-0 py-2">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-0">{{ $product->name ?? 'Unnamed Product' }}</h6>
+                                                    <small class="text-muted">
+                                                        SKU: {{ $product->sku ?? 'N/A' }} | 
+                                                        Stock: {{ $product->current_stock ?? 0 }}
+                                                    </small>
+                                                </div>
+                                                <span class="badge bg-success">₱{{ number_format($product->unit_price ?? 0, 2) }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-center py-3">
+                                    <i class="fas fa-box-open fa-lg text-muted mb-2"></i>
+                                    <p class="text-muted mb-0 small">No garment materials yet</p>
+                                    <small class="text-muted">Add items in Inventory Action</small>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Box 4: Printing and Office Supplies -->
+            <div class="col-md-2 col-sm-6 mb-3">
+                <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office">
+                    <div class="card-body text-center">
+                        <div class="category-icon mb-2">
+                            <i class="fas fa-print fa-2x text-warning"></i>
+                        </div>
+                        <h6 class="card-title mb-1">Printing <h5 class="card-title fw-bold">Printing & Office</h5> Office</h6>
+                        <p class="card-text text-muted small mb-0">Paper, ink, pens, office items</p>
+                        
+                        <!-- Item Count -->
+                        <div class="mt-2">
+                            <span class="badge bg-warning rounded-pill">
+                                @if(isset($officeSupplies) && $officeSupplies->count() > 0)
+                                    {{ $officeSupplies->count() }} items
+                                @else
+                                    0 items
+                                @endif
+                            </span>
+                        </div>
+                        
+                        <!-- Product List -->
+                        <div class="product-list-container mt-3">
+                            @if(isset($officeSupplies) && $officeSupplies->count() > 0)
+                                <div class="list-group list-group-flush">
+                                    @foreach($officeSupplies as $product)
+                                        <div class="list-group-item border-0 py-2">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-0">{{ $product->name ?? 'Unnamed Product' }}</h6>
+                                                    <small class="text-muted">
+                                                        SKU: {{ $product->sku ?? 'N/A' }} | 
+                                                        Stock: {{ $product->current_stock ?? 0 }}
+                                                    </small>
+                                                </div>
+                                                <span class="badge bg-success">₱{{ number_format($product->unit_price ?? 0, 2) }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-center py-3">
+                                    <i class="fas fa-box-open fa-lg text-muted mb-2"></i>
+                                    <p class="text-muted mb-0">No office supplies yet</p>
+                                    <small class="text-muted">Add items in Inventory Action</small>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Box 5: Machine and Equipment -->
+            <div class="col-md-2 col-sm-6 mb-3">
+                <div class="category-box card border-3 mx-2" data-category="Machine and Equipment" id="box-machine">
+                    <div class="card-body text-center">
+                        <div class="category-icon mb-2">
+                            <i class="fas fa-tools fa-2x text-danger"></i>
+                        </div>
+                        <h6 class="card-title mb-1">Machine <h5 class="card-title fw-bold">Machine & Equipment</h5> Equipment</h6>
+                        <p class="card-text text-muted small mb-0">Printers, sewing machines, tools</p>
+                        
+                        <!-- Item Count -->
+                        <div class="mt-2">
+                            <span class="badge bg-danger rounded-pill">
+                                @if(isset($machineEquipment) && $machineEquipment->count() > 0)
+                                    {{ $machineEquipment->count() }} items
+                                @else
+                                    0 items
+                                @endif
+                            </span>
+                        </div>
+                        
+                        <!-- Product List -->
+                        <div class="product-list-container mt-3">
+                            @if(isset($machineEquipment) && $machineEquipment->count() > 0)
+                                <div class="list-group list-group-flush">
+                                    @foreach($machineEquipment as $product)
+                                        <div class="list-group-item border-0 py-2">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-0">{{ $product->name ?? 'Unnamed Product' }}</h6>
+                                                    <small class="text-muted">
+                                                        SKU: {{ $product->sku ?? 'N/A' }} | 
+                                                        Stock: {{ $product->current_stock ?? 0 }}
+                                                    </small>
+                                                </div>
+                                                <span class="badge bg-success">₱{{ number_format($product->unit_price ?? 0, 2) }}</span>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-center py-3">
+                                    <i class="fas fa-box-open fa-lg text-muted mb-2"></i>
+                                    <p class="text-muted mb-0">No machines/equipment yet</p>
+                                    <small class="text-muted">Add items in Inventory Action</small>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Dashboard -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3"><i class="fas fa-chart-bar me-2"></i> Inventory Summary</h5>
+                        <div class="row text-center">
+                            <div class="col">
+                                <h3 class="text-primary">{{ $totalProducts ?? 0 }}</h3>
+                                <p class="text-muted mb-0">Total Products</p>
+                            </div>
+                            <div class="col">
+                                <h3 class="text-success">₱{{ number_format($totalValue ?? 0, 2) }}</h3>
+                                <p class="text-muted mb-0">Total Inventory Value</p>
+                            </div>
+                            <div class="col">
+                                <h3 class="text-info">{{ $totalStock ?? 0 }}</h3>
+                                <p class="text-muted mb-0">Total Stock Units</p>
+                            </div>
+                            <div class="col">
+                                <h3 class="text-warning">{{ $categoriesCount ?? 5 }}</h3>
+                                <p class="text-muted mb-0">Categories</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Note -->
+        <div class="alert alert-light border mt-4">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-link fa-2x text-primary me-3"></i>
+                <div>
+                    <h6 class="mb-1">Connected to Inventory Action</h6>
+                    <p class="mb-0 text-muted">Items added in <a href="/inventoryaction" class="text-decoration-none">Inventory Action</a> appear here automatically. This page auto-refreshes every 30 seconds.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endsection
+
+    <!-- Custom Styles for Product List - SAME AS INVENTORY ACTION -->
+    <style>
+        /* 5 BOXES DESIGN - SIDE BY SIDE! - USING FLEX FOR 5 COLUMNS! */
+        .category-box {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-color: #dee2e6 !important;
+            margin: 0.5rem;
+            /* Make it square */
+            aspect-ratio: 1 / 1; /* Perfect square */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Make boxes MALAKI NA! - 120px × 120px (NO MORE CRAMPED!) */
+            height: 120px !important; /* MALAKI NA! */
+            min-height: 120px !important; /* MALAKI NA! */
+            max-height: 120px !important; /* Don't grow! */
+            /* Ensure square on all screens */
+            width: 100% !important;
+            /* KUNTING RADIUS SA MGA KANTO - AS REQUESTED BY USER! */
+            border-radius: 10px !important; /* SOFT ROUNDED CORNERS! */
+        }
+        
+        .category-box:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-color: #0d6efd !important;
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS ON HOVER */
+        }
+        
+        .category-box.selected {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.05);
+            box-shadow: 0 5px 20px rgba(13, 110, 253, 0.2);
+            transform: scale(1.02);
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS WHEN SELECTED */
+        }
+        
+        /* FLEX CONTAINER FOR 5 COLUMNS - SAME AS INVENTORY ACTION! */
+        .row.gx-4.justify-content-center {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            gap: 1rem !important;
+        }
+        
+        /* MAKE SURE EACH BOX TAKES 20% WIDTH FOR 5 COLUMNS */
+        .row.gx-4.justify-content-center > div {
+            flex: 0 0 calc(20% - 1rem) !important; /* 5 columns with gap */
+            max-width: calc(20% - 1rem) !important;
+        }
+        
+        .category-icon {
+            height: 40px !important; /* MAS MALAKI NA ICON HEIGHT! */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem !important; /* MAS MALAKI NA SPACING! */
+        }
+        
+        .category-icon i {
+            font-size: 2rem !important; /* MAS MALAKI NA ICONS! (from fa-2x) */
+        }
+        
+        .category-box .card-title {
+            font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+        }
+        
+        /* Center content in square box */
+        .category-box .card-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem !important;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Better spacing for separated columns - HORIZONTAL ONLY */
+        .row.gx-4 {
+            --bs-gutter-x: 2rem;
+            --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+        }
+        
+        /* Make boxes stand out more */
+        .category-box .card-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            text-align: center;
+            font-size: 0.9rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.7rem !important;
+            line-height: 1;
+            text-align: center;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Product List specific styles */
+        .product-list-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid #dee2e6;
+            margin-top: 1rem;
+            padding-top: 1rem;
+        }
+        .product-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .product-list-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .product-list-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .product-list-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</x-app-layout>

@@ -1,0 +1,326 @@
+<x-app-layout>
+    @section('page-title', 'Product List')
+    
+    <x-slot name="header">
+        <div class="page-header-content">
+            <h1 class="page-title">
+                <i class="fas fa-tshirt"></i>
+                Product List
+            </h1>
+            <p class="page-subtitle">Manage product and Inventory</p>
+        </div>
+    </x-slot>
+
+    @section('content')
+    <div class="page-content">
+        <div class="container-fluid">
+            <!-- Info Alert -->
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Products are categorized into 5 boxes matching Inventory Action. Items added in Inventory Action appear here automatically.
+            </div>
+
+            <!-- Five Category Boxes - EXACT COPY OF INVENTORY ACTION -->
+            <div class="row gx-4 justify-content-center">
+                <!-- Box 1: Shirt Products -->
+                <div class="col-md-2 col-sm-6 mb-3">
+                    <div class="category-box card border-3 mx-2" data-category="Shirt Products" id="box-shirt">
+                        <div class="card-body text-center">
+                            <div class="category-icon mb-2">
+                                <i class="fas fa-tshirt fa-2x text-primary"></i>
+                            </div>
+                            <h6 class="card-title mb-1">Shirt Products</h6>
+                            <p class="card-text text-muted small mb-0">T-shirts, polo shirts, hoodies</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 2: Other Items -->
+                <div class="col-md-2 col-sm-6 mb-3">
+                    <div class="category-box card border-3 mx-2" data-category="Other Items" id="box-other">
+                        <div class="card-body text-center">
+                            <div class="category-icon mb-2">
+                                <i class="fas fa-box fa-2x text-info"></i>
+                            </div>
+                            <h6 class="card-title mb-1">Other Items</h6>
+                            <p class="card-text text-muted small mb-0">Miscellaneous items</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 3: Garment Materials -->
+                <div class="col-md-2 col-sm-6 mb-3">
+                    <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment">
+                        <div class="card-body text-center">
+                            <div class="category-icon mb-2">
+                                <i class="fas fa-cut fa-2x" style="color: #6f42c1;"></i>
+                            </div>
+                            <h6 class="card-title mb-1">Garment Materials</h6>
+                            <p class="card-text text-muted small mb-0">Fabric, thread, buttons, zippers</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 4: Printing and Office Supplies -->
+                <div class="col-md-2 col-sm-6 mb-3">
+                    <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office">
+                        <div class="card-body text-center">
+                            <div class="category-icon mb-2">
+                                <i class="fas fa-print fa-2x text-warning"></i>
+                            </div>
+                            <h6 class="card-title mb-1">Printing & Office</h6>
+                            <p class="card-text text-muted small mb-0">Paper, ink, pens, office items</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 5: Machine and Equipment -->
+                <div class="col-md-2 col-sm-6 mb-3">
+                    <div class="category-box card border-3 mx-2" data-category="Machine and Equipments" id="box-machine">
+                        <div class="card-body text-center">
+                            <div class="category-icon mb-2">
+                                <i class="fas fa-tools fa-2x text-danger"></i>
+                            </div>
+                            <h6 class="card-title mb-1">Machine & Equipment</h6>
+                            <p class="card-text text-muted small mb-0">Printers, sewing machines, tools</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endsection
+
+    <!-- Custom Styles for Product List - SAME AS INVENTORY ACTION -->
+    <style>
+        /* 5 BOXES DESIGN - SIDE BY SIDE! - USING FLEX FOR 5 COLUMNS! */
+        .category-box {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-color: #dee2e6 !important;
+            margin: 0.5rem;
+            /* Make it square */
+            aspect-ratio: 1 / 1; /* Perfect square */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Make boxes MALAKI NA! - 120px × 120px (NO MORE CRAMPED!) */
+            height: 120px !important; /* MALAKI NA! */
+            min-height: 120px !important; /* MALAKI NA! */
+            max-height: 120px !important; /* Don't grow! */
+            /* Ensure square on all screens */
+            width: 100% !important;
+            /* KUNTING RADIUS SA MGA KANTO - AS REQUESTED BY USER! */
+            border-radius: 10px !important; /* SOFT ROUNDED CORNERS! */
+        }
+        
+        .category-box:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-color: #0d6efd !important;
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS ON HOVER */
+        }
+        
+        .category-box.selected {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.05);
+            box-shadow: 0 5px 20px rgba(13, 110, 253, 0.2);
+            transform: scale(1.02);
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS WHEN SELECTED */
+        }
+        
+        /* FLEX CONTAINER FOR 5 COLUMNS - SAME AS INVENTORY ACTION! */
+        .row.gx-4.justify-content-center {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            gap: 1rem !important;
+        }
+        
+        /* MAKE SURE EACH BOX TAKES 20% WIDTH FOR 5 COLUMNS */
+        .row.gx-4.justify-content-center > div {
+            flex: 0 0 calc(20% - 1rem) !important; /* 5 columns with gap */
+            max-width: calc(20% - 1rem) !important;
+        }
+        
+        .category-icon {
+            height: 40px !important; /* MAS MALAKI NA ICON HEIGHT! */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem !important; /* MAS MALAKI NA SPACING! */
+        }
+        
+        .category-icon i {
+            font-size: 2rem !important; /* MAS MALAKI NA ICONS! (from fa-2x) */
+        }
+        
+        .category-box .card-title {
+            font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+        }
+        
+        /* Center content in square box */
+        .category-box .card-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem !important;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Better spacing for separated columns - HORIZONTAL ONLY */
+        .row.gx-4 {
+            --bs-gutter-x: 2rem;
+            --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+        }
+        
+        /* Make boxes stand out more */
+        .category-box .card-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            text-align: center;
+            font-size: 0.9rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.7rem !important;
+            line-height: 1;
+            text-align: center;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* FORCE HOVER EFFECTS - MAKE SURE THEY WORK */
+        .category-box {
+            cursor: pointer !important;
+        }
+        
+        .category-box:hover {
+            transform: translateY(-5px) scale(1.02) !important;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+            border-color: #0d6efd !important;
+            border-radius: 10px !important;
+            z-index: 10 !important;
+        }
+        
+        .category-box.selected {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.05) !important;
+            box-shadow: 0 5px 20px rgba(13, 110, 253, 0.2) !important;
+            transform: scale(1.02) !important;
+            border-radius: 10px !important;
+            z-index: 5 !important;
+        }
+    </style>
+
+    <script>
+        // ULTRA-SIMPLE TEST - NO DEPENDENCIES
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Test 1: Basic alert
+                alert('🎯 JAVASCRIPT TEST: Click OK if you see this!');
+                
+                // Test 2: Basic console log
+                console.log('🎯 JAVASCRIPT IS LOADING!');
+                
+                // Test 3: Add banner to page (SAFE version)
+                var banner = document.createElement('div');
+                banner.style.position = 'fixed';
+                banner.style.top = '10px';
+                banner.style.right = '10px';
+                banner.style.background = 'green';
+                banner.style.color = 'white';
+                banner.style.padding = '10px';
+                banner.style.zIndex = '9999';
+                banner.textContent = '✅ JAVASCRIPT LOADED!';
+                document.body.appendChild(banner);
+                
+                // Test 4: Add border to first box IMMEDIATELY
+                var firstBox = document.getElementById('box-shirt');
+                if (firstBox) {
+                    firstBox.style.border = '3px solid red';
+                    firstBox.style.backgroundColor = '#ff000020';
+                }
+                
+                // Test 5: Add hover to all boxes
+                var boxes = document.querySelectorAll('.category-box');
+                boxes.forEach(function(box) {
+                    box.onmouseover = function() {
+                        this.style.border = '3px solid blue';
+                        this.style.transform = 'scale(1.1)';
+                    };
+                    box.onmouseout = function() {
+                        this.style.border = '';
+                        this.style.transform = '';
+                    };
+                    box.onclick = function() {
+                        boxes.forEach(function(b) {
+                            b.style.border = '';
+                            b.style.backgroundColor = '';
+                        });
+                        this.style.border = '3px solid green';
+                        this.style.backgroundColor = '#00ff0020';
+                    };
+                });
+                
+                console.log('✅ ALL JAVASCRIPT TESTS PASSED!');
+                
+            } catch (error) {
+                console.error('❌ JAVASCRIPT ERROR:', error);
+                alert('❌ JAVASCRIPT ERROR: ' + error.message);
+            }
+        });
+        
+        // Original code below (will only run if above works)
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 PRODUCT LIST JavaScript loading...');
+            
+            // Category selection - SAME AS INVENTORY ACTION
+            const categoryBoxes = document.querySelectorAll('.category-box');
+            
+            // Category selection handler - SAME AS INVENTORY ACTION
+            categoryBoxes.forEach(box => {
+                box.addEventListener('click', function() {
+                    // Remove selection from all boxes
+                    categoryBoxes.forEach(b => {
+                        b.classList.remove('selected');
+                    });
+                    
+                    // Add selection to clicked box
+                    this.classList.add('selected');
+                    
+                    // Get selected category
+                    const category = this.getAttribute('data-category');
+                    console.log('Selected category:', category);
+                });
+            });
+            
+            // AUTO-SELECT FIRST BOX (Shirt Products) ON LOAD - LIKE INVENTORY ACTION
+            // Check if we're on /productlist route
+            const isProductListRoute = window.location.pathname.includes('/productlist');
+            
+            if (isProductListRoute) {
+                // Auto-select Shirt Products box (first box)
+                const shirtBox = document.getElementById('box-shirt');
+                if (shirtBox) {
+                    // Remove any existing selections first
+                    categoryBoxes.forEach(b => {
+                        b.classList.remove('selected');
+                    });
+                    
+                    // Add selection to shirt box
+                    shirtBox.classList.add('selected');
+                    console.log('✅ Auto-selected Shirt Products box');
+                }
+            }
+            
+            console.log('✅ Product List boxes are now interactive!');
+        });
+    </script>
+</x-app-layout>

@@ -3,7 +3,6 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FinanceDashboardController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Gate;
 
@@ -84,10 +83,8 @@ Route::middleware('auth')->group(function () {
     // Product Management Routes
     Route::resource('products', \App\Http\Controllers\ProductController::class)->except(['show']);
     
-    // Product List Route (Same as Inventory Action - Requires Authentication)
-    Route::get('/productlist', function () {
-        return view('productlist.index');
-    })->name('productlist.index');
+    // New route for Inventory Management Product List
+    Route::get('/productlist', [\App\Http\Controllers\ProductController::class, 'index'])->name('productlist.index');
     
     // Additional product routes
     Route::get('/products/trashed', [\App\Http\Controllers\ProductController::class, 'trashed'])
@@ -122,9 +119,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/inventory/create', [\App\Http\Controllers\InventoryController::class, 'create'])->name('inventory.create');
     
     // INVENTORY ACTION - Direct link to create page with shirt category
-    Route::get('/inventoryaction', function () {
-        // Use the clean inventory creation form
-        return view('inventory.create-clean');
+    Route::get('/inventoryaction', function (\Illuminate\Http\Request $request) {
+        // Add category=shirt parameter to the request
+        $request->merge(['category' => 'shirt']);
+        
+        // Call the controller method
+        $controller = app(\App\Http\Controllers\InventoryController::class);
+        return $controller->create();
     })->name('inventory.action');
     Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store'])->name('inventory.store');
     Route::get('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'show'])->name('inventory.show');
@@ -154,23 +155,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/finance/expenses/{expense}/mark-paid', [ExpenseController::class, 'markAsPaid'])->name('expenses.mark-paid');
     Route::get('/api/expenses', [ExpenseController::class, 'apiIndex'])->name('expenses.api');
     Route::get('/api/expenses/statistics', [ExpenseController::class, 'statistics'])->name('expenses.statistics');
-    
-    // Product List API
-    Route::get('/api/products-by-category', function (Request $request) {
-        $category = $request->query('category');
-        
-        if (!$category) {
-            return response()->json(['error' => 'Category parameter is required'], 400);
-        }
-        
-        // Fetch products by category from inventory table
-        $products = \App\Models\Inventory::where('category', $category)
-            ->where('is_active', true)
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
-        return response()->json($products);
-    });
     
     Route::get('/finance/sales', [App\Http\Controllers\SalesController::class, 'index'])->name('finance.sales');
     Route::get('/finance/sales/create', [App\Http\Controllers\SalesController::class, 'create'])->name('sales.create');
@@ -211,92 +195,3 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dtf/create', [App\Http\Controllers\DtfController::class, 'create'])->name('dtf.create');
     Route::post('/dtf', [App\Http\Controllers\DtfController::class, 'store'])->name('dtf.store');
 });
-
-// JavaScript Test Route
-Route::middleware(['auth'])->get('/test-js', function () {
-    return view('products.test-js');
-});
-
-// Product List Test Route
-Route::middleware(['auth'])->get('/test-productlist', function () {
-    return view('products.test-productlist');
-});
-
-// Debug Route
-Route::middleware(['auth'])->get('/debug-test', function () {
-    return view('products.debug');
-});
-
-// Show Source Route
-Route::middleware(['auth'])->get('/show-source', function () {
-    return view('products.show-source');
-});
-
-// Simple Test Route
-Route::middleware(['auth'])->get('/simple-test', function () {
-    return view('products.simple-test');
-});
-
-// Inventory Style Test Route
-Route::middleware(['auth'])->get('/inventory-style-test', function () {
-    return view('products.inventory-style-test');
-});
-
-// Fixed Test Route
-Route::middleware(['auth'])->get('/fixed-test', function () {
-    return view('products.fixed-test');
-});
-Route::get('/test-modal', function() { return view('test'); });
-Route::get('/inventory-clean', function() { return view('inventory.create-clean'); });
-Route::post('/inventory/shirt-products', function(Request $request) {
-
-    // Validate the request
-    $validated = $request->validate([
-        'sku' => 'required|string|max:50|unique:inventories,sku',
-        'brand' => 'required|string|max:100',
-        'type' => 'required|string|max:50',
-        'color' => 'required|string|max:50',
-        'size' => 'required|string|max:10',
-        'price' => 'required|numeric|min:0',
-        'stock' => 'required|integer|min:0',
-        'supplier' => 'nullable|string|max:100',
-        'shop' => 'nullable|string|max:100',
-        'notes' => 'nullable|string',
-    ]);
-
-    // Create the inventory item
-    $inventory = \App\Models\Inventory::create([
-        'sku' => $validated['sku'],
-        'name' => $validated['brand'] . ' ' . $validated['type'] . ' - ' . $validated['color'] . ' (' . $validated['size'] . ')',
-        'description' => $validated['notes'] ?? '',
-        'category' => 'Shirt Products',
-        'type' => 'finished_good',
-        'unit_price' => $validated['price'],
-        'unit_of_measure' => 'pieces',
-        'current_stock' => $validated['stock'],
-        'minimum_stock' => 0,
-        'supplier_id' => null,
-        'storage_location' => $validated['shop'] ?? 'Main Store',
-        'is_active' => true,
-    ]);
-
-    // Return success response
-    return response()->json([
-        'success' => true,
-        'message' => 'Shirt product added successfully!',
-        'data' => [
-            'id' => $inventory->id,
-            'sku' => $inventory->sku,
-            'name' => $inventory->name,
-            'price' => $inventory->unit_price,
-            'stock' => $inventory->current_stock,
-        ]
-    ], 201);
-})->name('inventory.shirt-products.store');
-
-
-Route::get('/inventorylist', function() {
-    return view('inventory.create-clean');
-})->name('inventory.list');
-
-Route::get('/inventories', function() { return view('inventories.index'); })->name('inventories.index');
