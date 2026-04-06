@@ -20,7 +20,7 @@
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-3 mb-4">
+                        <div class="col-md-4 mb-4">
                             <div class="card border-primary">
                                 <div class="card-body text-center">
                                     <i class="fas fa-eye fa-3x text-primary mb-3"></i>
@@ -31,29 +31,18 @@
                             </div>
                         </div>
                         
-                        <div class="col-md-3 mb-4">
-                            <div class="card border-success">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-plus-circle fa-3x text-success mb-3"></i>
-                                    <h5>Add New</h5>
-                                    <p class="text-muted">Create new inventory items</p>
-                                    <a href="/inventoryaction" class="btn btn-outline-success">Go to Create</a>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3 mb-4">
+                        <div class="col-md-4 mb-4">
                             <div class="card border-warning">
                                 <div class="card-body text-center">
                                     <i class="fas fa-cogs fa-3x text-warning mb-3"></i>
-                                    <h5>Manage</h5>
-                                    <p class="text-muted">Edit, update, or delete items</p>
-                                    <a href="/inventories" class="btn btn-outline-warning">Manage Items</a>
+                                    <h5>Manage Items</h5>
+                                    <p class="text-muted">View, edit, add, or delete items</p>
+                                    <a href="/inventories" class="btn btn-outline-warning">Go to Manage</a>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="col-md-3 mb-4">
+                        <div class="col-md-4 mb-4">
                             <div class="card border-info">
                                 <div class="card-body text-center">
                                     <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
@@ -108,8 +97,8 @@
                                     </div>
                                     <div class="alert alert-success">
                                         <i class="fas fa-check-circle me-2"></i>
-                                        <strong>Option 1 Implemented</strong>
-                                        <p class="mb-0 small">3-function system: View, Add, Manage</p>
+                                        <strong>Simplified System</strong>
+                                        <p class="mb-0 small">Streamlined: View & Manage (includes adding)</p>
                                     </div>
                                     <div class="alert alert-info">
                                         <i class="fas fa-bell me-2"></i>
