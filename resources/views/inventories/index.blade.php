@@ -510,7 +510,6 @@
                     alert('Please select a category first');
                 }
             });
-            // Add new item button click handler - Enhanced version is in the modal section below
             
             // Check if URL has category parameter (using existing urlParams variable)
             const urlCategory = urlParams.get('category');
@@ -521,141 +520,11 @@
                     targetBox.click();
                 }
             }
-        });
-    </script>
 
-    <!-- Add New Shirt Product Modal -->
-    <div class="modal fade" id="addShirtProductModal" tabindex="-1" aria-labelledby="addShirtProductModalLabel" aria-hidden="true" style="display: none;">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title" id="addShirtProductModalLabel">
-                        <i class="fas fa-plus-circle me-2"></i>Add New Shirt Product
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="addShirtProductForm">
-                        @csrf
-                        
-                        <div class="row">
-                            <!-- SKU -->
-                            <div class="col-md-6 mb-3">
-                                <label for="sku" class="form-label">SKU <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="sku" name="sku" required 
-                                       placeholder="e.g., TSHIRT-BLK-M" maxlength="50">
-                                <div class="form-text">Unique identifier for this shirt product</div>
-                            </div>
-                            
-                            <!-- Brand -->
-                            <div class="col-md-6 mb-3">
-                                <label for="brand" class="form-label">Brand <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="brand" name="brand" required 
-                                       placeholder="e.g., Nike, Adidas, Uniqlo" maxlength="100">
-                                <div class="form-text">Brand of the shirt</div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <!-- Type -->
-                            <div class="col-md-6 mb-3">
-                                <label for="type" class="form-label">Type <span class="text-danger">*</span></label>
-                                <select class="form-select" id="type" name="type" required>
-                                    <option value="">Select type</option>
-                                    <option value="T-shirt">T-shirt</option>
-                                    <option value="Polo">Polo</option>
-                                    <option value="Hoodie">Hoodie</option>
-                                    <option value="Sweatshirt">Sweatshirt</option>
-                                    <option value="Tank Top">Tank Top</option>
-                                    <option value="Long Sleeve">Long Sleeve</option>
-                                </select>
-                                <div class="form-text">Type of shirt</div>
-                            </div>
-                            
-                            <!-- Color -->
-                            <div class="col-md-6 mb-3">
-                                <label for="color" class="form-label">Color <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="color" name="color" required 
-                                       placeholder="e.g., Black, White, Blue" maxlength="50">
-                                <div class="form-text">Color of the shirt</div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <!-- Size -->
-                            <div class="col-md-6 mb-3">
-                                <label for="size" class="form-label">Size <span class="text-danger">*</span></label>
-                                <select class="form-select" id="size" name="size" required>
-                                    <option value="">Select size</option>
-                                    <option value="XS">XS</option>
-                                    <option value="S">S</option>
-                                    <option value="M">M</option>
-                                    <option value="L">L</option>
-                                    <option value="XL">XL</option>
-                                    <option value="XXL">XXL</option>
-                                    <option value="XXXL">XXXL</option>
-                                </select>
-                                <div class="form-text">Size of the shirt</div>
-                            </div>
-                            
-                            <!-- Price -->
-                            <div class="col-md-6 mb-3">
-                                <label for="price" class="form-label">Price (₱) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="price" name="price" required 
-                                       step="0.01" min="0" placeholder="0.00">
-                                <div class="form-text">Price per unit in Philippine Peso</div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <!-- Stock Quantity -->
-                            <div class="col-md-6 mb-3">
-                                <label for="stock" class="form-label">Initial Stock <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="stock" name="stock" required 
-                                       min="0" placeholder="0" value="0">
-                                <div class="form-text">Initial quantity in stock</div>
-                            </div>
-                            
-                            <!-- Supplier -->
-                            <div class="col-md-6 mb-3">
-                                <label for="supplier" class="form-label">Supplier</label>
-                                <input type="text" class="form-control" id="supplier" name="supplier" 
-                                       placeholder="Supplier name" maxlength="100">
-                                <div class="form-text">Supplier of this shirt</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Shop/Location -->
-                        <div class="mb-3">
-                            <label for="shop" class="form-label">Shop/Location</label>
-                            <input type="text" class="form-control" id="shop" name="shop" 
-                                   placeholder="e.g., Main Store, Online, Warehouse" maxlength="100">
-                            <div class="form-text">Where this shirt is located</div>
-                        </div>
-                        
-                        <!-- Notes -->
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">Notes</label>
-                            <textarea class="form-control" id="notes" name="notes" rows="2" 
-                                      placeholder="Additional notes about this shirt product"></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="fas fa-times me-2"></i>Cancel
-                    </button>
-                    <button type="button" class="btn btn-success" id="submitNewShirtProductBtn">
-                        <i class="fas fa-save me-2"></i>Save Shirt Product
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- JavaScript for Shirt Product Modal -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
+            // ============================================
+            // ENHANCED "ADD NEW ITEM" FUNCTIONALITY
+            // ============================================
+            
             // Add New Item button click handler - Enhanced for Shirt Products
             const addNewItemBtn = document.getElementById('add-new-item-btn');
             if (addNewItemBtn) {
@@ -791,6 +660,137 @@
             }
         });
     </script>
+
+    <!-- Add New Shirt Product Modal -->
+    <div class="modal fade" id="addShirtProductModal" tabindex="-1" aria-labelledby="addShirtProductModalLabel" aria-hidden="true" style="display: none;">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="addShirtProductModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Add New Shirt Product
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addShirtProductForm">
+                        @csrf
+                        
+                        <div class="row">
+                            <!-- SKU -->
+                            <div class="col-md-6 mb-3">
+                                <label for="sku" class="form-label">SKU <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="sku" name="sku" required 
+                                       placeholder="e.g., TSHIRT-BLK-M" maxlength="50">
+                                <div class="form-text">Unique identifier for this shirt product</div>
+                            </div>
+                            
+                            <!-- Brand -->
+                            <div class="col-md-6 mb-3">
+                                <label for="brand" class="form-label">Brand <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="brand" name="brand" required 
+                                       placeholder="e.g., Nike, Adidas, Uniqlo" maxlength="100">
+                                <div class="form-text">Brand of the shirt</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Type -->
+                            <div class="col-md-6 mb-3">
+                                <label for="type" class="form-label">Type <span class="text-danger">*</span></label>
+                                <select class="form-select" id="type" name="type" required>
+                                    <option value="">Select type</option>
+                                    <option value="T-shirt">T-shirt</option>
+                                    <option value="Polo">Polo</option>
+                                    <option value="Hoodie">Hoodie</option>
+                                    <option value="Sweatshirt">Sweatshirt</option>
+                                    <option value="Tank Top">Tank Top</option>
+                                    <option value="Long Sleeve">Long Sleeve</option>
+                                </select>
+                                <div class="form-text">Type of shirt</div>
+                            </div>
+                            
+                            <!-- Color -->
+                            <div class="col-md-6 mb-3">
+                                <label for="color" class="form-label">Color <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="color" name="color" required 
+                                       placeholder="e.g., Black, White, Blue" maxlength="50">
+                                <div class="form-text">Color of the shirt</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Size -->
+                            <div class="col-md-6 mb-3">
+                                <label for="size" class="form-label">Size <span class="text-danger">*</span></label>
+                                <select class="form-select" id="size" name="size" required>
+                                    <option value="">Select size</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                </select>
+                                <div class="form-text">Size of the shirt</div>
+                            </div>
+                            
+                            <!-- Price -->
+                            <div class="col-md-6 mb-3">
+                                <label for="price" class="form-label">Price (₱) <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="price" name="price" required 
+                                       step="0.01" min="0" placeholder="0.00">
+                                <div class="form-text">Price per unit in Philippine Peso</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Stock Quantity -->
+                            <div class="col-md-6 mb-3">
+                                <label for="stock" class="form-label">Initial Stock <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="stock" name="stock" required 
+                                       min="0" placeholder="0" value="0">
+                                <div class="form-text">Initial quantity in stock</div>
+                            </div>
+                            
+                            <!-- Supplier -->
+                            <div class="col-md-6 mb-3">
+                                <label for="supplier" class="form-label">Supplier</label>
+                                <input type="text" class="form-control" id="supplier" name="supplier" 
+                                       placeholder="Supplier name" maxlength="100">
+                                <div class="form-text">Supplier of this shirt</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Shop/Location -->
+                        <div class="mb-3">
+                            <label for="shop" class="form-label">Shop/Location</label>
+                            <input type="text" class="form-control" id="shop" name="shop" 
+                                   placeholder="e.g., Main Store, Online, Warehouse" maxlength="100">
+                            <div class="form-text">Where this shirt is located</div>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="2" 
+                                      placeholder="Additional notes about this shirt product"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-success" id="submitNewShirtProductBtn">
+                        <i class="fas fa-save me-2"></i>Save Shirt Product
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     @endsection
 </body>
 </html>
