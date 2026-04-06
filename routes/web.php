@@ -126,6 +126,16 @@ Route::middleware('auth')->group(function () {
         // Use the clean inventory creation form
         return view('inventory.create-clean');
     })->name('inventory.action');
+    
+    // UNIFIED INVENTORY MANAGEMENT - Single page for all inventory operations
+    Route::get('/inventory/unified', function () {
+        return view('inventory.unified-simple');
+    })->name('inventory.unified');
+    
+    // INVENTORIES PAGE - Main inventory listing with category selection
+    Route::get('/inventories', function() { 
+        return view('inventories.index'); 
+    })->name('inventories.index');
     Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store'])->name('inventory.store');
     Route::get('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'show'])->name('inventory.show');
     Route::get('/inventory/{inventory}/edit', [\App\Http\Controllers\InventoryController::class, 'edit'])->name('inventory.edit');
@@ -298,5 +308,3 @@ Route::post('/inventory/shirt-products', function(Request $request) {
 Route::get('/inventorylist', function() {
     return view('inventory.create-clean');
 })->name('inventory.list');
-
-Route::get('/inventories', function() { return view('inventories.index'); })->name('inventories.index');

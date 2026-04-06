@@ -190,45 +190,25 @@
                                 </div>
                                 <h6 class="card-title mb-1">Shirt Products</h6>
                                 <p class="card-text text-muted small mb-0">T-shirts, polo, hoodies</p>
+                                <div class="mt-2">
+                                    <span class="badge bg-primary">24 items</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Other Items -->
+                    <!-- Uncategorized -->
                     <div class="col-md-4 col-lg-2-4">
-                        <div class="category-box card border-3 mx-2" data-category="Other Items" id="box-other">
+                        <div class="category-box card border-3 mx-2" data-category="Uncategorized" id="box-uncategorized">
                             <div class="card-body text-center d-flex flex-column justify-content-center">
                                 <div class="mb-2">
-                                    <i class="fas fa-box fa-2x text-secondary"></i>
+                                    <i class="fas fa-question-circle fa-2x text-secondary"></i>
                                 </div>
-                                <h6 class="card-title mb-1">Other Items</h6>
-                                <p class="card-text text-muted small mb-0">Miscellaneous items</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Garment Materials -->
-                    <div class="col-md-4 col-lg-2-4">
-                        <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment">
-                            <div class="card-body text-center d-flex flex-column justify-content-center">
-                                <div class="mb-2">
-                                    <i class="fas fa-cut fa-2x text-success"></i>
+                                <h6 class="card-title mb-1">Uncategorized</h6>
+                                <p class="card-text text-muted small mb-0">Items without category</p>
+                                <div class="mt-2">
+                                    <span class="badge bg-secondary">8 items</span>
                                 </div>
-                                <h6 class="card-title mb-1">Garment Materials</h6>
-                                <p class="card-text text-muted small mb-0">Fabric, thread, zippers</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Printing and Office Supplies -->
-                    <div class="col-md-4 col-lg-2-4">
-                        <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office">
-                            <div class="card-body text-center d-flex flex-column justify-content-center">
-                                <div class="mb-2">
-                                    <i class="fas fa-print fa-2x text-warning"></i>
-                                </div>
-                                <h6 class="card-title mb-1">Printing & Office</h6>
-                                <p class="card-text text-muted small mb-0">Ink, paper, supplies</p>
                             </div>
                         </div>
                     </div>
@@ -242,6 +222,41 @@
                                 </div>
                                 <h6 class="card-title mb-1">Machines & Equipment</h6>
                                 <p class="card-text text-muted small mb-0">Tools, machines, equipment</p>
+                                <div class="mt-2">
+                                    <span class="badge bg-danger">2 items</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Garment Materials (Coming Soon) -->
+                    <div class="col-md-4 col-lg-2-4">
+                        <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment" style="opacity: 0.6;">
+                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-cut fa-2x text-success"></i>
+                                </div>
+                                <h6 class="card-title mb-1">Garment Materials</h6>
+                                <p class="card-text text-muted small mb-0">(Coming Soon)</p>
+                                <div class="mt-2">
+                                    <span class="badge bg-success">0 items</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Printing and Office Supplies (Coming Soon) -->
+                    <div class="col-md-4 col-lg-2-4">
+                        <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office" style="opacity: 0.6;">
+                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-print fa-2x text-warning"></i>
+                                </div>
+                                <h6 class="card-title mb-1">Printing & Office</h6>
+                                <p class="card-text text-muted small mb-0">(Coming Soon)</p>
+                                <div class="mt-2">
+                                    <span class="badge bg-warning">0 items</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -308,7 +323,11 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Inventory page loaded');
             
-            // Category selection
+            // Check if we're in view-only mode (from URL parameter)
+            const urlParams = new URLSearchParams(window.location.search);
+            const isViewOnlyMode = urlParams.get('mode') === 'view';
+            
+            // Category selection - declare all variables first
             const categoryBoxes = document.querySelectorAll('.category-box');
             const inventoryContainer = document.getElementById('inventory-table-container');
             const currentCategoryTitle = document.getElementById('current-category-title');
@@ -318,6 +337,21 @@
             const tableBody = document.getElementById('inventory-table-body');
             const refreshBtn = document.getElementById('refresh-items-btn');
             const addNewItemBtn = document.getElementById('add-new-item-btn');
+            
+            if (isViewOnlyMode) {
+                console.log('View-only mode enabled - edit/delete buttons will be hidden');
+                // Update page title for view-only mode
+                document.title = 'View Inventory - Class Apparel PH';
+                const pageTitle = document.querySelector('.page-title');
+                if (pageTitle) {
+                    pageTitle.textContent = 'View Inventory (Read-Only)';
+                }
+                
+                // Hide "Add New Item" button in view-only mode
+                if (addNewItemBtn) {
+                    addNewItemBtn.style.display = 'none';
+                }
+            }
             
             let currentCategory = null;
             
@@ -358,6 +392,13 @@
                 // Fetch inventory items from API
                 fetch(`/api/products-by-category?category=${encodeURIComponent(category)}`)
                     .then(response => {
+                        // Check if response is JSON
+                        const contentType = response.headers.get('content-type');
+                        if (!contentType || !contentType.includes('application/json')) {
+                            // If not JSON, might be redirect to login page
+                            throw new Error('Authentication required or server error. Please check if you are logged in.');
+                        }
+                        
                         if (!response.ok) {
                             throw new Error('Network response was not ok');
                         }
@@ -394,6 +435,9 @@
                                 // Format stock
                                 const formattedStock = item.current_stock || 0;
                                 
+                                // Check if we should show action buttons
+                                const showActionButtons = !isViewOnlyMode;
+                                
                                 row.innerHTML = `
                                     <td><strong>${item.sku || 'N/A'}</strong></td>
                                     <td>${item.name || 'Unnamed Item'}</td>
@@ -403,12 +447,16 @@
                                     <td><span class="badge ${formattedStock > 0 ? 'bg-success' : 'bg-danger'}">${formattedStock}</span></td>
                                     <td>${statusBadge}</td>
                                     <td>
+                                        ${showActionButtons ? `
                                         <button class="btn btn-sm btn-warning edit-item-btn" data-id="${item.id}">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="btn btn-sm btn-danger delete-item-btn" data-id="${item.id}">
                                             <i class="fas fa-trash"></i>
                                         </button>
+                                        ` : `
+                                        <span class="text-muted small">View only</span>
+                                        `}
                                     </td>
                                 `;
                                 
@@ -439,10 +487,16 @@
                     .catch(error => {
                         console.error('Error loading inventory items:', error);
                         loadingSpinner.classList.remove('active');
+                        
+                        let errorMessage = `Failed to load inventory items: ${error.message}`;
+                        if (error.message.includes('Authentication required')) {
+                            errorMessage = 'Authentication required. Please <a href="/login" class="alert-link">log in</a> to view inventory.';
+                        }
+                        
                         noDataMessage.innerHTML = `
                             <i class="fas fa-exclamation-triangle fa-3x mb-3 text-danger"></i>
                             <h5>Error Loading Items</h5>
-                            <p class="text-muted">Failed to load inventory items: ${error.message}</p>
+                            <p class="text-muted">${errorMessage}</p>
                         `;
                         noDataMessage.style.display = 'block';
                     });
@@ -467,8 +521,7 @@
                 }
             });
             
-            // Check if URL has category parameter
-            const urlParams = new URLSearchParams(window.location.search);
+            // Check if URL has category parameter (using existing urlParams variable)
             const urlCategory = urlParams.get('category');
             if (urlCategory) {
                 // Find and click the corresponding category box
