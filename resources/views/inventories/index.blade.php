@@ -526,7 +526,7 @@
             // ============================================
             
             // Add New Item button click handler - Enhanced for Shirt Products
-            const addNewItemBtn = document.getElementById('add-new-item-btn');
+            // Note: addNewItemBtn is already declared at line 339
             if (addNewItemBtn) {
                 addNewItemBtn.addEventListener('click', function() {
                     if (currentCategory) {
