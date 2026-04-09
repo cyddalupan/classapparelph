@@ -20,7 +20,18 @@
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-4 mb-4">
+                        <div class="col-md-3 mb-4">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-list-alt fa-3x text-success mb-3"></i>
+                                    <h5>Master List</h5>
+                                    <p class="text-muted">Central product catalog</p>
+                                    <a href="/master-items" class="btn btn-outline-success">Go to Master List</a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
                             <div class="card border-primary">
                                 <div class="card-body text-center">
                                     <i class="fas fa-eye fa-3x text-primary mb-3"></i>
@@ -31,7 +42,7 @@
                             </div>
                         </div>
                         
-                        <div class="col-md-4 mb-4">
+                        <div class="col-md-3 mb-4">
                             <div class="card border-warning">
                                 <div class="card-body text-center">
                                     <i class="fas fa-cogs fa-3x text-warning mb-3"></i>
@@ -42,7 +53,7 @@
                             </div>
                         </div>
                         
-                        <div class="col-md-4 mb-4">
+                        <div class="col-md-3 mb-4">
                             <div class="card border-info">
                                 <div class="card-body text-center">
                                     <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
@@ -94,6 +105,11 @@
                                         <i class="fas fa-check-circle me-2"></i>
                                         <strong>Database Connected</strong>
                                         <p class="mb-0 small">Inventory system is operational</p>
+                                    </div>
+                                    <div class="alert alert-success">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>Master Catalog Active</strong>
+                                        <p class="mb-0 small">3 products in master list</p>
                                     </div>
                                     <div class="alert alert-success">
                                         <i class="fas fa-check-circle me-2"></i>

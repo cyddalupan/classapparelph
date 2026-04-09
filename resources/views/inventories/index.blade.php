@@ -34,11 +34,13 @@
         }
         
         .page-header {
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            color: white;
+            background: white;
+            color: var(--dark-color);
             padding: 2rem 0;
             margin-bottom: 2rem;
             border-radius: 0 0 15px 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-bottom: 4px solid var(--primary-color);
         }
         
         .page-title {

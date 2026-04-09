@@ -135,6 +135,21 @@ Route::middleware('auth')->group(function () {
     // INVENTORIES PAGE - Main inventory listing with category selection
     Route::get('/inventories', [App\Http\Controllers\InventoriesController::class, 'index'])
         ->name('inventories.index');
+    
+    // MASTER ITEMS PAGE - Product catalog management (no stock quantities)
+    Route::get('/master-items', [App\Http\Controllers\MasterItemsController::class, 'index'])
+        ->name('master-items.index');
+    Route::get('/master-items/create', [App\Http\Controllers\MasterItemsController::class, 'create'])
+        ->name('master-items.create');
+    Route::post('/master-items', [App\Http\Controllers\MasterItemsController::class, 'store'])
+        ->name('master-items.store');
+    Route::get('/master-items/{masterItem}/edit', [App\Http\Controllers\MasterItemsController::class, 'edit'])
+        ->name('master-items.edit');
+    Route::put('/master-items/{masterItem}', [App\Http\Controllers\MasterItemsController::class, 'update'])
+        ->name('master-items.update');
+    Route::delete('/master-items/{masterItem}', [App\Http\Controllers\MasterItemsController::class, 'destroy'])
+        ->name('master-items.destroy');
+    
     Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store'])->name('inventory.store');
     Route::get('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'show'])->name('inventory.show');
     Route::get('/inventory/{inventory}/edit', [\App\Http\Controllers\InventoryController::class, 'edit'])->name('inventory.edit');

@@ -235,27 +235,10 @@
                             <i class="fas fa-users"></i>
                             <span class="nav-text">Customers</span>
                         </a>
-                        <div class="nav-item nav-dropdown {{ request()->routeIs('inventory.*') ? 'active' : '' }}">
-                            <div class="nav-dropdown-toggle">
-                                <i class="fas fa-boxes"></i>
-                                <span class="nav-text">Inventory Management</span>
-                                <i class="fas fa-chevron-down nav-dropdown-arrow"></i>
-                            </div>
-                            <div class="nav-dropdown-menu">
-                                <a href="{{ route('inventory.index') }}" class="nav-dropdown-item {{ request()->routeIs('inventory.index') ? 'active' : '' }}">
-                                    <i class="fas fa-tachometer-alt"></i>
-                                    <span>Dashboard</span>
-                                </a>
-                                <a href="{{ route('inventory.action') }}" class="nav-dropdown-item {{ request()->routeIs('inventory.action') ? 'active' : '' }}">
-                                    <i class="fas fa-plus-circle"></i>
-                                    <span>Inventory Action</span>
-                                </a>
-                                <a href="{{ route('productlist.index') }}" class="nav-dropdown-item {{ request()->routeIs('productlist.index') ? 'active' : '' }}">
-                                    <i class="fas fa-cube"></i>
-                                    <span>Product List</span>
-                                </a>
-                            </div>
-                        </div>
+                        <a href="{{ route('inventory.unified') }}" class="nav-item {{ request()->routeIs('inventory.unified') ? 'active' : '' }}">
+                            <i class="fas fa-boxes"></i>
+                            <span class="nav-text">Inventory Management</span>
+                        </a>
                         <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.*') ? 'active' : '' }}">
                             <i class="fas fa-cogs"></i>
                             <span class="nav-text">Production</span>

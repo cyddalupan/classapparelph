@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Master Product Catalog - Class Apparel PH</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            background-color: #f5f7fb;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .page-header {
+            background: linear-gradient(135deg, #3a86ff, #8338ec);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 15px 15px;
+        }
+        
+        .category-box {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+            height: 100%;
+            min-height: 140px;
+        }
+        
+        .category-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-color: #3a86ff;
+        }
+        
+        .category-box.selected {
+            border-color: #3a86ff;
+            background-color: rgba(58, 134, 255, 0.05);
+        }
+        
+        .category-box .card-title {
+            font-weight: 600;
+            color: #212529;
+            text-align: center !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-align: center;
+        }
+        
+        .category-box .badge-container {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fas fa-tshirt text-primary me-2"></i>
+                Class Apparel PH
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">
+                            <i class="fas fa-home me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/inventories">
+                            <i class="fas fa-boxes me-1"></i> Shop Inventory
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active fw-bold" href="/master-items">
+                            <i class="fas fa-list-alt me-1"></i> Master Catalog
+                        </a>
+                    </li>
+                    @auth
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i> {{ Auth::user()->name }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/profile"><i class="fas fa-user-cog me-2"></i> Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="POST" action="/logout">
+                                    @csrf
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="fas fa-sign-out-alt me-2"></i> Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                    @endauth
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="page-title">Master Product Catalog</h1>
+                    <p class="page-subtitle">Centralized product management for all shops</p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="d-inline-block bg-white text-dark rounded-pill px-3 py-1 mb-2">
+                        <i class="fas fa-database me-1 text-primary"></i>
+                        <strong>{{ $totalActiveItems }}</strong> active products
+                    </div>
+                    <div class="d-inline-block bg-white text-dark rounded-pill px-3 py-1 ms-2 mb-2">
+                        <i class="fas fa-archive me-1 text-secondary"></i>
+                        <strong>{{ $totalItemsIncludingDeleted }}</strong> total in catalog
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Success/Error Messages -->
+        @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+        
+        @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
+        <!-- Category Selection Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h4 class="mb-3">Select Category</h4>
+                <div class="row g-3">
+                    <!-- Shirt Products -->
+                    <div class="col-md-4 col-lg-2-4">
+                        <div class="category-box card border-3 mx-2" data-category="Shirt Products" id="box-shirt">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-tshirt fa-2x text-primary"></i>
+                                </div>
+                                <h6 class="card-title mb-1 text-center">Shirt Products</h6>
+                                <p class="card-text text-muted small mb-0">T-shirts, polo, hoodies</p>
+                                <div class="mt-2 badge-container">
+                                    <span class="badge bg-primary">{{ $categoryCounts['shirt'] }} products</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Uncategorized -->
+                    <div class="col-md-4 col-lg-2-4">
+                        <div class="category-box card border-3 mx-2" data-category="Uncategorized" id="box-uncategorized">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-question-circle fa-2x text-secondary"></i>
+                                </div>
+                                <h6 class="card-title mb-1 text-center">Uncategorized</h6>
+                                <p class="card-text text-muted small mb-0">Products without category</p>
+                                <div class="mt-2 badge-container">
+                                    <span class="badge bg-secondary">{{ $categoryCounts['uncategorized'] }} products</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Machine and Equipments -->
+                    <div class="col-md-4 col-lg-2-4">
+                        <div class="category-box card border-3 mx-2" data-category="Machine and Equipments" id="box-machine">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-tools fa-2x text-danger"></i>
+                                </div>
+                                <h6 class="card-title mb-1 text-center">Machines & Equipment</h6>
+                                <p class="card-text text-muted small mb-0">Tools, machines, equipment</p>
+                                <div class="mt-2 badge-container">
+                                    <span class="badge bg-danger">{{ $categoryCounts['machines'] }} products</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Garment Materials -->
+                    <div class="col-md-4 col-lg-2-4">
+                        <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-cut fa-2x text-success"></i>
+                                </div>
+                                <h6 class="card-title mb-1 text-center">Garment Materials</h6>
+                                <p class="card-text text-muted small mb-0">Fabrics, threads, accessories</p>
+                                <div class="mt-2 badge-container">
+                                    <span class="badge bg-success">{{ $categoryCounts['materials'] }} products</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Printing and Office Supplies -->
+                    <div class="col-md-4 col-lg-2-4">
+                        <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-print fa-2x text-warning"></i>
+                                </div>
+                                <h6 class="card-title mb-1 text-center">Printing & Office</h6>
+                                <p class="card-text text-muted small mb-0">Ink, paper, office supplies</p>
+                                <div class="mt-2 badge-container">
+                                    <span class="badge bg-warning">{{ $categoryCounts['printing'] }} products</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Master Items Display Section -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Master Products</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <a href="{{ route('master-items.create') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i> Add New Product
+                        </a>
+                    </div>
+                </div>
+                
+                @if($totalActiveItems > 0)
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Product Name</th>
+                                    <th>Category</th>
+                                    <th>SKU</th>
+                                    <th>Price</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php
+                                    // For now, show a message since we don't have actual data
+                                    // In Phase 2, we'll fetch actual master items
+                                @endphp
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
+                                        <h5>Master Catalog Ready</h5>
+                                        <p class="text-muted">The master product catalog system is now ready.</p>
+                                        <p class="text-muted">Next step: Connect to shop inventory system.</p>
+                                        <a href="{{ route('master-items.create') }}" class="btn btn-primary mt-2">
+                                            <i class="fas fa-plus me-1"></i> Add First Product
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5>No Master Products Yet</h5>
+                        <p class="text-muted">Start by adding products to your master catalog.</p>
+                        <a href="{{ route('master-items.create') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i> Add First Product
+                        </a>
+                    </div>
+                @endif
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i> About Master Products</h6>
+                <p class="mb-0">
+                    <strong>Master Products</strong> define WHAT items exist in your catalog. Shops will select from this list 
+                    when adding items to their inventory. No stock quantities are managed here - only product definitions.
+                    This is Phase 1 of the system. Phase 2 will connect this catalog to the shop inventory system.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Category box click events
+            const categoryBoxes = document.querySelectorAll('.category-box');
+            
+            categoryBoxes.forEach(box => {
+                box.addEventListener('click', function() {
+                    // Remove selected class from all boxes
+                    categoryBoxes.forEach(b => b.classList.remove('selected'));
+                    
+                    // Add selected class to clicked box
+                    this.classList.add('selected');
+                    
+                    // Get the category
+                    const category = this.getAttribute('data-category');
+                    
+                    // Show alert for now (in Phase 2, this will filter products)
+                    alert('Category selected: ' + category + '\n\nIn Phase 2, this will filter master products by category.');
+                });
+            });
+            
+            // Auto-select first category for demo
+            setTimeout(() => {
+                document.getElementById('box-shirt').click();
+            }, 100);
+        });
+    </script>
+</body>
+</html>
