@@ -133,9 +133,8 @@ Route::middleware('auth')->group(function () {
     })->name('inventory.unified');
     
     // INVENTORIES PAGE - Main inventory listing with category selection
-    Route::get('/inventories', function() { 
-        return view('inventories.index'); 
-    })->name('inventories.index');
+    Route::get('/inventories', [App\Http\Controllers\InventoriesController::class, 'index'])
+        ->name('inventories.index');
     Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store'])->name('inventory.store');
     Route::get('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'show'])->name('inventory.show');
     Route::get('/inventory/{inventory}/edit', [\App\Http\Controllers\InventoryController::class, 'edit'])->name('inventory.edit');

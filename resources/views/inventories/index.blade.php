@@ -307,6 +307,22 @@
     </div>
     
     <div class="container">
+        <!-- Data Verification Alert (Development Only) -->
+        @if(app()->environment('local') || app()->environment('development'))
+        <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <h5 class="alert-heading">📊 Dynamic Category Counts Active</h5>
+            <p class="mb-1">Category counts are now dynamically loaded from database:</p>
+            <ul class="mb-1">
+                <li><strong>Shirt Products:</strong> {{ $categoryCounts['shirt'] }} items (was: 24)</li>
+                <li><strong>Uncategorized:</strong> {{ $categoryCounts['uncategorized'] }} items (was: 8)</li>
+                <li><strong>Machines & Equipment:</strong> {{ $categoryCounts['machines'] }} items (was: 2)</li>
+                <li><strong>Garment Materials:</strong> {{ $categoryCounts['materials'] }} items (was: 0)</li>
+                <li><strong>Printing & Office:</strong> {{ $categoryCounts['printing'] }} items (was: 0)</li>
+            </ul>
+            <p class="mb-0"><small>Total active items: {{ $totalActiveItems }} | Including deleted: {{ $totalItemsIncludingDeleted }}</small></p>
+        </div>
+        @endif
         <!-- Category Selection Section -->
         <div class="row mb-4">
             <div class="col-12">
@@ -322,7 +338,7 @@
                                 <h6 class="card-title mb-1 text-center">Shirt Products</h6>
                                 <p class="card-text text-muted small mb-0">T-shirts, polo, hoodies</p>
                                 <div class="mt-2 badge-container">
-                                    <span class="badge bg-primary">24 items</span>
+                                    <span class="badge bg-primary">{{ $categoryCounts['shirt'] }} items</span>
                                 </div>
                             </div>
                         </div>
@@ -338,7 +354,7 @@
                                 <h6 class="card-title mb-1 text-center">Uncategorized</h6>
                                 <p class="card-text text-muted small mb-0">Items without category</p>
                                 <div class="mt-2 badge-container">
-                                    <span class="badge bg-secondary">8 items</span>
+                                    <span class="badge bg-secondary">{{ $categoryCounts['uncategorized'] }} items</span>
                                 </div>
                             </div>
                         </div>
@@ -354,7 +370,7 @@
                                 <h6 class="card-title mb-1 text-center">Machines & Equipment</h6>
                                 <p class="card-text text-muted small mb-0">Tools, machines, equipment</p>
                                 <div class="mt-2 badge-container">
-                                    <span class="badge bg-danger">2 items</span>
+                                    <span class="badge bg-danger">{{ $categoryCounts['machines'] }} items</span>
                                 </div>
                             </div>
                         </div>
@@ -370,7 +386,7 @@
                                 <h6 class="card-title mb-1 text-center">Garment Materials</h6>
                                 <p class="card-text text-muted small mb-0">(Coming Soon)</p>
                                 <div class="mt-2 badge-container">
-                                    <span class="badge bg-success">0 items</span>
+                                    <span class="badge bg-success">{{ $categoryCounts['materials'] }} items</span>
                                 </div>
                             </div>
                         </div>
@@ -386,7 +402,7 @@
                                 <h6 class="card-title mb-1 text-center">Printing & Office</h6>
                                 <p class="card-text text-muted small mb-0">(Coming Soon)</p>
                                 <div class="mt-2 badge-container">
-                                    <span class="badge bg-warning">0 items</span>
+                                    <span class="badge bg-warning">{{ $categoryCounts['printing'] }} items</span>
                                 </div>
                             </div>
                         </div>
