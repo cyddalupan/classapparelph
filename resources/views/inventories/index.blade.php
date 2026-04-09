@@ -243,6 +243,16 @@
             border-top: 1px dashed #dee2e6;
             padding-top: 1rem;
         }
+        
+        /* Toast Container */
+        .toast-container {
+            z-index: 1055;
+        }
+        
+        .toast {
+            min-width: 300px;
+            max-width: 400px;
+        }
     </style>
 </head>
 <body>
@@ -707,15 +717,17 @@
                             document.querySelectorAll('.edit-item-btn').forEach(btn => {
                                 btn.addEventListener('click', function() {
                                     const itemId = this.getAttribute('data-id');
-                                    alert(`Edit item ${itemId} - To be implemented`);
+                                    editInventoryItem(itemId);
                                 });
                             });
                             
                             document.querySelectorAll('.delete-item-btn').forEach(btn => {
                                 btn.addEventListener('click', function() {
                                     const itemId = this.getAttribute('data-id');
-                                    if (confirm(`Are you sure you want to delete item ${itemId}?`)) {
-                                        alert(`Delete item ${itemId} - To be implemented`);
+                                    const itemName = this.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+                                    
+                                    if (confirm(`Are you sure you want to delete "${itemName}" (ID: ${itemId})? This action cannot be undone.`)) {
+                                        deleteInventoryItem(itemId);
                                     }
                                 });
                             });
@@ -948,15 +960,17 @@
                     document.querySelectorAll('.edit-item-btn').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const itemId = this.getAttribute('data-id');
-                            alert(`Edit item ${itemId} - To be implemented`);
+                            editInventoryItem(itemId);
                         });
                     });
                     
                     document.querySelectorAll('.delete-item-btn').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const itemId = this.getAttribute('data-id');
-                            if (confirm(`Are you sure you want to delete item ${itemId}?`)) {
-                                alert(`Delete item ${itemId} - To be implemented`);
+                            const itemName = this.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+                            
+                            if (confirm(`Are you sure you want to delete "${itemName}" (ID: ${itemId})? This action cannot be undone.`)) {
+                                deleteInventoryItem(itemId);
                             }
                         });
                     });
@@ -984,6 +998,190 @@
                     }
                     
                     countElement.textContent = countText;
+                }
+            }
+            
+            /**
+             * Delete an inventory item
+             */
+            function deleteInventoryItem(itemId) {
+                // Show loading state
+                const deleteBtn = document.querySelector(`.delete-item-btn[data-id="${itemId}"]`);
+                if (deleteBtn) {
+                    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    deleteBtn.disabled = true;
+                }
+                
+                // Get CSRF token from meta tag
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                
+                // Send DELETE request
+                // Use FormData to handle CSRF and method override properly
+                const formData = new FormData();
+                formData.append('_method', 'DELETE');
+                formData.append('_token', csrfToken);
+                
+                fetch(`/inventory/${itemId}`, {
+                    method: 'POST', // Use POST with _method override
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: formData,
+                    credentials: 'same-origin' // Include cookies for authentication
+                })
+                .then(response => {
+                    // Check if response is JSON
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        // If not JSON, get text to analyze what we got
+                        return response.text().then(text => {
+                            // Analyze the HTML response
+                            if (text.includes('login') || text.includes('Login') || text.includes('Sign In')) {
+                                throw new Error('AUTH_REQUIRED: Server returned login page. Please log in to delete items.');
+                            } else if (text.includes('inventory') || text.includes('Inventory') || text.includes('success')) {
+                                // Looks like a success page - treat as success
+                                return { success: true, message: 'Item deleted successfully!' };
+                            } else {
+                                // Unknown HTML response
+                                throw new Error(`HTML_RESPONSE: Server returned HTML instead of JSON. Status: ${response.status}. Response starts with: ${text.substring(0, 100)}...`);
+                            }
+                        });
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP_ERROR: status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Show success message
+                    showToast('success', 'Item deleted successfully!', 'The inventory item has been removed.');
+                    
+                    // Remove item from local arrays
+                    allItems = allItems.filter(item => item.id != itemId);
+                    filteredItems = filteredItems.filter(item => item.id != itemId);
+                    
+                    // Update table display
+                    updateTableWithFilteredItems();
+                    
+                    // Update item count
+                    updateItemCount();
+                })
+                .catch(error => {
+                    console.error('Error deleting item:', error);
+                    
+                    // Determine error type and show appropriate message
+                    let errorMessage = 'Unable to delete the item. Please try again.';
+                    let errorTitle = 'Delete Failed';
+                    
+                    if (error.message.includes('AUTH_REQUIRED:')) {
+                        errorTitle = 'Authentication Required';
+                        errorMessage = 'Please log in to delete items. The server returned a login page.';
+                    } else if (error.message.includes('HTML_RESPONSE:')) {
+                        errorTitle = 'Unexpected Response';
+                        errorMessage = 'The server returned an unexpected HTML page instead of JSON data.';
+                    } else if (error.message.includes('HTML instead of JSON')) {
+                        errorTitle = 'Authentication Required';
+                        errorMessage = 'Please log in to delete items. The server returned a login page.';
+                    } else if (error.message.includes('403')) {
+                        errorTitle = 'Permission Denied';
+                        errorMessage = 'You do not have permission to delete inventory items.';
+                    } else if (error.message.includes('404')) {
+                        errorTitle = 'Item Not Found';
+                        errorMessage = 'The item you tried to delete does not exist or has already been deleted.';
+                    } else if (error.message.includes('405')) {
+                        errorTitle = 'Method Not Allowed';
+                        errorMessage = 'The server rejected the delete request. This might be a configuration issue.';
+                    }
+                    
+                    // Show error message
+                    showToast('error', errorTitle, errorMessage);
+                    
+                    // Reset button state
+                    if (deleteBtn) {
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        deleteBtn.disabled = false;
+                    }
+                });
+            }
+            
+            /**
+             * Show toast notification
+             */
+            function showToast(type, title, message) {
+                // Create toast container if it doesn't exist
+                let toastContainer = document.getElementById('toast-container');
+                if (!toastContainer) {
+                    toastContainer = document.createElement('div');
+                    toastContainer.id = 'toast-container';
+                    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                    toastContainer.style.zIndex = '1050';
+                    document.body.appendChild(toastContainer);
+                }
+                
+                // Create toast element
+                const toastId = 'toast-' + Date.now();
+                const toast = document.createElement('div');
+                toast.id = toastId;
+                toast.className = 'toast align-items-center text-bg-' + (type === 'success' ? 'success' : 'danger') + ' border-0';
+                toast.setAttribute('role', 'alert');
+                toast.setAttribute('aria-live', 'assertive');
+                toast.setAttribute('aria-atomic', 'true');
+                
+                // Toast content
+                toast.innerHTML = `
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <strong>${title}</strong><br>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                `;
+                
+                // Add to container
+                toastContainer.appendChild(toast);
+                
+                // Initialize and show toast
+                if (typeof bootstrap !== 'undefined') {
+                    const bsToast = new bootstrap.Toast(toast, {
+                        autohide: true,
+                        delay: 5000
+                    });
+                    bsToast.show();
+                } else {
+                    // Fallback: show as regular alert
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        toast.style.transition = 'opacity 0.5s';
+                        setTimeout(() => toast.remove(), 500);
+                    }, 5000);
+                }
+                
+                // Remove toast from DOM after it's hidden
+                toast.addEventListener('hidden.bs.toast', function () {
+                    toast.remove();
+                });
+            }
+            
+            /**
+             * Edit an inventory item - redirect to edit page
+             */
+            function editInventoryItem(itemId) {
+                // Show loading state on the button
+                const editBtn = document.querySelector(`.edit-item-btn[data-id="${itemId}"]`);
+                if (editBtn) {
+                    const originalHtml = editBtn.innerHTML;
+                    editBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    
+                    // Redirect to edit page after a brief delay to show loading state
+                    setTimeout(() => {
+                        window.location.href = `/inventory/${itemId}/edit`;
+                    }, 300);
+                } else {
+                    // Direct redirect if button not found
+                    window.location.href = `/inventory/${itemId}/edit`;
                 }
             }
             
