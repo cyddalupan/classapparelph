@@ -146,6 +146,101 @@ Route::middleware('auth')->group(function () {
     Route::delete('/inventory/{inventory}/force', [\App\Http\Controllers\InventoryController::class, 'forceDelete'])->name('inventory.forceDelete');
     Route::post('/inventory/{inventory}/stock', [\App\Http\Controllers\InventoryController::class, 'updateStock'])->name('inventory.updateStock');
     
+    // New stock adjustment routes
+    Route::get('/api/inventory-items', function () {
+        // Debug: Log the query
+        \Log::info('API /api/inventory-items called');
+        
+        $query = \App\Models\Inventory::select('id', 'name', 'sku', 'current_stock')
+            ->whereNull('deleted_at');
+        
+        // Add category filter if provided
+        if (request()->has('category') && request('category')) {
+            $category = request('category');
+            $query->where('category', $category);
+            \Log::info('API filtering by category: ' . $category);
+        }
+        
+        $items = $query->orderBy('name')->get();
+            
+        // Debug: Log the count and IDs
+        \Log::info('API returning ' . $items->count() . ' items (excluding deleted)' . (request()->has('category') ? ' for category: ' . request('category') : ''));
+        \Log::info('Item IDs: ' . $items->pluck('id')->implode(', '));
+        
+        return response()->json($items)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    })->name('api.inventory.items');
+    
+    Route::post('/inventory/adjust-stock', function (\Illuminate\Http\Request $request) {
+        // Validate request
+        $validated = $request->validate([
+            'item_id' => 'required|exists:inventories,id',
+            'quantity' => 'required|integer|min:1',
+            'type' => 'required|in:add,deduct',
+            'reason' => 'nullable|string|max:500',
+        ]);
+        
+        // Get the inventory item
+        $inventory = \App\Models\Inventory::findOrFail($validated['item_id']);
+        
+        // Check permissions
+        if (!\Illuminate\Support\Facades\Gate::allows('manage-inventory')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access.'
+            ], 403);
+        }
+        
+        // Calculate new stock
+        $oldStock = $inventory->current_stock;
+        
+        if ($validated['type'] === 'add') {
+            $newStock = $oldStock + $validated['quantity'];
+        } else {
+            // For deduct, ensure we don't go below 0
+            $newStock = max(0, $oldStock - $validated['quantity']);
+            
+            if ($newStock === 0 && $validated['quantity'] > $oldStock) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot deduct more than available stock. Available: ' . $oldStock
+                ], 400);
+            }
+        }
+        
+        // Update stock
+        $inventory->current_stock = $newStock;
+        $inventory->last_restocked_at = now();
+        $inventory->save();
+        
+        // Log the transaction (optional - could create a StockTransaction model)
+        // \App\Models\StockTransaction::create([
+        //     'inventory_id' => $inventory->id,
+        //     'user_id' => auth()->id(),
+        //     'type' => $validated['type'],
+        //     'quantity' => $validated['quantity'],
+        //     'old_stock' => $oldStock,
+        //     'new_stock' => $newStock,
+        //     'reason' => $validated['reason'] ?? 'Manual adjustment',
+        // ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Stock updated successfully',
+            'data' => [
+                'item_id' => $inventory->id,
+                'item_name' => $inventory->name,
+                'old_stock' => $oldStock,
+                'new_stock' => $newStock,
+                'adjustment' => $validated['type'] === 'add' ? 
+                    '+' . $validated['quantity'] : 
+                    '-' . $validated['quantity']
+            ]
+        ]);
+    })->name('inventory.adjust-stock');
+    
     Route::get('/production', function () {
         return view('production.tracking');
     })->name('production.tracking');

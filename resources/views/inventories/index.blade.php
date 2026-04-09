@@ -253,6 +253,40 @@
             min-width: 300px;
             max-width: 400px;
         }
+        /* Stock control styles */
+        .stock-controls .btn-sm {
+            padding: 0.15rem 0.4rem;
+            font-size: 0.75rem;
+        }
+        
+        .stock-controls .btn-xs {
+            padding: 0.1rem 0.3rem;
+            font-size: 0.7rem;
+        }
+        
+        .stock-value {
+            font-size: 1.1rem;
+            min-width: 40px;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        /* Quick add buttons removed per user request */
+        
+        /* Stock modal styles */
+        .modal-header.bg-success {
+            background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+        }
+        
+        .modal-header.bg-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        }
+        
+        /* Action buttons spacing */
+        .action-buttons .btn {
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -363,7 +397,13 @@
                     <button class="btn btn-primary" id="add-new-item-btn">
                         <i class="fas fa-plus me-1"></i> Add New Item
                     </button>
-                    <button class="btn btn-success" id="refresh-items-btn">
+                    <button class="btn btn-success" id="add-stock-btn">
+                        <i class="fas fa-boxes me-1"></i> Add Stock
+                    </button>
+                    <button class="btn btn-warning" id="deduct-stock-btn">
+                        <i class="fas fa-box-open me-1"></i> Deduct Stock
+                    </button>
+                    <button class="btn btn-info" id="refresh-items-btn">
                         <i class="fas fa-sync-alt me-1"></i> Refresh
                     </button>
                 </div>
@@ -531,6 +571,61 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // Global toast notification function
+        function showToast(type, title, message) {
+            // Create toast container if it doesn't exist
+            let toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toast-container';
+                toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                toastContainer.style.zIndex = '1050';
+                document.body.appendChild(toastContainer);
+            }
+            
+            // Create toast element
+            const toastId = 'toast-' + Date.now();
+            const toast = document.createElement('div');
+            toast.id = toastId;
+            toast.className = 'toast align-items-center text-bg-' + (type === 'success' ? 'success' : 'danger') + ' border-0';
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'assertive');
+            toast.setAttribute('aria-atomic', 'true');
+            
+            // Toast content
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            // Add to container
+            toastContainer.appendChild(toast);
+            
+            // Initialize and show toast
+            if (typeof bootstrap !== 'undefined') {
+                const bsToast = new bootstrap.Toast(toast, {
+                    autohide: true,
+                    delay: 5000
+                });
+                bsToast.show();
+            } else {
+                // Fallback: show as regular alert
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.5s';
+                    setTimeout(() => toast.remove(), 500);
+                }, 5000);
+            }
+        }
+
+        // Global variable for current category (accessible across all functions)
+        let currentCategory = null;
+        
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Inventory page loaded');
             
@@ -600,7 +695,7 @@
                 }
             }
             
-            let currentCategory = null;
+            // currentCategory is global (defined above)
             
             // Category box click handler
             categoryBoxes.forEach(box => {
@@ -685,13 +780,26 @@
                                 // Check if we should show action buttons
                                 const showActionButtons = !isViewOnlyMode;
                                 
+                                // Create stock cell with inline controls
+                                const stockCellContent = showActionButtons ? 
+                                    `<div class="stock-controls d-flex align-items-center gap-1">
+                                        <span class="stock-value fw-bold me-2">${formattedStock}</span>
+                                        <button class="btn btn-sm btn-outline-success" onclick="adjustStockInline(${item.id}, '${item.name.replace(/'/g, "\\'")}', 'add', ${formattedStock})">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning" onclick="adjustStockInline(${item.id}, '${item.name.replace(/'/g, "\\'")}', 'deduct', ${formattedStock})">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    </div>` :
+                                    `<span class="badge ${formattedStock > 0 ? 'bg-success' : 'bg-danger'}">${formattedStock}</span>`;
+                                
                                 row.innerHTML = `
                                     <td><strong>${item.sku || 'N/A'}</strong></td>
                                     <td>${item.name || 'Unnamed Item'}</td>
                                     <td><span class="badge-category badge">${item.category || 'Uncategorized'}</span></td>
                                     <td>${item.type || 'N/A'}</td>
                                     <td>${formattedPrice}</td>
-                                    <td><span class="badge ${formattedStock > 0 ? 'bg-success' : 'bg-danger'}">${formattedStock}</span></td>
+                                    <td>${stockCellContent}</td>
                                     <td>${statusBadge}</td>
                                     <td>
                                         ${showActionButtons ? `
@@ -927,13 +1035,26 @@
                         // Check if we should show action buttons
                         const showActionButtons = !isViewOnlyMode;
                         
+                        // Create stock cell with inline controls (same as in loadInventoryItems)
+                        const stockCellContent = showActionButtons ? 
+                            `<div class="stock-controls d-flex align-items-center gap-1">
+                                <span class="stock-value fw-bold me-2">${formattedStock}</span>
+                                <button class="btn btn-sm btn-outline-success" onclick="adjustStockInline(${item.id}, '${item.name.replace(/'/g, "\\'")}', 'add', ${formattedStock})">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" onclick="adjustStockInline(${item.id}, '${item.name.replace(/'/g, "\\'")}', 'deduct', ${formattedStock})">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                            </div>` :
+                            `<span class="badge ${formattedStock > 0 ? 'bg-success' : 'bg-danger'}">${formattedStock}</span>`;
+                        
                         row.innerHTML = `
                             <td><strong>${item.sku || 'N/A'}</strong></td>
                             <td>${item.name || 'Unnamed Item'}</td>
                             <td><span class="badge-category badge">${item.category || 'Uncategorized'}</span></td>
                             <td>${item.type || 'N/A'}</td>
                             <td>${formattedPrice}</td>
-                            <td><span class="badge ${formattedStock > 0 ? 'bg-success' : 'bg-danger'}">${formattedStock}</span></td>
+                            <td>${stockCellContent}</td>
                             <td>${statusBadge}</td>
                             <td>
                                 ${showActionButtons ? `
@@ -1109,61 +1230,7 @@
             /**
              * Show toast notification
              */
-            function showToast(type, title, message) {
-                // Create toast container if it doesn't exist
-                let toastContainer = document.getElementById('toast-container');
-                if (!toastContainer) {
-                    toastContainer = document.createElement('div');
-                    toastContainer.id = 'toast-container';
-                    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-                    toastContainer.style.zIndex = '1050';
-                    document.body.appendChild(toastContainer);
-                }
-                
-                // Create toast element
-                const toastId = 'toast-' + Date.now();
-                const toast = document.createElement('div');
-                toast.id = toastId;
-                toast.className = 'toast align-items-center text-bg-' + (type === 'success' ? 'success' : 'danger') + ' border-0';
-                toast.setAttribute('role', 'alert');
-                toast.setAttribute('aria-live', 'assertive');
-                toast.setAttribute('aria-atomic', 'true');
-                
-                // Toast content
-                toast.innerHTML = `
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            <strong>${title}</strong><br>
-                            ${message}
-                        </div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                `;
-                
-                // Add to container
-                toastContainer.appendChild(toast);
-                
-                // Initialize and show toast
-                if (typeof bootstrap !== 'undefined') {
-                    const bsToast = new bootstrap.Toast(toast, {
-                        autohide: true,
-                        delay: 5000
-                    });
-                    bsToast.show();
-                } else {
-                    // Fallback: show as regular alert
-                    setTimeout(() => {
-                        toast.style.opacity = '0';
-                        toast.style.transition = 'opacity 0.5s';
-                        setTimeout(() => toast.remove(), 500);
-                    }, 5000);
-                }
-                
-                // Remove toast from DOM after it's hidden
-                toast.addEventListener('hidden.bs.toast', function () {
-                    toast.remove();
-                });
-            }
+            // showToast function is now defined globally (see top of script)
             
             /**
              * Edit an inventory item - redirect to edit page
@@ -1457,6 +1524,34 @@
             // Reset filters button
             if (resetFiltersBtn) {
                 resetFiltersBtn.addEventListener('click', resetFilters);
+            }
+            
+            // Refresh button
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', function() {
+                    // Add loading state
+                    const originalHtml = refreshBtn.innerHTML;
+                    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Refreshing...';
+                    refreshBtn.disabled = true;
+                    
+                    setTimeout(() => {
+                        if (currentCategory) {
+                            // Re-fetch the current category data
+                            const categoryBox = document.querySelector(`.category-box[data-category="${currentCategory}"]`);
+                            if (categoryBox) {
+                                categoryBox.click();
+                            }
+                        } else {
+                            // If no category selected, show all items
+                            loadInventoryItems();
+                        }
+                        
+                        // Restore button state
+                        refreshBtn.innerHTML = originalHtml;
+                        refreshBtn.disabled = false;
+                        showToast('success', 'Refreshed', 'Inventory data refreshed successfully');
+                    }, 500);
+                });
             }
             
             // ============================================
@@ -1765,6 +1860,295 @@
                 });
             }
         });
+        // Stock Adjustment Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const addStockBtn = document.getElementById('add-stock-btn');
+            const deductStockBtn = document.getElementById('deduct-stock-btn');
+            const stockModal = document.getElementById('stockAdjustmentModal');
+            const stockModalLabel = document.getElementById('stockAdjustmentModalLabel');
+            const stockModalHeader = document.getElementById('stockModalHeader');
+            const adjustmentTypeInput = document.getElementById('adjustmentType');
+            const itemSelect = document.getElementById('itemSelect');
+            const quantityInput = document.getElementById('quantity');
+            const quantityHelp = document.getElementById('quantityHelp');
+            const currentStockInfo = document.getElementById('currentStockInfo');
+            const stockInfoText = document.getElementById('stockInfoText');
+            const submitStockBtn = document.getElementById('submitStockAdjustmentBtn');
+            
+            // Load inventory items into dropdown
+            function loadInventoryItems(category = null) {
+                console.log('Loading inventory items... [VERSION: 2026-04-09-04:12]', category ? `Category filter: ${category}` : 'No category filter');
+                // Build API URL with optional category filter
+                let apiUrl = '/api/inventory-items?' + new Date().getTime();
+                if (category) {
+                    apiUrl += '&category=' + encodeURIComponent(category);
+                }
+                
+                fetch(apiUrl, {
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    },
+                    cache: 'no-store'
+                })
+                    .then(response => {
+                        console.log('Response status:', response.status, response.statusText);
+                        if (!response.ok) {
+                            // Check if it's a redirect to login (302 or 401)
+                            if (response.status === 302 || response.status === 401) {
+                                throw new Error('Authentication required. Please log in again.');
+                            }
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Received data:', data);
+                        console.log('Number of items received:', data ? data.length : 0);
+                        
+                        // Log item IDs to check for deleted items
+                        if (data && data.length > 0) {
+                            console.log('Item IDs received:', data.map(item => item.id).join(', '));
+                        }
+                        
+                        // Log if no items found for category
+                        if (category && (!data || data.length === 0)) {
+                            console.log(`No items found for category: ${category}`);
+                        }
+                        
+                        itemSelect.innerHTML = '<option value="">Select an item...</option>';
+                        if (data && data.length > 0) {
+                            data.forEach(item => {
+                                const option = document.createElement('option');
+                                option.value = item.id;
+                                option.textContent = `${item.name} (SKU: ${item.sku}) - Stock: ${item.current_stock}`;
+                                option.setAttribute('data-stock', item.current_stock);
+                                itemSelect.appendChild(option);
+                            });
+                            console.log(`Loaded ${data.length} items into dropdown`);
+                        } else {
+                            const option = document.createElement('option');
+                            option.value = '';
+                            option.textContent = 'No inventory items found';
+                            itemSelect.appendChild(option);
+                            console.log('No inventory items found');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading inventory items:', error);
+                        showToast('error', 'Error', `Failed to load inventory items: ${error.message}. Please refresh the page and try again.`);
+                    });
+            }
+            
+            // Show stock adjustment modal
+            function showStockModal(type) {
+                adjustmentTypeInput.value = type;
+                
+                // Update modal title and styling based on type
+                if (type === 'add') {
+                    stockModalLabel.innerHTML = '<i class="fas fa-boxes me-2"></i>Add Stock';
+                    stockModalHeader.className = 'modal-header bg-success text-white';
+                    quantityHelp.textContent = 'Enter quantity to add';
+                    submitStockBtn.className = 'btn btn-success';
+                    submitStockBtn.innerHTML = '<i class="fas fa-check me-2"></i>Add Stock';
+                } else {
+                    stockModalLabel.innerHTML = '<i class="fas fa-box-open me-2"></i>Deduct Stock';
+                    stockModalHeader.className = 'modal-header bg-warning text-white';
+                    quantityHelp.textContent = 'Enter quantity to deduct';
+                    submitStockBtn.className = 'btn btn-warning';
+                    submitStockBtn.innerHTML = '<i class="fas fa-check me-2"></i>Deduct Stock';
+                }
+                
+                // Load items and show modal - FILTERED BY CURRENT CATEGORY
+                loadInventoryItems(currentCategory);
+                const modal = new bootstrap.Modal(stockModal);
+                modal.show();
+            }
+            
+            // Handle item selection change
+            itemSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const currentStock = selectedOption.getAttribute('data-stock');
+                
+                if (currentStock) {
+                    stockInfoText.textContent = `Current stock: ${currentStock} units`;
+                    currentStockInfo.style.display = 'block';
+                    
+                    // For deduct, validate max quantity
+                    if (adjustmentTypeInput.value === 'deduct') {
+                        quantityInput.max = currentStock;
+                        if (parseInt(quantityInput.value) > parseInt(currentStock)) {
+                            quantityInput.value = currentStock;
+                        }
+                    }
+                } else {
+                    currentStockInfo.style.display = 'none';
+                }
+            });
+            
+            // Handle stock adjustment submission
+            submitStockBtn.addEventListener('click', function() {
+                const itemId = itemSelect.value;
+                const quantity = quantityInput.value;
+                const type = adjustmentTypeInput.value;
+                const reason = document.getElementById('reason').value;
+                
+                // Validation
+                if (!itemId) {
+                    showToast('error', 'Validation Error', 'Please select an item');
+                    return;
+                }
+                
+                if (!quantity || parseInt(quantity) <= 0) {
+                    showToast('error', 'Validation Error', 'Please enter a valid quantity');
+                    return;
+                }
+                
+                // Show loading state
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+                this.disabled = true;
+                
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+                formData.append('item_id', itemId);
+                formData.append('quantity', quantity);
+                formData.append('type', type);
+                formData.append('reason', reason);
+                
+                // Send request
+                fetch('/inventory/adjust-stock', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Show success message
+                        showToast('success', 'Stock Updated', 
+                            `${type === 'add' ? 'Added' : 'Deducted'} ${quantity} units successfully`);
+                        
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(stockModal);
+                        modal.hide();
+                        
+                        // Reset form
+                        document.getElementById('stockAdjustmentForm').reset();
+                        currentStockInfo.style.display = 'none';
+                        
+                        // Refresh inventory table
+                        loadInventoryItems();
+                        
+                        // Refresh main inventory table if a category is selected
+                        if (typeof currentCategory !== 'undefined' && currentCategory) {
+                            // Re-fetch the current category data
+                            const categoryBox = document.querySelector(`.category-box[data-category="${currentCategory}"]`);
+                            if (categoryBox) {
+                                categoryBox.click();
+                            }
+                        }
+                        
+                        // Show success message
+                        showToast('success', 'Stock Updated', 
+                            `${type === 'add' ? 'Added' : 'Deducted'} ${quantity} units successfully`);
+                    } else {
+                        throw new Error(data.message || 'Unknown error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error adjusting stock:', error);
+                    showToast('error', 'Update Failed', 
+                        `Failed to update stock: ${error.message}`);
+                })
+                .finally(() => {
+                    // Restore button state
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                });
+            });
+            
+            // Event listeners for buttons
+            if (addStockBtn) {
+                addStockBtn.addEventListener('click', () => showStockModal('add'));
+            }
+            
+            if (deductStockBtn) {
+                deductStockBtn.addEventListener('click', () => showStockModal('deduct'));
+            }
+            
+            // Load items on page load
+            loadInventoryItems();
+        });
+
+        // Inline stock adjustment buttons are now added directly when table rows are created
+        
+        function adjustStockInline(itemId, itemName, type, currentStock) {
+            const action = type === 'add' ? 'Add to' : 'Deduct from';
+            const max = type === 'deduct' ? currentStock : '';
+            
+            const quantity = prompt(`${action} "${itemName}"\nCurrent stock: ${currentStock}\n\nEnter quantity:`, '1');
+            
+            if (quantity && !isNaN(quantity) && parseInt(quantity) > 0) {
+                if (type === 'deduct' && parseInt(quantity) > currentStock) {
+                    showToast('error', 'Invalid Quantity', `Cannot deduct more than ${currentStock} units`);
+                    return;
+                }
+                
+                quickAdjustStock(itemId, type, parseInt(quantity));
+            }
+        }
+        
+        function quickAdjustStock(itemId, type, quantity) {
+            const formData = new FormData();
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+            formData.append('item_id', itemId);
+            formData.append('quantity', quantity);
+            formData.append('type', type);
+            formData.append('reason', 'Quick adjustment');
+            
+            fetch('/inventory/adjust-stock', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('success', 'Stock Updated', 
+                        `${type === 'add' ? 'Added' : 'Deducted'} ${quantity} units successfully`);
+                    
+                    // Update UI
+                    const row = document.querySelector(`tr[data-id="${itemId}"]`);
+                    if (row) {
+                        const stockDisplay = row.querySelector('.stock-value');
+                        if (stockDisplay) {
+                            const newStock = parseInt(stockDisplay.textContent) + 
+                                            (type === 'add' ? quantity : -quantity);
+                            stockDisplay.textContent = newStock;
+                        }
+                    }
+                } else {
+                    throw new Error(data.message || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                console.error('Error in quick adjustment:', error);
+                showToast('error', 'Update Failed', error.message);
+            });
+        }
+        
+        // Inline buttons are now added directly when table rows are created
+
     </script>
 
     <!-- Add New Shirt Product Modal -->
@@ -1896,6 +2280,63 @@
         </div>
     </div>
 
+
+    <!-- Stock Adjustment Modal -->
+    <div class="modal fade" id="stockAdjustmentModal" tabindex="-1" aria-labelledby="stockAdjustmentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" id="stockModalHeader">
+                    <h5 class="modal-title" id="stockAdjustmentModalLabel">
+                        <i class="fas fa-boxes me-2"></i>Adjust Stock
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="stockAdjustmentForm">
+                        @csrf
+                        <input type="hidden" id="adjustmentType" name="adjustment_type" value="add">
+                        <input type="hidden" id="inventoryId" name="inventory_id" value="">
+                        
+                        <div class="mb-3">
+                            <label for="itemSelect" class="form-label">Select Item <span class="text-danger">*</span></label>
+                            <select class="form-select" id="itemSelect" name="item_id" required>
+                                <option value="">Select an item...</option>
+                                <!-- Items will be populated dynamically -->
+                            </select>
+                            <div class="form-text">Choose the item to adjust stock</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="quantity" class="form-label">Quantity <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" 
+                                   min="1" value="1" required>
+                            <div class="form-text" id="quantityHelp">Enter quantity to add</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="reason" class="form-label">Reason (Optional)</label>
+                            <textarea class="form-control" id="reason" name="reason" rows="2" 
+                                      placeholder="e.g., Received shipment, Customer return, Inventory count"></textarea>
+                            <div class="form-text">Brief description of why stock is being adjusted</div>
+                        </div>
+                        
+                        <div class="alert alert-info" id="currentStockInfo" style="display: none;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <span id="stockInfoText"></span>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-success" id="submitStockAdjustmentBtn">
+                        <i class="fas fa-check me-2"></i>Update Stock
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     @endsection
 </body>
