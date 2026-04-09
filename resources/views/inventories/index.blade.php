@@ -73,11 +73,17 @@
         .category-box .card-title {
             font-weight: 600;
             color: var(--dark-color);
+            text-align: center !important;
         }
         
         .category-box .card-text {
             font-size: 0.85rem;
             color: #6c757d;
+            text-align: center;
+        }
+        
+        .category-box .badge-container {
+            text-align: center;
         }
         
         .inventory-table-container {
@@ -309,13 +315,13 @@
                     <!-- Shirt Products -->
                     <div class="col-md-4 col-lg-2-4">
                         <div class="category-box card border-3 mx-2" data-category="Shirt Products" id="box-shirt">
-                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
                                 <div class="mb-2">
                                     <i class="fas fa-tshirt fa-2x text-primary"></i>
                                 </div>
-                                <h6 class="card-title mb-1">Shirt Products</h6>
+                                <h6 class="card-title mb-1 text-center">Shirt Products</h6>
                                 <p class="card-text text-muted small mb-0">T-shirts, polo, hoodies</p>
-                                <div class="mt-2">
+                                <div class="mt-2 badge-container">
                                     <span class="badge bg-primary">24 items</span>
                                 </div>
                             </div>
@@ -325,13 +331,13 @@
                     <!-- Uncategorized -->
                     <div class="col-md-4 col-lg-2-4">
                         <div class="category-box card border-3 mx-2" data-category="Uncategorized" id="box-uncategorized">
-                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
                                 <div class="mb-2">
                                     <i class="fas fa-question-circle fa-2x text-secondary"></i>
                                 </div>
-                                <h6 class="card-title mb-1">Uncategorized</h6>
+                                <h6 class="card-title mb-1 text-center">Uncategorized</h6>
                                 <p class="card-text text-muted small mb-0">Items without category</p>
-                                <div class="mt-2">
+                                <div class="mt-2 badge-container">
                                     <span class="badge bg-secondary">8 items</span>
                                 </div>
                             </div>
@@ -341,13 +347,13 @@
                     <!-- Machine and Equipments -->
                     <div class="col-md-4 col-lg-2-4">
                         <div class="category-box card border-3 mx-2" data-category="Machine and Equipments" id="box-machine">
-                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
                                 <div class="mb-2">
                                     <i class="fas fa-tools fa-2x text-danger"></i>
                                 </div>
-                                <h6 class="card-title mb-1">Machines & Equipment</h6>
+                                <h6 class="card-title mb-1 text-center">Machines & Equipment</h6>
                                 <p class="card-text text-muted small mb-0">Tools, machines, equipment</p>
-                                <div class="mt-2">
+                                <div class="mt-2 badge-container">
                                     <span class="badge bg-danger">2 items</span>
                                 </div>
                             </div>
@@ -357,13 +363,13 @@
                     <!-- Garment Materials (Coming Soon) -->
                     <div class="col-md-4 col-lg-2-4">
                         <div class="category-box card border-3 mx-2" data-category="Garment Materials" id="box-garment" style="opacity: 0.6;">
-                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
                                 <div class="mb-2">
                                     <i class="fas fa-cut fa-2x text-success"></i>
                                 </div>
-                                <h6 class="card-title mb-1">Garment Materials</h6>
+                                <h6 class="card-title mb-1 text-center">Garment Materials</h6>
                                 <p class="card-text text-muted small mb-0">(Coming Soon)</p>
-                                <div class="mt-2">
+                                <div class="mt-2 badge-container">
                                     <span class="badge bg-success">0 items</span>
                                 </div>
                             </div>
@@ -373,13 +379,13 @@
                     <!-- Printing and Office Supplies (Coming Soon) -->
                     <div class="col-md-4 col-lg-2-4">
                         <div class="category-box card border-3 mx-2" data-category="Printing and Office Supplies" id="box-office" style="opacity: 0.6;">
-                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
                                 <div class="mb-2">
                                     <i class="fas fa-print fa-2x text-warning"></i>
                                 </div>
-                                <h6 class="card-title mb-1">Printing & Office</h6>
+                                <h6 class="card-title mb-1 text-center">Printing & Office</h6>
                                 <p class="card-text text-muted small mb-0">(Coming Soon)</p>
-                                <div class="mt-2">
+                                <div class="mt-2 badge-container">
                                     <span class="badge bg-warning">0 items</span>
                                 </div>
                             </div>
