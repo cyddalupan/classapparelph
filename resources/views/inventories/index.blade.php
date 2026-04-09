@@ -162,6 +162,87 @@
             background-color: var(--danger-color);
             border-color: var(--danger-color);
         }
+        
+        /* Filter Styles */
+        .inventory-filters .card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+        
+        .inventory-filters .form-label {
+            font-weight: 500;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .inventory-filters .btn-group .btn {
+            font-size: 0.85rem;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        .inventory-filters .btn-check:checked + .btn {
+            font-weight: 600;
+        }
+        
+        .inventory-filters .btn-check:checked + .btn-outline-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .inventory-filters .btn-check:checked + .btn-outline-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .inventory-filters .btn-check:checked + .btn-outline-warning {
+            background-color: var(--warning-color);
+            color: #333;
+        }
+        
+        .inventory-filters .btn-check:checked + .btn-outline-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+        
+        .inventory-filters .btn-check:checked + .btn-outline-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        /* Filter Badges */
+        .filter-badge {
+            background-color: rgba(58, 134, 255, 0.1);
+            border: 1px solid rgba(58, 134, 255, 0.3);
+            color: var(--primary-color);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 50px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .filter-badge .remove-filter {
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        
+        .filter-badge .remove-filter:hover {
+            opacity: 1;
+        }
+        
+        /* Price Range Inputs */
+        .inventory-filters input[type="number"] {
+            max-width: 120px;
+        }
+        
+        /* Active Filters Section */
+        #active-filters {
+            border-top: 1px dashed #dee2e6;
+            padding-top: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -293,6 +374,126 @@
                 <p class="text-muted">No items found in this category. Add some items to get started.</p>
             </div>
             
+            <!-- Inventory Filters -->
+            <div class="inventory-filters mb-4" id="inventory-filters" style="display: none;">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <!-- Search Bar -->
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted mb-1">Search Items</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text" class="form-control border-start-0" id="search-filter" placeholder="Search by name or SKU...">
+                                    <button class="btn btn-outline-secondary" id="clear-search" type="button" title="Clear search">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Type Filter -->
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Item Type</label>
+                                <select class="form-select" id="type-filter">
+                                    <option value="">All Types</option>
+                                    <!-- Types will be populated dynamically -->
+                                </select>
+                            </div>
+                            
+                            <!-- Stock Status Filter -->
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Stock Status</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="stock-filter" id="stock-all" value="all" checked>
+                                    <label class="btn btn-outline-primary" for="stock-all">All</label>
+                                    
+                                    <input type="radio" class="btn-check" name="stock-filter" id="stock-in" value="in">
+                                    <label class="btn btn-outline-success" for="stock-in">In Stock</label>
+                                    
+                                    <input type="radio" class="btn-check" name="stock-filter" id="stock-low" value="low">
+                                    <label class="btn btn-outline-warning" for="stock-low">Low Stock</label>
+                                    
+                                    <input type="radio" class="btn-check" name="stock-filter" id="stock-out" value="out">
+                                    <label class="btn btn-outline-danger" for="stock-out">Out of Stock</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Status Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label small text-muted mb-1">Item Status</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="status-filter" id="status-all" value="all" checked>
+                                    <label class="btn btn-outline-secondary" for="status-all">All</label>
+                                    
+                                    <input type="radio" class="btn-check" name="status-filter" id="status-active" value="active">
+                                    <label class="btn btn-outline-success" for="status-active">Active</label>
+                                    
+                                    <input type="radio" class="btn-check" name="status-filter" id="status-inactive" value="inactive">
+                                    <label class="btn btn-outline-secondary" for="status-inactive">Inactive</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Price Range Filter -->
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted mb-1">Price Range</label>
+                                <div class="d-flex align-items-center">
+                                    <input type="number" class="form-control form-control-sm me-2" id="price-min" placeholder="Min" min="0" step="0.01">
+                                    <span class="text-muted">to</span>
+                                    <input type="number" class="form-control form-control-sm ms-2" id="price-max" placeholder="Max" min="0" step="0.01">
+                                    <button class="btn btn-sm btn-outline-secondary ms-2" id="clear-price" type="button" title="Clear price filter">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text small">Leave empty for no limit</div>
+                            </div>
+                            
+                            <!-- Sort Options -->
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-1">Sort By</label>
+                                <select class="form-select" id="sort-filter">
+                                    <option value="name_asc">Name (A-Z)</option>
+                                    <option value="name_desc">Name (Z-A)</option>
+                                    <option value="price_asc">Price (Low to High)</option>
+                                    <option value="price_desc">Price (High to Low)</option>
+                                    <option value="stock_asc">Stock (Low to High)</option>
+                                    <option value="stock_desc">Stock (High to Low)</option>
+                                    <option value="date_desc" selected>Date Added (Newest)</option>
+                                    <option value="date_asc">Date Added (Oldest)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Filter Actions -->
+                            <div class="col-md-3 d-flex align-items-end">
+                                <div class="btn-group w-100">
+                                    <button class="btn btn-outline-primary" id="apply-filters">
+                                        <i class="fas fa-filter me-1"></i> Apply Filters
+                                    </button>
+                                    <button class="btn btn-outline-secondary" id="reset-filters">
+                                        <i class="fas fa-redo me-1"></i> Reset All
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Active Filters Display -->
+                        <div class="row mt-3" id="active-filters" style="display: none;">
+                            <div class="col-12">
+                                <div class="d-flex align-items-center">
+                                    <span class="small text-muted me-2">Active filters:</span>
+                                    <div class="d-flex flex-wrap gap-2" id="filter-badges">
+                                        <!-- Active filter badges will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Inventory Table -->
             <div class="table-responsive" id="inventory-table-wrapper" style="display: none;">
                 <table class="table table-hover" id="inventory-table">
@@ -337,6 +538,42 @@
             const tableBody = document.getElementById('inventory-table-body');
             const refreshBtn = document.getElementById('refresh-items-btn');
             const addNewItemBtn = document.getElementById('add-new-item-btn');
+            
+            // Filtering elements
+            const filtersContainer = document.getElementById('inventory-filters');
+            const searchFilter = document.getElementById('search-filter');
+            const typeFilter = document.getElementById('type-filter');
+            const stockFilterAll = document.getElementById('stock-all');
+            const stockFilterIn = document.getElementById('stock-in');
+            const stockFilterLow = document.getElementById('stock-low');
+            const stockFilterOut = document.getElementById('stock-out');
+            const statusFilterAll = document.getElementById('status-all');
+            const statusFilterActive = document.getElementById('status-active');
+            const statusFilterInactive = document.getElementById('status-inactive');
+            const priceMin = document.getElementById('price-min');
+            const priceMax = document.getElementById('price-max');
+            const sortFilter = document.getElementById('sort-filter');
+            const clearSearchBtn = document.getElementById('clear-search');
+            const clearPriceBtn = document.getElementById('clear-price');
+            const applyFiltersBtn = document.getElementById('apply-filters');
+            const resetFiltersBtn = document.getElementById('reset-filters');
+            const activeFiltersContainer = document.getElementById('active-filters');
+            const filterBadgesContainer = document.getElementById('filter-badges');
+            
+            // Filter state
+            let currentFilters = {
+                search: '',
+                type: '',
+                stock: 'all',
+                status: 'all',
+                priceMin: null,
+                priceMax: null,
+                sort: 'date_desc'
+            };
+            
+            // Store loaded items for filtering
+            let allItems = [];
+            let filteredItems = [];
             
             if (isViewOnlyMode) {
                 console.log('View-only mode enabled - edit/delete buttons will be hidden');
@@ -502,14 +739,685 @@
                     });
             }
             
-            // Refresh button click handler
-            refreshBtn.addEventListener('click', function() {
-                if (currentCategory) {
-                    loadInventoryItems(currentCategory);
+            // ============================================
+            // FILTERING FUNCTIONS
+            // ============================================
+            
+            /**
+             * Apply filters to items and update display
+             */
+            function applyFilters() {
+                if (allItems.length === 0) return;
+                
+                // Get current filter values
+                currentFilters.search = searchFilter.value.trim().toLowerCase();
+                currentFilters.type = typeFilter.value;
+                currentFilters.stock = document.querySelector('input[name="stock-filter"]:checked').value;
+                currentFilters.status = document.querySelector('input[name="status-filter"]:checked').value;
+                currentFilters.priceMin = priceMin.value ? parseFloat(priceMin.value) : null;
+                currentFilters.priceMax = priceMax.value ? parseFloat(priceMax.value) : null;
+                currentFilters.sort = sortFilter.value;
+                
+                // Filter items
+                filteredItems = allItems.filter(item => {
+                    // Search filter
+                    if (currentFilters.search) {
+                        const searchInName = item.name?.toLowerCase().includes(currentFilters.search) || false;
+                        const searchInSku = item.sku?.toLowerCase().includes(currentFilters.search) || false;
+                        if (!searchInName && !searchInSku) return false;
+                    }
+                    
+                    // Type filter
+                    if (currentFilters.type && item.type !== currentFilters.type) {
+                        return false;
+                    }
+                    
+                    // Stock filter
+                    const stock = item.current_stock || 0;
+                    switch (currentFilters.stock) {
+                        case 'in':
+                            if (stock <= 0) return false;
+                            break;
+                        case 'low':
+                            if (stock > 10 || stock <= 0) return false; // Assuming low stock is <= 10
+                            break;
+                        case 'out':
+                            if (stock > 0) return false;
+                            break;
+                    }
+                    
+                    // Status filter
+                    switch (currentFilters.status) {
+                        case 'active':
+                            if (!item.is_active) return false;
+                            break;
+                        case 'inactive':
+                            if (item.is_active) return false;
+                            break;
+                    }
+                    
+                    // Price filter
+                    const price = item.unit_price || 0;
+                    if (currentFilters.priceMin !== null && price < currentFilters.priceMin) {
+                        return false;
+                    }
+                    if (currentFilters.priceMax !== null && price > currentFilters.priceMax) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                // Sort items
+                sortItems(filteredItems);
+                
+                // Update display
+                updateTableWithFilteredItems();
+                
+                // Update active filters display
+                updateActiveFiltersDisplay();
+            }
+            
+            /**
+             * Sort items based on current sort setting
+             */
+            function sortItems(items) {
+                const [field, direction] = currentFilters.sort.split('_');
+                
+                items.sort((a, b) => {
+                    let aValue, bValue;
+                    
+                    switch (field) {
+                        case 'name':
+                            aValue = a.name || '';
+                            bValue = b.name || '';
+                            break;
+                        case 'price':
+                            aValue = a.unit_price || 0;
+                            bValue = b.unit_price || 0;
+                            break;
+                        case 'stock':
+                            aValue = a.current_stock || 0;
+                            bValue = b.current_stock || 0;
+                            break;
+                        case 'date':
+                            aValue = a.created_at || a.id || 0;
+                            bValue = b.created_at || b.id || 0;
+                            break;
+                        default:
+                            return 0;
+                    }
+                    
+                    if (direction === 'asc') {
+                        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+                    } else {
+                        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+                    }
+                });
+            }
+            
+            /**
+             * Update table with filtered items
+             */
+            function updateTableWithFilteredItems() {
+                // Clear existing table rows
+                tableBody.innerHTML = '';
+                
+                if (filteredItems.length === 0) {
+                    // Show no data message
+                    noDataMessage.style.display = 'block';
+                    tableWrapper.style.display = 'none';
+                    
+                    // Update message for filtered results
+                    if (Object.values(currentFilters).some(value => 
+                        (typeof value === 'string' && value !== '' && value !== 'all') || 
+                        (typeof value === 'number' && value !== null)
+                    )) {
+                        noDataMessage.innerHTML = `
+                            <i class="fas fa-search fa-3x mb-3 text-muted"></i>
+                            <h5>No matching items found</h5>
+                            <p class="text-muted">No items match your current filters. Try adjusting your search criteria.</p>
+                            <button class="btn btn-sm btn-outline-primary mt-2" id="reset-filters-from-empty">
+                                <i class="fas fa-redo me-1"></i> Reset Filters
+                            </button>
+                        `;
+                        
+                        // Add event listener to reset button
+                        setTimeout(() => {
+                            const resetBtn = document.getElementById('reset-filters-from-empty');
+                            if (resetBtn) {
+                                resetBtn.addEventListener('click', resetFilters);
+                            }
+                        }, 100);
+                    }
                 } else {
-                    alert('Please select a category first');
+                    // Populate table with filtered items
+                    filteredItems.forEach(item => {
+                        const row = document.createElement('tr');
+                        
+                        // Determine status badge
+                        let statusBadge = '';
+                        if (item.is_active) {
+                            statusBadge = '<span class="badge bg-success">Active</span>';
+                        } else {
+                            statusBadge = '<span class="badge bg-secondary">Inactive</span>';
+                        }
+                        
+                        // Format price
+                        const formattedPrice = new Intl.NumberFormat('en-PH', {
+                            style: 'currency',
+                            currency: 'PHP'
+                        }).format(item.unit_price || 0);
+                        
+                        // Format stock
+                        const formattedStock = item.current_stock || 0;
+                        
+                        // Check if we should show action buttons
+                        const showActionButtons = !isViewOnlyMode;
+                        
+                        row.innerHTML = `
+                            <td><strong>${item.sku || 'N/A'}</strong></td>
+                            <td>${item.name || 'Unnamed Item'}</td>
+                            <td><span class="badge-category badge">${item.category || 'Uncategorized'}</span></td>
+                            <td>${item.type || 'N/A'}</td>
+                            <td>${formattedPrice}</td>
+                            <td><span class="badge ${formattedStock > 0 ? 'bg-success' : 'bg-danger'}">${formattedStock}</span></td>
+                            <td>${statusBadge}</td>
+                            <td>
+                                ${showActionButtons ? `
+                                <button class="btn btn-sm btn-warning edit-item-btn" data-id="${item.id}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-item-btn" data-id="${item.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                ` : `
+                                <span class="text-muted small">View only</span>
+                                `}
+                            </td>
+                        `;
+                        
+                        tableBody.appendChild(row);
+                    });
+                    
+                    // Show table
+                    tableWrapper.style.display = 'block';
+                    noDataMessage.style.display = 'none';
+                    
+                    // Add event listeners to action buttons
+                    document.querySelectorAll('.edit-item-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const itemId = this.getAttribute('data-id');
+                            alert(`Edit item ${itemId} - To be implemented`);
+                        });
+                    });
+                    
+                    document.querySelectorAll('.delete-item-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const itemId = this.getAttribute('data-id');
+                            if (confirm(`Are you sure you want to delete item ${itemId}?`)) {
+                                alert(`Delete item ${itemId} - To be implemented`);
+                            }
+                        });
+                    });
+                }
+                
+                // Update item count
+                updateItemCount();
+            }
+            
+            /**
+             * Update item count display
+             */
+            function updateItemCount() {
+                const totalCount = allItems.length;
+                const filteredCount = filteredItems.length;
+                const countElement = document.getElementById('current-category-title');
+                
+                if (countElement) {
+                    let countText = `Inventory Items`;
+                    
+                    if (filteredCount !== totalCount) {
+                        countText = `Inventory Items (${filteredCount} of ${totalCount})`;
+                    } else if (totalCount > 0) {
+                        countText = `Inventory Items (${totalCount})`;
+                    }
+                    
+                    countElement.textContent = countText;
+                }
+            }
+            
+            /**
+             * Update active filters display
+             */
+            function updateActiveFiltersDisplay() {
+                // Clear existing badges
+                filterBadgesContainer.innerHTML = '';
+                
+                const activeFilters = [];
+                
+                // Search filter
+                if (currentFilters.search) {
+                    activeFilters.push({
+                        type: 'search',
+                        label: `Search: "${currentFilters.search}"`,
+                        value: currentFilters.search
+                    });
+                }
+                
+                // Type filter
+                if (currentFilters.type) {
+                    const typeLabel = typeFilter.options[typeFilter.selectedIndex]?.text || currentFilters.type;
+                    activeFilters.push({
+                        type: 'type',
+                        label: `Type: ${typeLabel}`,
+                        value: currentFilters.type
+                    });
+                }
+                
+                // Stock filter
+                if (currentFilters.stock !== 'all') {
+                    let stockLabel = '';
+                    switch (currentFilters.stock) {
+                        case 'in': stockLabel = 'In Stock'; break;
+                        case 'low': stockLabel = 'Low Stock'; break;
+                        case 'out': stockLabel = 'Out of Stock'; break;
+                    }
+                    activeFilters.push({
+                        type: 'stock',
+                        label: `Stock: ${stockLabel}`,
+                        value: currentFilters.stock
+                    });
+                }
+                
+                // Status filter
+                if (currentFilters.status !== 'all') {
+                    let statusLabel = currentFilters.status === 'active' ? 'Active Only' : 'Inactive Only';
+                    activeFilters.push({
+                        type: 'status',
+                        label: `Status: ${statusLabel}`,
+                        value: currentFilters.status
+                    });
+                }
+                
+                // Price filter
+                if (currentFilters.priceMin !== null || currentFilters.priceMax !== null) {
+                    let priceLabel = 'Price: ';
+                    if (currentFilters.priceMin !== null && currentFilters.priceMax !== null) {
+                        priceLabel += `₱${currentFilters.priceMin} - ₱${currentFilters.priceMax}`;
+                    } else if (currentFilters.priceMin !== null) {
+                        priceLabel += `From ₱${currentFilters.priceMin}`;
+                    } else {
+                        priceLabel += `Up to ₱${currentFilters.priceMax}`;
+                    }
+                    activeFilters.push({
+                        type: 'price',
+                        label: priceLabel,
+                        value: { min: currentFilters.priceMin, max: currentFilters.priceMax }
+                    });
+                }
+                
+                // Sort filter (if not default)
+                if (currentFilters.sort !== 'date_desc') {
+                    const sortLabel = sortFilter.options[sortFilter.selectedIndex]?.text || currentFilters.sort;
+                    activeFilters.push({
+                        type: 'sort',
+                        label: `Sorted by: ${sortLabel}`,
+                        value: currentFilters.sort
+                    });
+                }
+                
+                // Create badges for active filters
+                activeFilters.forEach(filter => {
+                    const badge = document.createElement('span');
+                    badge.className = 'filter-badge';
+                    badge.innerHTML = `
+                        ${filter.label}
+                        <span class="remove-filter" data-type="${filter.type}" title="Remove this filter">
+                            <i class="fas fa-times"></i>
+                        </span>
+                    `;
+                    filterBadgesContainer.appendChild(badge);
+                });
+                
+                // Show/hide active filters container
+                if (activeFilters.length > 0) {
+                    activeFiltersContainer.style.display = 'block';
+                    
+                    // Add event listeners to remove buttons
+                    document.querySelectorAll('.remove-filter').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const filterType = this.getAttribute('data-type');
+                            removeFilter(filterType);
+                        });
+                    });
+                } else {
+                    activeFiltersContainer.style.display = 'none';
+                }
+            }
+            
+            /**
+             * Remove a specific filter
+             */
+            function removeFilter(filterType) {
+                switch (filterType) {
+                    case 'search':
+                        searchFilter.value = '';
+                        break;
+                    case 'type':
+                        typeFilter.value = '';
+                        break;
+                    case 'stock':
+                        stockFilterAll.checked = true;
+                        break;
+                    case 'status':
+                        statusFilterAll.checked = true;
+                        break;
+                    case 'price':
+                        priceMin.value = '';
+                        priceMax.value = '';
+                        break;
+                    case 'sort':
+                        sortFilter.value = 'date_desc';
+                        break;
+                }
+                
+                applyFilters();
+            }
+            
+            /**
+             * Reset all filters to default
+             */
+            function resetFilters() {
+                // Reset form elements
+                searchFilter.value = '';
+                typeFilter.value = '';
+                stockFilterAll.checked = true;
+                statusFilterAll.checked = true;
+                priceMin.value = '';
+                priceMax.value = '';
+                sortFilter.value = 'date_desc';
+                
+                // Reset filter state
+                currentFilters = {
+                    search: '',
+                    type: '',
+                    stock: 'all',
+                    status: 'all',
+                    priceMin: null,
+                    priceMax: null,
+                    sort: 'date_desc'
+                };
+                
+                // Reset items
+                filteredItems = [...allItems];
+                
+                // Update display
+                updateTableWithFilteredItems();
+                updateActiveFiltersDisplay();
+            }
+            
+            /**
+             * Populate type filter dropdown with unique types from items
+             */
+            function populateTypeFilter(items) {
+                // Clear existing options except "All Types"
+                while (typeFilter.options.length > 1) {
+                    typeFilter.remove(1);
+                }
+                
+                // Get unique types
+                const types = [...new Set(items.map(item => item.type).filter(type => type))].sort();
+                
+                // Add type options
+                types.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type;
+                    typeFilter.appendChild(option);
+                });
+            }
+            
+            // ============================================
+            // FILTER EVENT LISTENERS
+            // ============================================
+            
+            // Search filter events
+            if (searchFilter) {
+                searchFilter.addEventListener('input', function() {
+                    // Auto-apply search after typing stops (debounce)
+                    clearTimeout(searchFilter.debounceTimer);
+                    searchFilter.debounceTimer = setTimeout(() => {
+                        applyFilters();
+                    }, 300);
+                });
+            }
+            
+            if (clearSearchBtn) {
+                clearSearchBtn.addEventListener('click', function() {
+                    searchFilter.value = '';
+                    applyFilters();
+                });
+            }
+            
+            // Type filter event
+            if (typeFilter) {
+                typeFilter.addEventListener('change', applyFilters);
+            }
+            
+            // Stock filter events
+            [stockFilterAll, stockFilterIn, stockFilterLow, stockFilterOut].forEach(radio => {
+                if (radio) {
+                    radio.addEventListener('change', applyFilters);
                 }
             });
+            
+            // Status filter events
+            [statusFilterAll, statusFilterActive, statusFilterInactive].forEach(radio => {
+                if (radio) {
+                    radio.addEventListener('change', applyFilters);
+                }
+            });
+            
+            // Price filter events
+            if (priceMin) {
+                priceMin.addEventListener('input', function() {
+                    clearTimeout(priceMin.debounceTimer);
+                    priceMin.debounceTimer = setTimeout(() => {
+                        applyFilters();
+                    }, 500);
+                });
+            }
+            
+            if (priceMax) {
+                priceMax.addEventListener('input', function() {
+                    clearTimeout(priceMax.debounceTimer);
+                    priceMax.debounceTimer = setTimeout(() => {
+                        applyFilters();
+                    }, 500);
+                });
+            }
+            
+            if (clearPriceBtn) {
+                clearPriceBtn.addEventListener('click', function() {
+                    priceMin.value = '';
+                    priceMax.value = '';
+                    applyFilters();
+                });
+            }
+            
+            // Sort filter event
+            if (sortFilter) {
+                sortFilter.addEventListener('change', applyFilters);
+            }
+            
+            // Apply filters button
+            if (applyFiltersBtn) {
+                applyFiltersBtn.addEventListener('click', applyFilters);
+            }
+            
+            // Reset filters button
+            if (resetFiltersBtn) {
+                resetFiltersBtn.addEventListener('click', resetFilters);
+            }
+            
+            // ============================================
+            // MODIFIED LOAD INVENTORY FUNCTION
+            // ============================================
+            
+            // Modify the loadInventoryItems function to store items and show filters
+            const originalLoadInventoryItems = loadInventoryItems;
+            loadInventoryItems = function(category) {
+                originalLoadInventoryItems(category);
+                
+                // The actual loading happens in the fetch promise
+                // We need to modify the fetch handler to store items
+            };
+            
+            // Replace the fetch handler in the original function
+            // We'll do this by modifying the function directly
+            // First, let's get the function as a string and modify it
+            const functionString = originalLoadInventoryItems.toString();
+            const modifiedFunctionString = functionString.replace(
+                /\.then\(items => \{([\s\S]*?items\.forEach\(item => \{)/,
+                `.then(items => {
+                    // Store items for filtering
+                    allItems = items;
+                    filteredItems = [...items];
+                    
+                    // Show filters container
+                    if (filtersContainer) {
+                        filtersContainer.style.display = 'block';
+                    }
+                    
+                    // Populate type filter dropdown
+                    populateTypeFilter(items);
+                    
+                    // Apply any existing filters from URL
+                    applyFiltersFromURL();
+                    
+                    $1`
+            );
+            
+            // Replace the function
+            loadInventoryItems = eval('(' + modifiedFunctionString + ')');
+            
+            /**
+             * Apply filters from URL parameters
+             */
+            function applyFiltersFromURL() {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // Apply filters from URL parameters
+                if (urlParams.has('search')) {
+                    searchFilter.value = urlParams.get('search');
+                }
+                
+                if (urlParams.has('type')) {
+                    typeFilter.value = urlParams.get('type');
+                }
+                
+                if (urlParams.has('stock')) {
+                    const stockValue = urlParams.get('stock');
+                    const stockRadio = document.querySelector(`input[name="stock-filter"][value="${stockValue}"]`);
+                    if (stockRadio) {
+                        stockRadio.checked = true;
+                    }
+                }
+                
+                if (urlParams.has('status')) {
+                    const statusValue = urlParams.get('status');
+                    const statusRadio = document.querySelector(`input[name="status-filter"][value="${statusValue}"]`);
+                    if (statusRadio) {
+                        statusRadio.checked = true;
+                    }
+                }
+                
+                if (urlParams.has('price_min')) {
+                    priceMin.value = urlParams.get('price_min');
+                }
+                
+                if (urlParams.has('price_max')) {
+                    priceMax.value = urlParams.get('price_max');
+                }
+                
+                if (urlParams.has('sort')) {
+                    sortFilter.value = urlParams.get('sort');
+                }
+                
+                // Apply filters if any URL parameters were set
+                if (Array.from(urlParams.keys()).some(key => 
+                    ['search', 'type', 'stock', 'status', 'price_min', 'price_max', 'sort'].includes(key)
+                )) {
+                    setTimeout(() => applyFilters(), 100);
+                }
+            }
+            
+            /**
+             * Update URL with current filter state
+             */
+            function updateURLWithFilters() {
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // Update or remove search parameter
+                if (currentFilters.search) {
+                    urlParams.set('search', currentFilters.search);
+                } else {
+                    urlParams.delete('search');
+                }
+                
+                // Update or remove type parameter
+                if (currentFilters.type) {
+                    urlParams.set('type', currentFilters.type);
+                } else {
+                    urlParams.delete('type');
+                }
+                
+                // Update or remove stock parameter
+                if (currentFilters.stock !== 'all') {
+                    urlParams.set('stock', currentFilters.stock);
+                } else {
+                    urlParams.delete('stock');
+                }
+                
+                // Update or remove status parameter
+                if (currentFilters.status !== 'all') {
+                    urlParams.set('status', currentFilters.status);
+                } else {
+                    urlParams.delete('status');
+                }
+                
+                // Update or remove price parameters
+                if (currentFilters.priceMin !== null) {
+                    urlParams.set('price_min', currentFilters.priceMin);
+                } else {
+                    urlParams.delete('price_min');
+                }
+                
+                if (currentFilters.priceMax !== null) {
+                    urlParams.set('price_max', currentFilters.priceMax);
+                } else {
+                    urlParams.delete('price_max');
+                }
+                
+                // Update or remove sort parameter
+                if (currentFilters.sort !== 'date_desc') {
+                    urlParams.set('sort', currentFilters.sort);
+                } else {
+                    urlParams.delete('sort');
+                }
+                
+                // Update URL without page reload
+                const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+                window.history.replaceState({}, '', newUrl);
+            }
+            
+            // Modify applyFilters to update URL
+            const originalApplyFilters = applyFilters;
+            applyFilters = function() {
+                originalApplyFilters();
+                updateURLWithFilters();
+            };
             
             // Check if URL has category parameter (using existing urlParams variable)
             const urlCategory = urlParams.get('category');
