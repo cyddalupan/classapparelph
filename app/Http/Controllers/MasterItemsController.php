@@ -67,98 +67,106 @@ class MasterItemsController extends Controller
      */
     public function store(Request $request)
     {
-        // Check if bulk creation is requested (selected_sizes array)
+        // Always use selected_sizes array (works for single or bulk)
         $selectedSizes = $request->input('selected_sizes', []);
         
-        if (!empty($selectedSizes) && is_array($selectedSizes)) {
-            // ==================== BULK CREATION ====================
-            $createdCount = 0;
-            $errors = [];
-            
-            // Base data for all items - ONLY fields that exist in database
-            $baseData = $request->validate([
-                'name' => 'required|string|max:255',
-                'category' => 'nullable|string|max:100',
-                'description' => 'nullable|string',
-                'unit_price' => 'nullable|numeric|min:0',
-                'sku' => 'nullable|string|max:50|unique:master_items,sku,NULL,id,deleted_at,NULL',
-                'barcode' => 'nullable|string|max:100',
-            ]);
-            
-            // Add created_by from authenticated user
-            $baseData['created_by'] = auth()->id();
-            
-            // Create one product for each selected size
-            foreach ($selectedSizes as $size) {
-                try {
-                    // Generate SKU: BRAND-TYPE-COLOR-SIZE (allow partial)
-                    $brand = $request->input('brand', '');
-                    $type = $request->input('type', '');
-                    $color = $request->input('color', '');
-                    
-                    $skuParts = [];
-                    if (!empty($brand)) $skuParts[] = strtoupper($brand);
-                    if (!empty($type)) $skuParts[] = strtoupper($type);
-                    if (!empty($color)) $skuParts[] = strtoupper($color);
-                    
-                    $sku = '';
-                    if (!empty($skuParts)) {
-                        $sku = implode('-', $skuParts) . '-' . $size;
-                    }
-                    
-                    // Create product data - store size in description for now
-                    $productData = array_merge($baseData, [
-                        'sku' => $sku ?: null,
-                    ]);
-                    
-                    // Add size to description if we have other details
-                    $description = $request->input('description', '');
-                    if (!empty($brand) || !empty($type) || !empty($color)) {
-                        $sizeInfo = "Size: {$size}";
-                        if (!empty($brand)) $sizeInfo .= ", Brand: {$brand}";
-                        if (!empty($type)) $sizeInfo .= ", Type: {$type}";
-                        if (!empty($color)) $sizeInfo .= ", Color: {$color}";
-                        
-                        $productData['description'] = $description ? $description . "\n" . $sizeInfo : $sizeInfo;
-                    }
-                    
-                    // Create the product
-                    MasterItem::create($productData);
-                    $createdCount++;
-                    
-                } catch (\Exception $e) {
-                    $errors[] = "Failed to create product for size {$size}: " . $e->getMessage();
-                }
-            }
-            
-            // Return success message with count
-            $message = "Created {$createdCount} products successfully!";
-            if (!empty($errors)) {
-                $message .= " (Errors: " . count($errors) . ")";
-            }
-            
-            return redirect()->route('master-items.index')
-                ->with('success', $message);
-            
-        } else {
-            // ==================== SINGLE ITEM CREATION ====================
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'category' => 'nullable|string|max:100',
-                'description' => 'nullable|string',
-                'unit_price' => 'nullable|numeric|min:0',
-                'sku' => 'nullable|string|max:50|unique:master_items,sku,NULL,id,deleted_at,NULL',
-                'barcode' => 'nullable|string|max:100',
-            ]);
-            
-            // Add created_by from authenticated user
-            $validated['created_by'] = auth()->id();
-            
-            MasterItem::create($validated);
-            
-            return redirect()->route('master-items.index')
-                ->with('success', 'Master product created successfully.');
+        // Validate that at least one size is selected
+        if (empty($selectedSizes) || !is_array($selectedSizes)) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['selected_sizes' => 'Please select at least one size.']);
         }
+        
+        $createdCount = 0;
+        $errors = [];
+        
+        // Base data for all items - SKU removed (always auto-generated)
+        $baseData = $request->validate([
+            'name' => 'required|string|max:255',
+            'category' => 'nullable|string|max:100',
+            'description' => 'nullable|string',
+            'unit_price' => 'nullable|numeric|min:0',
+            'barcode' => 'nullable|string|max:100',
+        ]);
+        
+        // Add created_by from authenticated user
+        $baseData['created_by'] = auth()->id();
+        
+        // Create one product for each selected size
+        foreach ($selectedSizes as $size) {
+            try {
+                // Generate SKU: BRAND-TYPE-COLOR-SIZE (allow partial)
+                $brand = $request->input('brand', '');
+                $type = $request->input('type', '');
+                $color = $request->input('color', '');
+                
+                // Function to remove vowels and keep only consonants
+                $removeVowels = function($text) {
+                    // Remove vowels (both uppercase and lowercase)
+                    $text = preg_replace('/[aeiouAEIOU]/', '', $text);
+                    // Remove spaces and special characters, keep only letters/numbers
+                    $text = preg_replace('/[^A-Z0-9]/', '', $text);
+                    return $text;
+                };
+                
+                $skuParts = [];
+                if (!empty($brand)) $skuParts[] = strtoupper($removeVowels($brand));
+                if (!empty($type)) $skuParts[] = strtoupper($removeVowels($type));
+                if (!empty($color)) $skuParts[] = strtoupper($removeVowels($color));
+                
+                $sku = '';
+                if (!empty($skuParts)) {
+                    // Generate unique SKU that won't conflict with soft-deleted items
+                    $sku = implode('-', $skuParts) . '-' . $size;
+                    
+                    // Check if this SKU already exists (including soft-deleted)
+                    $existing = MasterItem::withTrashed()->where('sku', $sku)->first();
+                    if ($existing) {
+                        // Add random suffix to make it unique
+                        $random = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 4);
+                        $sku = $sku . '-' . $random;
+                    }
+                }
+                
+                // Create product data - ONLY fields that exist in database
+                $productData = [
+                    'name' => $baseData['name'],
+                    'category' => $baseData['category'] ?? null,
+                    'description' => $baseData['description'] ?? '',
+                    'unit_price' => $baseData['unit_price'] ?? null,
+                    'barcode' => $baseData['barcode'] ?? null,
+                    'sku' => $sku ?: null,
+                    'created_by' => $baseData['created_by'],
+                ];
+                
+                // Add size to description if we have other details
+                if (!empty($brand) || !empty($type) || !empty($color)) {
+                    $sizeInfo = "Size: {$size}";
+                    if (!empty($brand)) $sizeInfo .= ", Brand: {$brand}";
+                    if (!empty($type)) $sizeInfo .= ", Type: {$type}";
+                    if (!empty($color)) $sizeInfo .= ", Color: {$color}";
+                    
+                    $productData['description'] = $productData['description'] ? 
+                        $productData['description'] . "\n" . $sizeInfo : $sizeInfo;
+                }
+                
+                // Create the product - use only explicit fields
+                MasterItem::create($productData);
+                $createdCount++;
+                
+            } catch (\Exception $e) {
+                $errors[] = "Failed to create product for size {$size}: " . $e->getMessage();
+            }
+        }
+        
+        // Return success message with count
+        $message = "Created {$createdCount} product" . ($createdCount !== 1 ? 's' : '') . " successfully!";
+        if (!empty($errors)) {
+            $message .= " (Errors: " . count($errors) . ")";
+        }
+        
+        return redirect()->route('master-items.index')
+            ->with('success', $message);
     }
     
     /**
@@ -186,7 +194,6 @@ class MasterItemsController extends Controller
             'category' => 'nullable|string|max:100',
             'description' => 'nullable|string',
             'unit_price' => 'nullable|numeric|min:0',
-            'sku' => 'nullable|string|max:50|unique:master_items,sku,' . $masterItem->id,
             'barcode' => 'nullable|string|max:100',
         ]);
         

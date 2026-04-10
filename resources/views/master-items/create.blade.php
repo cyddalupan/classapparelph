@@ -25,18 +25,39 @@
                     <form action="{{ route('master-items.store') }}" method="POST">
                         @csrf
                         
-                        <div class="mb-3">
-                            <label for="category" class="form-label">Category *</label>
-                            <select class="form-select" id="category" name="category" required>
-                                <option value="">Select category</option>
-                                <option value="Shirt Products" {{ old('category') == 'Shirt Products' ? 'selected' : '' }}>Shirt Products (T-shirts, polo, hoodies)</option>
-                                <option value="Uncategorized" {{ old('category') == 'Uncategorized' ? 'selected' : '' }}>Uncategorized (Products without category)</option>
-                                <option value="Machine and Equipments" {{ old('category') == 'Machine and Equipments' ? 'selected' : '' }}>Machines & Equipment (Tools, machines, equipment)</option>
-                                <option value="Garment Materials" {{ old('category') == 'Garment Materials' ? 'selected' : '' }}>Garment Materials (Fabrics, threads, accessories)</option>
-                                <option value="Printing and Office Supplies" {{ old('category') == 'Printing and Office Supplies' ? 'selected' : '' }}>Printing & Office Supplies (Ink, paper, office supplies)</option>
-                            </select>
-                            <div class="form-text">Select the appropriate category for this product</div>
-                        </div>
+                        @php
+                            // Check if category parameter is present in URL
+                            $urlCategory = request()->get('category');
+                            $isShirtProducts = $urlCategory === 'Shirt Products';
+                        @endphp
+                        
+                        @if($isShirtProducts)
+                            <!-- Hidden category field for Shirt Products (from URL parameter) -->
+                            <input type="hidden" id="category" name="category" value="Shirt Products">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <div class="alert alert-info py-2">
+                                    <i class="fas fa-tshirt me-2"></i>
+                                    <strong>Shirt Products</strong> (T-shirts, polo, hoodies)
+                                    <div class="form-text mt-1">Category automatically selected from previous page</div>
+                                </div>
+                            </div>
+                        @else
+                            <!-- Normal category dropdown for other cases -->
+                            <div class="mb-3">
+                                <label for="category" class="form-label">Category *</label>
+                                <select class="form-select" id="category" name="category" required>
+                                    <option value="">Select category</option>
+                                    <option value="Shirt Products" {{ old('category') == 'Shirt Products' ? 'selected' : '' }}>Shirt Products (T-shirts, polo, hoodies)</option>
+                                    <option value="Other Products" {{ old('category') == 'Other Products' ? 'selected' : '' }}>Other Products (Mugs, totebags, lanyards, etc.)</option>
+                                    <option value="Machine and Equipments" {{ old('category') == 'Machine and Equipments' ? 'selected' : '' }}>Machines & Equipment (Tools, machines, equipment)</option>
+                                    <option value="Garment Materials" {{ old('category') == 'Garment Materials' ? 'selected' : '' }}>Garment Materials (Fabrics, threads, accessories)</option>
+                                    <option value="Printing and Office Supplies" {{ old('category') == 'Printing and Office Supplies' ? 'selected' : '' }}>Printing & Office Supplies (Ink, paper, office supplies)</option>
+                                </select>
+                                <div class="form-text">Select the appropriate category for this product</div>
+                            </div>
+                        @endif
                         
                         <div class="mb-3">
                             <label for="name" class="form-label">Product Name *</label>
@@ -44,11 +65,10 @@
                                    value="{{ old('name') }}" placeholder="Enter product name" required>
                         </div>
                         
-                        <div class="mb-3">
-                            <label for="sku" class="form-label">SKU (Stock Keeping Unit)</label>
-                            <input type="text" class="form-control" id="sku" name="sku" 
-                                   value="{{ old('sku') }}" placeholder="Enter SKU (e.g., TSHIRT-001)">
-                            <div class="form-text">Unique identifier for this product</div>
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-bolt me-2"></i>
+                            <strong>Auto-SKU Generation</strong>
+                            <div class="mt-1">SKUs will be automatically generated from Brand + Type + Color + Size</div>
                         </div>
                         
                         <div class="mb-3">
@@ -78,18 +98,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <label for="size" class="form-label">Size</label>
-                                            <select class="form-select" id="size" name="size">
-                                                <option value="">Select size</option>
-                                                <option value="XS">XS</option>
-                                                <option value="S">S</option>
-                                                <option value="M">M</option>
-                                                <option value="L">L</option>
-                                                <option value="XL">XL</option>
-                                                <option value="XXL">XXL</option>
-                                            </select>
-                                        </div>
+
                                         <div class="col-md-6 mb-3">
                                             <label for="color" class="form-label">Color</label>
                                             <input type="text" class="form-control" id="color" name="color" placeholder="Enter color">
@@ -238,14 +247,32 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (selectedCategory === 'Printing and Office Supplies') {
             document.getElementById('printing-fields').style.display = 'block';
         }
-        // Uncategorized doesn't have special fields
+        // Other Products doesn't have special fields
     }
     
-    // Initial show based on current selection
-    showCategoryFields();
-    
-    // Update when category changes
-    categorySelect.addEventListener('change', showCategoryFields);
+    // Check if category is a hidden input (Shirt Products from URL)
+    if (categorySelect && categorySelect.type === 'hidden') {
+        // It's a hidden input with value="Shirt Products"
+        console.log('Category is hidden input with value:', categorySelect.value);
+        
+        // Immediately show Shirt Products fields
+        document.getElementById('shirt-fields').style.display = 'block';
+        
+        // Also trigger size selection section creation
+        setTimeout(() => {
+            if (typeof createSizeSelectionSection === 'function') {
+                createSizeSelectionSection();
+            }
+        }, 100);
+    } 
+    // If it's a select element, add event listener
+    else if (categorySelect && categorySelect.tagName === 'SELECT') {
+        // Initial show based on current selection
+        showCategoryFields();
+        
+        // Update when category changes
+        categorySelect.addEventListener('change', showCategoryFields);
+    }
 });
 
 // ==================== BULK CREATION - SIZE SELECTION ====================
@@ -253,18 +280,32 @@ document.addEventListener('DOMContentLoaded', function() {
 // Common sizes for selection
 const commonSizes = ['10', '12', 'M', 'L', 'XL'];
 
-// Generate SKU based on inputs
+// Generate SKU based on inputs (removing vowels like PHP controller)
 function generateSKU() {
-    const brand = document.getElementById('brand').value.trim().toUpperCase();
-    const type = document.getElementById('type').value.trim().toUpperCase();
-    const color = document.getElementById('color').value.trim().toUpperCase();
+    const brand = document.getElementById('brand').value.trim();
+    const type = document.getElementById('type').value.trim();
+    const color = document.getElementById('color').value.trim();
     
-    if (!brand || !type || !color) {
+    if (!brand && !type && !color) {
         return '';
     }
     
-    // Simple SKU format: BRAND-TYPE-COLOR-SIZE
-    return `${brand}-${type}-${color}`;
+    // Function to remove vowels (matches PHP controller logic)
+    const removeVowels = (text) => {
+        // Remove vowels (both uppercase and lowercase)
+        let result = text.replace(/[aeiouAEIOU]/g, '');
+        // Remove spaces and special characters, keep only letters/numbers
+        result = result.replace(/[^A-Z0-9]/gi, '');
+        return result.toUpperCase();
+    };
+    
+    const skuParts = [];
+    if (brand) skuParts.push(removeVowels(brand));
+    if (type) skuParts.push(removeVowels(type));
+    if (color) skuParts.push(removeVowels(color));
+    
+    // Simple SKU format: BRAND-TYPE-COLOR (vowels removed)
+    return skuParts.join('-');
 }
 
 // Update preview when inputs change
@@ -306,10 +347,13 @@ document.addEventListener('DOMContentLoaded', function() {
         sizeSection.className = 'card mb-4';
         sizeSection.innerHTML = `
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-layer-group me-2"></i>Bulk Size Selection</h5>
+                <h5 class="mb-0"><i class="fas fa-layer-group me-2"></i>Size Selection</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted">Select multiple sizes to create products for all selected sizes at once.</p>
+                <p class="text-muted">
+                    <i class="fas fa-lightbulb me-1"></i>
+                    <strong>Check one or more sizes</strong> to create products. Works for single items or bulk creation.
+                </p>
                 
                 <div class="row mb-3">
                     ${commonSizes.map(size => `
@@ -343,6 +387,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial preview update
     setTimeout(updatePreview, 100);
+    
+    // ==================== AUTO-SELECT CATEGORY FROM URL ====================
+    
+    // Check for category parameter in URL (only needed for select elements)
+    const urlParams = new URLSearchParams(window.location.search);
+    const categoryParam = urlParams.get('category');
+    
+    // Only run auto-selection if categorySelect is a SELECT element (not hidden input)
+    if (categoryParam && categorySelect && categorySelect.tagName === 'SELECT') {
+        // Find the option that matches the category parameter
+        const options = categorySelect.options;
+        for (let i = 0; i < options.length; i++) {
+            if (options[i].value === categoryParam) {
+                categorySelect.value = categoryParam;
+                console.log(`Auto-selected category from URL: ${categoryParam}`);
+                
+                // Trigger the change event to show the appropriate fields
+                const event = new Event('change');
+                categorySelect.dispatchEvent(event);
+                break;
+            }
+        }
+    }
 });
 </script>
 @endsection

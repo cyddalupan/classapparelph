@@ -317,7 +317,7 @@
             <p class="mb-1">Category counts are now dynamically loaded from database:</p>
             <ul class="mb-1">
                 <li><strong>Shirt Products:</strong> {{ $categoryCounts['shirt'] }} items (was: 24)</li>
-                <li><strong>Uncategorized:</strong> {{ $categoryCounts['uncategorized'] }} items (was: 8)</li>
+                <li><strong>Other Products:</strong> {{ $categoryCounts['uncategorized'] }} items (was: 8)</li>
                 <li><strong>Machines & Equipment:</strong> {{ $categoryCounts['machines'] }} items (was: 2)</li>
                 <li><strong>Garment Materials:</strong> {{ $categoryCounts['materials'] }} items (was: 0)</li>
                 <li><strong>Printing & Office:</strong> {{ $categoryCounts['printing'] }} items (was: 0)</li>
@@ -346,17 +346,17 @@
                         </div>
                     </div>
                     
-                    <!-- Uncategorized -->
+                    <!-- Other Products -->
                     <div class="col-md-4 col-lg-2-4">
-                        <div class="category-box card border-3 mx-2" data-category="Uncategorized" id="box-uncategorized">
+                        <div class="category-box card border-3 mx-2" data-category="Other Products" id="box-uncategorized">
                             <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
                                 <div class="mb-2">
-                                    <i class="fas fa-question-circle fa-2x text-secondary"></i>
+                                    <i class="fas fa-gift fa-2x text-info"></i>
                                 </div>
-                                <h6 class="card-title mb-1 text-center">Uncategorized</h6>
-                                <p class="card-text text-muted small mb-0">Items without category</p>
+                                <h6 class="card-title mb-1 text-center">Other Products</h6>
+                                <p class="card-text text-muted small mb-0">Mugs, totebags, lanyards, etc.</p>
                                 <div class="mt-2 badge-container">
-                                    <span class="badge bg-secondary">{{ $categoryCounts['uncategorized'] }} items</span>
+                                    <span class="badge bg-info">{{ $categoryCounts['uncategorized'] }} items</span>
                                 </div>
                             </div>
                         </div>
@@ -820,7 +820,7 @@
                                 row.innerHTML = `
                                     <td><strong>${item.sku || 'N/A'}</strong></td>
                                     <td>${item.name || 'Unnamed Item'}</td>
-                                    <td><span class="badge-category badge">${item.category || 'Uncategorized'}</span></td>
+                                    <td><span class="badge-category badge">${item.category || 'Other Products'}</span></td>
                                     <td>${item.type || 'N/A'}</td>
                                     <td>${formattedPrice}</td>
                                     <td>${stockCellContent}</td>
@@ -1075,7 +1075,7 @@
                         row.innerHTML = `
                             <td><strong>${item.sku || 'N/A'}</strong></td>
                             <td>${item.name || 'Unnamed Item'}</td>
-                            <td><span class="badge-category badge">${item.category || 'Uncategorized'}</span></td>
+                            <td><span class="badge-category badge">${item.category || 'Other Products'}</span></td>
                             <td>${item.type || 'N/A'}</td>
                             <td>${formattedPrice}</td>
                             <td>${stockCellContent}</td>
@@ -1757,19 +1757,10 @@
                     if (currentCategory) {
                         // Check if current category is "Shirt Products"
                         if (currentCategory === 'Shirt Products') {
-                            console.log('Shirt Products category selected - Opening modal');
+                            console.log('Shirt Products category selected - Redirecting to master items form');
                             
-                            // Open the Add New Shirt Product modal
-                            const shirtModalElement = document.getElementById('addShirtProductModal');
-                            
-                            if (shirtModalElement && typeof bootstrap !== 'undefined') {
-                                const addShirtProductModal = new bootstrap.Modal(shirtModalElement);
-                                addShirtProductModal.show();
-                                console.log('Shirt product modal opened successfully');
-                            } else {
-                                console.error('Modal element or Bootstrap not found');
-                                alert('Error: Could not open the form. Please refresh the page.');
-                            }
+                            // Redirect to master items create page with category pre-selected
+                            window.location.href = `/master-items/create?category=${encodeURIComponent(currentCategory)}`;
                         } else {
                             // For other categories, redirect to inventory action page
                             console.log('Non-shirt category selected - Redirecting');

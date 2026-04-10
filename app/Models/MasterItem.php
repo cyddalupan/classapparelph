@@ -17,26 +17,9 @@ class MasterItem extends Model
         'sku',
         'barcode',
         'created_by',
-        // Shirt Products fields
-        'size',
-        'color',
-        'material',
-        'brand',
-        // Machine & Equipment fields
-        'model',
-        'serial_number',
-        'warranty_period',
-        'power_requirement',
-        // Garment Materials fields
-        'fabric_type',
-        'weight',
-        'width',
-        'color_fastness',
-        // Printing & Office Supplies fields
-        'paper_type',
-        'paper_size',
-        'ink_type',
-        'yield',
+        // NOTE: Database only has above columns
+        // Other fields (size, color, brand, etc.) are stored in description field
+        // Do NOT add fields that don't exist in database table!
     ];
     
     protected $casts = [

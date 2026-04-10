@@ -67,7 +67,7 @@
                 <div class="container">
                     <div class="row align-items-center">
                         <div class="col-md-8">
-                            <h1 class="page-title">Master Product Catalog</h1>
+                            <h1 class="page-title">Master Product List</h1>
                             <p class="page-subtitle">Centralized product management for all shops</p>
                         </div>
                         <div class="col-md-4 text-md-end">
@@ -126,17 +126,17 @@
                         </div>
                     </div>
                     
-                    <!-- Uncategorized -->
+                    <!-- Other Products -->
                     <div class="col-md-4 col-lg-2-4">
-                        <div class="category-box card border-3 mx-2" data-category="Uncategorized" id="box-uncategorized">
+                        <div class="category-box card border-3 mx-2" data-category="Other Products" id="box-uncategorized">
                             <div class="card-body text-center d-flex flex-column justify-content-center align-items-center">
                                 <div class="mb-2">
-                                    <i class="fas fa-question-circle fa-2x text-secondary"></i>
+                                    <i class="fas fa-gift fa-2x text-info"></i>
                                 </div>
-                                <h6 class="card-title mb-1 text-center">Uncategorized</h6>
-                                <p class="card-text text-muted small mb-0">Products without category</p>
+                                <h6 class="card-title mb-1 text-center">Other Products</h6>
+                                <p class="card-text text-muted small mb-0">Mugs, totebags, lanyards, etc.</p>
                                 <div class="mt-2 badge-container">
-                                    <span class="badge bg-secondary">{{ $categoryCounts['uncategorized'] }} products</span>
+                                    <span class="badge bg-info">{{ $categoryCounts['uncategorized'] }} products</span>
                                 </div>
                             </div>
                         </div>
@@ -201,9 +201,13 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
-                        <a href="{{ route('master-items.create') }}" class="btn btn-primary">
+                        <a href="{{ route('master-items.create') }}?category={{ urlencode($selectedCategory) }}" class="btn btn-primary">
                             <i class="fas fa-plus me-1"></i> Add New Product
                         </a>
+                        <span class="ms-2 text-muted small">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Will create product in <strong>{{ $selectedCategory }}</strong> category
+                        </span>
                     </div>
                 </div>
                 
@@ -278,7 +282,7 @@
                         <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                         <h5>No Products in {{ $selectedCategory }}</h5>
                         <p class="text-muted">No products found in this category yet.</p>
-                        <a href="{{ route('master-items.create') }}" class="btn btn-primary">
+                        <a href="{{ route('master-items.create') }}?category={{ urlencode($selectedCategory) }}" class="btn btn-primary">
                             <i class="fas fa-plus me-1"></i> Add First Product
                         </a>
                     </div>
@@ -328,7 +332,7 @@
             const currentCategory = "{{ $selectedCategory }}";
             const categoryMap = {
                 'Shirt Products': 'box-shirt',
-                'Uncategorized': 'box-uncategorized',
+                'Other Products': 'box-uncategorized',
                 'Machine and Equipments': 'box-machine',
                 'Garment Materials': 'box-garment',
                 'Printing and Office Supplies': 'box-office'
