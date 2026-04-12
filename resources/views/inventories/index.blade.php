@@ -721,6 +721,24 @@
             
             // currentCategory is global (defined above)
             
+            // Function to update "Add New Item" button text based on category
+            function updateAddButtonText(category) {
+                const addNewItemBtn = document.getElementById('add-new-item-btn');
+                if (!addNewItemBtn) return;
+                
+                const buttonTextMap = {
+                    'Shirt Products': 'Add New Shirt',
+                    'Other Products': 'Add New Other Product',
+                    'Machine and Equipments': 'Add New Machine/Equipment',
+                    'Garment Materials': 'Add New Material',
+                    'Printing and Office Supplies': 'Add New Printing Supply'
+                };
+                
+                const buttonText = buttonTextMap[category] || 'Add New Item';
+                // Update button text (keep the icon)
+                addNewItemBtn.innerHTML = `<i class="fas fa-plus me-1"></i> ${buttonText}`;
+            }
+            
             // Category box click handler
             categoryBoxes.forEach(box => {
                 box.addEventListener('click', function() {
@@ -736,6 +754,9 @@
                     
                     // Update title
                     currentCategoryTitle.textContent = `${category} Inventory`;
+                    
+                    // Update button text
+                    updateAddButtonText(category);
                     
                     // Show inventory container
                     inventoryContainer.classList.add('active');
@@ -1744,6 +1765,8 @@
                 if (targetBox) {
                     targetBox.click();
                 }
+                // Also update button text immediately
+                updateAddButtonText(urlCategory);
             }
 
             // ============================================

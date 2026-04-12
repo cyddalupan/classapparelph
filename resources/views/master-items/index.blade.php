@@ -202,7 +202,18 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <a href="{{ route('master-items.create') }}?category={{ urlencode($selectedCategory) }}" class="btn btn-primary">
-                            <i class="fas fa-plus me-1"></i> Add New Product
+                            <i class="fas fa-plus me-1"></i> 
+                            @php
+                                // Map categories to specific button text
+                                $buttonText = [
+                                    'Shirt Products' => 'Add New Shirt',
+                                    'Other Products' => 'Add New Other Product',
+                                    'Machine and Equipments' => 'Add New Machine/Equipment',
+                                    'Garment Materials' => 'Add New Material',
+                                    'Printing and Office Supplies' => 'Add New Printing Supply'
+                                ];
+                                echo $buttonText[$selectedCategory] ?? 'Add New Product';
+                            @endphp
                         </a>
                         <span class="ms-2 text-muted small">
                             <i class="fas fa-info-circle me-1"></i>
@@ -283,7 +294,18 @@
                         <h5>No Products in {{ $selectedCategory }}</h5>
                         <p class="text-muted">No products found in this category yet.</p>
                         <a href="{{ route('master-items.create') }}?category={{ urlencode($selectedCategory) }}" class="btn btn-primary">
-                            <i class="fas fa-plus me-1"></i> Add First Product
+                            <i class="fas fa-plus me-1"></i> 
+                            @php
+                                // Map categories to specific button text
+                                $buttonText = [
+                                    'Shirt Products' => 'Add First Shirt',
+                                    'Other Products' => 'Add First Other Product',
+                                    'Machine and Equipments' => 'Add First Machine/Equipment',
+                                    'Garment Materials' => 'Add First Material',
+                                    'Printing and Office Supplies' => 'Add First Printing Supply'
+                                ];
+                                echo $buttonText[$selectedCategory] ?? 'Add First Product';
+                            @endphp
                         </a>
                     </div>
                 @endif

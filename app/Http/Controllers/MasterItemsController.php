@@ -22,7 +22,7 @@ class MasterItemsController extends Controller
         // Using exact category names from the view
         $categoryCounts = [
             'shirt' => MasterItem::where('category', 'Shirt Products')->count(),
-            'uncategorized' => MasterItem::where('category', 'Uncategorized')->count(),
+            'uncategorized' => MasterItem::where('category', 'Other Products')->count(),
             'machines' => MasterItem::where('category', 'Machine and Equipments')->count(),
             'materials' => MasterItem::where('category', 'Garment Materials')->count(),
             'printing' => MasterItem::where('category', 'Printing and Office Supplies')->count(),
@@ -67,14 +67,22 @@ class MasterItemsController extends Controller
      */
     public function store(Request $request)
     {
-        // Always use selected_sizes array (works for single or bulk)
-        $selectedSizes = $request->input('selected_sizes', []);
+        // Get category from request
+        $category = $request->input('category', '');
         
-        // Validate that at least one size is selected
-        if (empty($selectedSizes) || !is_array($selectedSizes)) {
-            return redirect()->back()
-                ->withInput()
-                ->withErrors(['selected_sizes' => 'Please select at least one size.']);
+        // Only validate selected_sizes for Shirt Products
+        if ($category === 'Shirt Products') {
+            $selectedSizes = $request->input('selected_sizes', []);
+            
+            // Validate that at least one size is selected for shirts
+            if (empty($selectedSizes) || !is_array($selectedSizes)) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['selected_sizes' => 'Please select at least one size.']);
+            }
+        } else {
+            // For non-shirt categories, use empty array or single item
+            $selectedSizes = ['N/A'];
         }
         
         $createdCount = 0;
@@ -95,11 +103,6 @@ class MasterItemsController extends Controller
         // Create one product for each selected size
         foreach ($selectedSizes as $size) {
             try {
-                // Generate SKU: BRAND-TYPE-COLOR-SIZE (allow partial)
-                $brand = $request->input('brand', '');
-                $type = $request->input('type', '');
-                $color = $request->input('color', '');
-                
                 // Function to remove vowels and keep only consonants
                 $removeVowels = function($text) {
                     // Remove vowels (both uppercase and lowercase)
@@ -110,14 +113,130 @@ class MasterItemsController extends Controller
                 };
                 
                 $skuParts = [];
-                if (!empty($brand)) $skuParts[] = strtoupper($removeVowels($brand));
-                if (!empty($type)) $skuParts[] = strtoupper($removeVowels($type));
-                if (!empty($color)) $skuParts[] = strtoupper($removeVowels($color));
+                $descriptionParts = [];
+                
+                // Category-aware SKU generation
+                if ($category === 'Shirt Products') {
+                    $brand = $request->input('brand', '');
+                    $type = $request->input('type', '');
+                    $color = $request->input('color', '');
+                    
+                    if (!empty($brand)) $skuParts[] = strtoupper($removeVowels($brand));
+                    if (!empty($type)) $skuParts[] = strtoupper($removeVowels($type));
+                    if (!empty($color)) $skuParts[] = strtoupper($removeVowels($color));
+                    
+                    // Add to description
+                    if (!empty($brand)) $descriptionParts[] = "Brand: {$brand}";
+                    if (!empty($type)) $descriptionParts[] = "Type: {$type}";
+                    if (!empty($color)) $descriptionParts[] = "Color: {$color}";
+                    
+                } else if ($category === 'Other Products') {
+                    $brand = $request->input('other_brand', '');
+                    $productType = $request->input('product_type', '');
+                    $material = $request->input('other_material', '');
+                    $color = $request->input('other_color', '');
+                    
+                    if (!empty($brand)) $skuParts[] = strtoupper($removeVowels($brand));
+                    if (!empty($productType)) $skuParts[] = strtoupper($removeVowels($productType));
+                    if (!empty($material)) $skuParts[] = strtoupper($removeVowels($material));
+                    if (!empty($color)) $skuParts[] = strtoupper($removeVowels($color));
+                    
+                    // Add to description
+                    if (!empty($brand)) $descriptionParts[] = "Brand: {$brand}";
+                    if (!empty($productType)) $descriptionParts[] = "Product Type: {$productType}";
+                    if (!empty($material)) $descriptionParts[] = "Material: {$material}";
+                    if (!empty($color)) $descriptionParts[] = "Color: {$color}";
+                    
+                    // Add other fields if they exist
+                    $sizeDimension = $request->input('size_dimension', '');
+                    $designArea = $request->input('design_area', '');
+                    $otherFeatures = $request->input('other_features', '');
+                    
+                    if (!empty($sizeDimension)) $descriptionParts[] = "Size/Dimensions: {$sizeDimension}";
+                    if (!empty($designArea)) $descriptionParts[] = "Design/Print Area: {$designArea}";
+                    if (!empty($otherFeatures)) $descriptionParts[] = "Special Features: {$otherFeatures}";
+                    
+                } else if ($category === 'Machine and Equipments') {
+                    $brand = $request->input('machine_brand', '');
+                    $machineType = $request->input('machine_type', '');
+                    $specifications = $request->input('specifications', '');
+                    
+                    if (!empty($brand)) $skuParts[] = strtoupper($removeVowels($brand));
+                    if (!empty($machineType)) $skuParts[] = strtoupper($removeVowels($machineType));
+                    if (!empty($specifications)) $skuParts[] = strtoupper($removeVowels($specifications));
+                    
+                    // Add to description
+                    if (!empty($brand)) $descriptionParts[] = "Brand: {$brand}";
+                    if (!empty($machineType)) $descriptionParts[] = "Type: {$machineType}";
+                    if (!empty($specifications)) $descriptionParts[] = "Specifications: {$specifications}";
+                    
+                } else if ($category === 'Garment Materials') {
+                    $materialType = $request->input('material_type', '');
+                    $materialBrand = $request->input('material_brand', '');
+                    $materialColor = $request->input('material_color', '');
+                    $materialSpecification = $request->input('material_specification', '');
+                    $materialSku = $request->input('material_sku', '');
+                    $materialName = $request->input('material_name', '');
+                    
+                    // Use MANUAL SKU if provided, otherwise use HYBRID system
+                    if (!empty($materialSku)) {
+                        $sku = $materialSku;
+                    } else {
+                        // HYBRID: Auto-generate from Brand + Material + Color + Item Name
+                        if (!empty($materialBrand)) $skuParts[] = strtoupper($removeVowels($materialBrand));
+                        if (!empty($materialType)) $skuParts[] = strtoupper($removeVowels($materialType));
+                        if (!empty($materialColor)) $skuParts[] = strtoupper($removeVowels($materialColor));
+                        if (!empty($materialName)) $skuParts[] = strtoupper($removeVowels($materialName));
+                        
+                        // Generate random suffix (ABC123 format)
+                        $randomLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                        $randomNumbers = '0123456789';
+                        
+                        $randomSuffix = '';
+                        // Add 3 random letters
+                        for ($i = 0; $i < 3; $i++) {
+                            $randomSuffix .= $randomLetters[rand(0, strlen($randomLetters) - 1)];
+                        }
+                        // Add 3 random numbers
+                        for ($i = 0; $i < 3; $i++) {
+                            $randomSuffix .= $randomNumbers[rand(0, strlen($randomNumbers) - 1)];
+                        }
+                        
+                        // Combine: BRAND-MATERIAL-COLOR-ITEMNAME-ABC123
+                        $baseSKU = implode('-', $skuParts);
+                        $sku = $baseSKU ? "{$baseSKU}-{$randomSuffix}" : $randomSuffix;
+                    }
+                    
+                    // Add to description
+                    if (!empty($materialName)) $descriptionParts[] = "Item Name: {$materialName}";
+                    if (!empty($materialType)) $descriptionParts[] = "Material Type: {$materialType}";
+                    if (!empty($materialBrand)) $descriptionParts[] = "Brand: {$materialBrand}";
+                    if (!empty($materialColor)) $descriptionParts[] = "Color: {$materialColor}";
+                    if (!empty($materialSpecification)) $descriptionParts[] = "Specification: {$materialSpecification}";
+                    if (!empty($materialSku)) $descriptionParts[] = "Manual SKU: {$materialSku}";
+                    
+                } else if ($category === 'Printing and Office Supplies') {
+                    $productType = $request->input('printing_product_type', '');
+                    $paperType = $request->input('paper_type', '');
+                    $paperSize = $request->input('paper_size', '');
+                    
+                    if (!empty($productType)) $skuParts[] = strtoupper($removeVowels($productType));
+                    if (!empty($paperType)) $skuParts[] = strtoupper($removeVowels($paperType));
+                    if (!empty($paperSize)) $skuParts[] = strtoupper($removeVowels($paperSize));
+                    
+                    // Add to description
+                    if (!empty($productType)) $descriptionParts[] = "Product Type: {$productType}";
+                    if (!empty($paperType)) $descriptionParts[] = "Paper Type: {$paperType}";
+                    if (!empty($paperSize)) $descriptionParts[] = "Paper Size: {$paperSize}";
+                }
                 
                 $sku = '';
                 if (!empty($skuParts)) {
                     // Generate unique SKU that won't conflict with soft-deleted items
-                    $sku = implode('-', $skuParts) . '-' . $size;
+                    $sku = implode('-', $skuParts);
+                    if ($size !== 'N/A') {
+                        $sku .= '-' . $size;
+                    }
                     
                     // Check if this SKU already exists (including soft-deleted)
                     $existing = MasterItem::withTrashed()->where('sku', $sku)->first();
@@ -139,15 +258,19 @@ class MasterItemsController extends Controller
                     'created_by' => $baseData['created_by'],
                 ];
                 
-                // Add size to description if we have other details
-                if (!empty($brand) || !empty($type) || !empty($color)) {
-                    $sizeInfo = "Size: {$size}";
-                    if (!empty($brand)) $sizeInfo .= ", Brand: {$brand}";
-                    if (!empty($type)) $sizeInfo .= ", Type: {$type}";
-                    if (!empty($color)) $sizeInfo .= ", Color: {$color}";
+                // Add category-specific details to description
+                if (!empty($descriptionParts)) {
+                    $details = implode(', ', $descriptionParts);
+                    if ($size !== 'N/A') {
+                        $details = "Size: {$size}, " . $details;
+                    }
                     
                     $productData['description'] = $productData['description'] ? 
-                        $productData['description'] . "\n" . $sizeInfo : $sizeInfo;
+                        $productData['description'] . "\n" . $details : $details;
+                } else if ($size !== 'N/A') {
+                    // Just add size if no other details
+                    $productData['description'] = $productData['description'] ? 
+                        $productData['description'] . "\nSize: {$size}" : "Size: {$size}";
                 }
                 
                 // Create the product - use only explicit fields
