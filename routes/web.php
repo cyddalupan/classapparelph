@@ -1,5 +1,8 @@
 <?php
 
+# API: Products for sales box (public)
+Route::get("/api/products-for-box/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getProductsForBox"])->name("product-pricing.api.products-for-box");
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FinanceDashboardController;
@@ -149,6 +152,24 @@ Route::middleware('auth')->group(function () {
         ->name('master-items.update');
     Route::delete('/master-items/{masterItem}', [App\Http\Controllers\MasterItemsController::class, 'destroy'])
         ->name('master-items.destroy');
+    
+    // Product Pricing Routes
+    Route::get('/productpricing', [App\Http\Controllers\ProductPricingController::class, 'index'])
+        ->name('product-pricing.index');
+    Route::get('/productpricing/{id}/edit', [App\Http\Controllers\ProductPricingController::class, 'edit'])
+        ->name('product-pricing.edit');
+    Route::put('/productpricing/{id}', [App\Http\Controllers\ProductPricingController::class, 'update'])
+        ->name('product-pricing.update');
+    Route::post('/productpricing/bulk-update', [App\Http\Controllers\ProductPricingController::class, 'bulkUpdate'])
+        ->name('product-pricing.bulk-update');
+    
+    // Volume Discount Routes
+    Route::get('/productpricing/{id}/volume-discounts', [App\Http\Controllers\ProductPricingController::class, 'volumeDiscounts'])
+        ->name('product-pricing.volume-discounts');
+    Route::post('/productpricing/{id}/volume-discounts', [App\Http\Controllers\ProductPricingController::class, 'storeVolumeDiscounts'])
+        ->name('product-pricing.volume-discounts.store');
+
+    # API: Products for sales box
     
     Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store'])->name('inventory.store');
     Route::get('/inventory/{inventory}', [\App\Http\Controllers\InventoryController::class, 'show'])->name('inventory.show');
@@ -417,3 +438,72 @@ Route::post('/inventory/shirt-products', function(Request $request) {
 Route::get('/inventorylist', function() {
     return view('inventory.create-clean');
 })->name('inventory.list');
+
+        // Customer API Routes for Prototype
+        Route::get("/api/customers/check", function (\Illuminate\Http\Request $request) {
+            $phone = $request->query("phone");
+            $customer = \App\Models\Customer::where("phone", $phone)->first();
+            
+            if ($customer) {
+                return response()->json([
+                    "exists" => true,
+                    "customer" => $customer
+                ]);
+            }
+            
+            return response()->json(["exists" => false]);
+        });
+        
+        Route::get("/api/customers/search", function (\Illuminate\Http\Request $request) {
+            $searchTerm = $request->query("q");
+            $customers = \App\Models\Customer::search($searchTerm)
+                ->active()
+                ->limit(10)
+                ->get();
+            
+            return response()->json(["customers" => $customers]);
+        });
+        
+        Route::get("/api/customers/{id}", function ($id) {
+            $customer = \App\Models\Customer::find($id);
+            
+            if (!$customer) {
+                return response()->json(["error" => "Customer not found"], 404);
+            }
+            
+            // Add calculated fields
+            $customer->getDaysSinceLastOrder = $customer->getDaysSinceLastOrder();
+            
+            return response()->json($customer);
+        });
+        // PROTOTYPE SALES SYSTEM
+        Route::get('/sales/prototype', function () {
+            if (!Gate::allows('input-sales')) {
+                abort(403, 'Unauthorized access.');
+            }
+            return view('sales.prototype.index');
+        })->name('sales.prototype');
+        
+        Route::get('/sales/prototype/create', [App\Http\Controllers\PrototypeSalesController::class, 'create'])->name('sales.prototype.create');
+        Route::post('/sales/prototype', [App\Http\Controllers\PrototypeSalesController::class, 'store'])->name('sales.prototype.store');
+        
+        // Cart system
+        Route::get('/sales/prototype/cart-create', [App\Http\Controllers\PrototypeSalesController::class, 'cartCreate'])->name('sales.prototype.cart-create');
+        
+        Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
+        Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');
+        Route::put('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'update'])->name('sales.prototype.update');
+        Route::delete('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'destroy'])->name('sales.prototype.destroy');
+        
+        // KANBAN routes
+        Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
+        Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
+        
+        // Payment verification
+        Route::post('/sales/prototype/{id}/verify-payment', [App\Http\Controllers\PrototypeSalesController::class, 'verifyPayment'])->name('sales.prototype.verify-payment');
+
+
+        
+
+
+

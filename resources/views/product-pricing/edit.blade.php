@@ -1,0 +1,606 @@
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0">
+                                <i class="fas fa-edit me-2"></i>
+                                Edit Pricing: {{ $item->name }}
+                            </h4>
+                            <small class="text-muted">{{ $item->category }} • SKU: {{ $item->sku ?? 'N/A' }}</small>
+                        </div>
+                        <div>
+                            <a href="{{ route('product-pricing.index') }}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Pricing
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if ($errors->any())
+                        <div class="alert alert-danger">
+                            <ul class="mb-0">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                    
+                    @php
+                        $supplierPricing = $item->getPricingForTier('supplier_cost');
+                        $salesPricing = $item->getPricingForTier('sales_team');
+                        $agentPricing = $item->getPricingForTier('agent_cost');
+                    @endphp
+                    
+                    <!-- Tabs Navigation -->
+                    <ul class="nav nav-tabs mb-4" id="pricingTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="standard-tab" data-bs-toggle="tab" data-bs-target="#standard" type="button" role="tab" aria-controls="standard" aria-selected="true">
+                                <i class="fas fa-tags me-1"></i> Standard Pricing
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="volume-tab" data-bs-toggle="tab" data-bs-target="#volume" type="button" role="tab" aria-controls="volume" aria-selected="false">
+                                <i class="fas fa-layer-group me-1"></i> Volume Discounts
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="pricingTabsContent">
+                        <!-- Standard Pricing Tab -->
+                        <div class="tab-pane fade show active" id="standard" role="tabpanel" aria-labelledby="standard-tab">
+                            <form action="{{ route('product-pricing.update', $item->id) }}" method="POST">
+                                @csrf
+                                @method('PUT')
+                                
+                                <!-- Hidden fields for product details -->
+                                <input type="hidden" name="name" value="{{ $item->name ?? '' }}">
+                                <input type="hidden" name="category" value="{{ $item->category ?? '' }}">
+                                <input type="hidden" name="description" value="{{ $item->description ?? '' }}">
+                                <input type="hidden" name="unit_price" value="{{ $item->unit_price ?? 0 }}">
+                                <input type="hidden" name="sku" value="{{ $item->sku ?? '' }}">
+                                <input type="hidden" name="barcode" value="{{ $item->barcode ?? '' }}">
+                                
+                                <!-- Product Info Card -->
+                                <div class="card mb-4">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0"><i class="fas fa-info-circle me-1"></i> Product Information</h6>
+                                    </div>
+                                    <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-2">
+                                            <strong>Name:</strong> {{ $item->name }}
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>Category:</strong> {{ $item->category }}
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>SKU:</strong> <code>{{ $item->sku ?? 'Not set' }}</code>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        @if($item->description)
+                                            <div class="mb-2">
+                                                <strong>Description:</strong> {{ $item->description }}
+                                            </div>
+                                        @endif
+                                        <div class="mb-2">
+                                            <strong>Current Unit Price:</strong> 
+                                            <span class="badge bg-secondary">₱{{ number_format($item->unit_price ?? 0, 2) }}</span>
+                                        </div>
+                                        <div class="mb-2">
+                                            <strong>Sales Box:</strong> 
+                                            @if($item->sales_box)
+                                                <span class="badge bg-info">{{ $item->sales_box }}</span>
+                                            @else
+                                                <span class="badge bg-warning">Not assigned</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sales Box Assignment -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0"><i class="fas fa-box me-1"></i> Sales Box Assignment</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="sales_box" class="form-label">Assign to Sales Box *</label>
+                                            <select class="form-select" id="sales_box" name="sales_box">
+                                                <option value="" {{ !$item->sales_box ? 'selected' : '' }}>-- Not assigned --</option>
+                                                <option value="garment" {{ $item->sales_box == 'garment' ? 'selected' : '' }}>Garment Printing</option>
+                                                <option value="tarpaulin" {{ $item->sales_box == 'tarpaulin' ? 'selected' : '' }}>Tarpaulin Printing</option>
+                                                <option value="embroidery" {{ $item->sales_box == 'embroidery' ? 'selected' : '' }}>Embroidery</option>
+                                                <option value="cutting" {{ $item->sales_box == 'cutting' ? 'selected' : '' }}>Cutting</option>
+                                                <option value="sewing" {{ $item->sales_box == 'sewing' ? 'selected' : '' }}>Sewing</option>
+                                                <option value="design" {{ $item->sales_box == 'design' ? 'selected' : '' }}>Design</option>
+                                            </select>
+                                            <div class="form-text">Assign this product to a sales box for the sales form.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="alert alert-info">
+                                            <small><i class="fas fa-info-circle me-1"></i> <strong>Note:</strong> Products assigned to a sales box will appear in that box on the sales form. Leave unassigned if product shouldn't appear in sales.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Pricing Tiers -->
+                        <div class="row">
+                            <!-- Supplier Cost (Your Cost) -->
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100 border-primary">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-industry me-1"></i> Supplier Cost
+                                            <small class="float-end">Your Cost</small>
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="supplier_cost" class="form-label">Cost Price *</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">₱</span>
+                                                <input type="number" class="form-control" id="supplier_cost" 
+                                                       name="supplier_cost" step="0.01" min="0" required
+                                                       value="{{ old('supplier_cost', $supplierPricing->base_price ?? $item->unit_price ?? 0) }}">
+                                            </div>
+                                            <div class="form-text">Your actual cost for this product</div>
+                                        </div>
+                                        
+                                        <div class="alert alert-info py-2">
+                                            <small>
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                <strong>Final Price:</strong> 
+                                                <span id="supplierFinalPrice">
+                                                    ₱{{ number_format($supplierPricing->final_price ?? $item->unit_price ?? 0, 2) }}
+                                                </span>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Sales Team Price -->
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100 border-info">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-users me-1"></i> Sales Team Price
+                                            <small class="float-end">Fixed to Team</small>
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="sales_team_price" class="form-label">Selling Price</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">₱</span>
+                                                <input type="number" class="form-control" id="sales_team_price" 
+                                                       name="sales_team_price" step="0.01" min="0"
+                                                       value="{{ old('sales_team_price', $salesPricing->final_price ?? '') }}">
+                                            </div>
+                                            <div class="form-text">Fixed price for your sales team</div>
+                                        </div>
+                                        
+                                        @if($salesPricing)
+                                            <div class="alert alert-success py-2">
+                                                <small>
+                                                    <i class="fas fa-calculator me-1"></i>
+                                                    <strong>Markup:</strong> 
+                                                    {{ number_format($salesPricing->markup_percentage ?? 0, 1) }}%
+                                                    (₱{{ number_format($salesPricing->markup_amount ?? 0, 2) }})
+                                                </small>
+                                            </div>
+                                        @else
+                                            <div class="alert alert-warning py-2">
+                                                <small>
+                                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                                    Sales team price not set
+                                                </small>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Agent Cost -->
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100 border-warning">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-user-tie me-1"></i> Agent Cost
+                                            <small class="float-end">Base for Agents</small>
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="agent_base_price" class="form-label">Base Price</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">₱</span>
+                                                <input type="number" class="form-control" id="agent_base_price" 
+                                                       name="agent_base_price" step="0.01" min="0"
+                                                       value="{{ old('agent_base_price', $agentPricing->base_price ?? '') }}">
+                                            </div>
+                                            <div class="form-text">Base price for agents to add markup</div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="agent_markup_percentage" class="form-label">Suggested Markup %</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control" id="agent_markup_percentage" 
+                                                       name="agent_markup_percentage" step="0.1" min="0" max="100"
+                                                       value="{{ old('agent_markup_percentage', $agentPricing->markup_percentage ?? '') }}">
+                                                <span class="input-group-text">%</span>
+                                            </div>
+                                            <div class="form-text">Suggested markup percentage for agents</div>
+                                        </div>
+                                        
+                                        @if($agentPricing && $agentPricing->final_price)
+                                            <div class="alert alert-success py-2">
+                                                <small>
+                                                    <i class="fas fa-calculator me-1"></i>
+                                                    <strong>Final with Markup:</strong> 
+                                                    ₱{{ number_format($agentPricing->final_price, 2) }}
+                                                </small>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Notes -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="fas fa-sticky-note me-1"></i> Notes</h6>
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                          placeholder="Add any notes about this pricing (optional)">{{ old('notes', $supplierPricing->notes ?? '') }}</textarea>
+                                <div class="form-text">Notes will be saved with all pricing tiers</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ route('product-pricing.index') }}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-times me-1"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Update Pricing
+                            </button>
+                        </div>
+                    </form>
+                        </div> <!-- End of standard tab -->
+                        
+                        <!-- Volume Discounts Tab -->
+                        <div class="tab-pane fade" id="volume" role="tabpanel" aria-labelledby="volume-tab">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0"><i class="fas fa-layer-group me-1"></i> Volume Discounts</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Set different prices based on order quantity. Customers ordering larger quantities get better prices.
+                                    </p>
+                                    
+                                    <form action="{{ route('product-pricing.volume-discounts.store', $item->id) }}" method="POST" id="volumeDiscountForm">
+                                        @csrf
+                                        
+                                        <div id="volumeDiscountsContainer">
+                                            <!-- Default tier (1 unit) -->
+                                            <div class="volume-tier card mb-3">
+                                                <div class="card-header bg-light">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <span>Tier 1: Base Price</span>
+                                                        <span class="badge bg-primary">Always Active</span>
+                                                    </div>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-4">
+                                                            <label class="form-label">Minimum Quantity</label>
+                                                            <input type="number" class="form-control" value="1" readonly>
+                                                            <small class="form-text text-muted">Base price for 1 unit</small>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label">Maximum Quantity</label>
+                                                            <input type="number" class="form-control" value="" placeholder="Leave blank for unlimited" readonly>
+                                                            <small class="form-text text-muted">Leave blank for base tier</small>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="form-label">Price Per Unit</label>
+                                                            <div class="input-group">
+                                                                <span class="input-group-text">₱</span>
+                                                                <input type="number" class="form-control" value="{{ $item->sales_team_price ?? $item->unit_price }}" readonly>
+                                                            </div>
+                                                            <small class="form-text text-muted">From standard pricing</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Existing volume discounts -->
+                                            @php
+                                                $volumeDiscounts = $item->activeVolumeDiscounts()->get();
+                                                $tierCount = 2;
+                                            @endphp
+                                            
+                                            @foreach($volumeDiscounts as $discount)
+                                                <div class="volume-tier card mb-3">
+                                                    <div class="card-header bg-light">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span>Tier {{ $tierCount }}: Volume Discount</span>
+                                                            <button type="button" class="btn btn-sm btn-outline-danger remove-tier">
+                                                                <i class="fas fa-times"></i> Remove
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="row">
+                                                            <div class="col-md-4">
+                                                                <label class="form-label">Minimum Quantity *</label>
+                                                                <input type="number" name="discounts[{{ $loop->index }}][min_quantity]" class="form-control min-quantity" value="{{ $discount->min_quantity }}" min="2" required>
+                                                                <small class="form-text text-muted">Minimum units for this price</small>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="form-label">Maximum Quantity</label>
+                                                                <input type="number" name="discounts[{{ $loop->index }}][max_quantity]" class="form-control max-quantity" value="{{ $discount->max_quantity }}" min="1" placeholder="Leave blank for unlimited">
+                                                                <small class="form-text text-muted">Maximum units for this price (optional)</small>
+                                                            </div>
+                                                            <div class="col-md-4">
+                                                                <label class="form-label">Price Per Unit *</label>
+                                                                <div class="input-group">
+                                                                    <span class="input-group-text">₱</span>
+                                                                    <input type="number" name="discounts[{{ $loop->index }}][price_per_unit]" class="form-control price" value="{{ $discount->price_per_unit }}" step="0.01" min="0" required>
+                                                                </div>
+                                                                <small class="form-text text-muted">Price for each unit in this tier</small>
+                                                            </div>
+                                                        </div>
+                                                        <input type="hidden" name="discounts[{{ $loop->index }}][is_active]" value="1">
+                                                    </div>
+                                                </div>
+                                                @php $tierCount++; @endphp
+                                            @endforeach
+                                        </div>
+                                        
+                                        <!-- Add New Tier Button -->
+                                        <div class="mb-4">
+                                            <button type="button" id="addTier" class="btn btn-outline-success">
+                                                <i class="fas fa-plus me-1"></i> Add Volume Tier
+                                            </button>
+                                            <small class="text-muted ms-2">Add different price tiers for bulk orders</small>
+                                        </div>
+                                        
+                                        <!-- Form Actions -->
+                                        <div class="d-flex justify-content-between">
+                                            <a href="{{ route('product-pricing.index') }}" class="btn btn-outline-secondary">
+                                                <i class="fas fa-arrow-left me-1"></i> Back to Pricing
+                                            </a>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-save me-1"></i> Save Volume Discounts
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div> <!-- End of volume tab -->
+                    </div> <!-- End of tab-content -->
+                </div>
+            </div>
+            
+            <!-- Pricing History -->
+            @if($item->productPricings->isNotEmpty())
+                <div class="card mt-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="fas fa-history me-1"></i> Pricing History</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Tier</th>
+                                        <th>Base Price</th>
+                                        <th>Markup %</th>
+                                        <th>Final Price</th>
+                                        <th>Updated By</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($item->productPricings->sortByDesc('updated_at') as $pricing)
+                                        <tr>
+                                            <td>{{ $pricing->updated_at->format('M d, Y H:i') }}</td>
+                                            <td>
+                                                @if($pricing->price_tier === 'supplier_cost')
+                                                    <span class="badge bg-primary">Supplier</span>
+                                                @elseif($pricing->price_tier === 'sales_team')
+                                                    <span class="badge bg-info">Sales Team</span>
+                                                @else
+                                                    <span class="badge bg-warning text-dark">Agent</span>
+                                                @endif
+                                            </td>
+                                            <td>₱{{ number_format($pricing->base_price, 2) }}</td>
+                                            <td>{{ number_format($pricing->markup_percentage, 1) }}%</td>
+                                            <td>
+                                                <strong>₱{{ number_format($pricing->final_price, 2) }}</strong>
+                                            </td>
+                                            <td>
+                                                @if($pricing->updater)
+                                                    {{ $pricing->updater->name }}
+                                                @else
+                                                    System
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($pricing->is_active)
+                                                    <span class="badge bg-success">Active</span>
+                                                @else
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    // Calculate and display supplier final price
+    function updateSupplierFinalPrice() {
+        const cost = parseFloat($('#supplier_cost').val()) || 0;
+        $('#supplierFinalPrice').text('₱' + cost.toFixed(2));
+    }
+    
+    // Update on input change
+    $('#supplier_cost').on('input', updateSupplierFinalPrice);
+    
+    // Initialize
+    updateSupplierFinalPrice();
+    
+    // Volume Discounts JavaScript
+    let tierIndex = {{ $volumeDiscounts->count() ?? 0 }};
+    
+    // Add new tier
+    $('#addTier').click(function() {
+        const container = $('#volumeDiscountsContainer');
+        const basePrice = parseFloat('{{ $item->sales_team_price ?? $item->unit_price }}') || 0;
+        
+        // Calculate suggested min quantity (last tier's max + 1 or 10)
+        const lastTier = container.find('.volume-tier').last();
+        let suggestedMin = 10;
+        if (lastTier.length) {
+            const lastMax = lastTier.find('.max-quantity').val();
+            if (lastMax) {
+                suggestedMin = parseInt(lastMax) + 1;
+            }
+        }
+        
+        // Suggested price (5% less than base)
+        const suggestedPrice = basePrice * 0.95;
+        
+        const html = `
+            <div class="volume-tier card mb-3">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Tier ${tierIndex + 2}: Volume Discount</span>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-tier">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Minimum Quantity *</label>
+                            <input type="number" name="discounts[${tierIndex}][min_quantity]" class="form-control min-quantity" value="${suggestedMin}" min="2" required>
+                            <small class="form-text text-muted">Minimum units for this price</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Maximum Quantity</label>
+                            <input type="number" name="discounts[${tierIndex}][max_quantity]" class="form-control max-quantity" value="" min="1" placeholder="Leave blank for unlimited">
+                            <small class="form-text text-muted">Maximum units for this price (optional)</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Price Per Unit *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₱</span>
+                                <input type="number" name="discounts[${tierIndex}][price_per_unit]" class="form-control price" value="${suggestedPrice.toFixed(2)}" step="0.01" min="0" required>
+                            </div>
+                            <small class="form-text text-muted">Price for each unit in this tier</small>
+                        </div>
+                    </div>
+                    <input type="hidden" name="discounts[${tierIndex}][is_active]" value="1">
+                </div>
+            </div>
+        `;
+        
+        container.append(html);
+        tierIndex++;
+    });
+    
+    // Remove tier
+    $(document).on('click', '.remove-tier', function() {
+        if (confirm('Are you sure you want to remove this volume tier?')) {
+            $(this).closest('.volume-tier').remove();
+            // Re-index the remaining tiers
+            $('.volume-tier').each(function(index) {
+                if (index > 0) { // Skip base tier
+                    $(this).find('.card-header span:first').text(`Tier ${index + 1}: Volume Discount`);
+                }
+            });
+        }
+    });
+    
+    // Form validation
+    $('#volumeDiscountForm').submit(function(e) {
+        // Check for overlapping quantity ranges
+        const tiers = [];
+        $('.volume-tier').each(function(index) {
+            if (index > 0) { // Skip base tier
+                const min = parseInt($(this).find('.min-quantity').val()) || 0;
+                const max = $(this).find('.max-quantity').val();
+                const price = parseFloat($(this).find('.price').val()) || 0;
+                
+                if (min > 0 && price > 0) {
+                    tiers.push({ min, max: max ? parseInt(max) : null, price });
+                }
+            }
+        });
+        
+        // Sort by min quantity
+        tiers.sort((a, b) => a.min - b.min);
+        
+        // Check for overlaps
+        for (let i = 0; i < tiers.length - 1; i++) {
+            const current = tiers[i];
+            const next = tiers[i + 1];
+            
+            const currentMax = current.max || Infinity;
+            const nextMax = next.max || Infinity;
+            
+            if (currentMax >= next.min) {
+                alert(`Error: Tier ${i + 1} (${current.min}-${current.max || '∞'}) overlaps with Tier ${i + 2} (${next.min}-${next.max || '∞'}). Please adjust quantities.`);
+                e.preventDefault();
+                return;
+            }
+        }
+        
+        // Check that prices decrease with quantity
+        for (let i = 0; i < tiers.length - 1; i++) {
+            if (tiers[i].price <= tiers[i + 1].price) {
+                alert(`Error: Price should decrease with higher quantities. Tier ${i + 1} (₱${tiers[i].price}) should be higher than Tier ${i + 2} (₱${tiers[i + 1].price}).`);
+                e.preventDefault();
+                return;
+            }
+        }
+    });
+});
+</script>
+@endpush
+@endsection
