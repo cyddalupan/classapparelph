@@ -2,6 +2,7 @@
 
 # API: Products for sales box (public)
 Route::get("/api/products-for-box/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getProductsForBox"])->name("product-pricing.api.products-for-box");
+Route::get("/api/filter-options/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getFilterOptions"])->name("product-pricing.api.filter-options");
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExpenseController;
@@ -49,6 +50,39 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    
+    // Printing Pricing Calculator
+    Route::get('/productpricing/printing', [App\Http\Controllers\PrintingPricingController::class, 'index'])->name('printing.pricing');
+    Route::get('/productpricing/printing/test', [App\Http\Controllers\PrintingPricingController::class, 'testIndex'])->name('printing.pricing-test');
+Route::get('/printing-calculator', function() {
+        return view('printing.public_calculator');
+    })->name('printing.public');
+    
+    // Rule Editor
+    Route::get('/productpricing/printing/rules', [App\Http\Controllers\PrintingPricingController::class, 'editRules'])->name('printing.rules');
+    Route::post('/productpricing/printing/rules/prices', [App\Http\Controllers\PrintingPricingController::class, 'updatePrices'])->name('printing.update-prices');
+    Route::post('/productpricing/printing/rules/combos', [App\Http\Controllers\PrintingPricingController::class, 'updateCombos'])->name('printing.update-combos');
+    Route::post('/productpricing/printing/rules/bulk', [App\Http\Controllers\PrintingPricingController::class, 'updateBulk'])->name('printing.update-bulk');
+    Route::post('/productpricing/printing/calculate', [App\Http\Controllers\PrintingPricingController::class, 'calculate'])->name('printing.calculate');
+    Route::post('/productpricing/printing/prices', [App\Http\Controllers\PrintingPricingController::class, 'storePrice'])->name('printing.store-price');
+    Route::post('/productpricing/printing/combos', [App\Http\Controllers\PrintingPricingController::class, 'storeComboDiscount'])->name('printing.store-combo');
+    Route::post('/productpricing/printing/upgrades', [App\Http\Controllers\PrintingPricingController::class, 'storeSizeUpgrade'])->name('printing.store-upgrade');
+    Route::post('/productpricing/printing/bulk', [App\Http\Controllers\PrintingPricingController::class, 'storeBulkDiscount'])->name('printing.store-bulk');
+    
+    // Add/Delete print prices
+    Route::post('/productpricing/printing/prices/add', [App\Http\Controllers\PrintingPricingController::class, 'addPrice'])->name('printing.add-price');
+    Route::delete('/productpricing/printing/prices/{id}', [App\Http\Controllers\PrintingPricingController::class, 'deletePrice'])->name('printing.delete-price');
+    Route::get("/productpricing/printing/get-product-pricing", [App\Http\Controllers\PrintingPricingController::class, "getProductPricing"])->name("printing.get-product-pricing");
+    Route::post('/productpricing/printing/prices/sync', [App\Http\Controllers\PrintingPricingController::class, 'syncFromProductPricing'])->name('printing.sync-prices');
+    
+    // Pricing Rules Dashboard
+    Route::get('/productpricing/rules', [App\Http\Controllers\PricingRulesController::class, 'index'])->name('pricing.rules');
+    Route::get('/productpricing/rules/printing', [App\Http\Controllers\PricingRulesController::class, 'printingRules'])->name('pricing.rules.printing');
+    Route::get('/productpricing/rules/bulk', [App\Http\Controllers\PricingRulesController::class, 'bulkRules'])->name('pricing.rules.bulk');
+    Route::get('/productpricing/rules/sublimation', [App\Http\Controllers\PricingRulesController::class, 'sublimationRules'])->name('pricing.rules.sublimation');
+    Route::get('/productpricing/rules/tarpaulin', [App\Http\Controllers\PricingRulesController::class, 'tarpaulinRules'])->name('pricing.rules.tarpaulin');
+    Route::get('/productpricing/rules/embroidery', [App\Http\Controllers\PricingRulesController::class, 'embroideryRules'])->name('pricing.rules.embroidery');
+    Route::get('/productpricing/rules/sticker', [App\Http\Controllers\PricingRulesController::class, 'stickerRules'])->name('pricing.rules.sticker');
     
     // Admin Routes
     Route::middleware(['admin'])->group(function () {
@@ -489,6 +523,15 @@ Route::get('/inventorylist', function() {
         
         // Cart system
         Route::get('/sales/prototype/cart-create', [App\Http\Controllers\PrototypeSalesController::class, 'cartCreate'])->name('sales.prototype.cart-create');
+        
+        // Garment Test Page
+        Route::get('/sales/prototype/garment-test', function () {
+            return view('sales.prototype.garment_test');
+        })->name('sales.prototype.garment-test');
+        
+        // Printing API for garment modal
+        Route::get('/api/printing/options/{type}', [App\Http\Controllers\PrintingPricingController::class, 'getPrintingOptions'])->name('api.printing.options');
+        Route::post('/api/printing/calculate', [App\Http\Controllers\PrintingPricingController::class, 'calculateModal'])->name('api.printing.calculate-modal');
         
         Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
         Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');

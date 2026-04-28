@@ -14,14 +14,49 @@
             <p class="page-subtitle">Complete price list for all products</p>
         </div>
         <div class="page-header-actions">
+            <a href="{{ route('printing.pricing') }}" class="btn btn-primary me-2">
+                <i class="fas fa-calculator me-2"></i> Printing Calculator
+            </a>
             <a href="{{ route('sales.create-quick') }}" class="btn btn-warning">
                 <i class="fas fa-plus-circle me-2"></i> Add Quick Sale
             </a>
         </div>
     </div>
 
+    <!-- Quick Access Cards -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-calculator fa-3x text-primary"></i>
+                    </div>
+                    <h4 class="card-title">Printing Calculator</h4>
+                    <p class="card-text text-muted">Calculate garment printing costs with automatic discounts and bulk pricing.</p>
+                    <a href="{{ route('printing.pricing') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-arrow-right me-2"></i> Go to Calculator
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-tags fa-3x text-success"></i>
+                    </div>
+                    <h4 class="card-title">Product Price List</h4>
+                    <p class="card-text text-muted">View and manage all product prices, wholesale rates, and volume discounts.</p>
+                    <a href="#price-list" class="btn btn-success btn-lg">
+                        <i class="fas fa-arrow-down me-2"></i> View Price List
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Pricing Table -->
-    <div class="card">
+    <div class="card" id="price-list">
         <div class="card-header">
             <h5 class="card-title mb-0">
                 <i class="fas fa-table me-2"></i>

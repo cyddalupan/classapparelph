@@ -50,12 +50,20 @@
                                 <i class="fas fa-layer-group me-1"></i> Volume Discounts
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="variants-tab" data-bs-toggle="tab" data-bs-target="#variants" type="button" role="tab" aria-controls="variants" aria-selected="false">
+                                <i class="fas fa-boxes me-1"></i> Variants
+                                @if($item->has_variants)
+                                    <span class="badge bg-success ms-1">{{ $item->variants()->count() }}</span>
+                                @endif
+                            </button>
+                        </li>
                     </ul>
                     
                     <div class="tab-content" id="pricingTabsContent">
                         <!-- Standard Pricing Tab -->
                         <div class="tab-pane fade show active" id="standard" role="tabpanel" aria-labelledby="standard-tab">
-                            <form action="{{ route('product-pricing.update', $item->id) }}" method="POST" id="pricingForm">
+                            <form action="{{ route('product-pricing.update', $item->id) }}" method="POST">
                                 @csrf
                                 @method('PUT')
                                 
@@ -156,8 +164,8 @@
                                             <div class="input-group">
                                                 <span class="input-group-text">₱</span>
                                                 <input type="number" class="form-control" id="supplier_cost" 
-                                                       name="supplier_cost_base_price" step="0.01" min="0" required
-                                                       value="{{ old('supplier_cost_base_price', $supplierPricing->base_price ?? $item->unit_price ?? 0) }}">
+                                                       name="supplier_cost" step="0.01" min="0" required
+                                                       value="{{ old('supplier_cost', $supplierPricing->base_price ?? $item->unit_price ?? 0) }}">
                                             </div>
                                             <div class="form-text">Your actual cost for this product</div>
                                         </div>
@@ -190,11 +198,10 @@
                                             <div class="input-group">
                                                 <span class="input-group-text">₱</span>
                                                 <input type="number" class="form-control" id="sales_team_price" 
-                                                       name="sales_team_final_price" step="0.01" min="0"
-                                                       value="{{ old('sales_team_final_price', $salesPricing->final_price ?? '') }}">
+                                                       name="sales_team_price" step="0.01" min="0"
+                                                       value="{{ old('sales_team_price', $salesPricing->final_price ?? '') }}">
                                             </div>
                                             <div class="form-text">Fixed price for your sales team</div>
-                                            <input type="hidden" name="sales_team_base_price" value="{{ old('supplier_cost_base_price', $supplierPricing->base_price ?? $item->unit_price ?? 0) }}">
                                         </div>
                                         
                                         @if($salesPricing)
@@ -233,8 +240,8 @@
                                             <div class="input-group">
                                                 <span class="input-group-text">₱</span>
                                                 <input type="number" class="form-control" id="agent_base_price" 
-                                                       name="agent_cost_base_price" step="0.01" min="0"
-                                                       value="{{ old('agent_cost_base_price', $agentPricing->base_price ?? '') }}">
+                                                       name="agent_base_price" step="0.01" min="0"
+                                                       value="{{ old('agent_base_price', $agentPricing->base_price ?? '') }}">
                                             </div>
                                             <div class="form-text">Base price for agents to add markup</div>
                                         </div>
@@ -243,8 +250,8 @@
                                             <label for="agent_markup_percentage" class="form-label">Suggested Markup %</label>
                                             <div class="input-group">
                                                 <input type="number" class="form-control" id="agent_markup_percentage" 
-                                                       name="agent_cost_markup_percentage" step="0.1" min="0" max="100"
-                                                       value="{{ old('agent_cost_markup_percentage', $agentPricing->markup_percentage ?? '') }}">
+                                                       name="agent_markup_percentage" step="0.1" min="0" max="100"
+                                                       value="{{ old('agent_markup_percentage', $agentPricing->markup_percentage ?? '') }}">
                                                 <span class="input-group-text">%</span>
                                             </div>
                                             <div class="form-text">Suggested markup percentage for agents</div>
@@ -470,8 +477,6 @@
 </div>
 
 @push('scripts')
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 $(document).ready(function() {
     // Calculate and display supplier final price
@@ -557,53 +562,6 @@ $(document).ready(function() {
                     $(this).find('.card-header span:first').text(`Tier ${index + 1}: Volume Discount`);
                 }
             });
-        }
-    });
-    
-    // Calculate pricing values before main form submission
-    $('#pricingForm').submit(function(e) {
-        // Calculate sales team markup
-        const supplierBase = parseFloat($('#supplier_cost').val()) || 0;
-        const salesFinal = parseFloat($('#sales_team_price').val()) || 0;
-        
-        if (salesFinal > 0 && supplierBase > 0) {
-            const salesMarkupAmount = salesFinal - supplierBase;
-            const salesMarkupPercentage = (salesMarkupAmount / supplierBase) * 100;
-            
-            // Add hidden fields
-            $('<input>').attr({
-                type: 'hidden',
-                name: 'sales_team_markup_amount',
-                value: salesMarkupAmount.toFixed(2)
-            }).appendTo('form');
-            
-            $('<input>').attr({
-                type: 'hidden',
-                name: 'sales_team_markup_percentage',
-                value: salesMarkupPercentage.toFixed(2)
-            }).appendTo('form');
-        }
-        
-        // Calculate agent pricing
-        const agentBase = parseFloat($('#agent_base_price').val()) || 0;
-        const agentMarkupPercent = parseFloat($('#agent_markup_percentage').val()) || 0;
-        
-        if (agentBase > 0 && agentMarkupPercent > 0) {
-            const agentMarkupAmount = (agentBase * agentMarkupPercent) / 100;
-            const agentFinalPrice = agentBase + agentMarkupAmount;
-            
-            // Add hidden fields
-            $('<input>').attr({
-                type: 'hidden',
-                name: 'agent_cost_markup_amount',
-                value: agentMarkupAmount.toFixed(2)
-            }).appendTo('form');
-            
-            $('<input>').attr({
-                type: 'hidden',
-                name: 'agent_cost_final_price',
-                value: agentFinalPrice.toFixed(2)
-            }).appendTo('form');
         }
     });
     

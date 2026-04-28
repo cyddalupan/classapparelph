@@ -216,10 +216,13 @@ class MasterItemsController extends Controller
                     if (!empty($materialSku)) $descriptionParts[] = "Manual SKU: {$materialSku}";
                     
                 } else if ($category === 'Printing and Office Supplies') {
+                    $productName = $request->input('name', '');
                     $productType = $request->input('printing_product_type', '');
                     $paperType = $request->input('paper_type', '');
                     $paperSize = $request->input('paper_size', '');
                     
+                    // Add product name FIRST to SKU
+                    if (!empty($productName)) $skuParts[] = strtoupper($removeVowels($productName));
                     if (!empty($productType)) $skuParts[] = strtoupper($removeVowels($productType));
                     if (!empty($paperType)) $skuParts[] = strtoupper($removeVowels($paperType));
                     if (!empty($paperSize)) $skuParts[] = strtoupper($removeVowels($paperSize));
@@ -238,12 +241,17 @@ class MasterItemsController extends Controller
                         $sku .= '-' . $size;
                     }
                     
-                    // Check if this SKU already exists (including soft-deleted)
-                    $existing = MasterItem::withTrashed()->where('sku', $sku)->first();
-                    if ($existing) {
-                        // Add random suffix to make it unique
-                        $random = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 4);
+                    // For Printing and Office Supplies, ALWAYS add random suffix
+                    if ($category === 'Printing and Office Supplies') {
+                        $random = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 6); // ABC123 format
                         $sku = $sku . '-' . $random;
+                    } else {
+                        // For other categories, only add random suffix if SKU exists
+                        $existing = MasterItem::withTrashed()->where('sku', $sku)->first();
+                        if ($existing) {
+                            $random = substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 4);
+                            $sku = $sku . '-' . $random;
+                        }
                     }
                 }
                 

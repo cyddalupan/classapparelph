@@ -227,9 +227,13 @@
                             <span class="nav-text">Orders</span>
                             <span class="nav-badge">24</span>
                         </a>
-                        <a href="{{ route('products.index') }}" class="nav-item {{ request()->routeIs('products.*') ? 'active' : '' }}">
+                        <a href="{{ route('product-pricing.index') }}" class="nav-item {{ request()->routeIs('product-pricing.*') ? 'active' : '' }}">
                             <i class="fas fa-money-bill-wave"></i>
                             <span class="nav-text">Product Pricing</span>
+                        </a>
+                        <a href="{{ route('printing.public') }}" class="nav-item {{ request()->routeIs('printing.*') ? 'active' : '' }}">
+                            <i class="fas fa-calculator"></i>
+                            <span class="nav-text">Pricing Calculator</span>
                         </a>
                         <a href="{{ route('customers.index') }}" class="nav-item {{ request()->routeIs('customers.*') ? 'active' : '' }}">
                             <i class="fas fa-users"></i>

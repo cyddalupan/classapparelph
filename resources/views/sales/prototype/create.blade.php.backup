@@ -1,0 +1,934 @@
+@extends('layouts.app')
+
+@section('title', 'Create New Sale - Prototype')
+
+@push('styles')
+<style>
+    .form-section {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+        color: #667eea;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .service-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        background: #f9f9f9;
+    }
+    
+    .upload-area {
+        border: 2px dashed #667eea;
+        border-radius: 10px;
+        padding: 3rem;
+        text-align: center;
+        background: #f8f9ff;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .upload-area:hover {
+        background: #eef1ff;
+        border-color: #764ba2;
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+    
+    .payment-method-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .payment-method-card:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .payment-method-card.selected {
+        border-color: #667eea;
+        background: #eef1ff;
+    }
+    
+    .department-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .department-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .department-card.selected {
+        border-color: #667eea;
+        background: #eef1ff;
+    }
+</style>
+@endpush
+
+@section('content')
+<div class="content-wrapper">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0">Create New Sale (Prototype)</h1>
+            <p class="text-muted">Test the new sales system with multi-department workflow</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ route('sales.prototype') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i> Back to Prototype
+            </a>
+        </div>
+    </div>
+    
+    <form id="prototypeSaleForm" action="{{ route('sales.prototype.store') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        
+        <!-- Step 1: Customer Information -->
+        <div class="form-section">
+            <h3 class="section-title">Step 1: Customer Information</h3>
+            
+            <!-- Smart Customer Detection -->
+            <div class="alert alert-info mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-lightbulb me-3 fa-2x"></i>
+                    <div>
+                        <h5 class="mb-1">Smart Customer Detection</h5>
+                        <p class="mb-0">Enter phone number to check if customer exists. System will auto-fill if found.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Customer Search -->
+            <div class="mb-4">
+                <label class="form-label">Find Existing Customer</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="customerSearch" placeholder="Search by phone, name, or email...">
+                    <button class="btn btn-outline-secondary" type="button" id="searchCustomerBtn">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                <div id="customerSearchResults" class="mt-2" style="display: none;">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+            
+            <div class="alert alert-success mb-4" id="existingCustomerAlert" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong id="existingCustomerName"></strong> - Existing customer found!
+                        <div class="small mt-1" id="existingCustomerDetails"></div>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="useExistingCustomer">
+                            <i class="fas fa-user-check me-1"></i> Use This Customer
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="createNewCustomer">
+                            <i class="fas fa-user-plus me-1"></i> Create New
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Customer Form Fields -->
+            <div id="customerFormFields">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_name" class="form-label">Customer Name *</label>
+                        <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_phone" class="form-label">Phone Number *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">+63</span>
+                            <input type="tel" class="form-control" id="customer_phone" name="customer_phone" 
+                                   placeholder="9123456789" required
+                                   data-customer-detection="true">
+                        </div>
+                        <small class="text-muted">Enter phone number to check for existing customer</small>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="customer_email" name="customer_email">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="marketplace" class="form-label">Marketplace / Source *</label>
+                        <select class="form-control" id="marketplace" name="marketplace" required>
+                            <option value="">Select source</option>
+                            @foreach($marketplaceOptions as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_address" class="form-label">Location / Address</label>
+                        <textarea class="form-control" id="customer_address" name="customer_address" rows="2" placeholder="City, Province, or Full Address"></textarea>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_company" class="form-label">Company (Optional)</label>
+                        <input type="text" class="form-control" id="customer_company" name="customer_company" placeholder="Company name if applicable">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="customer_notes" class="form-label">Customer Notes</label>
+                    <textarea class="form-control" id="customer_notes" name="customer_notes" rows="3" placeholder="Any special instructions or preferences from the customer..."></textarea>
+                </div>
+                
+                <!-- Customer Save Button -->
+                <div class="mb-3">
+                    <button type="button" class="btn btn-success" id="saveCustomerBtn">
+                        <i class="fas fa-save me-2"></i> Save Customer & Continue
+                    </button>
+                    <small class="text-muted ms-2">Customer will be saved immediately and you can continue to next steps</small>
+                </div>
+            </div>
+            
+            <!-- Customer LTV Display (when existing customer selected) -->
+            <div class="card mt-3" id="customerLTVCard" style="display: none;">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Customer Lifetime Value</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="customerLTVDetails">
+                        <!-- LTV details will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hidden customer_id field -->
+            <input type="hidden" id="customer_id" name="customer_id" value="">
+        </div>
+        
+        <!-- Step 2: Department Selection -->
+        <div class="form-section">
+            <h3 class="section-title">Step 2: Select Department</h3>
+            <p class="text-muted mb-4">Choose which department will handle this order</p>
+            
+            <div class="row" id="departmentSelection">
+                @php
+                    $departments = \DB::table('sales_departments')->where('is_active', true)->get();
+                @endphp
+                
+                @foreach($departments as $dept)
+                <div class="col-md-4 mb-3">
+                    <div class="department-card" data-department-id="{{ $dept->id }}" data-department-code="{{ $dept->code }}">
+                        <div class="department-icon mb-3">
+                            @if($dept->code == 'iprint')
+                            <i class="fas fa-print fa-3x text-primary"></i>
+                            @elseif($dept->code == 'consol')
+                            <i class="fas fa-boxes fa-3x text-info"></i>
+                            @elseif($dept->code == 'cinco')
+                            <i class="fas fa-industry fa-3x text-warning"></i>
+                            @elseif($dept->code == 'class')
+                            <i class="fas fa-tshirt fa-3x text-success"></i>
+                            @elseif($dept->code == 'mto')
+                            <i class="fas fa-cut fa-3x text-danger"></i>
+                            @else
+                            <i class="fas fa-cogs fa-3x text-secondary"></i>
+                            @endif
+                        </div>
+                        <h5 class="mb-2">{{ $dept->name }}</h5>
+                        <p class="text-muted small">{{ $dept->description }}</p>
+                        <input type="radio" class="btn-check" name="department_id" id="dept_{{ $dept->id }}" value="{{ $dept->id }}" required>
+                        <label class="btn btn-outline-primary mt-2" for="dept_{{ $dept->id }}">Select</label>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            
+            <input type="hidden" name="department_name" id="department_name">
+        </div>
+        
+        <!-- Step 3: Services & Pricing -->
+        <div class="form-section">
+            <h3 class="section-title">Step 3: Services & Pricing</h3>
+            
+            <div id="servicesContainer">
+                <div class="service-item" data-service-index="0">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Service Type *</label>
+                            <select class="form-control service-type" name="services[0][type]" required>
+                                <option value="">Select service type</option>
+                                <option value="printing">Printing</option>
+                                <option value="embroidery">Embroidery</option>
+                                <option value="cutting">Cutting</option>
+                                <option value="sewing">Sewing</option>
+                                <option value="packaging">Packaging</option>
+                                <option value="delivery">Delivery</option>
+                                <option value="design">Design</option>
+                                <option value="consultation">Consultation</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Quantity *</label>
+                            <input type="number" class="form-control service-quantity" name="services[0][quantity]" min="1" value="1" required>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Unit Price *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">₱</span>
+                                <input type="number" class="form-control service-price" name="services[0][unit_price]" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-2 mb-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-danger w-100 remove-service" style="display: none;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="services[0][description]" rows="2" placeholder="Service details..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-3">
+                <button type="button" id="addService" class="btn btn-outline-primary">
+                    <i class="fas fa-plus me-2"></i> Add Another Service
+                </button>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-md-4 offset-md-8">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Order Summary</h5>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Subtotal:</span>
+                                <span id="subtotalDisplay">₱0.00</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Tax (12%):</span>
+                                <span id="taxDisplay">₱0.00</span>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between fw-bold">
+                                <span>Total:</span>
+                                <span id="totalDisplay">₱0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" name="subtotal" id="subtotal" value="0">
+            <input type="hidden" name="tax" id="tax" value="0">
+            <input type="hidden" name="total_amount" id="total_amount" value="0">
+        </div>
+        
+        <!-- Step 4: Payment & Verification -->
+        <div class="form-section">
+            <h3 class="section-title">Step 4: Payment & Verification</h3>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label class="form-label mb-3">Payment Method *</label>
+                    <div class="row" id="paymentMethodSelection">
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="gcash">
+                                <i class="fas fa-mobile-alt fa-2x text-success mb-3"></i>
+                                <h6>GCash</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_gcash" value="gcash" required>
+                                <label class="btn btn-outline-success btn-sm mt-2" for="pm_gcash">Select</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="bank_transfer">
+                                <i class="fas fa-university fa-2x text-primary mb-3"></i>
+                                <h6>Bank Transfer</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_bank" value="bank_transfer" required>
+                                <label class="btn btn-outline-primary btn-sm mt-2" for="pm_bank">Select</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="cash">
+                                <i class="fas fa-money-bill-wave fa-2x text-success mb-3"></i>
+                                <h6>Cash</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_cash" value="cash" required>
+                                <label class="btn btn-outline-success btn-sm mt-2" for="pm_cash">Select</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="credit_card">
+                                <i class="fas fa-credit-card fa-2x text-warning mb-3"></i>
+                                <h6>Credit Card</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_cc" value="credit_card" required>
+                                <label class="btn btn-outline-warning btn-sm mt-2" for="pm_cc">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="payment_owner" class="form-label">Payment Account Owner *</label>
+                        <select class="form-control" id="payment_owner" name="payment_owner" required>
+                            <option value="">Select account owner</option>
+                            <option value="company">Company Account</option>
+                            <option value="owner_personal">Owner Personal Account</option>
+                            <option value="sales_agent">Sales Agent Account</option>
+                            <option value="department_head">Department Head Account</option>
+                        </select>
+                        <small class="text-muted">Who owns the payment account where the customer will send payment?</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="deposit_paid" class="form-label">Deposit Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" min="0" value="0">
+                        </div>
+                        <small class="text-muted">Amount paid as deposit (if any)</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Payment Screenshot (Optional)</label>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h5>Drag & drop payment screenshot here</h5>
+                    <p class="text-muted">or click to browse files</p>
+                    <input type="file" id="payment_screenshot" name="payment_screenshot" accept="image/*" class="d-none">
+                    <div id="fileName" class="mt-2 text-success"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 5: Mockup & Images -->
+        <div class="form-section">
+            <h3 class="section-title">Step 5: Mockup & Reference Images</h3>
+            
+            <div class="mb-3">
+                <label class="form-label">Mockup Images</label>
+                <div class="upload-area" id="mockupUploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <h5>Upload mockup images</h5>
+                    <p class="text-muted">Design files, mockups, or reference images</p>
+                    <input type="file" id="mockup_images" name="mockup_images[]" accept="image/*" multiple class="d-none">
+                    <div id="mockupFileNames" class="mt-2 text-success"></div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Reference Images</label>
+                <div class="upload-area" id="referenceUploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <h5>Upload reference photos</h5>
+                    <p class="text-muted">Photos of samples, materials, or inspiration</p>
+                    <input type="file" id="reference_images" name="reference_images[]" accept="image/*" multiple class="d-none">
+                    <div id="referenceFileNames" class="mt-2 text-success"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 6: Internal Notes -->
+        <div class="form-section">
+            <h3 class="section-title">Step 6: Internal Notes</h3>
+            
+            <div class="mb-3">
+                <label for="internal_notes" class="form-label">Internal Notes</label>
+                <textarea class="form-control" id="internal_notes" name="internal_notes" rows="4" placeholder="Any internal notes for the team..."></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <label for="estimated_completion_date" class="            <div class="mb-3">
+                <label for="estimated_completion_date" class="form-label">Estimated Completion Date</label>
+                <input type="date" class="form-control" id="estimated_completion_date" name="estimated_completion_date">
+            </div>
+        </div>
+        
+        <!-- Submit Button -->
+        <div class="form-section text-center">
+            <button type="submit" class="btn btn-primary btn-lg px-5">
+                <i class="fas fa-save me-2"></i> Create Sale & Send to KANBAN
+            </button>
+            <p class="text-muted mt-3">This sale will be created and automatically added to the appropriate department's KANBAN board.</p>
+        </div>
+    </form>
+</div>
+@endsection
+
+@push('scripts')
+<script>
+    // Customer Smart Detection
+    let currentCustomerId = null;
+    
+    // Phone number detection
+    document.getElementById('customer_phone').addEventListener('blur', function() {
+        const phone = this.value.trim();
+        if (phone.length >= 10) {
+            checkExistingCustomer(phone);
+        }
+    });
+    
+    // Customer search
+    document.getElementById('searchCustomerBtn').addEventListener('click', function() {
+        const searchTerm = document.getElementById('customerSearch').value.trim();
+        if (searchTerm.length >= 3) {
+            searchCustomers(searchTerm);
+        } else {
+            alert('Please enter at least 3 characters to search');
+        }
+    });
+    
+    // Use existing customer
+    document.getElementById('useExistingCustomer').addEventListener('click', function() {
+        if (currentCustomerId) {
+            loadCustomerDetails(currentCustomerId);
+        }
+    });
+    
+    // Create new customer
+    document.getElementById('createNewCustomer').addEventListener('click', function() {
+        document.getElementById('existingCustomerAlert').style.display = 'none';
+        document.getElementById('customerLTVCard').style.display = 'none';
+        clearCustomerForm();
+        document.getElementById('customer_phone').focus();
+    });
+    
+    // Save customer button
+    document.getElementById('saveCustomerBtn').addEventListener('click', function() {
+        saveCustomer();
+    });
+    
+    // Check for existing customer
+    function checkExistingCustomer(phone) {
+        fetch(`/api/customers/check?phone=${encodeURIComponent(phone)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.exists) {
+                    showExistingCustomerAlert(data.customer);
+                    currentCustomerId = data.customer.id;
+                } else {
+                    currentCustomerId = null;
+                    document.getElementById('existingCustomerAlert').style.display = 'none';
+                    document.getElementById('customerLTVCard').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking customer:', error);
+            });
+    }
+    
+    // Search customers
+    function searchCustomers(searchTerm) {
+        fetch(`/api/customers/search?q=${encodeURIComponent(searchTerm)}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('customerSearchResults');
+                if (data.customers.length > 0) {
+                    let html = '<div class="list-group">';
+                    data.customers.forEach(customer => {
+                        html += `
+                        <a href="#" class="list-group-item list-group-item-action" data-customer-id="${customer.id}">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">${customer.name} ${customer.customer_tier === 'gold' ? '🥇' : customer.customer_tier === 'silver' ? '🥈' : customer.customer_tier === 'platinum' ? '💎' : '🥉'}</h6>
+                                <small>${customer.total_orders} orders</small>
+                            </div>
+                            <p class="mb-1">${customer.phone} | ${customer.email || 'No email'}</p>
+                            <small>Total spent: ₱${parseFloat(customer.total_spent).toLocaleString('en-PH')}</small>
+                        </a>`;
+                    });
+                    html += '</div>';
+                    resultsDiv.innerHTML = html;
+                    resultsDiv.style.display = 'block';
+                    
+                    // Add click handlers
+                    document.querySelectorAll('[data-customer-id]').forEach(item => {
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const customerId = this.getAttribute('data-customer-id');
+                            loadCustomerDetails(customerId);
+                            resultsDiv.style.display = 'none';
+                            document.getElementById('customerSearch').value = '';
+                        });
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<div class="alert alert-warning">No customers found</div>';
+                    resultsDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error searching customers:', error);
+            });
+    }
+    
+    // Show existing customer alert
+    function showExistingCustomerAlert(customer) {
+        document.getElementById('existingCustomerName').textContent = customer.name;
+        document.getElementById('existingCustomerDetails').innerHTML = `
+            Phone: ${customer.phone} | 
+            ${customer.total_orders} orders | 
+            Total: ₱${parseFloat(customer.total_spent).toLocaleString('en-PH')}
+        `;
+        document.getElementById('existingCustomerAlert').style.display = 'block';
+        
+        // Show LTV card
+        showCustomerLTV(customer);
+    }
+    
+    // Load customer details into form
+    function loadCustomerDetails(customerId) {
+        fetch(`/api/customers/${customerId}`)
+            .then(response => response.json())
+            .then(customer => {
+                // Fill form fields
+                document.getElementById('customer_name').value = customer.name;
+                document.getElementById('customer_phone').value = customer.phone.replace('+63', '');
+                document.getElementById('customer_email').value = customer.email || '';
+                document.getElementById('marketplace').value = customer.marketplace || '';
+                document.getElementById('customer_address').value = customer.location || '';
+                document.getElementById('customer_company').value = customer.company || '';
+                
+                // Hide alert and show LTV
+                document.getElementById('existingCustomerAlert').style.display = 'none';
+                showCustomerLTV(customer);
+                currentCustomerId = customer.id;
+            })
+            .catch(error => {
+                console.error('Error loading customer:', error);
+            });
+    }
+    
+    // Show customer LTV
+    function showCustomerLTV(customer) {
+        const ltvDiv = document.getElementById('customerLTVDetails');
+        const tierIcon = customer.customer_tier === 'gold' ? '🥇' : 
+                        customer.customer_tier === 'silver' ? '🥈' : 
+                        customer.customer_tier === 'platinum' ? '💎' : '🥉';
+        
+        ltvDiv.innerHTML = `
+            <div class="col-md-3 text-center">
+                <div class="display-6">${tierIcon}</div>
+                <div class="fw-bold">${customer.customer_tier.toUpperCase()}</div>
+                <div class="small text-muted">Customer Tier</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 fw-bold text-primary">${customer.total_orders}</div>
+                <div class="fw-bold">Total Orders</div>
+                <div class="small text-muted">Since ${new Date(customer.first_order_date).toLocaleDateString('en-PH')}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 fw-bold text-success">₱${parseFloat(customer.total_spent).toLocaleString('en-PH')}</div>
+                <div class="fw-bold">Lifetime Value</div>
+                <div class="small text-muted">Avg: ₱${parseFloat(customer.average_order_value).toLocaleString('en-PH')}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 fw-bold text-info">${customer.getDaysSinceLastOrder || 'N/A'}</div>
+                <div class="fw-bold">Days Since Last</div>
+                <div class="small text-muted">Last: ${new Date(customer.last_order_date).toLocaleDateString('en-PH')}</div>
+            </div>
+        `;
+        
+        document.getElementById('customerLTVCard').style.display = 'block';
+    }
+    
+    // Save customer to database
+    function saveCustomer() {
+        const customerData = {
+            name: document.getElementById('customer_name').value.trim(),
+            phone: document.getElementById('customer_phone').value.trim(),
+            email: document.getElementById('customer_email').value.trim(),
+            marketplace: document.getElementById('marketplace').value,
+            location: document.getElementById('customer_address').value.trim(),
+            company: document.getElementById('customer_company').value.trim(),
+            notes: document.getElementById('customer_notes').value.trim(),
+            _token: '{{ csrf_token() }}'
+        };
+        
+        // Validation
+        if (!customerData.name || !customerData.phone) {
+            alert('Please fill in at least Customer Name and Phone Number');
+            return;
+        }
+        
+        // Format phone number
+        if (!customerData.phone.startsWith('+63')) {
+            customerData.phone = '+63' + customerData.phone.replace(/^0/, '');
+        }
+        
+        // Show loading
+        const saveBtn = document.getElementById('saveCustomerBtn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        // Send to server
+        fetch('/api/customers/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(customerData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Set customer ID
+                document.getElementById('customer_id').value = data.customer.id;
+                currentCustomerId = data.customer.id;
+                
+                // Show success message
+                alert(`✅ Customer saved successfully!\nID: ${data.customer.id}\nYou can now continue to next steps.`);
+                
+                // Enable next steps
+                enableNextSteps();
+                
+                // Show customer LTV if it's a repeat customer
+                if (data.customer.total_orders > 0) {
+                    showCustomerLTV(data.customer);
+                }
+            } else {
+                alert('❌ Error saving customer: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Network error saving customer');
+        })
+        .finally(() => {
+            // Restore button
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        });
+    }
+    
+    // Enable next steps after customer is saved
+    function enableNextSteps() {
+        // Enable department selection
+        document.querySelectorAll('.department-card').forEach(card => {
+            card.style.opacity = '1';
+            card.style.pointerEvents = 'auto';
+        });
+        
+        // Scroll to next section
+        document.querySelector('.form-section:nth-child(2)').scrollIntoView({ behavior: 'smooth' });
+        
+        // Show success indicator
+        const customerSection = document.querySelector('.form-section:nth-child(1)');
+        customerSection.classList.add('completed');
+        
+        // Update button text
+        document.getElementById('saveCustomerBtn').innerHTML = '<i class="fas fa-check me-2"></i> Customer Saved';
+        document.getElementById('saveCustomerBtn').classList.remove('btn-success');
+        document.getElementById('saveCustomerBtn').classList.add('btn-outline-success');
+        document.getElementById('saveCustomerBtn').disabled = true;
+    }
+    
+    // Clear customer form
+    function clearCustomerForm() {
+        document.getElementById('customer_name').value = '';
+        document.getElementById('customer_phone').value = '';
+        document.getElementById('customer_email').value = '';
+        document.getElementById('marketplace').value = '';
+        document.getElementById('customer_address').value = '';
+        document.getElementById('customer_company').value = '';
+        document.getElementById('customer_notes').value = '';
+        document.getElementById('customer_id').value = '';
+        currentCustomerId = null;
+    }
+    
+    // Department selection
+    document.querySelectorAll('.department-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.department-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            this.classList.add('selected');
+            
+            const deptName = this.querySelector('h5').textContent;
+            document.getElementById('department_name').value = deptName;
+        });
+    });
+    
+    // Payment method selection
+    document.querySelectorAll('.payment-method-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.payment-method-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            this.classList.add('selected');
+        });
+    });
+    
+    // File upload handlers
+    document.getElementById('uploadArea').addEventListener('click', function() {
+        document.getElementById('payment_screenshot').click();
+    });
+    
+    document.getElementById('payment_screenshot').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            document.getElementById('fileName').textContent = 'Selected: ' + e.target.files[0].name;
+        }
+    });
+    
+    // Mockup images upload
+    document.getElementById('mockupUploadArea').addEventListener('click', function() {
+        document.getElementById('mockup_images').click();
+    });
+    
+    document.getElementById('mockup_images').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const fileNames = Array.from(e.target.files).map(f => f.name).join(', ');
+            document.getElementById('mockupFileNames').textContent = 'Selected: ' + fileNames;
+        }
+    });
+    
+    // Reference images upload
+    document.getElementById('referenceUploadArea').addEventListener('click', function() {
+        document.getElementById('reference_images').click();
+    });
+    
+    document.getElementById('reference_images').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const fileNames = Array.from(e.target.files).map(f => f.name).join(', ');
+            document.getElementById('referenceFileNames').textContent = 'Selected: ' + fileNames;
+        }
+    });
+    
+    // Service management
+    let serviceIndex = 1;
+    
+    document.getElementById('addService').addEventListener('click', function() {
+        const template = document.querySelector('.service-item').cloneNode(true);
+        template.setAttribute('data-service-index', serviceIndex);
+        
+        // Update all inputs
+        template.querySelectorAll('input, select, textarea').forEach(input => {
+            const name = input.getAttribute('name');
+            if (name) {
+                input.setAttribute('name', name.replace('[0]', '[' + serviceIndex + ']'));
+            }
+        });
+        
+        // Show remove button
+        template.querySelector('.remove-service').style.display = 'block';
+        
+        // Add remove functionality
+        template.querySelector('.remove-service').addEventListener('click', function() {
+            template.remove();
+            calculateTotals();
+        });
+        
+        // Add to container
+        document.getElementById('servicesContainer').appendChild(template);
+        
+        // Add change listeners for calculation
+        template.querySelector('.service-quantity').addEventListener('input', calculateTotals);
+        template.querySelector('.service-price').addEventListener('input', calculateTotals);
+        
+        serviceIndex++;
+    });
+    
+    // Remove service for first item (will be shown after adding second)
+    document.querySelector('.remove-service').addEventListener('click', function() {
+        if (document.querySelectorAll('.service-item').length > 1) {
+            this.closest('.service-item').remove();
+            calculateTotals();
+        }
+    });
+    
+    // Calculate totals
+    function calculateTotals() {
+        let subtotal = 0;
+        
+        document.querySelectorAll('.service-item').forEach(item => {
+            const quantity = parseFloat(item.querySelector('.service-quantity').value) || 0;
+            const price = parseFloat(item.querySelector('.service-price').value) || 0;
+            subtotal += quantity * price;
+        });
+        
+        const tax = subtotal * 0.12; // 12% tax
+        const total = subtotal + tax;
+        
+        // Update displays
+        document.getElementById('subtotalDisplay').textContent = '₱' + subtotal.toFixed(2);
+        document.getElementById('taxDisplay').textContent = '₱' + tax.toFixed(2);
+        document.getElementById('totalDisplay').textContent = '₱' + total.toFixed(2);
+        
+        // Update hidden inputs
+        document.getElementById('subtotal').value = subtotal.toFixed(2);
+        document.getElementById('tax').value = tax.toFixed(2);
+        document.getElementById('total_amount').value = total.toFixed(2);
+        
+        // Update deposit max
+        const depositInput = document.getElementById('deposit_paid');
+        depositInput.max = total;
+        if (parseFloat(depositInput.value) > total) {
+            depositInput.value = total;
+        }
+    }
+    
+    // Initialize calculation listeners
+    document.querySelector('.service-quantity').addEventListener('input', calculateTotals);
+    document.querySelector('.service-price').addEventListener('input', calculateTotals);
+    
+    // Initial calculation
+    calculateTotals();
+    
+    // Form submission
+    document.getElementById('prototypeSaleForm').addEventListener('submit', function(e) {
+        // Validate department selection
+        const selectedDept = document.querySelector('input[name="department_id"]:checked');
+        if (!selectedDept) {
+            e.preventDefault();
+            alert('Please select a department');
+            return;
+        }
+        
+        // Validate payment method
+        const selectedPayment = document.querySelector('input[name="payment_method"]:checked');
+        if (!selectedPayment) {
+            e.preventDefault();
+            alert('Please select a payment method');
+            return;
+        }
+        
+        // Show loading
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Creating Sale...';
+        submitBtn.disabled = true;
+    });
+</script>
+@endpush

@@ -17,6 +17,12 @@
                 <a href="{{ route('master-items.index') }}" class="btn btn-outline-secondary">
                     <i class="fas fa-boxes me-1"></i> Master Items
                 </a>
+                <a href="{{ route('printing.public') }}" class="btn btn-outline-success">
+                    <i class="fas fa-calculator me-1"></i> Pricing Calculator
+                </a>
+                <a href="{{ route('pricing.rules') }}" class="btn btn-outline-info">
+                    <i class="fas fa-sliders-h me-1"></i> Pricing Rules
+                </a>
             </div>
         </div>
     </div>
@@ -119,7 +125,8 @@
     <div class="card mb-4">
         <div class="card-body">
             <form method="GET" action="{{ route('product-pricing.index') }}" class="row g-3">
-                <div class="col-md-3">
+                <!-- First Row of Filters -->
+                <div class="col-md-2">
                     <label for="category" class="form-label">Category</label>
                     <select class="form-select" id="category" name="category">
                         <option value="">All Categories</option>
@@ -128,27 +135,61 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label for="price_tier" class="form-label">Price Tier</label>
                     <select class="form-select" id="price_tier" name="price_tier">
-                        <option value="supplier_cost" {{ $priceTier == 'supplier_cost' ? 'selected' : '' }}>Supplier Cost (Your Cost)</option>
-                        <option value="sales_team" {{ $priceTier == 'sales_team' ? 'selected' : '' }}>Sales Team Price</option>
+                        <option value="supplier_cost" {{ $priceTier == 'supplier_cost' ? 'selected' : '' }}>Supplier Cost</option>
+                        <option value="sales_team" {{ $priceTier == 'sales_team' ? 'selected' : '' }}>Sales Team</option>
                         <option value="agent_cost" {{ $priceTier == 'agent_cost' ? 'selected' : '' }}>Agent Cost</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
+                    <label for="brand" class="form-label">Brand</label>
+                    <select class="form-select" id="brand" name="brand">
+                        <option value="">All Brands</option>
+                        @foreach($brands as $brandOption)
+                            <option value="{{ $brandOption }}" {{ $brand == $brandOption ? 'selected' : '' }}>{{ $brandOption }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="shirt_type" class="form-label">Type</label>
+                    <select class="form-select" id="shirt_type" name="shirt_type">
+                        <option value="">All Types</option>
+                        @foreach($shirtTypes as $typeOption)
+                            <option value="{{ $typeOption }}" {{ $shirtType == $typeOption ? 'selected' : '' }}>{{ $typeOption }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="color" class="form-label">Color</label>
+                    <select class="form-select" id="color" name="color">
+                        <option value="">All Colors</option>
+                        @foreach($colors as $colorOption)
+                            <option value="{{ $colorOption }}" {{ $color == $colorOption ? 'selected' : '' }}>{{ $colorOption }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label for="search" class="form-label">Search</label>
                     <input type="text" class="form-control" id="search" name="search" 
-                           value="{{ $search }}" placeholder="Search by name, SKU, or description...">
+                           value="{{ $search }}" placeholder="Name, SKU...">
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <div class="btn-group w-100">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-filter me-1"></i> Filter
-                        </button>
-                        <a href="{{ route('product-pricing.index') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-redo"></i>
-                        </a>
+                
+                <!-- Second Row: Action Buttons -->
+                <div class="col-md-12">
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter me-1"></i> Apply Filters
+                            </button>
+                            <a href="{{ route('product-pricing.index') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-redo me-1"></i> Reset
+                            </a>
+                        </div>
+                        <div class="text-muted small">
+                            <i class="fas fa-info-circle me-1"></i> Filter by Brand, Type, Color to find products faster
+                        </div>
                     </div>
                 </div>
             </form>

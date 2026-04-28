@@ -223,13 +223,22 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="row">
+                                        <!-- NEW FIELDS FOR PRINTING SERVICES -->
+                                        <div class="col-md-6 mb-3">
+                                            <label for="printing_product_type" class="form-label">Type of Print *</label>
+                                            <input type="text" class="form-control" id="printing_product_type" name="printing_product_type" placeholder="e.g., DTF Print, Sublimation Print, Screen Print">
+                                            <div class="form-text">Enter the printing method (DTF, Sublimation, Screen, etc.)</div>
+                                        </div>
+                                        
+                                        <!-- EXISTING FIELDS -->
                                         <div class="col-md-6 mb-3">
                                             <label for="paper_type" class="form-label">Paper Type</label>
                                             <input type="text" class="form-control" id="paper_type" name="paper_type" placeholder="e.g., Bond, Glossy, Matte">
                                         </div>
                                         <div class="col-md-6 mb-3">
-                                            <label for="paper_size" class="form-label">Paper Size</label>
-                                            <input type="text" class="form-control" id="paper_size" name="paper_size" placeholder="e.g., A4, Letter, Legal">
+                                            <label for="paper_size" class="form-label">Size of Print *</label>
+                                            <input type="text" class="form-control" id="paper_size" name="paper_size" placeholder="e.g., A4 Print, Logo Print, A3 Print, Full Color">
+                                            <div class="form-text">Enter the print size/type (A4, Logo, A3, Full Color, etc.)</div>
                                         </div>
                                         <div class="col-md-6 mb-3">
                                             <label for="ink_type" class="form-label">Ink Type</label>
@@ -333,6 +342,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // First, remove required attribute from all category-specific fields
+        categoryFields.forEach(field => {
+            const requiredInputs = field.querySelectorAll('input[data-was-required], select[data-was-required], textarea[data-was-required]');
+            requiredInputs.forEach(input => {
+                input.removeAttribute('required');
+            });
+        });
+        
         // Hide all category-specific fields (and move offscreen)
         categoryFields.forEach(field => {
             field.style.display = 'none';
@@ -382,7 +399,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (materialName) materialName.addEventListener('input', updatePreview);
         } else if (selectedCategory === 'Printing and Office Supplies') {
             activeField = document.getElementById('printing-fields');
-            document.getElementById('sku-info-text').textContent = 'SKUs will be automatically generated from Product Type + Paper Type + Size';
+            document.getElementById('sku-info-text').textContent = 'SKUs will be automatically generated from Product Name + Type of Print + Paper Type + Size of Print + Random ABC123 suffix';
+            
+            // Add event listeners to Printing fields for SKU preview
+            const productName = document.getElementById('name');
+            const printingProductType = document.getElementById('printing_product_type');
+            const paperType = document.getElementById('paper_type');
+            const paperSizeField = document.getElementById('paper_size');
+            
+            if (productName) productName.addEventListener('input', updatePreview);
+            if (printingProductType) printingProductType.addEventListener('input', updatePreview);
+            if (paperType) paperType.addEventListener('input', updatePreview);
+            if (paperSizeField) paperSizeField.addEventListener('input', updatePreview);
         } else if (selectedCategory === 'Other Products') {
             activeField = document.getElementById('other-fields');
             // Update SKU info message for Other Products
@@ -405,6 +433,13 @@ document.addEventListener('DOMContentLoaded', function() {
             activeField.style.position = 'static';
             activeField.style.left = 'auto';
             activeField.style.top = 'auto';
+            
+            // Restore required attribute for inputs in active category
+            const requiredInputs = activeField.querySelectorAll('input[data-was-required], select[data-was-required], textarea[data-was-required]');
+            requiredInputs.forEach(input => {
+                input.setAttribute('required', 'required');
+                input.removeAttribute('data-was-required');
+            });
         }
     }
     
@@ -413,6 +448,38 @@ document.addEventListener('DOMContentLoaded', function() {
         // It's a hidden input with value from URL
         const categoryValue = categorySelect.value;
         console.log('Category is hidden input with value:', categoryValue);
+        
+        // Define required fields for each category
+        const requiredFieldsMap = {
+            'Shirt Products': ['brand', 'type', 'color'],
+            'Other Products': ['other_brand', 'product_type', 'other_material', 'other_color'],
+            'Machine and Equipments': ['machine_brand', 'machine_type', 'specifications'],
+            'Garment Materials': ['material_name'],
+            'Printing and Office Supplies': ['printing_product_type', 'paper_size']
+        };
+        
+        // Mark fields that should be required
+        categoryFields.forEach(field => {
+            const categoryId = field.id.replace('-fields', '');
+            let categoryName = '';
+            
+            switch(categoryId) {
+                case 'shirt': categoryName = 'Shirt Products'; break;
+                case 'other': categoryName = 'Other Products'; break;
+                case 'machine': categoryName = 'Machine and Equipments'; break;
+                case 'material': categoryName = 'Garment Materials'; break;
+                case 'printing': categoryName = 'Printing and Office Supplies'; break;
+            }
+            
+            if (categoryName && requiredFieldsMap[categoryName]) {
+                requiredFieldsMap[categoryName].forEach(fieldName => {
+                    const input = field.querySelector(`[name="${fieldName}"]`);
+                    if (input) {
+                        input.setAttribute('data-was-required', 'true');
+                    }
+                });
+            }
+        });
         
         // First hide ALL category fields (and move offscreen)
         categoryFields.forEach(field => {
@@ -492,7 +559,20 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         } else if (categoryValue === 'Printing and Office Supplies') {
             activeField = document.getElementById('printing-fields');
-            document.getElementById('sku-info-text').textContent = 'SKUs will be automatically generated from Product Type + Paper Type + Size';
+            document.getElementById('sku-info-text').textContent = 'SKUs will be automatically generated from Product Name + Type of Print + Paper Type + Size of Print + Random ABC123 suffix';
+            
+            // Add event listeners to Printing fields for SKU preview
+            setTimeout(() => {
+                const productName = document.getElementById('name');
+                const printingProductType = document.getElementById('printing_product_type');
+                const paperType = document.getElementById('paper_type');
+                const paperSizeField = document.getElementById('paper_size');
+                
+                if (productName) productName.addEventListener('input', updatePreview);
+                if (printingProductType) printingProductType.addEventListener('input', updatePreview);
+                if (paperType) paperType.addEventListener('input', updatePreview);
+                if (paperSizeField) paperSizeField.addEventListener('input', updatePreview);
+            }, 100);
         }
         
         if (activeField) {
@@ -500,10 +580,49 @@ document.addEventListener('DOMContentLoaded', function() {
             activeField.style.position = 'static';
             activeField.style.left = 'auto';
             activeField.style.top = 'auto';
+            
+            // Restore required attribute for inputs in active category
+            const requiredInputs = activeField.querySelectorAll('input[data-was-required], select[data-was-required], textarea[data-was-required]');
+            requiredInputs.forEach(input => {
+                input.setAttribute('required', 'required');
+                input.removeAttribute('data-was-required');
+            });
         }
     } 
     // If it's a select element, add event listener
     if (categorySelect && categorySelect.tagName === 'SELECT') {
+        // Define required fields for each category
+        const requiredFieldsMap = {
+            'Shirt Products': ['brand', 'type', 'color'],
+            'Other Products': ['other_brand', 'product_type', 'other_material', 'other_color'],
+            'Machine and Equipments': ['machine_brand', 'machine_type', 'specifications'],
+            'Garment Materials': ['material_name'],
+            'Printing and Office Supplies': ['printing_product_type', 'paper_size']
+        };
+        
+        // Mark fields that should be required
+        categoryFields.forEach(field => {
+            const categoryId = field.id.replace('-fields', '');
+            let categoryName = '';
+            
+            switch(categoryId) {
+                case 'shirt': categoryName = 'Shirt Products'; break;
+                case 'other': categoryName = 'Other Products'; break;
+                case 'machine': categoryName = 'Machine and Equipments'; break;
+                case 'material': categoryName = 'Garment Materials'; break;
+                case 'printing': categoryName = 'Printing and Office Supplies'; break;
+            }
+            
+            if (categoryName && requiredFieldsMap[categoryName]) {
+                requiredFieldsMap[categoryName].forEach(fieldName => {
+                    const input = field.querySelector(`[name="${fieldName}"]`);
+                    if (input) {
+                        input.setAttribute('data-was-required', 'true');
+                    }
+                });
+            }
+        });
+        
         // Initial show based on current selection
         showCategoryFields();
         
@@ -627,17 +746,24 @@ function generateSKU() {
         return baseSKU ? `${baseSKU}-${randomSuffix}` : randomSuffix;
         
     } else if (currentCategory === 'Printing and Office Supplies') {
-        const productType = document.getElementById('printing_product_type').value.trim();
+        const productName = document.getElementById('name').value.trim();
+        const printType = document.getElementById('printing_product_type').value.trim();
         const paperType = document.getElementById('paper_type').value.trim();
         const paperSize = document.getElementById('paper_size').value.trim();
         
-        if (!productType && !paperType && !paperSize) {
+        if (!productName && !printType && !paperType && !paperSize) {
             return '';
         }
         
-        if (productType) skuParts.push(removeVowels(productType));
+        // Format: PRODUCTNAME-PRINTTYPE-PAPERTYPE-PAPERSIZE
+        if (productName) skuParts.push(removeVowels(productName));
+        if (printType) skuParts.push(removeVowels(printType));
         if (paperType) skuParts.push(removeVowels(paperType));
         if (paperSize) skuParts.push(removeVowels(paperSize));
+        
+        // Combine: ALL PARTS (controller will add random suffix)
+        const baseSKU = skuParts.join('-');
+        return baseSKU || '';
     }
     
     // Simple SKU format: PARTS (vowels removed)
@@ -655,12 +781,13 @@ function updatePreview() {
         return;
     }
     
+    // Get current category
+    const categorySelect = document.getElementById('category');
+    if (!categorySelect) return;
+    
+    const currentCategory = categorySelect.value;
+    
     if (!baseSKU) {
-        // Get current category for appropriate message
-        const categorySelect = document.getElementById('category');
-        if (!categorySelect) return;
-        
-        const currentCategory = categorySelect.value;
         let message = 'Enter required fields to see SKU preview';
         
         if (currentCategory === 'Shirt Products') {
@@ -672,7 +799,7 @@ function updatePreview() {
         } else if (currentCategory === 'Garment Materials') {
             message = 'Enter Brand, Material, Color, and Item Name to see auto-generated SKU with random suffix. Or enter manual SKU below.';
         } else if (currentCategory === 'Printing and Office Supplies') {
-            message = 'Enter product type, paper type, and size to see SKU preview';
+            message = 'Enter product name, type of print, paper type, and size of print to see SKU preview (random suffix added on save)';
         }
         
         previewDiv.innerHTML = `<div class="alert alert-warning">${message}</div>`;

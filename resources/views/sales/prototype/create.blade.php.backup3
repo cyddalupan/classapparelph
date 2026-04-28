@@ -1,0 +1,2152 @@
+@extends('layouts.app')
+
+@section('title', 'Create New Sale - Prototype')
+
+@push('styles')
+<style>
+    .form-section {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+        color: #667eea;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .service-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        background: #f9f9f9;
+    }
+    
+    .upload-area {
+        border: 2px dashed #667eea;
+        border-radius: 10px;
+        padding: 3rem;
+        text-align: center;
+        background: #f8f9ff;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .upload-area:hover {
+        background: #eef1ff;
+        border-color: #764ba2;
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+    
+    .payment-method-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .payment-method-card:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .payment-method-card.selected {
+        border-color: #667eea;
+        background: #eef1ff;
+    }
+    
+    .department-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .department-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .department-card.selected {
+        border-color: #667eea;
+        background: #eef1ff;
+    }
+    
+    /* Product Box Styles */
+    .product-box {
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .product-box:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        border-color: #667eea;
+    }
+    
+    .product-icon {
+        color: #667eea;
+    }
+    
+    .department-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .badge-iprint {
+        background-color: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+        border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+    
+    .badge-consol {
+        background-color: rgba(23, 162, 184, 0.1);
+        color: #17a2b8;
+        border: 1px solid rgba(23, 162, 184, 0.3);
+    }
+    
+    .badge-cinco {
+        background-color: rgba(255, 193, 7, 0.1);
+        color: #ffc107;
+        border: 1px solid rgba(255, 193, 7, 0.3);
+    }
+    
+    .badge-class {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+        border: 1px solid rgba(40, 167, 69, 0.3);
+    }
+    
+    .badge-mto {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+        border: 1px solid rgba(220, 53, 69, 0.3);
+    }
+    
+    .badge-other {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+        border: 1px solid rgba(108, 117, 125, 0.3);
+    }
+    
+    /* Selected Items Styles */
+    .selected-item-card {
+        border-left: 4px solid #667eea;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        background: white;
+    }
+    
+    .item-department-badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+    }
+    
+    /* Modal Styles */
+    .product-modal .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .product-modal .modal-title i {
+        margin-right: 10px;
+    }
+</style>
+@endpush
+
+@section('content')
+<div class="content-wrapper">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-0">Create New Sale (Prototype)</h1>
+            <p class="text-muted">Test the new sales system with multi-department workflow</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ route('sales.prototype') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i> Back to Prototype
+            </a>
+        </div>
+    </div>
+    
+    <form id="prototypeSaleForm" action="{{ route('sales.prototype.store') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        
+        <!-- Step 1: Customer Information -->
+        <div class="form-section">
+            <h3 class="section-title">Step 1: Customer Information</h3>
+            
+            <!-- Smart Customer Detection -->
+            <div class="alert alert-info mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-lightbulb me-3 fa-2x"></i>
+                    <div>
+                        <h5 class="mb-1">Smart Customer Detection</h5>
+                        <p class="mb-0">Enter phone number to check if customer exists. System will auto-fill if found.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Customer Search -->
+            <div class="mb-4">
+                <label class="form-label">Find Existing Customer</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="customerSearch" placeholder="Search by phone, name, or email...">
+                    <button class="btn btn-outline-secondary" type="button" id="searchCustomerBtn">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                <div id="customerSearchResults" class="mt-2" style="display: none;">
+                    <!-- Results will appear here -->
+                </div>
+            </div>
+            
+            <div class="alert alert-success mb-4" id="existingCustomerAlert" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong id="existingCustomerName"></strong> - Existing customer found!
+                        <div class="small mt-1" id="existingCustomerDetails"></div>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="useExistingCustomer">
+                            <i class="fas fa-user-check me-1"></i> Use This Customer
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="createNewCustomer">
+                            <i class="fas fa-user-plus me-1"></i> Create New
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Customer Form Fields -->
+            <div id="customerFormFields">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_name" class="form-label">Customer Name *</label>
+                        <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_phone" class="form-label">Phone Number *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">+63</span>
+                            <input type="tel" class="form-control" id="customer_phone" name="customer_phone" 
+                                   placeholder="9123456789" required
+                                   data-customer-detection="true">
+                        </div>
+                        <small class="text-muted">Enter phone number to check for existing customer</small>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="customer_email" name="customer_email">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="marketplace" class="form-label">Marketplace / Source *</label>
+                        <select class="form-control" id="marketplace" name="marketplace" required>
+                            <option value="">Select source</option>
+                            @foreach($marketplaceOptions as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_address" class="form-label">Location / Address</label>
+                        <textarea class="form-control" id="customer_address" name="customer_address" rows="2" placeholder="City, Province, or Full Address"></textarea>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="customer_company" class="form-label">Company (Optional)</label>
+                        <input type="text" class="form-control" id="customer_company" name="customer_company" placeholder="Company name if applicable">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="customer_notes" class="form-label">Customer Notes</label>
+                    <textarea class="form-control" id="customer_notes" name="customer_notes" rows="3" placeholder="Any special instructions or preferences from the customer..."></textarea>
+                </div>
+                
+                <!-- Customer Save Button -->
+                <div class="mb-3">
+                    <button type="button" class="btn btn-success" id="saveCustomerBtn">
+                        <i class="fas fa-save me-2"></i> Save Customer & Continue
+                    </button>
+                    <small class="text-muted ms-2">Customer will be saved immediately and you can continue to next steps</small>
+                </div>
+            </div>
+            
+            <!-- Customer LTV Display (when existing customer selected) -->
+            <div class="card mt-3" id="customerLTVCard" style="display: none;">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Customer Lifetime Value</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="customerLTVDetails">
+                        <!-- LTV details will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hidden customer_id field -->
+            <input type="hidden" id="customer_id" name="customer_id" value="">
+        </div>
+        
+        <!-- Step 2: Product Selection (Auto-assigns Department) -->
+        <div class="form-section">
+            <h3 class="section-title">Step 2: Select Products & Services</h3>
+            <p class="text-muted mb-4">Choose products from our database. Department will be auto-assigned.</p>
+            
+            <!-- Smart Department Assignment Alert -->
+            <div class="alert alert-info mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-robot me-3 fa-2x"></i>
+                    <div>
+                        <h5 class="mb-1">Smart Department Assignment</h5>
+                        <p class="mb-0">System will auto-assign items to correct department based on product type.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 6 Product Boxes -->
+            <div class="row g-4" id="productBoxesContainer">
+                <!-- Box 1: Garment Printing -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="product-box card h-100" data-product-type="garment" data-department="iprint">
+                        <div class="card-body text-center">
+                            <div class="product-icon mb-3">
+                                <i class="fas fa-tshirt fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title mb-2">Garment Printing</h5>
+                            <p class="text-muted small mb-3">DTF, Sublimation, Heat Transfer</p>
+                            <div class="department-badge badge-iprint mb-3">Auto-assign: iPrint</div>
+                            <button type="button" class="btn btn-outline-primary w-100" onclick="openProductModal('garment', 'iprint')">
+                                <i class="fas fa-plus-circle me-2"></i> Add Items
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 2: Tarpaulin -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="product-box card h-100" data-product-type="tarpaulin" data-department="consol">
+                        <div class="card-body text-center">
+                            <div class="product-icon mb-3">
+                                <i class="fas fa-image fa-3x text-info"></i>
+                            </div>
+                            <h5 class="card-title mb-2">Tarpaulin Printing</h5>
+                            <p class="text-muted small mb-3">Banners, Signages, Tarps</p>
+                            <div class="department-badge badge-consol mb-3">Auto-assign: Consol</div>
+                            <button type="button" class="btn btn-outline-info w-100" onclick="openProductModal('tarpaulin', 'consol')">
+                                <i class="fas fa-plus-circle me-2"></i> Add Items
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 3: Embroidery -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="product-box card h-100" data-product-type="embroidery" data-department="cinco">
+                        <div class="card-body text-center">
+                            <div class="product-icon mb-3">
+                                <i class="fas fa-thread fa-3x text-warning"></i>
+                            </div>
+                            <h5 class="card-title mb-2">Embroidery</h5>
+                            <p class="text-muted small mb-3">Custom embroidery services</p>
+                            <div class="department-badge badge-cinco mb-3">Auto-assign: Cinco</div>
+                            <button type="button" class="btn btn-outline-warning w-100" onclick="openProductModal('embroidery', 'cinco')">
+                                <i class="fas fa-plus-circle me-2"></i> Add Items
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 4: Cutting -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="product-box card h-100" data-product-type="cutting" data-department="class">
+                        <div class="card-body text-center">
+                            <div class="product-icon mb-3">
+                                <i class="fas fa-cut fa-3x text-success"></i>
+                            </div>
+                            <h5 class="card-title mb-2">Cutting Services</h5>
+                            <p class="text-muted small mb-3">Fabric cutting, pattern making</p>
+                            <div class="department-badge badge-class mb-3">Auto-assign: Class</div>
+                            <button type="button" class="btn btn-outline-success w-100" onclick="openProductModal('cutting', 'class')">
+                                <i class="fas fa-plus-circle me-2"></i> Add Items
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 5: Sewing -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="product-box card h-100" data-product-type="sewing" data-department="class">
+                        <div class="card-body text-center">
+                            <div class="product-icon mb-3">
+                                <i class="fas fa-sewing-machine fa-3x text-success"></i>
+                            </div>
+                            <h5 class="card-title mb-2">Sewing Services</h5>
+                            <p class="text-muted small mb-3">Garment assembly, stitching</p>
+                            <div class="department-badge badge-class mb-3">Auto-assign: Class</div>
+                            <button type="button" class="btn btn-outline-success w-100" onclick="openProductModal('sewing', 'class')">
+                                <i class="fas fa-plus-circle me-2"></i> Add Items
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Box 6: Design -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="product-box card h-100" data-product-type="design" data-department="iprint">
+                        <div class="card-body text-center">
+                            <div class="product-icon mb-3">
+                                <i class="fas fa-pencil-ruler fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title mb-2">Design Services</h5>
+                            <p class="text-muted small mb-3">Graphic design, mockups</p>
+                            <div class="department-badge badge-iprint mb-3">Auto-assign: iPrint</div>
+                            <button type="button" class="btn btn-outline-primary w-100" onclick="openProductModal('design', 'iprint')">
+                                <i class="fas fa-plus-circle me-2"></i> Add Items
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Selected Items Display -->
+            <div class="mt-5">
+                <h5 class="mb-3">Selected Items</h5>
+                <div id="selectedItemsContainer" class="mb-4">
+                    <div class="alert alert-light text-center py-4">
+                        <i class="fas fa-shopping-cart fa-2x text-muted mb-3"></i>
+                        <p class="mb-0">No items added yet. Click on a product box above to add items.</p>
+                    </div>
+                </div>
+                
+                <!-- Department Breakdown -->
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">Department Breakdown</h5>
+                                <div id="departmentBreakdown">
+                                    <p class="text-muted mb-0">No items assigned to departments yet.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">Order Summary</h5>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Subtotal:</span>
+                                    <span id="subtotalDisplay">₱0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Tax (12%):</span>
+                                    <span id="taxDisplay">₱0.00</span>
+                                </div>
+                                <hr>
+                                <div class="d-flex justify-content-between fw-bold">
+                                    <span>Total:</span>
+                                    <span id="totalDisplay">₱0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hidden fields for form submission -->
+            <input type="hidden" name="department_id" id="auto_department_id" value="">
+            <input type="hidden" name="items_json" id="items_json" value="">
+            <input type="hidden" name="subtotal" id="subtotal" value="0">
+            <input type="hidden" name="tax" id="tax" value="0">
+            <input type="hidden" name="total_amount" id="total_amount" value="0">
+        </div>
+        
+
+        
+        <!-- Step 4: Payment & Verification -->
+        <div class="form-section">
+            <h3 class="section-title">Step 4: Payment & Verification</h3>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label class="form-label mb-3">Payment Method *</label>
+                    <div class="row" id="paymentMethodSelection">
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="gcash">
+                                <i class="fas fa-mobile-alt fa-2x text-success mb-3"></i>
+                                <h6>GCash</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_gcash" value="gcash" required>
+                                <label class="btn btn-outline-success btn-sm mt-2" for="pm_gcash">Select</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="bank_transfer">
+                                <i class="fas fa-university fa-2x text-primary mb-3"></i>
+                                <h6>Bank Transfer</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_bank" value="bank_transfer" required>
+                                <label class="btn btn-outline-primary btn-sm mt-2" for="pm_bank">Select</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="cash">
+                                <i class="fas fa-money-bill-wave fa-2x text-success mb-3"></i>
+                                <h6>Cash</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_cash" value="cash" required>
+                                <label class="btn btn-outline-success btn-sm mt-2" for="pm_cash">Select</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="payment-method-card" data-method="credit_card">
+                                <i class="fas fa-credit-card fa-2x text-warning mb-3"></i>
+                                <h6>Credit Card</h6>
+                                <input type="radio" class="btn-check" name="payment_method" id="pm_cc" value="credit_card" required>
+                                <label class="btn btn-outline-warning btn-sm mt-2" for="pm_cc">Select</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="payment_owner" class="form-label">Payment Account Owner *</label>
+                        <select class="form-control" id="payment_owner" name="payment_owner" required>
+                            <option value="">Select account owner</option>
+                            <option value="company">Company Account</option>
+                            <option value="owner_personal">Owner Personal Account</option>
+                            <option value="sales_agent">Sales Agent Account</option>
+                            <option value="department_head">Department Head Account</option>
+                        </select>
+                        <small class="text-muted">Who owns the payment account where the customer will send payment?</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="deposit_paid" class="form-label">Deposit Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" min="0" value="0">
+                        </div>
+                        <small class="text-muted">Amount paid as deposit (if any)</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Payment Screenshot (Optional)</label>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h5>Drag & drop payment screenshot here</h5>
+                    <p class="text-muted">or click to browse files</p>
+                    <input type="file" id="payment_screenshot" name="payment_screenshot" accept="image/*" class="d-none">
+                    <div id="fileName" class="mt-2 text-success"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 5: Mockup & Images -->
+        <div class="form-section">
+            <h3 class="section-title">Step 5: Mockup & Reference Images</h3>
+            
+            <div class="mb-3">
+                <label class="form-label">Mockup Images</label>
+                <div class="upload-area" id="mockupUploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <h5>Upload mockup images</h5>
+                    <p class="text-muted">Design files, mockups, or reference images</p>
+                    <input type="file" id="mockup_images" name="mockup_images[]" accept="image/*" multiple class="d-none">
+                    <div id="mockupFileNames" class="mt-2 text-success"></div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Reference Images</label>
+                <div class="upload-area" id="referenceUploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <h5>Upload reference photos</h5>
+                    <p class="text-muted">Photos of samples, materials, or inspiration</p>
+                    <input type="file" id="reference_images" name="reference_images[]" accept="image/*" multiple class="d-none">
+                    <div id="referenceFileNames" class="mt-2 text-success"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 6: Internal Notes -->
+        <div class="form-section">
+            <h3 class="section-title">Step 6: Internal Notes</h3>
+            
+            <div class="mb-3">
+                <label for="internal_notes" class="form-label">Internal Notes</label>
+                <textarea class="form-control" id="internal_notes" name="internal_notes" rows="4" placeholder="Any internal notes for the team..."></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <label for="estimated_completion_date" class="            <div class="mb-3">
+                <label for="estimated_completion_date" class="form-label">Estimated Completion Date</label>
+                <input type="date" class="form-control" id="estimated_completion_date" name="estimated_completion_date">
+            </div>
+        </div>
+        
+        <!-- Submit Button -->
+        <div class="form-section text-center">
+            <button type="submit" class="btn btn-primary btn-lg px-5">
+                <i class="fas fa-save me-2"></i> Create Sale & Send to KANBAN
+            </button>
+            <p class="text-muted mt-3">This sale will be created and automatically added to the appropriate department's KANBAN board.</p>
+        </div>
+        <!-- Product Selection Modal -->
+        <div class="modal fade product-modal" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="productModalLabel">
+                            <i class="fas fa-box"></i> Select Product
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Product *</label>
+                                    <select class="form-control" id="productSelect" required>
+                                        <option value="">Select a product</option>
+                                    </select>
+                                    <div class="form-text">Products loaded from database based on category</div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Quantity *</label>
+                                            <input type="number" class="form-control" id="productQuantity" min="1" value="1" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Unit Price (₱) *</label>
+                                            <input type="number" class="form-control" id="productPrice" step="0.01" min="0" required>
+                                            <div class="form-text">Auto-filled from product selection</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Notes (Optional)</label>
+                                    <textarea class="form-control" id="productNotes" rows="3" placeholder="Add special instructions, colors, sizes, etc."></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title mb-3">Item Summary</h6>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Quantity:</span>
+                                            <span id="quantityDisplay">1</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Unit Price:</span>
+                                            <span id="priceDisplay">₱0.00</span>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between fw-bold">
+                                            <span>Total:</span>
+                                            <span id="itemTotalDisplay">₱0.00</span>
+                                        </div>
+                                        
+                                        <button type="button" class="btn btn-primary w-100 mt-4" id="addItemBtn">
+                                            <i class="fas fa-cart-plus me-2"></i> Add to Cart
+                                        </button>
+                                        
+                                        <div class="alert alert-info mt-3 small">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            Department will be auto-assigned based on product type
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+@endsection
+
+@push('scripts')
+<script>
+// ============================================
+// PRODUCT BOXES SYSTEM - CONNECTED TO DATABASE
+// ============================================
+
+// Global variables - MUST BE DECLARED AT TOP
+let selectedItems = [];
+let currentProductType = '';
+let currentDepartment = '';
+
+// Open product modal - GLOBAL FUNCTION for onclick handlers
+window.openProductModal = function(productType, department) {
+    console.log('Opening modal for:', productType, department);
+    currentProductType = productType;
+    currentDepartment = department;
+    
+    // Set modal title
+    const modalTitle = document.getElementById('productModalLabel');
+    if (modalTitle) {
+        const titles = {
+            'garment': 'Garment Printing',
+            'tarpaulin': 'Tarpaulin Printing', 
+            'embroidery': 'Embroidery',
+            'cutting': 'Cutting Services',
+            'sewing': 'Sewing Services',
+            'design': 'Design Services'
+        };
+        const icons = {
+            'garment': 'fa-tshirt',
+            'tarpaulin': 'fa-image',
+            'embroidery': 'fa-thread',
+            'cutting': 'fa-cut',
+            'sewing': 'fa-sewing-machine',
+            'design': 'fa-pencil-ruler'
+        };
+        modalTitle.innerHTML = `<i class="fas ${icons[productType]}"></i> ${titles[productType]}`;
+    }
+    
+    // Load products
+    loadProductsFromDatabase(productType);
+    
+    // Show modal
+    const modalEl = document.getElementById('productModal');
+    if (modalEl) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+};
+
+// Load products - GLOBAL
+window.loadProductsFromDatabase = function(productType) {
+    const select = document.getElementById('productSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Loading...</option>';
+    
+    setTimeout(() => {
+        const products = getDemoProducts(productType);
+        select.innerHTML = '<option value="">Select product</option>';
+        
+        products.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `${p.name} - ₱${p.price.toFixed(2)}`;
+            opt.dataset.price = p.price;
+            select.appendChild(opt);
+        });
+        
+        // Reset form
+        const qty = document.getElementById('productQuantity');
+        const price = document.getElementById('productPrice');
+        const notes = document.getElementById('productNotes');
+        if (qty) qty.value = '1';
+        if (price) price.value = '';
+        if (notes) notes.value = '';
+        
+        // Auto-fill price on select
+        select.addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            if (opt.value && opt.dataset.price && price) {
+                price.value = opt.dataset.price;
+                calculateItemTotal();
+            }
+        });
+        
+        calculateItemTotal();
+    }, 300);
+};
+
+// Get demo products - GLOBAL
+window.getDemoProducts = function(productType) {
+    const products = {
+        'garment': [
+            { id: 1, name: 'DTF Printing (Small)', price: 150.00 },
+            { id: 2, name: 'DTF Printing (Medium)', price: 200.00 },
+            { id: 3, name: 'DTF Printing (Large)', price: 250.00 },
+            { id: 4, name: 'Sublimation Printing', price: 300.00 },
+            { id: 5, name: 'Heat Transfer', price: 180.00 }
+        ],
+        'tarpaulin': [
+            { id: 6, name: 'Tarpaulin 3x6 ft', price: 450.00 },
+            { id: 7, name: 'Tarpaulin 4x8 ft', price: 650.00 },
+            { id: 8, name: 'Banner 2x5 ft', price: 350.00 },
+            { id: 9, name: 'Signage 1x2 ft', price: 250.00 }
+        ],
+        'embroidery': [
+            { id: 10, name: 'Small Logo Embroidery', price: 120.00 },
+            { id: 11, name: 'Medium Logo Embroidery', price: 200.00 },
+            { id: 12, name: 'Large Design Embroidery', price: 350.00 },
+            { id: 13, name: 'Name Embroidery', price: 80.00 }
+        ],
+        'cutting': [
+            { id: 14, name: 'Fabric Cutting (per yard)', price: 50.00 },
+            { id: 15, name: 'Pattern Making', price: 200.00 },
+            { id: 16, name: 'Bulk Cutting (10+ yards)', price: 40.00 }
+        ],
+        'sewing': [
+            { id: 17, name: 'Basic Sewing (per hour)', price: 150.00 },
+            { id: 18, name: 'Garment Assembly', price: 250.00 },
+            { id: 19, name: 'Alterations', price: 100.00 }
+        ],
+        'design': [
+            { id: 20, name: 'Graphic Design (Basic)', price: 300.00 },
+            { id: 21, name: 'Mockup Creation', price: 500.00 },
+            { id: 22, name: 'Complete Design Package', price: 800.00 }
+        ]
+    };
+    return products[productType] || [];
+};
+
+// Calculate item total - GLOBAL
+window.calculateItemTotal = function() {
+    const qty = document.getElementById('productQuantity');
+    const price = document.getElementById('productPrice');
+    const totalDisplay = document.getElementById('itemTotalDisplay');
+    const qtyDisplay = document.getElementById('quantityDisplay');
+    const priceDisplay = document.getElementById('priceDisplay');
+    
+    if (!qty || !price || !totalDisplay) return;
+    
+    const quantity = parseFloat(qty.value) || 0;
+    const unitPrice = parseFloat(price.value) || 0;
+    const total = quantity * unitPrice;
+    
+    totalDisplay.textContent = '₱' + total.toFixed(2);
+    if (qtyDisplay) qtyDisplay.textContent = quantity;
+    if (priceDisplay) priceDisplay.textContent = '₱' + unitPrice.toFixed(2);
+};
+
+// Add item to cart - GLOBAL
+window.addItemToCart = function() {
+    const select = document.getElementById('productSelect');
+    const qty = document.getElementById('productQuantity');
+    const price = document.getElementById('productPrice');
+    const notes = document.getElementById('productNotes');
+    
+    if (!select || !qty || !price) return;
+    
+    const quantity = parseFloat(qty.value) || 1;
+    const unitPrice = parseFloat(price.value) || 0;
+    const noteText = notes ? notes.value.trim() : '';
+    
+    if (!select.value) {
+        alert('Please select a product');
+        return;
+    }
+    
+    if (unitPrice <= 0) {
+        alert('Please enter a valid price');
+        return;
+    }
+    
+    const opt = select.options[select.selectedIndex];
+    const productName = opt.textContent.split(' - ')[0];
+    const total = quantity * unitPrice;
+    
+    const item = {
+        id: Date.now(),
+        productId: select.value,
+        productType: currentProductType,
+        department: currentDepartment,
+        name: productName,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        totalPrice: total,
+        notes: noteText,
+        timestamp: new Date().toISOString()
+    };
+    
+    selectedItems.push(item);
+    updateSelectedItemsDisplay();
+    
+    // Close modal
+    const modalEl = document.getElementById('productModal');
+    if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    }
+    
+    // Reset
+    select.selectedIndex = 0;
+    if (qty) qty.value = '1';
+    if (price) price.value = '';
+    if (notes) notes.value = '';
+    
+    showToast('Item added to cart!', 'success');
+};
+
+// Update selected items display - GLOBAL
+window.updateSelectedItemsDisplay = function() {
+    const container = document.getElementById('selectedItemsContainer');
+    if (!container) return;
+    
+    if (selectedItems.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-light text-center py-4">
+                <i class="fas fa-shopping-cart fa-2x text-muted mb-3"></i>
+                <p class="mb-0">No items added yet. Click on a product box above to add items.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="row g-3">';
+    
+    selectedItems.forEach((item, index) => {
+        const deptNames = { 'iprint': 'iPrint', 'consol': 'Consol', 'cinco': 'Cinco', 'class': 'Class', 'mto': 'Made to Order', 'other': 'Other' };
+        const deptColors = { 'iprint': 'primary', 'consol': 'info', 'cinco': 'warning', 'class': 'success', 'mto': 'danger', 'other': 'secondary' };
+        
+        html += `
+            <div class="col-md-6 col-lg-4">
+                <div class="selected-item-card card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">${item.name}</h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <span class="badge bg-${deptColors[item.department]} item-department-badge">
+                                ${deptNames[item.department]}
+                            </span>
+                            <span class="badge bg-light text-dark item-department-badge ms-1">
+                                ${item.productType}
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Quantity:</span>
+                            <span>${item.quantity}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Unit Price:</span>
+                            <span>₱${item.unitPrice.toFixed(2)}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Total:</span>
+                            <span class="fw-bold">₱${item.totalPrice.toFixed(2)}</span>
+                        </div>
+                        
+                        ${item.notes ? `<p class="mb-0 small text-muted"><i class="fas fa-sticky-note me-1"></i> ${item.notes}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    updateOrderSummary();
+};
+
+// Remove item - GLOBAL
+window.removeItem = function(index) {
+    if (confirm('Remove this item from cart?')) {
+        selectedItems.splice(index, 1);
+        updateSelectedItemsDisplay();
+        showToast('Item removed from cart', 'warning');
+    }
+};
+
+// Update order summary - GLOBAL
+window.updateOrderSummary = function() {
+    let subtotal = 0;
+    const deptTotals = {};
+    const deptCount = {};
+    
+    selectedItems.forEach(item => {
+        subtotal += item.totalPrice;
+        if (!deptTotals[item.department]) {
+            deptTotals[item.department] = 0;
+            deptCount[item.department] = 0;
+        }
+        deptTotals[item.department] += item.totalPrice;
+        deptCount[item.department] += 1;
+    });
+    
+    const tax = subtotal * 0.12;
+    const total = subtotal + tax;
+    
+    // Update displays
+    const subtotalDisplay = document.getElementById('subtotalDisplay');
+    const taxDisplay = document.getElementById('taxDisplay');
+    const totalDisplay = document.getElementById('totalDisplay');
+    
+    if (subtotalDisplay) subtotalDisplay.textContent = '₱' + subtotal.toFixed(2);
+    if (taxDisplay) taxDisplay.textContent = '₱' + tax.toFixed(2);
+    if (totalDisplay) totalDisplay.textContent = '₱' + total.toFixed(2);
+    
+    // Update hidden inputs
+    const subtotalInput = document.getElementById('subtotal');
+    const taxInput = document.getElementById('tax');
+    const totalInput = document.getElementById('total_amount');
+    
+    if (subtotalInput) subtotalInput.value = subtotal.toFixed(2);
+    if (taxInput) taxInput.value = tax.toFixed(2);
+    if (totalInput) totalInput.value = total.toFixed(2);
+    
+    // Update department breakdown
+    updateDepartmentBreakdown(deptTotals, deptCount);
+    
+    // Update deposit max
+    const depositInput = document.getElementById('deposit_paid');
+    if (depositInput) {
+        depositInput.max = total;
+        if (parseFloat(depositInput.value) > total) {
+            depositInput.value = total;
+        }
+    }
+};
+
+// Update department breakdown - GLOBAL
+window.updateDepartmentBreakdown = function(departmentTotals, departmentCount) {
+    const container = document.getElementById('departmentBreakdown');
+    if (!container) return;
+    
+    if (Object.keys(departmentTotals).length === 0) {
+        container.innerHTML = '<p class="text-muted mb-0">No items assigned to departments yet.</p>';
+        return;
+    }
+    
+    let html = '<div class="row g-3">';
+    const deptNames = { 'iprint': 'iPrint', 'consol': 'Consol', 'cinco': 'Cinco', 'class': 'Class', 'mto': 'Made to Order', 'other': 'Other' };
+    const deptColors = { 'iprint': 'primary', 'consol': 'info', 'cinco': 'warning', 'class': 'success', 'mto': 'danger', 'other': 'secondary' };
+    
+    for (const [deptCode, total] of Object.entries(departmentTotals)) {
+        const count = departmentCount[deptCode] || 0;
+        html += `
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="card-title mb-0">
+                                <span class="badge bg-${deptColors[deptCode]} me-2">${deptNames[deptCode]}</span>
+                                ${count} item${count !== 1 ? 's' : ''}
+                            </h6>
+                            <span class="fw-bold">₱${total.toFixed(2)}</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-${deptColors[deptCode]}" 
+                                 role="progressbar" 
+                                 style="width: ${(total / departmentTotals[Object.keys(departmentTotals)[0]]) * 100}%" 
+                                 aria-valuenow="${total}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="${Object.values(departmentTotals).reduce((a, b) => a + b, 0)}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html;
+};
+
+// Show toast - GLOBAL
+window.showToast = function(message, type = 'info') {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.position = 'fixed';
+        container.style.top = '20px';
+        container.style.right = '20px';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const typeClasses = {
+        'success': 'bg-success text-white',
+        'warning': 'bg-warning text-dark',
+        'error': 'bg-danger text-white',
+        'info': 'bg-info text-white'
+    };
+    
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.className = `toast ${typeClasses[type] || typeClasses['info']} border-0`;
+    toast.style.minWidth = '300px';
+    toast.style.marginBottom = '10px';
+    
+    toast.innerHTML = `
+        <div class="toast-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <span>${message}</span>
+                <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('${toastId}').remove()"></button>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(toast);
+    setTimeout(() => {
+        if (document.getElementById(toastId)) {
+            document.getElementById(toastId).remove();
+        }
+    }, 3000);
+};
+
+// ============================================
+// INITIALIZE EVENT LISTENERS WHEN DOM IS READY
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing product system...');
+    
+    // Initialize product event listeners
+    const qtyInput = document.getElementById('productQuantity');
+    const priceInput = document.getElementById('productPrice');
+    const addBtn = document.getElementById('addItemBtn');
+    
+    if (qtyInput) {
+        qtyInput.addEventListener('input', calculateItemTotal);
+    }
+    
+    if (priceInput) {
+        priceInput.addEventListener('input', calculateItemTotal);
+    }
+    
+    if (addBtn) {
+        addBtn.addEventListener('click', addItemToCart);
+    }
+    
+    // Initialize existing customer system (keep existing code)
+    let currentCustomerId = null;
+    
+    const customerPhone = document.getElementById('customer_phone');
+    if (customerPhone) {
+        customerPhone.addEventListener('blur', function() {
+            const phone = this.value.trim();
+            if (phone.length >= 10) {
+                checkExistingCustomer(phone);
+            }
+        });
+    }
+    
+    // Customer search
+    const searchBtn = document.getElementById('searchCustomerBtn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', function() {
+            const searchTerm = document.getElementById('customerSearch').value.trim();
+            if (searchTerm.length >= 3) {
+                searchCustomers(searchTerm);
+            } else {
+                alert('Please enter at least 3 characters to search');
+            }
+        });
+    }
+    
+    // Use existing customer
+    const useExistingBtn = document.getElementById('useExistingCustomer');
+    if (useExistingBtn) {
+        useExistingBtn.addEventListener('click', function() {
+            document.getElementById('customerForm').style.display = 'none';
+            document.getElementById('existingCustomerSection').style.display = 'block';
+        });
+    }
+    
+    // Create new customer
+    const createNewBtn = document.getElementById('createNewCustomer');
+    if (createNewBtn) {
+        createNewBtn.addEventListener('click', function() {
+            document.getElementById('existingCustomerSection').style.display = 'none';
+            document.getElementById('customerForm').style.display = 'block';
+        });
+    }
+    
+    // Save customer
+    const saveCustomerBtn = document.getElementById('saveCustomerBtn');
+    if (saveCustomerBtn) {
+        saveCustomerBtn.addEventListener('click', function() {
+            saveCustomer();
+        });
+    }
+    
+    // Form submission
+    const form = document.getElementById('prototypeSaleForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Validate items
+            if (selectedItems.length === 0) {
+                e.preventDefault();
+                alert('Please add at least one item to the cart');
+                return;
+            }
+            
+            // Convert items to JSON
+            const itemsJsonInput = document.getElementById('items_json');
+            if (itemsJsonInput) {
+                itemsJsonInput.value = JSON.stringify(selectedItems);
+            }
+            
+            // Auto-assign primary department
+            const deptTotals = {};
+            selectedItems.forEach(item => {
+                if (!deptTotals[item.department]) deptTotals[item.department] = 0;
+                deptTotals[item.department] += item.totalPrice;
+            });
+            
+            let primaryDept = '';
+            let maxTotal = 0;
+            for (const [dept, total] of Object.entries(deptTotals)) {
+                if (total > maxTotal) {
+                    maxTotal = total;
+                    primaryDept = dept;
+                }
+            }
+            
+            const autoDeptInput = document.getElementById('auto_department_id');
+            if (autoDeptInput) {
+                autoDeptInput.value = primaryDept || 'iprint';
+            }
+            
+            // Show loading
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Creating Sale...';
+                submitBtn.disabled = true;
+            }
+        });
+    }
+    
+    // Initial calculation
+    calculateItemTotal();
+    
+    console.log('Product system initialized successfully');
+});
+    
+    // Customer search
+    document.getElementById('searchCustomerBtn').addEventListener('click', function() {
+        const searchTerm = document.getElementById('customerSearch').value.trim();
+        if (searchTerm.length >= 3) {
+            searchCustomers(searchTerm);
+        } else {
+            alert('Please enter at least 3 characters to search');
+        }
+    });
+    
+    // Use existing customer
+    document.getElementById('useExistingCustomer').addEventListener('click', function() {
+        if (currentCustomerId) {
+            loadCustomerDetails(currentCustomerId);
+        }
+    });
+    
+    // Create new customer
+    document.getElementById('createNewCustomer').addEventListener('click', function() {
+        document.getElementById('existingCustomerAlert').style.display = 'none';
+        document.getElementById('customerLTVCard').style.display = 'none';
+        clearCustomerForm();
+        document.getElementById('customer_phone').focus();
+    });
+    
+    // Save customer button
+    document.getElementById('saveCustomerBtn').addEventListener('click', function() {
+        saveCustomer();
+    });
+    
+    // Check for existing customer
+    function checkExistingCustomer(phone) {
+        fetch(`/api/customers/check?phone=${encodeURIComponent(phone)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.exists) {
+                    showExistingCustomerAlert(data.customer);
+                    currentCustomerId = data.customer.id;
+                } else {
+                    currentCustomerId = null;
+                    document.getElementById('existingCustomerAlert').style.display = 'none';
+                    document.getElementById('customerLTVCard').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking customer:', error);
+            });
+    }
+    
+    // Search customers
+    function searchCustomers(searchTerm) {
+        fetch(`/api/customers/search?q=${encodeURIComponent(searchTerm)}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('customerSearchResults');
+                if (data.customers.length > 0) {
+                    let html = '<div class="list-group">';
+                    data.customers.forEach(customer => {
+                        html += `
+                        <a href="#" class="list-group-item list-group-item-action" data-customer-id="${customer.id}">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">${customer.name} ${customer.customer_tier === 'gold' ? '🥇' : customer.customer_tier === 'silver' ? '🥈' : customer.customer_tier === 'platinum' ? '💎' : '🥉'}</h6>
+                                <small>${customer.total_orders} orders</small>
+                            </div>
+                            <p class="mb-1">${customer.phone} | ${customer.email || 'No email'}</p>
+                            <small>Total spent: ₱${parseFloat(customer.total_spent).toLocaleString('en-PH')}</small>
+                        </a>`;
+                    });
+                    html += '</div>';
+                    resultsDiv.innerHTML = html;
+                    resultsDiv.style.display = 'block';
+                    
+                    // Add click handlers
+                    document.querySelectorAll('[data-customer-id]').forEach(item => {
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const customerId = this.getAttribute('data-customer-id');
+                            loadCustomerDetails(customerId);
+                            resultsDiv.style.display = 'none';
+                            document.getElementById('customerSearch').value = '';
+                        });
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<div class="alert alert-warning">No customers found</div>';
+                    resultsDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error searching customers:', error);
+            });
+    }
+    
+    // Show existing customer alert
+    function showExistingCustomerAlert(customer) {
+        document.getElementById('existingCustomerName').textContent = customer.name;
+        document.getElementById('existingCustomerDetails').innerHTML = `
+            Phone: ${customer.phone} | 
+            ${customer.total_orders} orders | 
+            Total: ₱${parseFloat(customer.total_spent).toLocaleString('en-PH')}
+        `;
+        document.getElementById('existingCustomerAlert').style.display = 'block';
+        
+        // Show LTV card
+        showCustomerLTV(customer);
+    }
+    
+    // Load customer details into form
+    function loadCustomerDetails(customerId) {
+        fetch(`/api/customers/${customerId}`)
+            .then(response => response.json())
+            .then(customer => {
+                // Fill form fields
+                document.getElementById('customer_name').value = customer.name;
+                document.getElementById('customer_phone').value = customer.phone.replace('+63', '');
+                document.getElementById('customer_email').value = customer.email || '';
+                document.getElementById('marketplace').value = customer.marketplace || '';
+                document.getElementById('customer_address').value = customer.location || '';
+                document.getElementById('customer_company').value = customer.company || '';
+                
+                // Hide alert and show LTV
+                document.getElementById('existingCustomerAlert').style.display = 'none';
+                showCustomerLTV(customer);
+                currentCustomerId = customer.id;
+            })
+            .catch(error => {
+                console.error('Error loading customer:', error);
+            });
+    }
+    
+    // Show customer LTV
+    function showCustomerLTV(customer) {
+        const ltvDiv = document.getElementById('customerLTVDetails');
+        const tierIcon = customer.customer_tier === 'gold' ? '🥇' : 
+                        customer.customer_tier === 'silver' ? '🥈' : 
+                        customer.customer_tier === 'platinum' ? '💎' : '🥉';
+        
+        ltvDiv.innerHTML = `
+            <div class="col-md-3 text-center">
+                <div class="display-6">${tierIcon}</div>
+                <div class="fw-bold">${customer.customer_tier.toUpperCase()}</div>
+                <div class="small text-muted">Customer Tier</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 fw-bold text-primary">${customer.total_orders}</div>
+                <div class="fw-bold">Total Orders</div>
+                <div class="small text-muted">Since ${new Date(customer.first_order_date).toLocaleDateString('en-PH')}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 fw-bold text-success">₱${parseFloat(customer.total_spent).toLocaleString('en-PH')}</div>
+                <div class="fw-bold">Lifetime Value</div>
+                <div class="small text-muted">Avg: ₱${parseFloat(customer.average_order_value).toLocaleString('en-PH')}</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="display-6 fw-bold text-info">${customer.getDaysSinceLastOrder || 'N/A'}</div>
+                <div class="fw-bold">Days Since Last</div>
+                <div class="small text-muted">Last: ${new Date(customer.last_order_date).toLocaleDateString('en-PH')}</div>
+            </div>
+        `;
+        
+        document.getElementById('customerLTVCard').style.display = 'block';
+    }
+    
+    // Save customer to database
+    function saveCustomer() {
+        const customerData = {
+            name: document.getElementById('customer_name').value.trim(),
+            phone: document.getElementById('customer_phone').value.trim(),
+            email: document.getElementById('customer_email').value.trim(),
+            marketplace: document.getElementById('marketplace').value,
+            location: document.getElementById('customer_address').value.trim(),
+            company: document.getElementById('customer_company').value.trim(),
+            notes: document.getElementById('customer_notes').value.trim(),
+            _token: '{{ csrf_token() }}'
+        };
+        
+        // Validation
+        if (!customerData.name || !customerData.phone) {
+            alert('Please fill in at least Customer Name and Phone Number');
+            return;
+        }
+        
+        // Format phone number
+        if (!customerData.phone.startsWith('+63')) {
+            customerData.phone = '+63' + customerData.phone.replace(/^0/, '');
+        }
+        
+        // Show loading
+        const saveBtn = document.getElementById('saveCustomerBtn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving...';
+        saveBtn.disabled = true;
+        
+        // Send to server
+        fetch('/api/customers/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(customerData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Set customer ID
+                document.getElementById('customer_id').value = data.customer.id;
+                currentCustomerId = data.customer.id;
+                
+                // Show success message
+                alert(`✅ Customer saved successfully!\nID: ${data.customer.id}\nYou can now continue to next steps.`);
+                
+                // Enable next steps
+                enableNextSteps();
+                
+                // Show customer LTV if it's a repeat customer
+                if (data.customer.total_orders > 0) {
+                    showCustomerLTV(data.customer);
+                }
+            } else {
+                alert('❌ Error saving customer: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Network error saving customer');
+        })
+        .finally(() => {
+            // Restore button
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
+        });
+    }
+    
+    // Enable next steps after customer is saved
+    function enableNextSteps() {
+        // Enable department selection
+        document.querySelectorAll('.department-card').forEach(card => {
+            card.style.opacity = '1';
+            card.style.pointerEvents = 'auto';
+        });
+        
+        // Scroll to next section
+        document.querySelector('.form-section:nth-child(2)').scrollIntoView({ behavior: 'smooth' });
+        
+        // Show success indicator
+        const customerSection = document.querySelector('.form-section:nth-child(1)');
+        customerSection.classList.add('completed');
+        
+        // Update button text
+        document.getElementById('saveCustomerBtn').innerHTML = '<i class="fas fa-check me-2"></i> Customer Saved';
+        document.getElementById('saveCustomerBtn').classList.remove('btn-success');
+        document.getElementById('saveCustomerBtn').classList.add('btn-outline-success');
+        document.getElementById('saveCustomerBtn').disabled = true;
+    }
+    
+    // Clear customer form
+    function clearCustomerForm() {
+        document.getElementById('customer_name').value = '';
+        document.getElementById('customer_phone').value = '';
+        document.getElementById('customer_email').value = '';
+        document.getElementById('marketplace').value = '';
+        document.getElementById('customer_address').value = '';
+        document.getElementById('customer_company').value = '';
+        document.getElementById('customer_notes').value = '';
+        document.getElementById('customer_id').value = '';
+        currentCustomerId = null;
+    }
+    
+    // Department selection
+    document.querySelectorAll('.department-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.department-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            this.classList.add('selected');
+            
+            const deptName = this.querySelector('h5').textContent;
+            document.getElementById('department_name').value = deptName;
+        });
+    });
+    
+    // Payment method selection
+    document.querySelectorAll('.payment-method-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.payment-method-card').forEach(c => {
+                c.classList.remove('selected');
+            });
+            this.classList.add('selected');
+        });
+    });
+    
+    // File upload handlers
+    document.getElementById('uploadArea').addEventListener('click', function() {
+        document.getElementById('payment_screenshot').click();
+    });
+    
+    document.getElementById('payment_screenshot').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            document.getElementById('fileName').textContent = 'Selected: ' + e.target.files[0].name;
+        }
+    });
+    
+    // Mockup images upload
+    document.getElementById('mockupUploadArea').addEventListener('click', function() {
+        document.getElementById('mockup_images').click();
+    });
+    
+    document.getElementById('mockup_images').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const fileNames = Array.from(e.target.files).map(f => f.name).join(', ');
+            document.getElementById('mockupFileNames').textContent = 'Selected: ' + fileNames;
+        }
+    });
+    
+    // Reference images upload
+    document.getElementById('referenceUploadArea').addEventListener('click', function() {
+        document.getElementById('reference_images').click();
+    });
+    
+    document.getElementById('reference_images').addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const fileNames = Array.from(e.target.files).map(f => f.name).join(', ');
+            document.getElementById('referenceFileNames').textContent = 'Selected: ' + fileNames;
+        }
+    });
+    
+    // Service management
+    let serviceIndex = 1;
+    
+    document.getElementById('addService').addEventListener('click', function() {
+        const template = document.querySelector('.service-item').cloneNode(true);
+        template.setAttribute('data-service-index', serviceIndex);
+        
+        // Update all inputs
+        template.querySelectorAll('input, select, textarea').forEach(input => {
+            const name = input.getAttribute('name');
+            if (name) {
+                input.setAttribute('name', name.replace('[0]', '[' + serviceIndex + ']'));
+            }
+        });
+        
+        // Show remove button
+        template.querySelector('.remove-service').style.display = 'block';
+        
+        // Add remove functionality
+        template.querySelector('.remove-service').addEventListener('click', function() {
+            template.remove();
+            calculateTotals();
+        });
+        
+        // Add to container
+        document.getElementById('servicesContainer').appendChild(template);
+        
+        // Add change listeners for calculation
+        template.querySelector('.service-quantity').addEventListener('input', calculateTotals);
+        template.querySelector('.service-price').addEventListener('input', calculateTotals);
+        
+        serviceIndex++;
+    });
+    
+    // Remove service for first item (will be shown after adding second)
+    document.querySelector('.remove-service').addEventListener('click', function() {
+        if (document.querySelectorAll('.service-item').length > 1) {
+            this.closest('.service-item').remove();
+            calculateTotals();
+        }
+    });
+    
+    // ============================================
+    // PRODUCT BOXES SYSTEM - CONNECTED TO DATABASE
+    // ============================================
+    
+    // Open product modal
+    function openProductModal(productType, department) {
+        currentProductType = productType;
+        currentDepartment = department;
+        
+        // Set modal title based on product type
+        const modalTitle = document.getElementById('productModalLabel');
+        const modalIcon = document.getElementById('productModalIcon');
+        
+        const productTitles = {
+            'garment': 'Garment Printing',
+            'tarpaulin': 'Tarpaulin Printing',
+            'embroidery': 'Embroidery',
+            'cutting': 'Cutting Services',
+            'sewing': 'Sewing Services',
+            'design': 'Design Services'
+        };
+        
+        const productIcons = {
+            'garment': 'fa-tshirt',
+            'tarpaulin': 'fa-image',
+            'embroidery': 'fa-thread',
+            'cutting': 'fa-cut',
+            'sewing': 'fa-sewing-machine',
+            'design': 'fa-pencil-ruler'
+        };
+        
+        modalTitle.innerHTML = `<i class="fas ${productIcons[productType]}"></i> ${productTitles[productType]}`;
+        
+        // Load products from database
+        loadProductsFromDatabase(productType);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('productModal'));
+        modal.show();
+    }
+    
+    // Load products from database
+    function loadProductsFromDatabase(productType) {
+        // Show loading
+        const productSelect = document.getElementById('productSelect');
+        productSelect.innerHTML = '<option value="">Loading products...</option>';
+        
+        // Map product types to database categories
+        const categoryMap = {
+            'garment': ['shirt', 'hoodie', 'polo', 'jacket'],
+            'tarpaulin': ['tarpaulin', 'banner', 'signage'],
+            'embroidery': ['embroidery'],
+            'cutting': ['cutting', 'fabric'],
+            'sewing': ['sewing', 'assembly'],
+            'design': ['design', 'graphic']
+        };
+        
+        // In a real implementation, this would be an API call
+        // For now, we'll simulate with demo data
+        setTimeout(() => {
+            const demoProducts = getDemoProducts(productType);
+            
+            productSelect.innerHTML = '<option value="">Select a product</option>';
+            demoProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.name} - ₱${product.price.toFixed(2)}`;
+                option.dataset.price = product.price;
+                productSelect.appendChild(option);
+            });
+            
+            // Reset form
+            document.getElementById('productQuantity').value = '1';
+            document.getElementById('productNotes').value = '';
+            document.getElementById('productPrice').value = '';
+            
+            // Auto-fill price when product is selected
+            productSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value && selectedOption.dataset.price) {
+                    document.getElementById('productPrice').value = selectedOption.dataset.price;
+                    calculateItemTotal();
+                }
+            });
+            
+        }, 500);
+    }
+    
+    // Get demo products (in real app, this comes from database)
+    function getDemoProducts(productType) {
+        const products = {
+            'garment': [
+                { id: 1, name: 'DTF Printing (Small)', price: 150.00 },
+                { id: 2, name: 'DTF Printing (Medium)', price: 200.00 },
+                { id: 3, name: 'DTF Printing (Large)', price: 250.00 },
+                { id: 4, name: 'Sublimation Printing', price: 300.00 },
+                { id: 5, name: 'Heat Transfer', price: 180.00 }
+            ],
+            'tarpaulin': [
+                { id: 6, name: 'Tarpaulin 3x6 ft', price: 450.00 },
+                { id: 7, name: 'Tarpaulin 4x8 ft', price: 650.00 },
+                { id: 8, name: 'Banner 2x5 ft', price: 350.00 },
+                { id: 9, name: 'Signage 1x2 ft', price: 250.00 }
+            ],
+            'embroidery': [
+                { id: 10, name: 'Small Logo Embroidery', price: 120.00 },
+                { id: 11, name: 'Medium Logo Embroidery', price: 200.00 },
+                { id: 12, name: 'Large Design Embroidery', price: 350.00 },
+                { id: 13, name: 'Name Embroidery', price: 80.00 }
+            ],
+            'cutting': [
+                { id: 14, name: 'Fabric Cutting (per yard)', price: 50.00 },
+                { id: 15, name: 'Pattern Making', price: 200.00 },
+                { id: 16, name: 'Bulk Cutting (10+ yards)', price: 40.00 }
+            ],
+            'sewing': [
+                { id: 17, name: 'Basic Sewing (per hour)', price: 150.00 },
+                { id: 18, name: 'Garment Assembly', price: 250.00 },
+                { id: 19, name: 'Alterations', price: 100.00 }
+            ],
+            'design': [
+                { id: 20, name: 'Graphic Design (Basic)', price: 300.00 },
+                { id: 21, name: 'Mockup Creation', price: 500.00 },
+                { id: 22, name: 'Complete Design Package', price: 800.00 }
+            ]
+        };
+        
+        return products[productType] || [];
+    }
+    
+    // Calculate item total
+    function calculateItemTotal() {
+        const quantity = parseFloat(document.getElementById('productQuantity').value) || 0;
+        const price = parseFloat(document.getElementById('productPrice').value) || 0;
+        const total = quantity * price;
+        
+        document.getElementById('itemTotalDisplay').textContent = '₱' + total.toFixed(2);
+    }
+    
+    // Add item to cart
+    function addItemToCart() {
+        const productSelect = document.getElementById('productSelect');
+        const quantity = parseFloat(document.getElementById('productQuantity').value) || 1;
+        const price = parseFloat(document.getElementById('productPrice').value) || 0;
+        const notes = document.getElementById('productNotes').value.trim();
+        
+        if (!productSelect.value) {
+            alert('Please select a product');
+            return;
+        }
+        
+        if (price <= 0) {
+            alert('Please enter a valid price');
+            return;
+        }
+        
+        const selectedOption = productSelect.options[productSelect.selectedIndex];
+        const productName = selectedOption.textContent.split(' - ')[0];
+        const total = quantity * price;
+        
+        // Create item object
+        const item = {
+            id: Date.now(), // Temporary ID
+            productId: productSelect.value,
+            productType: currentProductType,
+            department: currentDepartment,
+            name: productName,
+            quantity: quantity,
+            unitPrice: price,
+            totalPrice: total,
+            notes: notes,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Add to selected items
+        selectedItems.push(item);
+        
+        // Update display
+        updateSelectedItemsDisplay();
+        
+        // Close modal
+        bootstrap.Modal.getInstance(document.getElementById('productModal')).hide();
+        
+        // Reset form
+        productSelect.selectedIndex = 0;
+        document.getElementById('productQuantity').value = '1';
+        document.getElementById('productPrice').value = '';
+        document.getElementById('productNotes').value = '';
+        
+        // Show success message
+        showToast('Item added to cart!', 'success');
+    }
+    
+    // Update selected items display
+    function updateSelectedItemsDisplay() {
+        const container = document.getElementById('selectedItemsContainer');
+        
+        if (selectedItems.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-light text-center py-4">
+                    <i class="fas fa-shopping-cart fa-2x text-muted mb-3"></i>
+                    <p class="mb-0">No items added yet. Click on a product box above to add items.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="row g-3">';
+        
+        selectedItems.forEach((item, index) => {
+            const deptNames = {
+                'iprint': 'iPrint',
+                'consol': 'Consol',
+                'cinco': 'Cinco',
+                'class': 'Class',
+                'mto': 'Made to Order',
+                'other': 'Other'
+            };
+            
+            const deptColors = {
+                'iprint': 'primary',
+                'consol': 'info',
+                'cinco': 'warning',
+                'class': 'success',
+                'mto': 'danger',
+                'other': 'secondary'
+            };
+            
+            html += `
+                <div class="col-md-6 col-lg-4">
+                    <div class="selected-item-card card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">${item.name}</h6>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${index})">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <span class="badge bg-${deptColors[item.department]} item-department-badge">
+                                    ${deptNames[item.department]}
+                                </span>
+                                <span class="badge bg-light text-dark item-department-badge ms-1">
+                                    ${item.productType}
+                                </span>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Quantity:</span>
+                                <span>${item.quantity}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Unit Price:</span>
+                                <span>₱${item.unitPrice.toFixed(2)}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Total:</span>
+                                <span class="fw-bold">₱${item.totalPrice.toFixed(2)}</span>
+                            </div>
+                            
+                            ${item.notes ? `<p class="mb-0 small text-muted"><i class="fas fa-sticky-note me-1"></i> ${item.notes}</p>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+        // Update totals and department breakdown
+        updateOrderSummary();
+    }
+    
+    // Remove item from cart
+    function removeItem(index) {
+        if (confirm('Remove this item from cart?')) {
+            selectedItems.splice(index, 1);
+            updateSelectedItemsDisplay();
+            showToast('Item removed from cart', 'warning');
+        }
+    }
+    
+    // Update order summary
+    function updateOrderSummary() {
+        // Calculate totals
+        let subtotal = 0;
+        const departmentTotals = {};
+        const departmentCount = {};
+        
+        selectedItems.forEach(item => {
+            subtotal += item.totalPrice;
+            
+            // Track department totals
+            if (!departmentTotals[item.department]) {
+                departmentTotals[item.department] = 0;
+                departmentCount[item.department] = 0;
+            }
+            departmentTotals[item.department] += item.totalPrice;
+            departmentCount[item.department] += 1;
+        });
+        
+        const tax = subtotal * 0.12; // 12% tax
+        const total = subtotal + tax;
+        
+        // Update displays
+        document.getElementById('subtotalDisplay').textContent = '₱' + subtotal.toFixed(2);
+        document.getElementById('taxDisplay').textContent = '₱' + tax.toFixed(2);
+        document.getElementById('totalDisplay').textContent = '₱' + total.toFixed(2);
+        
+        // Update hidden inputs
+        document.getElementById('subtotal').value = subtotal.toFixed(2);
+        document.getElementById('tax').value = tax.toFixed(2);
+        document.getElementById('total_amount').value = total.toFixed(2);
+        
+        // Update department breakdown
+        updateDepartmentBreakdown(departmentTotals, departmentCount);
+        
+        // Update deposit max
+        const depositInput = document.getElementById('deposit_paid');
+        if (depositInput) {
+            depositInput.max = total;
+            if (parseFloat(depositInput.value) > total) {
+                depositInput.value = total;
+            }
+        }
+    }
+    
+    // Update department breakdown
+    function updateDepartmentBreakdown(departmentTotals, departmentCount) {
+        const container = document.getElementById('departmentBreakdown');
+        
+        if (Object.keys(departmentTotals).length === 0) {
+            container.innerHTML = '<p class="text-muted mb-0">No items assigned to departments yet.</p>';
+            return;
+        }
+        
+        let html = '<div class="row g-3">';
+        
+        const deptNames = {
+            'iprint': 'iPrint',
+            'consol': 'Consol',
+            'cinco': 'Cinco',
+            'class': 'Class',
+            'mto': 'Made to Order',
+            'other': 'Other'
+        };
+        
+        const deptColors = {
+            'iprint': 'primary',
+            'consol': 'info',
+            'cinco': 'warning',
+            'class': 'success',
+            'mto': 'danger',
+            'other': 'secondary'
+        };
+        
+        for (const [deptCode, total] of Object.entries(departmentTotals)) {
+            const count = departmentCount[deptCode] || 0;
+            
+            html += `
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="card-title mb-0">
+                                    <span class="badge bg-${deptColors[deptCode]} me-2">${deptNames[deptCode]}</span>
+                                    ${count} item${count !== 1 ? 's' : ''}
+                                </h6>
+                                <span class="fw-bold">₱${total.toFixed(2)}</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-${deptColors[deptCode]}" 
+                                     role="progressbar" 
+                                     style="width: ${(total / departmentTotals[Object.keys(departmentTotals)[0]]) * 100}%" 
+                                     aria-valuenow="${total}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="${Object.values(departmentTotals).reduce((a, b) => a + b, 0)}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'info') {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.style.position = 'fixed';
+            toastContainer.style.top = '20px';
+            toastContainer.style.right = '20px';
+            toastContainer.style.zIndex = '9999';
+            document.body.appendChild(toastContainer);
+        }
+        
+        const toastId = 'toast-' + Date.now();
+        const typeClasses = {
+            'success': 'bg-success text-white',
+            'warning': 'bg-warning text-dark',
+            'error': 'bg-danger text-white',
+            'info': 'bg-info text-white'
+        };
+        
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = `toast ${typeClasses[type] || typeClasses['info']} border-0`;
+        toast.style.minWidth = '300px';
+        toast.style.marginBottom = '10px';
+        
+        toast.innerHTML = `
+            <div class="toast-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>${message}</span>
+                    <button type="button" class="btn-close btn-close-white" onclick="document.getElementById('${toastId}').remove()"></button>
+                </div>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (document.getElementById(toastId)) {
+                document.getElementById(toastId).remove();
+            }
+        }, 3000);
+    }
+    
+    // Initialize event listeners when DOM is ready
+    function initializeProductEventListeners() {
+        const productQuantity = document.getElementById('productQuantity');
+        const productPrice = document.getElementById('productPrice');
+        const addItemBtn = document.getElementById('addItemBtn');
+        
+        if (productQuantity) {
+            productQuantity.addEventListener('input', function() {
+                const quantityDisplay = document.getElementById('quantityDisplay');
+                if (quantityDisplay) {
+                    quantityDisplay.textContent = this.value;
+                }
+                calculateItemTotal();
+            });
+        }
+        
+        if (productPrice) {
+            productPrice.addEventListener('input', function() {
+                const priceDisplay = document.getElementById('priceDisplay');
+                if (priceDisplay) {
+                    priceDisplay.textContent = '₱' + (parseFloat(this.value) || 0).toFixed(2);
+                }
+                calculateItemTotal();
+            });
+        }
+        
+        if (addItemBtn) {
+            addItemBtn.addEventListener('click', addItemToCart);
+        }
+    }
+    
+    // Initialize when DOM is loaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeProductEventListeners);
+    } else {
+        initializeProductEventListeners();
+    }
+    
+    // Form submission
+    document.getElementById('prototypeSaleForm').addEventListener('submit', function(e) {
+        // Validate that we have items
+        if (selectedItems.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one item to the cart');
+            return;
+        }
+        
+        // Convert items to JSON and store in hidden field
+        document.getElementById('items_json').value = JSON.stringify(selectedItems);
+        
+        // Auto-assign primary department (the one with highest total)
+        const departmentTotals = {};
+        selectedItems.forEach(item => {
+            if (!departmentTotals[item.department]) {
+                departmentTotals[item.department] = 0;
+            }
+            departmentTotals[item.department] += item.totalPrice;
+        });
+        
+        // Find department with highest total
+        let primaryDepartment = '';
+        let maxTotal = 0;
+        for (const [dept, total] of Object.entries(departmentTotals)) {
+            if (total > maxTotal) {
+                maxTotal = total;
+                primaryDepartment = dept;
+            }
+        }
+        
+        // Set department ID (you would need to map department code to ID)
+        // For now, we'll set a default
+        document.getElementById('auto_department_id').value = primaryDepartment || 'iprint';
+        
+        // Show loading
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Creating Sale...';
+        submitBtn.disabled = true;
+    });
+    
+    // Initial calculation
+    calculateItemTotal();
+</script>
+@endpush

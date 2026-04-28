@@ -19,6 +19,9 @@ class ProductPricingController extends Controller
         $category = $request->input('category');
         $search = $request->input('search');
         $priceTier = $request->input('price_tier', 'supplier_cost');
+        $brand = $request->input('brand');
+        $shirtType = $request->input('shirt_type');
+        $color = $request->input('color');
         
         // Start query
         $query = MasterItem::with(['productPricings' => function($q) use ($priceTier) {
@@ -28,6 +31,18 @@ class ProductPricingController extends Controller
         // Apply filters
         if ($category) {
             $query->where('category', $category);
+        }
+        
+        if ($brand) {
+            $query->where('brand', $brand);
+        }
+        
+        if ($shirtType) {
+            $query->where('shirt_type', $shirtType);
+        }
+        
+        if ($color) {
+            $query->where('color', $color);
         }
         
         if ($search) {
@@ -44,10 +59,16 @@ class ProductPricingController extends Controller
         // Get dashboard statistics
         $stats = $this->getDashboardStats();
         
-        // Get unique categories for filter dropdown
+        // Get unique values for filter dropdowns
         $categories = MasterItem::distinct()->pluck('category')->filter()->sort()->values();
+        $brands = MasterItem::whereNotNull('brand')->distinct()->pluck('brand')->filter()->sort()->values();
+        $shirtTypes = MasterItem::whereNotNull('shirt_type')->distinct()->pluck('shirt_type')->filter()->sort()->values();
+        $colors = MasterItem::whereNotNull('color')->distinct()->pluck('color')->filter()->sort()->values();
         
-        return view('product-pricing.index', compact('items', 'stats', 'categories', 'category', 'search', 'priceTier'));
+        return view('product-pricing.index', compact(
+            'items', 'stats', 'categories', 'category', 'search', 'priceTier',
+            'brands', 'brand', 'shirtTypes', 'shirtType', 'colors', 'color'
+        ));
     }
 
     /**
@@ -271,13 +292,32 @@ class ProductPricingController extends Controller
     /**
      * API: Get products for sales box
      */
-    public function getProductsForBox($boxType)
+    public function getProductsForBox($boxType, Request $request)
     {
-        // Get master items for this sales box
-        $items = MasterItem::where('sales_box', $boxType)
-            ->with(['productPricings', 'volumeDiscounts'])
-            ->orderBy('name')
-            ->get();
+        // Get filter parameters
+        $brand = $request->input('brand');
+        $type = $request->input('type');
+        $color = $request->input('color');
+        
+        // Start query
+        $query = MasterItem::where('sales_box', $boxType)
+            ->with(['productPricings', 'volumeDiscounts']);
+        
+        // Apply filters
+        if ($brand) {
+            $query->where('brand', $brand);
+        }
+        
+        if ($type) {
+            $query->where('shirt_type', $type);
+        }
+        
+        if ($color) {
+            $query->where('color', $color);
+        }
+        
+        // Get items
+        $items = $query->orderBy('name')->get();
 
         // Format response
         $products = $items->map(function($item) {
@@ -309,5 +349,42 @@ class ProductPricingController extends Controller
         })->values();
 
         return response()->json($products);
+    }
+    
+    /**
+     * Get filter options for a sales box
+     */
+    public function getFilterOptions($boxType)
+    {
+        // Get unique values for filters
+        $brands = MasterItem::where('sales_box', $boxType)
+            ->whereNotNull('brand')
+            ->where('brand', '!=', '')
+            ->distinct()
+            ->pluck('brand')
+            ->sort()
+            ->values();
+            
+        $types = MasterItem::where('sales_box', $boxType)
+            ->whereNotNull('shirt_type')
+            ->where('shirt_type', '!=', '')
+            ->distinct()
+            ->pluck('shirt_type')
+            ->sort()
+            ->values();
+            
+        $colors = MasterItem::where('sales_box', $boxType)
+            ->whereNotNull('color')
+            ->where('color', '!=', '')
+            ->distinct()
+            ->pluck('color')
+            ->sort()
+            ->values();
+        
+        return response()->json([
+            'brands' => $brands,
+            'types' => $types,
+            'colors' => $colors
+        ]);
     }
 }
