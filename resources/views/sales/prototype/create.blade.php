@@ -42,6 +42,23 @@
         border-color: #764ba2;
     }
     
+    .upload-area.has-screenshot {
+        border-style: solid;
+        border-color: #28a745;
+        padding: 1rem;
+    }
+    
+    .upload-area.missing-screenshot {
+        border-color: #dc3545;
+        animation: shake 0.5s;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+    
     .upload-icon {
         font-size: 3rem;
         color: #667eea;
@@ -170,6 +187,27 @@
     .product-modal .modal-title i {
         margin-right: 10px;
     }
+    
+    /* Garment modal styles */
+    #garmentModalBody .print-size-checkbox.selected {
+        background-color: #e7f3ff;
+        border-color: #0d6efd !important;
+    }
+    #garmentModalBody .product-row .product-select {
+        font-size: 0.85rem;
+    }
+    #garmentModalBody .card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    #garmentModalBody .card-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+    #referenceDropZone:hover {
+        border-color: #0d6efd !important;
+        background-color: #f0f7ff;
+    }
 </style>
 @endpush
 
@@ -288,13 +326,7 @@
                     <textarea class="form-control" id="customer_notes" name="customer_notes" rows="3" placeholder="Any special instructions or preferences from the customer..."></textarea>
                 </div>
                 
-                <!-- Customer Save Button -->
-                <div class="mb-3">
-                    <button type="button" class="btn btn-success" id="saveCustomerBtn">
-                        <i class="fas fa-save me-2"></i> Save Customer & Continue
-                    </button>
-                    <small class="text-muted ms-2">Customer will be saved immediately and you can continue to next steps</small>
-                </div>
+
             </div>
             
             <!-- Customer LTV Display (when existing customer selected) -->
@@ -438,39 +470,7 @@
                     </div>
                 </div>
                 
-                <!-- Department Breakdown -->
-                <div class="row">
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title mb-3">Department Breakdown</h5>
-                                <div id="departmentBreakdown">
-                                    <p class="text-muted mb-0">No items assigned to departments yet.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title mb-3">Order Summary</h5>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span>Subtotal:</span>
-                                    <span id="subtotalDisplay">₱0.00</span>
-                                </div>
-                                <div class="d-flex justify-content-between mb-2">
-                                    <span>Tax (12%):</span>
-                                    <span id="taxDisplay">₱0.00</span>
-                                </div>
-                                <hr>
-                                <div class="d-flex justify-content-between fw-bold">
-                                    <span>Total:</span>
-                                    <span id="totalDisplay">₱0.00</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Hidden fields for form submission (kept for backend) -->
             </div>
             
             <!-- Hidden fields for form submission -->
@@ -485,49 +485,147 @@
         
         <!-- Step 4: Payment & Verification -->
         <div class="form-section">
-            <h3 class="section-title">Step 4: Payment & Verification</h3>
+            <h3 class="section-title">Step 3: Payment & Verification</h3>
+            
+            <!-- Payment Summary -->
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Payment Summary</h5>
+                </div>
+                <div class="card-body" id="paymentSummaryContainer">
+                    <div id="paymentItemsSummary">
+                        <p class="text-muted mb-0">Add items to cart to see payment summary</p>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6 text-muted">Total Items:</div>
+                        <div class="col-6 text-end" id="paymentTotalItems">0</div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 text-muted">Total Quantity:</div>
+                        <div class="col-6 text-end" id="paymentTotalQty">0</div>
+                    </div>
+                    <div class="row fw-bold fs-5 mt-2">
+                        <div class="col-6">Grand Total:</div>
+                        <div class="col-6 text-end text-primary" id="paymentGrandTotal">₱0.00</div>
+                    </div>
+                </div>
+            </div>
             
             <div class="row mb-4">
                 <div class="col-md-6">
                     <label class="form-label mb-3">Payment Method *</label>
                     <div class="row" id="paymentMethodSelection">
-                        <div class="col-md-6 mb-3">
-                            <div class="payment-method-card" data-method="gcash">
-                                <i class="fas fa-mobile-alt fa-2x text-success mb-3"></i>
-                                <h6>GCash</h6>
-                                <input type="radio" class="btn-check" name="payment_method" id="pm_gcash" value="gcash" required>
-                                <label class="btn btn-outline-success btn-sm mt-2" for="pm_gcash">Select</label>
+                        <div class="col-12 mb-3">
+                            <div class="d-flex gap-2" id="paymentCategoryGroup">
+                                <div class="flex-fill">
+                                    <input type="radio" class="btn-check" name="payment_category" id="pc_online" value="online" autocomplete="off">
+                                    <label class="btn btn-outline-primary w-100 py-2" for="pc_online">
+                                        <i class="fas fa-globe d-block mb-1"></i>
+                                        <span>Online Payment</span>
+                                    </label>
+                                </div>
+                                <div class="flex-fill">
+                                    <input type="radio" class="btn-check" name="payment_category" id="pc_cash" value="cash" autocomplete="off">
+                                    <label class="btn btn-outline-success w-100 py-2" for="pc_cash">
+                                        <i class="fas fa-money-bill-wave d-block mb-1"></i>
+                                        <span>Cash Payment</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="payment-method-card" data-method="bank_transfer">
-                                <i class="fas fa-university fa-2x text-primary mb-3"></i>
-                                <h6>Bank Transfer</h6>
-                                <input type="radio" class="btn-check" name="payment_method" id="pm_bank" value="bank_transfer" required>
-                                <label class="btn btn-outline-primary btn-sm mt-2" for="pm_bank">Select</label>
+                    </div>
+                    
+                    <!-- Online Account Selection (shown when Online is selected) -->
+                    <div class="mb-3" id="onlineAccountSection" style="display:none;">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Online Account *</label>
+                                <select class="form-select" id="online_account" name="online_account">
+                                    <option value="">Select account...</option>
+                                    <option value="jemel_gcash">JEMEL - GCASH</option>
+                                    <option value="drew_gcash">DREW - GCASH</option>
+                                    <option value="aj_gcash">AJ - GCASH</option>
+                                    <option value="jessa_gcash">JESSA - GCASH</option>
+                                    <option value="iprint_bdo">IPRINT - BDO</option>
+                                    <option value="jemel_bdo">JEMEL - BDO</option>
+                                    <option value="aj_bpi">AJ - BPI</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="payment_reference" class="form-label">Reference Number *</label>
+                                <input type="text" class="form-control" id="payment_reference" name="payment_reference" placeholder="GCash ref, bank ref, etc.">
+                                <small class="text-muted">Required for online payments</small>
                             </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="payment-method-card" data-method="cash">
-                                <i class="fas fa-money-bill-wave fa-2x text-success mb-3"></i>
-                                <h6>Cash</h6>
-                                <input type="radio" class="btn-check" name="payment_method" id="pm_cash" value="cash" required>
-                                <label class="btn btn-outline-success btn-sm mt-2" for="pm_cash">Select</label>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="payment-method-card" data-method="credit_card">
-                                <i class="fas fa-credit-card fa-2x text-warning mb-3"></i>
-                                <h6>Credit Card</h6>
-                                <input type="radio" class="btn-check" name="payment_method" id="pm_cc" value="credit_card" required>
-                                <label class="btn btn-outline-warning btn-sm mt-2" for="pm_cc">Select</label>
+                    </div>
+                    
+                    <!-- Cash Account Selection (shown when Cash is selected) -->
+                    <div class="mb-3" id="cashAccountSection" style="display:none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Cash Account *</label>
+                                <select class="form-select" id="cash_account" name="cash_account">
+                                    <option value="">Select account...</option>
+                                    <option value="iprint_cash">IPRINT CASH</option>
+                                    <option value="consol_cash">CONSOL CASH</option>
+                                    <option value="class_cash">CLASS CASH</option>
+                                    <option value="cinco_cash">CINCO CASH</option>
+                                    <option value="company_cash">COMPANY CASH</option>
+                                    <option value="warehouse_cash">WAREHOUSE CASH</option>
+                                </select>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="col-md-6">
+                <div class="col-md-6" id="paymentDetailsSection">
+                    <!-- Payment Type & Amount -->
                     <div class="mb-3">
+                        <label class="form-label"><strong>Payment Type *</strong></label>
+                        <div class="d-flex gap-2" id="paymentTypeGroup">
+                            <div class="flex-fill">
+                                <input type="radio" class="btn-check" name="payment_type" id="pt_down" value="downpayment" autocomplete="off">
+                                <label class="btn btn-outline-warning w-100 py-2" for="pt_down">
+                                    <i class="fas fa-hand-holding-usd d-block mb-1"></i>
+                                    <span>Down Payment</span>
+                                    <small class="d-block text-muted" id="pt_down_suggest">Suggested: ₱0.00 (50%)</small>
+                                </label>
+                            </div>
+                            <div class="flex-fill">
+                                <input type="radio" class="btn-check" name="payment_type" id="pt_full" value="fullpayment" autocomplete="off">
+                                <label class="btn btn-outline-success w-100 py-2" for="pt_full">
+                                    <i class="fas fa-check-circle d-block mb-1"></i>
+                                    <span>Full Payment</span>
+                                    <small class="d-block text-muted" id="pt_full_suggest">₱0.00</small>
+                                </label>
+                            </div>
+                            <div class="flex-fill">
+                                <input type="radio" class="btn-check" name="payment_type" id="pt_po" value="po" autocomplete="off">
+                                <label class="btn btn-outline-secondary w-100 py-2" for="pt_po">
+                                    <i class="fas fa-file-invoice d-block mb-1"></i>
+                                    <span>P.O.</span>
+                                    <small class="d-block text-muted">No payment now</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="amountInputSection" class="mb-3">
+                        <label for="payment_amount" class="form-label">Payment Amount *</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" class="form-control" id="payment_amount" name="payment_amount" step="0.01" min="0" value="0" disabled>
+                        </div>
+                        <small class="text-muted" id="paymentAmountHint"></small>
+                    </div>
+                    
+                    <div class="mb-3" id="poSection" style="display:none;">
+                        <label for="po_reference" class="form-label">P.O. Reference # *</label>
+                        <input type="text" class="form-control" id="po_reference" name="po_reference" placeholder="Enter P.O. number">
+                    </div>
+
+                    <div class="mb-3" id="paymentOwnerSection">
                         <label for="payment_owner" class="form-label">Payment Account Owner *</label>
                         <select class="form-control" id="payment_owner" name="payment_owner" required>
                             <option value="">Select account owner</option>
@@ -536,79 +634,40 @@
                             <option value="sales_agent">Sales Agent Account</option>
                             <option value="department_head">Department Head Account</option>
                         </select>
-                        <small class="text-muted">Who owns the payment account where the customer will send payment?</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="deposit_paid" class="form-label">Deposit Amount</label>
-                        <div class="input-group">
-                            <span class="input-group-text">₱</span>
-                            <input type="number" class="form-control" id="deposit_paid" name="deposit_paid" step="0.01" min="0" value="0">
-                        </div>
-                        <small class="text-muted">Amount paid as deposit (if any)</small>
                     </div>
                 </div>
             </div>
             
             <div class="mb-3">
-                <label class="form-label">Payment Screenshot (Optional)</label>
+                <label class="form-label">Payment Screenshot <span class="text-danger">*</span></label>
                 <div class="upload-area" id="uploadArea">
                     <div class="upload-icon">
                         <i class="fas fa-cloud-upload-alt"></i>
                     </div>
                     <h5>Drag & drop payment screenshot here</h5>
-                    <p class="text-muted">or click to browse files</p>
-                    <input type="file" id="payment_screenshot" name="payment_screenshot" accept="image/*" class="d-none">
+                    <p class="text-muted">or click to browse files, or <kbd>Ctrl+V</kbd> to paste</p>
+                    <input type="file" id="payment_screenshot" name="payment_screenshot" accept="image/*" required class="d-none">
                     <div id="fileName" class="mt-2 text-success"></div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Step 5: Mockup & Images -->
-        <div class="form-section">
-            <h3 class="section-title">Step 5: Mockup & Reference Images</h3>
-            
-            <div class="mb-3">
-                <label class="form-label">Mockup Images</label>
-                <div class="upload-area" id="mockupUploadArea">
-                    <div class="upload-icon">
-                        <i class="fas fa-image"></i>
+                    <div id="paymentPreview" class="mt-2" style="display:none;">
+                        <img id="paymentPreviewImg" src="" alt="Payment Screenshot Preview" class="img-thumbnail" style="max-height:200px;width:auto;">
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-1" id="removePaymentScreenshot">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
                     </div>
-                    <h5>Upload mockup images</h5>
-                    <p class="text-muted">Design files, mockups, or reference images</p>
-                    <input type="file" id="mockup_images" name="mockup_images[]" accept="image/*" multiple class="d-none">
-                    <div id="mockupFileNames" class="mt-2 text-success"></div>
                 </div>
             </div>
             
-            <div class="mb-3">
-                <label class="form-label">Reference Images</label>
-                <div class="upload-area" id="referenceUploadArea">
-                    <div class="upload-icon">
-                        <i class="fas fa-camera"></i>
-                    </div>
-                    <h5>Upload reference photos</h5>
-                    <p class="text-muted">Photos of samples, materials, or inspiration</p>
-                    <input type="file" id="reference_images" name="reference_images[]" accept="image/*" multiple class="d-none">
-                    <div id="referenceFileNames" class="mt-2 text-success"></div>
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label for="date_needed" class="form-label">Date Needed <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="date_needed" name="date_needed" required>
+                    <small class="text-muted">Target completion / delivery date</small>
                 </div>
             </div>
-        </div>
-        
-        <!-- Step 6: Internal Notes -->
-        <div class="form-section">
-            <h3 class="section-title">Step 6: Internal Notes</h3>
             
-            <div class="mb-3">
-                <label for="internal_notes" class="form-label">Internal Notes</label>
-                <textarea class="form-control" id="internal_notes" name="internal_notes" rows="4" placeholder="Any internal notes for the team..."></textarea>
-            </div>
-            
-            <div class="mb-3">
-                <label for="estimated_completion_date" class="            <div class="mb-3">
-                <label for="estimated_completion_date" class="form-label">Estimated Completion Date</label>
-                <input type="date" class="form-control" id="estimated_completion_date" name="estimated_completion_date">
-            </div>
+            <!-- Hidden fields -->
+            <input type="hidden" name="payment_type" id="payment_type_hidden" value="">
+            <input type="hidden" name="payment_amount" id="payment_amount_hidden" value="0">
         </div>
         
         <!-- Submit Button -->
@@ -629,6 +688,8 @@
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
+                        <!-- Generic (non-garment) modal body -->
+                        <div id="genericModalBody">
                         <div class="row">
                             <div class="col-md-8">
                                 <!-- FILTER SECTION -->
@@ -790,6 +851,252 @@
                                 </div>
                             </div>
                         </div>
+                        </div>
+                        
+                        <!-- Garment-specific modal body (hidden by default) -->
+                        <div id="garmentModalBody" style="display:none;">
+                            <div class="row">
+                                <!-- LEFT COLUMN: Product Selection -->
+                                <div class="col-md-5">
+                                    <!-- MULTIPLE PRODUCT ROWS SECTION -->
+                                    <!-- GARMENT FILTER SECTION -->
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light py-2">
+                                            <h6 class="mb-0"><i class="fas fa-filter me-1"></i> Filter Products</h6>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-1">Brand</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterBrand" list="garment_brandOptions" placeholder="Type or select brand...">
+                                                    <datalist id="garment_brandOptions"></datalist>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-1">Size</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterType" list="garment_typeOptions" placeholder="Type or select size...">
+                                                    <datalist id="garment_typeOptions"></datalist>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-1">Color</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterColor" list="garment_colorOptions" placeholder="Type or select color...">
+                                                    <datalist id="garment_colorOptions"></datalist>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2 text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="garment_applyFilters()">
+                                                    <i class="fas fa-filter me-1"></i> Apply Filters
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="garment_resetFilters()">
+                                                    <i class="fas fa-redo me-1"></i> Reset
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Products *</label>
+                                        <div id="garment_productRowsContainer">
+                                            <!-- Product Row Template (Hidden) -->
+                                            <div class="product-row-template d-none">
+                                                <div class="row g-2 mb-2 align-items-center">
+                                                    <div class="col-md-6">
+                                                        <select class="form-control product-select" required>
+                                                            <option value="">Select a product</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- First Product Row -->
+                                            <div class="product-row">
+                                                <div class="row g-2 mb-2 align-items-center">
+                                                    <div class="col-md-6">
+                                                        <select class="form-control product-select" required>
+                                                            <option value="">Select a product</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-success" id="garment_addProductRowBtn">
+                                                <i class="fas fa-plus-circle me-1"></i> Add Another Product
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Assign to Department *</label>
+                                        <select class="form-control" id="garment_departmentSelect" required>
+                                            <option value="">-- Select Department --</option>
+                                            <option value="iprint">iPrint Department</option>
+                                            <option value="consol">Consol Department</option>
+                                            <option value="cinco">Cinco Department</option>
+                                            <option value="class">Class Department</option>
+                                            <option value="mto">Made to Order Department</option>
+                                            <option value="other">Other Department</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Notes (Optional)</label>
+                                        <textarea class="form-control" id="garment_productNotes" rows="3" placeholder="Add special instructions..."></textarea>
+                                    </div>
+                                    
+                                    <!-- Reference Images Section -->
+                                    <div class="mb-3">
+                                        <label class="form-label">Reference Images (Optional)</label>
+                                        <p class="small text-muted mb-2">Upload design reference images for the printer.</p>
+                                        <div id="referenceDropZone" style="border: 2px dashed #ccc; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s;"
+                                             onclick="garment_triggerReferenceFilePicker()"
+                                             ondrop="garment_onReferenceDrop(event)"
+                                             ondragover="garment_onReferenceDragOver(event)"
+                                             ondragleave="garment_onReferenceDragLeave(event)"
+                                             onpaste="garment_onReferencePaste(event)">
+                                            <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                                            <p class="mb-1 small">Drag & drop images here, click to browse, or paste (Ctrl+V)</p>
+                                            <p class="mb-0 small text-muted">Supports: JPG, PNG, GIF</p>
+                                        </div>
+                                        <input type="file" id="referenceFilePicker" accept="image/*" multiple style="display:none" onchange="garment_onReferenceFilePickerChange(event)">
+                                        <div id="referencePreviewsGallery" class="d-flex flex-wrap gap-2 mt-2"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- MIDDLE COLUMN: Printing Options -->
+                                <div class="col-md-3">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6 class="card-title"><i class="fas fa-print me-2"></i>Printing Options</h6>
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label">Print Type *</label>
+                                                <select class="form-control" id="garment_printTypeSelect" onchange="garment_loadPrintSizes(this.value)">
+                                                    <option value="">-- Select Print Type --</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label">Print Sizes</label>
+                                                <div id="garment_printSizesContainer" class="small" style="display:none;">
+                                                    <div id="garment_printSizesList"></div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3" id="garment_printQuantitySection" style="display:none;">
+                                                <label class="form-label">Print Quantity</label>
+                                                <input type="number" class="form-control" id="garment_printQuantityInput" min="1" value="1" onchange="garment_updatePrintSummary()">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- RIGHT COLUMN: Order Summary -->
+                                <div class="col-md-4">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6 class="card-title"><i class="fas fa-shopping-cart me-2"></i>Order Summary</h6>
+                                            
+                                            <!-- Products Breakdown -->
+                                            <div id="garment_productsBreakdown" class="mb-3">
+                                                <div class="text-muted small mb-2">No products selected yet</div>
+                                            </div>
+                                            
+                                            <hr>
+                                            
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Total Quantity:</span>
+                                                <span id="garment_totalQtyDisplay">0</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between fw-bold mb-2">
+                                                <span>Total Amount:</span>
+                                                <span id="garment_totalAmountDisplay">₱0.00</span>
+                                            </div>
+                                            
+                                            <!-- Print Summary Sidebar -->
+                                            <div id="garment_printSummarySidebar" style="display:none;">
+                                                <hr>
+                                                <div id="garment_printSizesBreakdown" class="small mb-2"></div>
+                                                <div class="d-flex justify-content-between small">
+                                                    <span>Print Cost/ea:</span>
+                                                    <span id="garment_printCostPerItemDisplay">₱0.00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small">
+                                                    <span>Qty:</span>
+                                                    <span id="garment_printQtyDisplay">0</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small">
+                                                    <span>Print Subtotal:</span>
+                                                    <span id="garment_printSubtotalDisplay">₱0.00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small text-danger" id="garment_comboDiscountRow" style="display:none;">
+                                                    <span>Combo Discount:</span>
+                                                    <span id="garment_comboDiscountDisplay">-₱0.00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small text-danger" id="garment_bulkDiscountRow" style="display:none;">
+                                                    <span>Bulk Discount:</span>
+                                                    <span id="garment_bulkDiscountDisplay">-₱0.00</span>
+                                                </div>
+                                                <hr class="my-1">
+                                                <div class="d-flex justify-content-between fw-bold small">
+                                                    <span>Print Total:</span>
+                                                    <span id="garment_printTotalDisplay">₱0.00</span>
+                                                </div>
+                                                <hr>
+                                                <div class="d-flex justify-content-between fw-bold">
+                                                    <span>Grand Total:</span>
+                                                    <span id="garment_grandTotalDisplay">₱0.00</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Special Price Section -->
+                                            <div class="mt-3 p-2 bg-light rounded" id="garment_specialPriceSection" style="display:none;">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <span class="fw-bold small">💵 SPECIAL PRICE ACTIVE</span>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="garment_clearSpecialPrice()">✕ Clear</button>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="small text-muted">Set Print Total:</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text">₱</span>
+                                                        <input type="number" class="form-control" id="garment_specialPrintTotal" min="0" step="0.01" placeholder="0.00" oninput="garment_onSpecialPriceChange()">
+                                                    </div>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="small text-muted">Reason *</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_specialPriceReason" placeholder="Why special price?" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <button type="button" class="btn btn-outline-warning btn-sm w-100 mt-2" id="garment_specialPriceBtn" onclick="garment_toggleSpecialPrice()">
+                                                💰 Special Price
+                                            </button>
+                                            
+                                            <button type="button" class="btn btn-primary w-100 mt-2" id="garment_addItemBtn">
+                                                <i class="fas fa-cart-plus me-2"></i> Add to Cart
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -813,6 +1120,8 @@ let currentProductType = '';
 let currentDepartment = '';
 
 // Open product modal - GLOBAL FUNCTION for onclick handlers
+var garment_initialized = false;
+
 window.openProductModal = function(productType) {
     console.log('Opening modal for:', productType);
     currentProductType = productType;
@@ -841,8 +1150,40 @@ window.openProductModal = function(productType) {
         modalTitle.innerHTML = `<i class="fas ${icons[productType]}"></i> ${titles[productType]}`;
     }
     
-    // Load products
-    loadProductsFromDatabase(productType);
+    // Toggle modal body based on product type
+    const genericBody = document.getElementById('genericModalBody');
+    const garmentBody = document.getElementById('garmentModalBody');
+    const modalDialog = document.querySelector('#productModal .modal-dialog');
+    
+    if (productType === 'garment') {
+        // Show garment body, hide generic
+        if (genericBody) genericBody.style.display = 'none';
+        if (garmentBody) garmentBody.style.display = 'block';
+        
+        // Use wider modal for garment
+        if (modalDialog) {
+            modalDialog.classList.remove('modal-lg');
+            modalDialog.classList.add('modal-xl');
+        }
+        
+        // Initialize garment modal
+        if (typeof garment_openModal === 'function') {
+            garment_openModal(productType);
+        }
+    } else {
+        // Show generic body, hide garment
+        if (genericBody) genericBody.style.display = 'block';
+        if (garmentBody) garmentBody.style.display = 'none';
+        
+        // Revert to normal width
+        if (modalDialog) {
+            modalDialog.classList.remove('modal-xl');
+            modalDialog.classList.add('modal-lg');
+        }
+        
+        // Load products for non-garment
+        loadProductsFromDatabase(productType);
+    }
     
     // Show modal
     const modalEl = document.getElementById('productModal');
@@ -852,104 +1193,138 @@ window.openProductModal = function(productType) {
     }
 };
 
+// Global product option builder
+window.garment_buildProductOption = function(p) {
+    var productSize = p.size;
+    if (!productSize && p.description) {
+        var sizeMatch = p.description.match(/Size:\s*([^,]+)/i);
+        if (sizeMatch) productSize = sizeMatch[1].trim();
+    }
+    var displayText = '';
+    if (productSize) displayText += 'Size: ' + productSize;
+    if (p.color) displayText += ' ' + p.color;
+    if (p.brand) displayText += ' ' + p.brand;
+    var shirtType = p.shirt_type;
+    if (!shirtType && p.description) {
+        var typeMatch = p.description.match(/Type:\s*([^,]+)/i);
+        if (typeMatch) shirtType = typeMatch[1].trim();
+    }
+    if (shirtType) displayText += ' ' + shirtType;
+    displayText += ' - \u20B1' + parseFloat(p.base_price).toFixed(2);
+    return displayText;
+};
+
 // Load products - GLOBAL
 window.loadProductsFromDatabase = function(productType) {
-    const select = document.getElementById('productSelect');
-    if (!select) return;
+    // For garment, populate the multiple product selects (in garment modal body)
+    // For other types, populate the single product select (in generic modal body)
     
-    select.innerHTML = '<option value="">Loading products...</option>';
+    // Build display text for a product option
+    function buildProductOption(p) {
+        let productSize = p.size;
+        if (!productSize && p.description) {
+            const sizeMatch = p.description.match(/Size:\s*([^,]+)/i);
+            if (sizeMatch) productSize = sizeMatch[1].trim();
+        }
+        let displayText = '';
+        if (productSize) displayText += 'Size: ' + productSize;
+        if (p.color) displayText += ' ' + p.color;
+        if (p.brand) displayText += ' ' + p.brand;
+        let shirtType = p.shirt_type;
+        if (!shirtType && p.description) {
+            const typeMatch = p.description.match(/Type:\s*([^,]+)/i);
+            if (typeMatch) shirtType = typeMatch[1].trim();
+        }
+        if (shirtType) displayText += ' ' + shirtType;
+        displayText += ' - \u20B1' + parseFloat(p.base_price).toFixed(2);
+        return { displayText: displayText, productSize: productSize, shirtType: shirtType };
+    }
     
-    // Fetch real products from API
-    fetch(`/api/products-for-box/${productType}`)
-        .then(response => response.json())
-        .then(products => {
-            select.innerHTML = '<option value="">Select product</option>';
+    // Populate a single select element with products
+    function populateSelect(selectEl, products) {
+        if (!selectEl) return;
+        selectEl.innerHTML = '<option value="">Select product</option>';
+        if (products.length === 0) {
+            selectEl.innerHTML = '<option value="">No products found.</option>';
+            return;
+        }
+        products.forEach(function(p) {
+            var info = buildProductOption(p);
+            var opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = info.displayText;
+            opt.dataset.price = p.base_price;
+            opt.dataset.productName = p.name;
+            opt.dataset.brand = p.brand || '';
+            opt.dataset.size = info.productSize || '';
+            opt.dataset.color = p.color || '';
+            opt.dataset.volumeDiscounts = JSON.stringify(p.volume_discounts);
+            opt.dataset.productData = JSON.stringify(p);
+            selectEl.appendChild(opt);
+        });
+    }
+    
+    // Determine which selects to populate
+    var selects = [];
+    if (productType === 'garment') {
+        // Populate all garment product rows
+        selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
+    } else {
+        // Populate the single product select in generic body
+        var singleSelect = document.getElementById('productSelect');
+        if (singleSelect) selects = [singleSelect];
+    }
+    
+    if (selects.length === 0) return;
+    
+    // Show loading
+    selects.forEach(function(s) { s.innerHTML = '<option value="">Loading products...</option>'; });
+    
+    // Fetch products from API
+    fetch('/api/products-for-box/' + productType)
+        .then(function(response) { return response.json(); })
+        .then(function(products) {
+            selects.forEach(function(s) { populateSelect(s, products); });
             
-            if (products.length === 0) {
-                select.innerHTML = '<option value="">No products found. Please add products to this category in Product Pricing.</option>';
-                return;
+            if (productType === 'garment') {
+                // Reset qty and department for garment
+                var qtyInputs = document.querySelectorAll('#garment_productRowsContainer .product-quantity');
+                qtyInputs.forEach(function(el) { el.value = '1'; });
+                var deptSelect = document.getElementById('garment_departmentSelect');
+                if (deptSelect) deptSelect.value = '';
+                var notes = document.getElementById('garment_productNotes');
+                if (notes) notes.value = '';
+                // Recalculate garment summary
+                garment_updatePrintSummary();
+            } else {
+                // Reset form for non-garment
+                const qty = document.getElementById('productQuantity');
+                const price = document.getElementById('productPrice');
+                const notes = document.getElementById('productNotes');
+                const deptSelect = document.getElementById('departmentSelect');
+                if (qty) qty.value = '1';
+                if (price) price.value = '';
+                if (notes) notes.value = '';
+                if (deptSelect) deptSelect.value = '';
+                
+                // Auto-fill price on select
+                if (selects[0]) {
+                    selects[0].addEventListener('change', function() {
+                        const opt = this.options[this.selectedIndex];
+                        if (opt.value && opt.dataset.price && price) {
+                            price.value = opt.dataset.price;
+                            calculateItemTotal();
+                        }
+                    });
+                }
+                calculateItemTotal();
             }
-            
-            products.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                
-                // Extract size from description if size column is null
-                let productSize = p.size;
-                if (!productSize && p.description) {
-                    // Try to extract size from description
-                    const sizeMatch = p.description.match(/Size:\s*([^,]+)/i);
-                    if (sizeMatch) {
-                        productSize = sizeMatch[1].trim();
-                    }
-                }
-                
-                // Build display text with NEW FORMAT: Size: M RED BLACKHORSE ROUNDNECK
-                let displayText = '';
-                
-                if (productSize) {
-                    displayText += `Size: ${productSize}`;
-                }
-                
-                if (p.color) {
-                    displayText += ` ${p.color}`;
-                }
-                
-                if (p.brand) {
-                    displayText += ` ${p.brand}`;
-                }
-                
-                // Try to extract shirt type from description
-                let shirtType = p.shirt_type;
-                if (!shirtType && p.description) {
-                    const typeMatch = p.description.match(/Type:\s*([^,]+)/i);
-                    if (typeMatch) {
-                        shirtType = typeMatch[1].trim();
-                    }
-                }
-                
-                if (shirtType) {
-                    displayText += ` ${shirtType}`;
-                }
-                
-                // Add price at the end
-                displayText += ` - ₱${parseFloat(p.base_price).toFixed(2)}`;
-                
-                opt.textContent = displayText;
-                opt.dataset.price = p.base_price;
-                opt.dataset.productName = p.name;
-                opt.dataset.brand = p.brand || '';
-                opt.dataset.size = productSize || '';
-                opt.dataset.color = p.color || '';
-                opt.dataset.volumeDiscounts = JSON.stringify(p.volume_discounts);
-                opt.dataset.productData = JSON.stringify(p);
-                select.appendChild(opt);
-            });
-            
-            // Reset form
-            const qty = document.getElementById('productQuantity');
-            const price = document.getElementById('productPrice');
-            const notes = document.getElementById('productNotes');
-            const deptSelect = document.getElementById('departmentSelect');
-            if (qty) qty.value = '1';
-            if (price) price.value = '';
-            if (notes) notes.value = '';
-            if (deptSelect) deptSelect.value = '';
-            
-            // Auto-fill price on select
-            select.addEventListener('change', function() {
-                const opt = this.options[this.selectedIndex];
-                if (opt.value && opt.dataset.price && price) {
-                    price.value = opt.dataset.price;
-                    calculateItemTotal();
-                }
-            });
-            
-            calculateItemTotal();
         })
-        .catch(error => {
+        .catch(function(error) {
             console.error('Error loading products:', error);
-            select.innerHTML = '<option value="">Error loading products. Please try again.</option>';
+            selects.forEach(function(s) {
+                s.innerHTML = '<option value="">Error loading products. Please try again.</option>';
+            });
         });
 };
 
@@ -1148,6 +1523,7 @@ window.addItemToCart = function() {
     });
     
     updateSelectedItemsDisplay();
+    updateOrderSummary();
     
     // Reset form (keep first row)
     initializeProductRows();
@@ -1186,7 +1562,87 @@ window.updateSelectedItemsDisplay = function() {
         const deptNames = { 'iprint': 'iPrint', 'consol': 'Consol', 'cinco': 'Cinco', 'class': 'Class', 'mto': 'Made to Order', 'other': 'Other' };
         const deptColors = { 'iprint': 'primary', 'consol': 'info', 'cinco': 'warning', 'class': 'success', 'mto': 'danger', 'other': 'secondary' };
         
-        html += `
+        if (item.productType === 'garment' && item.subItems) {
+            // Garment card with sub-items breakdown
+            html += `
+            <div class="col-md-6 col-lg-4">
+                <div class="selected-item-card card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">${item.name}</h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <span class="badge bg-${deptColors[item.department]} item-department-badge">
+                                ${deptNames[item.department]}
+                            </span>
+                            <span class="badge bg-light text-dark item-department-badge ms-1">
+                                garment
+                            </span>
+                        </div>
+                        
+                        <div class="mb-2 small">` +
+                            item.subItems.map(function(si) {
+                                return '<div class="d-flex justify-content-between py-1 border-bottom">' +
+                                    '<span>' + si.shortName + ' <span class="text-muted">x' + si.quantity + '</span></span>' +
+                                    '<span>\u20B1' + si.totalPrice.toFixed(2) + '</span>' +
+                                '</div>';
+                            }).join('') +
+                        `</div>
+                        
+                        <div class="d-flex justify-content-between mb-1 fw-bold">
+                            <span>Products Total:</span>
+                            <span>\u20B1${item.totalProductPrice.toFixed(2)}</span>
+                        </div>` +
+                        (item.printing ? `
+                        <hr class="my-2">
+                        <div class="small">
+                            <div class="d-flex justify-content-between">
+                                <span>Print (${item.printing.printType}):</span>
+                                <span>${item.printing.printSizes.join(', ')}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Print Qty:</span>
+                                <span>${item.printing.printQty}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Print Cost/ea:</span>
+                                <span>\u20B1${item.printing.printCostPerItem.toFixed(2)}</span>
+                            </div>` +
+                            (item.printing.isSpecialPrice ? `<div class="d-flex justify-content-between text-warning fw-bold">
+                                <span>💵 SPECIAL PRICE</span>
+                                <span>\u20B1${item.printing.specialTotal.toFixed(2)}</span>
+                            </div>
+                            <div class="text-muted small mb-1">
+                                <em>${item.printing.specialReason || 'No reason given'}</em>
+                            </div>` : '') +
+                            (!item.printing.isSpecialPrice && item.printing.comboDiscount ? `<div class="d-flex justify-content-between text-success">
+                                <span>Combo Discount:</span>
+                                <span>-\u20B1${item.printing.comboDiscount.toFixed(2)}</span>
+                            </div>` : '') +
+                            (!item.printing.isSpecialPrice && item.printing.bulkDiscount ? `<div class="d-flex justify-content-between text-success">
+                                <span>Bulk Discount:</span>
+                                <span>-\u20B1${item.printing.bulkDiscount.toFixed(2)}</span>
+                            </div>` : '') +
+                            `<div class="d-flex justify-content-between fw-bold">
+                                <span>Print Total:</span>
+                                <span>\u20B1${item.printing.printSubtotal.toFixed(2)}</span>
+                            </div>
+                        </div>` : '') +
+                        (item.notes ? `<hr class="my-2"><p class="mb-0 small text-muted"><i class="fas fa-sticky-note me-1"></i> ${item.notes}</p>` : '') +
+                        `<hr><div class="d-flex justify-content-between fw-bold">
+                            <span>Grand Total:</span>
+                            <span>\u20B1${(item.totalProductPrice + (item.printing ? item.printing.printSubtotal : 0)).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        } else {
+            // Non-garment: standard display
+            html += `
             <div class="col-md-6 col-lg-4">
                 <div class="selected-item-card card">
                     <div class="card-body">
@@ -1212,11 +1668,11 @@ window.updateSelectedItemsDisplay = function() {
                         </div>
                         <div class="d-flex justify-content-between mb-1">
                             <span class="text-muted">Unit Price:</span>
-                            <span>₱${item.unitPrice.toFixed(2)}</span>
+                            <span>\u20B1${item.unitPrice.toFixed(2)}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Total:</span>
-                            <span class="fw-bold">₱${item.totalPrice.toFixed(2)}</span>
+                            <span class="fw-bold">\u20B1${item.totalPrice.toFixed(2)}</span>
                         </div>
                         
                         ${item.notes ? `<p class="mb-0 small text-muted"><i class="fas fa-sticky-note me-1"></i> ${item.notes}</p>` : ''}
@@ -1224,6 +1680,7 @@ window.updateSelectedItemsDisplay = function() {
                 </div>
             </div>
         `;
+        }
     });
     
     html += '</div>';
@@ -1236,37 +1693,26 @@ window.removeItem = function(index) {
     if (confirm('Remove this item from cart?')) {
         selectedItems.splice(index, 1);
         updateSelectedItemsDisplay();
+        updateOrderSummary();
         showToast('Item removed from cart', 'warning');
     }
 };
 
 // Update order summary - GLOBAL
-window.updateOrderSummary = function() {
+window.__updateOrderSummaryCore = function() {
     let subtotal = 0;
-    const deptTotals = {};
-    const deptCount = {};
     
     selectedItems.forEach(item => {
-        subtotal += item.totalPrice;
-        if (!deptTotals[item.department]) {
-            deptTotals[item.department] = 0;
-            deptCount[item.department] = 0;
+        var itemTotal = item.totalPrice || 0;
+        // Include printing cost for garment items
+        if (item.productType === 'garment' && item.printing) {
+            itemTotal = (item.totalProductPrice || 0) + (item.printing.printSubtotal || 0);
         }
-        deptTotals[item.department] += item.totalPrice;
-        deptCount[item.department] += 1;
+        subtotal += itemTotal;
     });
     
     const tax = subtotal * 0.12;
     const total = subtotal + tax;
-    
-    // Update displays
-    const subtotalDisplay = document.getElementById('subtotalDisplay');
-    const taxDisplay = document.getElementById('taxDisplay');
-    const totalDisplay = document.getElementById('totalDisplay');
-    
-    if (subtotalDisplay) subtotalDisplay.textContent = '₱' + subtotal.toFixed(2);
-    if (taxDisplay) taxDisplay.textContent = '₱' + tax.toFixed(2);
-    if (totalDisplay) totalDisplay.textContent = '₱' + total.toFixed(2);
     
     // Update hidden inputs
     const subtotalInput = document.getElementById('subtotal');
@@ -1278,7 +1724,7 @@ window.updateOrderSummary = function() {
     if (totalInput) totalInput.value = total.toFixed(2);
     
     // Update department breakdown
-    updateDepartmentBreakdown(deptTotals, deptCount);
+
     
     // Update deposit max
     const depositInput = document.getElementById('deposit_paid');
@@ -1288,56 +1734,285 @@ window.updateOrderSummary = function() {
             depositInput.value = total;
         }
     }
+    
+    // Update Payment Summary
+    updatePaymentSummary();
 };
 
-// Update department breakdown - GLOBAL
-window.updateDepartmentBreakdown = function(departmentTotals, departmentCount) {
-    const container = document.getElementById('departmentBreakdown');
+window.updatePaymentSummary = function() {
+    var container = document.getElementById('paymentItemsSummary');
+    var totalItemsEl = document.getElementById('paymentTotalItems');
+    var totalQtyEl = document.getElementById('paymentTotalQty');
+    var grandTotalEl = document.getElementById('paymentGrandTotal');
     if (!container) return;
     
-    if (Object.keys(departmentTotals).length === 0) {
-        container.innerHTML = '<p class="text-muted mb-0">No items assigned to departments yet.</p>';
-        return;
+    var totalItems = selectedItems.length;
+    var totalQty = 0;
+    var grandTotal = 0;
+    var html = '';
+    
+    selectedItems.forEach(function(item, idx) {
+        var deptColors = {'Class Apparel':'primary','Consol Printing':'info','Cinco':'success','MTO':'warning','Other':'secondary'};
+        var deptNames = {'Class Apparel':'Class Apparel','Consol Printing':'Consol','Cinco':'Cinco','MTO':'MTO','Other':'Other'};
+        
+        // Count qty and compute total
+        var itemQty = 0;
+        var itemTotal = item.totalPrice || 0;
+        
+        if (item.productType === 'garment' && item.subItems) {
+            itemQty = item.totalQty || 0;
+            itemTotal = (item.totalProductPrice || 0) + (item.printing ? item.printing.printSubtotal || 0 : 0);
+        } else {
+            itemQty = item.qty || 1;
+            itemTotal = item.totalPrice || 0;
+            // For generic items with qty * price
+            if (item.qty && item.unitPrice) {
+                itemTotal = item.qty * item.unitPrice;
+            }
+        }
+        
+        totalQty += itemQty;
+        grandTotal += itemTotal;
+        
+        // Build summary row
+        html += '<div class="d-flex justify-content-between align-items-center mb-1 payment-item-row">';
+        html += '    <div class="text-truncate me-2"><small>' + (item.name || 'Item ' + (idx+1)) + '</small></div>';
+        html += '    <div class="text-end"><small>x' + itemQty + ' <strong>₱' + itemTotal.toFixed(2) + '</strong></small></div>';
+        html += '</div>';
+    });
+    
+    if (!html) {
+        html = '<p class="text-muted mb-0">Add items to cart to see payment summary</p>';
     }
     
-    let html = '<div class="row g-3">';
-    const deptNames = { 'iprint': 'iPrint', 'consol': 'Consol', 'cinco': 'Cinco', 'class': 'Class', 'mto': 'Made to Order', 'other': 'Other' };
-    const deptColors = { 'iprint': 'primary', 'consol': 'info', 'cinco': 'warning', 'class': 'success', 'mto': 'danger', 'other': 'secondary' };
-    
-    for (const [deptCode, total] of Object.entries(departmentTotals)) {
-        const count = departmentCount[deptCode] || 0;
-        html += `
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="card-title mb-0">
-                                <span class="badge bg-${deptColors[deptCode]} me-2">${deptNames[deptCode]}</span>
-                                ${count} item${count !== 1 ? 's' : ''}
-                            </h6>
-                            <span class="fw-bold">₱${total.toFixed(2)}</span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-${deptColors[deptCode]}" 
-                                 role="progressbar" 
-                                 style="width: ${(total / departmentTotals[Object.keys(departmentTotals)[0]]) * 100}%" 
-                                 aria-valuenow="${total}" 
-                                 aria-valuemin="0" 
-                                 aria-valuemax="${Object.values(departmentTotals).reduce((a, b) => a + b, 0)}">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    html += '</div>';
     container.innerHTML = html;
+    if (totalItemsEl) totalItemsEl.textContent = totalItems;
+    if (totalQtyEl) totalQtyEl.textContent = totalQty;
+    if (grandTotalEl) grandTotalEl.textContent = '₱' + grandTotal.toFixed(2);
+    
+    // Update payment type suggestions
+    updatePaymentSuggestions(grandTotal);
 };
 
+window.updatePaymentSuggestions = function(grandTotal) {
+    var downSuggest = document.getElementById('pt_down_suggest');
+    var fullSuggest = document.getElementById('pt_full_suggest');
+    
+    if (downSuggest) downSuggest.textContent = 'Suggested: ₱' + (grandTotal * 0.5).toFixed(2) + ' (50%)';
+    if (fullSuggest) fullSuggest.textContent = '₱' + grandTotal.toFixed(2);
+    
+    // If down payment is selected, update suggested amount
+    var downRadio = document.getElementById('pt_down');
+    if (downRadio && downRadio.checked) {
+        var amtInput = document.getElementById('payment_amount');
+        if (amtInput) {
+            amtInput.value = (grandTotal * 0.5).toFixed(2);
+            document.getElementById('paymentAmountHint').textContent = 'Suggested 50% down payment';
+        }
+    }
+    if (downRadio && document.getElementById('pt_full') && document.getElementById('pt_full').checked) {
+        var amtInput = document.getElementById('payment_amount');
+        if (amtInput) amtInput.value = grandTotal.toFixed(2);
+    }
+};
+
+// Payment type selection handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Payment category radio buttons: Online vs Cash
+    document.querySelectorAll('input[name="payment_category"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            var onlineSection = document.getElementById('onlineAccountSection');
+            var cashSection = document.getElementById('cashAccountSection');
+            var refInput = document.getElementById('payment_reference');
+            
+            if (this.value === 'online') {
+                onlineSection.style.display = 'block';
+                cashSection.style.display = 'none';
+                if (refInput) {
+                    refInput.disabled = false;
+                    refInput.setAttribute('required', 'required');
+                    refInput.parentElement.parentElement.style.display = 'block';
+                }
+            } else {
+                cashSection.style.display = 'block';
+                onlineSection.style.display = 'none';
+                if (refInput) {
+                    refInput.disabled = true;
+                    refInput.removeAttribute('required');
+                    refInput.value = '';
+                }
+            }
+        });
+    });
+    
+    // Listen for payment type radio changes
+    document.querySelectorAll('input[name="payment_type"]').forEach(function(radio) {
+        radio.addEventListener('change', function(e) {
+            var grandTotal = parseFloat(document.getElementById('paymentGrandTotal').textContent.replace(/[₱,]/g, '')) || 0;
+            var amtInput = document.getElementById('payment_amount');
+            var amountSection = document.getElementById('amountInputSection');
+            var poSection = document.getElementById('poSection');
+            var poRef = document.getElementById('po_reference');
+            var hiddenType = document.getElementById('payment_type_hidden');
+            var hiddenAmt = document.getElementById('payment_amount_hidden');
+            
+            if (this.value === 'downpayment') {
+                amtInput.disabled = false;
+                amtInput.value = (grandTotal * 0.5).toFixed(2);
+                document.getElementById('paymentAmountHint').textContent = 'Suggested 50% down payment. You can change this amount.';
+                amountSection.style.display = 'block';
+                poSection.style.display = 'none';
+                if (poRef) poRef.disabled = true;
+                if (hiddenType) hiddenType.value = 'downpayment';
+            } else if (this.value === 'fullpayment') {
+                amtInput.disabled = false;
+                amtInput.value = grandTotal.toFixed(2);
+                document.getElementById('paymentAmountHint').textContent = 'Full payment amount';
+                amountSection.style.display = 'block';
+                poSection.style.display = 'none';
+                if (poRef) poRef.disabled = true;
+                if (hiddenType) hiddenType.value = 'fullpayment';
+            } else if (this.value === 'po') {
+                amtInput.disabled = true;
+                amtInput.value = 0;
+                document.getElementById('paymentAmountHint').textContent = 'Purchase Order — no payment required';
+                amountSection.style.display = 'block';
+                poSection.style.display = 'block';
+                if (poRef) poRef.disabled = false;
+                if (hiddenType) hiddenType.value = 'po';
+            }
+            if (hiddenAmt) hiddenAmt.value = amtInput.value || 0;
+        });
+    });
+    
+    // Update hidden amount when user types
+    var amtInput = document.getElementById('payment_amount');
+    if (amtInput) {
+        amtInput.addEventListener('input', function() {
+            var hiddenAmt = document.getElementById('payment_amount_hidden');
+            if (hiddenAmt) hiddenAmt.value = this.value || 0;
+        });
+    }
+    
+    // Upload area click handler
+    var uploadArea = document.getElementById('uploadArea');
+    var fileInput = document.getElementById('payment_screenshot');
+    if (uploadArea && fileInput) {
+        uploadArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+        fileInput.addEventListener('change', function() {
+            var fileNameEl = document.getElementById('fileName');
+            if (fileNameEl && this.files.length > 0) {
+                fileNameEl.textContent = '✅ ' + this.files[0].name;
+            }
+            showPaymentPreview(this);
+            var ua = document.getElementById('uploadArea');
+            if (ua) ua.classList.add('has-screenshot');
+        });
+        
+        // Paste handler for payment screenshot
+        document.addEventListener('paste', function(e) {
+            var items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') === 0) {
+                    var blob = items[i].getAsFile();
+                    if (blob) {
+                        // Convert to File and set it
+                        var fileName = 'pasted-payment-' + Date.now() + '.png';
+                        var pastedFile = new File([blob], fileName, { type: blob.type });
+                        
+                        // Create a DataTransfer to set the file input
+                        var dt = new DataTransfer();
+                        dt.items.add(pastedFile);
+                        var fileInput = document.getElementById('payment_screenshot');
+                        if (fileInput) {
+                            fileInput.files = dt.files;
+                            // Trigger change event
+                            var event = new Event('change', { bubbles: true });
+                            fileInput.dispatchEvent(event);
+                        }
+                        
+                        // Show preview on upload area
+                        var uploadArea = document.getElementById('uploadArea');
+                        var fileNameEl = document.getElementById('fileName');
+                        if (fileNameEl) {
+                            fileNameEl.textContent = '✅ Pasted image (' + fileName + ')';
+                        }
+                        if (uploadArea) {
+                            uploadArea.style.backgroundImage = '';
+                            uploadArea.style.backgroundSize = 'cover';
+                            uploadArea.style.backgroundPosition = 'center';
+                        }
+                        
+                        showPaymentPreviewFile(pastedFile);
+                        var ua = document.getElementById('uploadArea');
+                        if (ua) ua.classList.add('has-screenshot');
+                        
+                        showToast('Payment screenshot pasted!', 'success');
+                        break;
+                    }
+                }
+            }
+        });
+    }
+});
+
+// Update department breakdown - GLOBAL
+// Department Breakdown function removed (visual panel removed per user request)
+
+// Payment screenshot preview helpers
+function showPaymentPreview(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var preview = document.getElementById('paymentPreview');
+            var previewImg = document.getElementById('paymentPreviewImg');
+            if (preview && previewImg) {
+                previewImg.src = e.target.result;
+                preview.style.display = 'block';
+                previewImg.classList.remove('border-danger');
+            }
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function showPaymentPreviewFile(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var preview = document.getElementById('paymentPreview');
+        var previewImg = document.getElementById('paymentPreviewImg');
+        if (preview && previewImg) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+            previewImg.classList.remove('border-danger');
+        }
+    }
+    reader.readAsDataURL(file);
+}
+
+// Remove payment screenshot
+document.getElementById('removePaymentScreenshot')?.addEventListener('click', function() {
+    var preview = document.getElementById('paymentPreview');
+    var previewImg = document.getElementById('paymentPreviewImg');
+    var fileNameEl = document.getElementById('fileName');
+    var fileInput = document.getElementById('payment_screenshot');
+    var uploadArea = document.getElementById('uploadArea');
+    if (preview) preview.style.display = 'none';
+    if (previewImg) previewImg.src = '';
+    if (fileNameEl) fileNameEl.textContent = '';
+    if (fileInput) fileInput.value = '';
+    if (uploadArea) {
+        uploadArea.style.backgroundImage = '';
+        uploadArea.classList.remove('has-screenshot');
+    }
+});
+
 // Show toast - GLOBAL
-window.showToast = function(message, type = 'info') {
+window.showToast = function(message, type) {
+    if (type === undefined) type = 'info';
     let container = document.getElementById('toastContainer');
     if (!container) {
         container = document.createElement('div');
@@ -1404,6 +2079,54 @@ document.addEventListener('DOMContentLoaded', function() {
         addBtn.addEventListener('click', addItemToCart);
     }
     
+    // Garment add to cart button
+    const garmentAddBtn = document.getElementById('garment_addItemBtn');
+    if (garmentAddBtn) {
+        garmentAddBtn.addEventListener('click', garment_addItemToCart);
+    }
+    
+    // Initialize garment product row functions
+    const productRowsContainer = document.getElementById('productRowsContainer');
+    if (productRowsContainer) {
+        // Add product row button
+        const addRowBtn = document.getElementById('addProductRow');
+        if (addRowBtn) {
+            addRowBtn.addEventListener('click', function() {
+                var container = document.getElementById('productRowsContainer');
+                var template = container.querySelector('.product-row-template');
+                if (!template) return;
+                var newRow = template.cloneNode(true);
+                newRow.classList.remove('product-row-template', 'd-none');
+                newRow.classList.add('product-row');
+                var select = newRow.querySelector('.product-select');
+                var qty = newRow.querySelector('.product-quantity');
+                if (select) {
+                    select.innerHTML = '<option value="">Select a product</option>';
+                }
+                if (qty) qty.value = '1';
+                var removeBtn = newRow.querySelector('.remove-row');
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', function() {
+                        newRow.remove();
+                        garment_updatePrintSummary();
+                    });
+                }
+                container.appendChild(newRow);
+                garment_updatePrintSummary();
+            });
+        }
+        // Product row remove buttons (existing)
+        productRowsContainer.querySelectorAll('.remove-row').forEach(function(btn) {
+            btn.addEventListener('click', function(ev) {
+                var row = this.closest('.product-row');
+                if (row) {
+                    row.remove();
+                    garment_updatePrintSummary();
+                }
+            });
+        });
+    }
+    
     // Initialize existing customer system (keep existing code)
     let currentCustomerId = null;
     
@@ -1448,13 +2171,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Save customer
-    const saveCustomerBtn = document.getElementById('saveCustomerBtn');
-    if (saveCustomerBtn) {
-        saveCustomerBtn.addEventListener('click', function() {
-            saveCustomer();
-        });
-    }
+    // Save customer (removed — button no longer exists)
     
     // Form submission
     const form = document.getElementById('prototypeSaleForm');
@@ -1464,6 +2181,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (selectedItems.length === 0) {
                 e.preventDefault();
                 alert('Please add at least one item to the cart');
+                return;
+            }
+            
+            // Validate payment screenshot
+            var psInput = document.getElementById('payment_screenshot');
+            if (!psInput || !psInput.files || psInput.files.length === 0) {
+                e.preventDefault();
+                var preview = document.getElementById('paymentPreview');
+                var previewImg = document.getElementById('paymentPreviewImg');
+                if (previewImg) previewImg.classList.add('border-danger');
+                if (preview) preview.style.display = 'block';
+                showToast('Please upload or paste a payment screenshot', 'error');
+                document.getElementById('uploadArea')?.scrollIntoView({behavior: 'smooth', block: 'center'});
                 return;
             }
             
@@ -1534,10 +2264,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('customer_phone').focus();
     });
     
-    // Save customer button
-    document.getElementById('saveCustomerBtn').addEventListener('click', function() {
-        saveCustomer();
-    });
+    // Save customer button (removed — button no longer exists)
     
     // Check for existing customer
     function checkExistingCustomer(phone) {
@@ -1757,11 +2484,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const customerSection = document.querySelector('.form-section:nth-child(1)');
         customerSection.classList.add('completed');
         
-        // Update button text
-        document.getElementById('saveCustomerBtn').innerHTML = '<i class="fas fa-check me-2"></i> Customer Saved';
-        document.getElementById('saveCustomerBtn').classList.remove('btn-success');
-        document.getElementById('saveCustomerBtn').classList.add('btn-outline-success');
-        document.getElementById('saveCustomerBtn').disabled = true;
+        // Button state handled automatically (save button removed from UI)
     }
     
     // Clear customer form
@@ -1780,7 +2503,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Department selection
     document.querySelectorAll('.department-card').forEach(card => {
         card.addEventListener('click', function() {
-            document.querySelectorAll('.department-card').forEach(c => {
+            document.querySelectorAll('.department-card').forEach(function(c) {
                 c.classList.remove('selected');
             });
             this.classList.add('selected');
@@ -1791,49 +2514,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Payment method selection
-    document.querySelectorAll('.payment-method-card').forEach(card => {
+    document.querySelectorAll('.payment-method-card').forEach(function(card) {
         card.addEventListener('click', function() {
-            document.querySelectorAll('.payment-method-card').forEach(c => {
+            document.querySelectorAll('.payment-method-card').forEach(function(c) {
                 c.classList.remove('selected');
             });
             this.classList.add('selected');
         });
     });
     
-    // File upload handlers
-    document.getElementById('uploadArea').addEventListener('click', function() {
-        document.getElementById('payment_screenshot').click();
-    });
-    
-    document.getElementById('payment_screenshot').addEventListener('change', function(e) {
-        if (e.target.files.length > 0) {
-            document.getElementById('fileName').textContent = 'Selected: ' + e.target.files[0].name;
-        }
-    });
-    
-    // Mockup images upload
-    document.getElementById('mockupUploadArea').addEventListener('click', function() {
-        document.getElementById('mockup_images').click();
-    });
-    
-    document.getElementById('mockup_images').addEventListener('change', function(e) {
-        if (e.target.files.length > 0) {
-            const fileNames = Array.from(e.target.files).map(f => f.name).join(', ');
-            document.getElementById('mockupFileNames').textContent = 'Selected: ' + fileNames;
-        }
-    });
-    
-    // Reference images upload
-    document.getElementById('referenceUploadArea').addEventListener('click', function() {
-        document.getElementById('reference_images').click();
-    });
-    
-    document.getElementById('reference_images').addEventListener('change', function(e) {
-        if (e.target.files.length > 0) {
-            const fileNames = Array.from(e.target.files).map(f => f.name).join(', ');
-            document.getElementById('referenceFileNames').textContent = 'Selected: ' + fileNames;
-        }
-    });
+
     
     // ======================
     // FILTER SYSTEM FUNCTIONS
@@ -2035,14 +2725,134 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     };
     
-    // Update openProductModal to load filter options
+    // Garment-specific filter functions
+    window.garment_loadFilterOptions = function(productType) {
+        fetch('/api/filter-options/' + productType)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                ['brand', 'type', 'color'].forEach(function(type) {
+                    var datalist = document.getElementById('garment_' + type + 'Options');
+                    var field = document.getElementById('garment_filter' + type.charAt(0).toUpperCase() + type.slice(1));
+                    if (datalist) {
+                        datalist.innerHTML = '';
+                        var items = data[type + 's'] || data[type] || [];
+                        if (items.length) {
+                            items.forEach(function(item) {
+                                var opt = document.createElement('option');
+                                opt.value = item;
+                                datalist.appendChild(opt);
+                            });
+                            if (field) field.placeholder = 'Type or select ' + type + '...';
+                        }
+                    }
+                });
+            })
+            .catch(function(err) {
+                console.error('Error loading garment filter options:', err);
+            });
+    };
+    
+    window.garment_applyFilters = function() {
+        var brand = document.getElementById('garment_filterBrand')?.value.trim() || '';
+        var type = document.getElementById('garment_filterType')?.value.trim() || '';
+        var color = document.getElementById('garment_filterColor')?.value.trim() || '';
+        
+        var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
+        selects.forEach(function(dropdown) {
+            dropdown.innerHTML = '<option value="">Applying filters...</option>';
+        });
+        
+        var params = new URLSearchParams();
+        if (brand) params.set('brand', brand);
+        if (type) params.set('type', type);
+        if (color) params.set('color', color);
+        
+        fetch('/api/products-for-box/' + currentProductType + '?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(products) {
+                selects.forEach(function(dropdown) {
+                    dropdown.innerHTML = '<option value="">Select product</option>';
+                    products.forEach(function(p) {
+                        var opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = window.garment_buildProductOption(p);
+                        opt.dataset.price = p.base_price;
+                        opt.dataset.brand = p.brand || '';
+                        var pSize = p.size;
+                        if (!pSize && p.description) {
+                            var sizeM = p.description.match(/Size:\s*([^,]+)/i);
+                            if (sizeM) pSize = sizeM[1].trim();
+                        }
+                        opt.dataset.size = pSize || '';
+                        opt.dataset.color = p.color || '';
+                        opt.dataset.productName = p.name || '';
+                        opt.dataset.productData = JSON.stringify(p);
+                        dropdown.appendChild(opt);
+                    });
+                    if (products.length === 0) {
+                        dropdown.innerHTML = '<option value="">No products match your filters</option>';
+                    }
+                });
+                garment_updatePrintSummary();
+            })
+            .catch(function() {
+                selects.forEach(function(d) { d.innerHTML = '<option value="">Error loading</option>'; });
+            });
+    };
+    
+    window.garment_resetFilters = function() {
+        document.getElementById('garment_filterBrand').value = '';
+        document.getElementById('garment_filterType').value = '';
+        document.getElementById('garment_filterColor').value = '';
+        
+        var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
+        selects.forEach(function(dropdown) {
+            dropdown.innerHTML = '<option value="">Resetting filters...</option>';
+        });
+        
+        fetch('/api/products-for-box/' + currentProductType)
+            .then(function(r) { return r.json(); })
+            .then(function(products) {
+                selects.forEach(function(dropdown) {
+                    dropdown.innerHTML = '<option value="">Select product</option>';
+                    products.forEach(function(p) {
+                        var opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.textContent = window.garment_buildProductOption(p);
+                        opt.dataset.price = p.base_price;
+                        opt.dataset.brand = p.brand || '';
+                        var pSize = p.size;
+                        if (!pSize && p.description) {
+                            var sizeM = p.description.match(/Size:\s*([^,]+)/i);
+                            if (sizeM) pSize = sizeM[1].trim();
+                        }
+                        opt.dataset.size = pSize || '';
+                        opt.dataset.color = p.color || '';
+                        opt.dataset.productName = p.name || '';
+                        opt.dataset.productData = JSON.stringify(p);
+                        dropdown.appendChild(opt);
+                    });
+                    if (products.length === 0) {
+                        dropdown.innerHTML = '<option value="">No products available</option>';
+                    }
+                });
+                garment_updatePrintSummary();
+            })
+            .catch(function() {
+                selects.forEach(function(d) { d.innerHTML = '<option value="">Error loading</option>'; });
+            });
+    };
+    
+    // Update openProductModal to load filter options (only for non-garment)
     const originalOpenProductModal = window.openProductModal;
     window.openProductModal = function(productType) {
         originalOpenProductModal(productType);
-        loadFilterOptions(productType);
         
-        // Initialize multiple product rows
-        initializeProductRows();
+        // Only do non-garment setup for non-garment types
+        if (productType !== 'garment') {
+            loadFilterOptions(productType);
+            initializeProductRows();
+        }
     };
     
     // ======================
@@ -2203,13 +3013,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const newSelect = newRow.querySelector('.product-select');
         if (newSelect) {
             loadProductsIntoDropdown(newSelect);
+            
+            // Setup events for new row
+            newSelect.addEventListener('change', function() {
+                updateProductPriceDisplay(this);
+                updateOrderSummary();
+            });
         }
-        
-        // Setup events for new row
-        newSelect.addEventListener('change', function() {
-            updateProductPriceDisplay(this);
-            updateOrderSummary();
-        });
         
         const newQty = newRow.querySelector('.product-quantity');
         if (newQty) {
@@ -2244,81 +3054,813 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update order summary
     window.updateOrderSummary = function() {
-        const rows = document.querySelectorAll('.product-row');
-        let totalQuantity = 0;
-        let totalAmount = 0;
-        const products = [];
-        
-        // Calculate totals
-        rows.forEach(row => {
-            const select = row.querySelector('.product-select');
-            const qtyInput = row.querySelector('.product-quantity');
+        if (typeof window.__updateOrderSummaryCore === 'function') {
+            window.__updateOrderSummaryCore();
+        } else {
+            // Fallback: compute generic product totals
+            const rows = document.querySelectorAll('.product-row');
+            let totalQuantity = 0;
+            let totalAmount = 0;
+            const products = [];
             
-            if (select && qtyInput) {
-                const selectedOption = select.options[select.selectedIndex];
-                const quantity = parseInt(qtyInput.value) || 0;
-                const price = selectedOption && selectedOption.value ? parseFloat(selectedOption.dataset.price) : 0;
+            rows.forEach(row => {
+                const select = row.querySelector('.product-select');
+                const qtyInput = row.querySelector('.product-quantity');
                 
-                if (selectedOption && selectedOption.value && quantity > 0) {
-                    const productName = selectedOption.dataset.productName || 'Unknown Product';
-                    const brand = selectedOption.dataset.brand || '';
-                    const size = selectedOption.dataset.size || '';
-                    const color = selectedOption.dataset.color || '';
-                    const itemTotal = price * quantity;
+                if (select && qtyInput) {
+                    const selectedOption = select.options[select.selectedIndex];
+                    const quantity = parseInt(qtyInput.value) || 0;
+                    const price = selectedOption && selectedOption.value ? parseFloat(selectedOption.dataset.price) : 0;
                     
-                    products.push({
-                        name: productName,
-                        brand: brand,
-                        size: size,
-                        color: color,
-                        quantity: quantity,
-                        price: price,
-                        total: itemTotal
+                    if (selectedOption && selectedOption.value && quantity > 0) {
+                        const productName = selectedOption.dataset.productName || 'Unknown Product';
+                        const brand = selectedOption.dataset.brand || '';
+                        const size = selectedOption.dataset.size || '';
+                        const color = selectedOption.dataset.color || '';
+                        const itemTotal = price * quantity;
+                        
+                        products.push({
+                            name: productName,
+                            brand: brand,
+                            size: size,
+                            color: color,
+                            quantity: quantity,
+                            price: price,
+                            total: itemTotal
+                        });
+                        
+                        totalQuantity += quantity;
+                        totalAmount += itemTotal;
+                    }
+                }
+            });
+            
+            document.getElementById('totalQuantityDisplay').textContent = totalQuantity;
+            document.getElementById('itemTotalDisplay').textContent = '₱' + totalAmount.toFixed(2);
+            
+            const breakdownContainer = document.getElementById('productsBreakdown');
+            if (breakdownContainer) {
+                if (products.length === 0) {
+                    breakdownContainer.innerHTML = '<div class="text-muted small mb-2">No products selected yet</div>';
+                } else {
+                    let html = '<div class="small">';
+                    products.forEach((p, index) => {
+                        let displayName = p.name;
+                        if (p.brand) displayName += ' (' + p.brand + ')';
+                        if (p.size) displayName += ' ' + p.size;
+                        if (p.color) displayName += ' ' + p.color;
+                        
+                        html += '<div class="d-flex justify-content-between mb-1">';
+                        html += '<span class="text-truncate" title="' + displayName + '">' + displayName + '</span>';
+                        html += '<span>' + p.quantity + ' × ₱' + p.price.toFixed(2) + '</span>';
+                        html += '</div>';
                     });
-                    
-                    totalQuantity += quantity;
-                    totalAmount += itemTotal;
+                    html += '</div>';
+                    breakdownContainer.innerHTML = html;
                 }
             }
-        });
-        
-        // Update displays
-        document.getElementById('totalQuantityDisplay').textContent = totalQuantity;
-        document.getElementById('itemTotalDisplay').textContent = `₱${totalAmount.toFixed(2)}`;
-        
-        // Update products breakdown
-        const breakdownContainer = document.getElementById('productsBreakdown');
-        if (breakdownContainer) {
-            if (products.length === 0) {
-                breakdownContainer.innerHTML = '<div class="text-muted small mb-2">No products selected yet</div>';
-            } else {
-                let html = '<div class="small">';
-                products.forEach((p, index) => {
-                    let displayName = p.name;
-                    if (p.brand) displayName += ` (${p.brand})`;
-                    if (p.size) displayName += ` ${p.size}`;
-                    if (p.color) displayName += ` ${p.color}`;
-                    
-                    html += `<div class="d-flex justify-content-between mb-1">`;
-                    html += `<span class="text-truncate" title="${displayName}">${displayName}</span>`;
-                    html += `<span>${p.quantity} × ₱${p.price.toFixed(2)}</span>`;
-                    html += `</div>`;
-                });
-                html += '</div>';
-                breakdownContainer.innerHTML = html;
-            }
-        }
-        
-        // Update unit price display (show first product's price)
-        const firstRow = document.querySelector('.product-row:first-child');
-        if (firstRow) {
-            const firstSelect = firstRow.querySelector('.product-select');
-            if (firstSelect) {
-                updateProductPriceDisplay(firstSelect);
+            
+            const firstRow = document.querySelector('.product-row:first-child');
+            if (firstRow) {
+                const firstSelect = firstRow.querySelector('.product-select');
+                if (firstSelect) {
+                    if (typeof updateProductPriceDisplay === 'function') {
+                        updateProductPriceDisplay(firstSelect);
+                    }
+                }
             }
         }
     };
+
+// ============================================
+// GARMENT PRINTING FUNCTIONS
+// ============================================
+
+// Garment-specific variables
+var garment_printingData = {};
+var garment_selectedPrintSizes = [];
+var garment_uploadedReferenceImages = [];
+var garment_referenceImageCounter = 0;
+
+// Open garment modal
+window.garment_openModal = function(productType) {
+    console.log('Opening garment modal for:', productType);
+    garment_initializeProductRows();
+    garment_loadFilterOptions(productType);
+    loadProductsFromDatabase(productType);
+    setTimeout(function() {
+        garment_populatePrintTypes();
+    }, 100);
+};
+
+// Garment-specific product rows system
+window.garment_initializeProductRows = function() {
+    const container = document.getElementById('garment_productRowsContainer');
+    if (!container) return;
     
+    // Reset to single row
+    const firstRow = container.querySelector('.product-row:first-child');
+    if (firstRow) {
+        container.innerHTML = '';
+        container.appendChild(firstRow);
+    }
+    const firstSelect = container.querySelector('.product-select');
+    const firstQty = container.querySelector('.product-quantity');
+    if (firstSelect) firstSelect.innerHTML = '<option value="">Select a product</option>';
+    if (firstQty) firstQty.value = '1';
+    
+    garment_setupProductRowEvents();
+};
+
+window.garment_setupProductRowEvents = function() {
+    const container = document.getElementById('garment_productRowsContainer');
+    if (!container) return;
+    
+    // Add row button
+    const addBtn = document.getElementById('garment_addProductRowBtn');
+    if (addBtn) {
+        addBtn.onclick = function() {
+            garment_addProductRow();
+        };
+    }
+    
+    // Remove buttons
+    container.querySelectorAll('.remove-row').forEach(function(btn) {
+        btn.onclick = function() {
+            var row = this.closest('.product-row');
+            if (row && container.querySelectorAll('.product-row').length > 1) {
+                row.remove();
+                garment_updatePrintSummary();
+            }
+        };
+    });
+    
+    // Select change listeners
+    container.querySelectorAll('.product-select').forEach(function(sel) {
+        sel.onchange = function() {
+            garment_updatePrintSummary();
+        };
+    });
+    
+    // Quantity change listeners
+    container.querySelectorAll('.product-quantity').forEach(function(qty) {
+        qty.oninput = function() {
+            garment_updatePrintSummary();
+        };
+    });
+};
+
+window.garment_addProductRow = function() {
+    const container = document.getElementById('garment_productRowsContainer');
+    const template = container.querySelector('.product-row-template');
+    if (!container || !template) return;
+    
+    var newRow = template.cloneNode(true);
+    newRow.classList.remove('product-row-template', 'd-none');
+    newRow.classList.add('product-row');
+    
+    // Clear selections in new row
+    var select = newRow.querySelector('.product-select');
+    if (select) {
+        select.selectedIndex = 0;
+    }
+    var qtyInput = newRow.querySelector('.product-quantity');
+    if (qtyInput) qtyInput.value = '1';
+    
+    container.appendChild(newRow);
+    
+    // Reload products into the new select if available
+    var currentType = window.currentProductType;
+    if (currentType && select) {
+        select.innerHTML = '<option value="">Loading products...</option>';
+        fetch('/api/products-for-box/' + currentType)
+            .then(function(r) { return r.json(); })
+            .then(function(products) {
+                select.innerHTML = '<option value="">Select product</option>';
+                products.forEach(function(p) {
+                    var opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = window.garment_buildProductOption(p);
+                    opt.dataset.price = p.base_price;
+                    var pSize = p.size;
+                    if (!pSize && p.description) {
+                        var sizeM = p.description.match(/Size:\s*([^,]+)/i);
+                        if (sizeM) pSize = sizeM[1].trim();
+                    }
+                    opt.dataset.brand = p.brand || '';
+                    opt.dataset.size = pSize || '';
+                    opt.dataset.color = p.color || '';
+                    opt.dataset.productName = p.name || '';
+                    opt.dataset.productData = JSON.stringify(p);
+                    select.appendChild(opt);
+                });
+                garment_updatePrintSummary();
+            })
+            .catch(function() {
+                select.innerHTML = '<option value="">Error loading</option>';
+            });
+    }
+    
+    // Wire remove button
+    var removeBtn = newRow.querySelector('.remove-row');
+    if (removeBtn) {
+        removeBtn.onclick = function() {
+            if (container.querySelectorAll('.product-row').length > 1) {
+                newRow.remove();
+                garment_updatePrintSummary();
+            }
+        };
+    }
+    
+    // Wire select/qty changes
+    if (select) {
+        select.onchange = function() { garment_updatePrintSummary(); };
+    }
+    if (qtyInput) {
+        qtyInput.oninput = function() { garment_updatePrintSummary(); };
+    }
+};
+
+// Populate print type dropdown
+window.garment_populatePrintTypes = function() {
+    var select = document.getElementById('garment_printTypeSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Select Print Type --</option>';
+    garment_hidePrintingSections();
+    select.onchange = function() {
+        garment_selectedPrintSizes = [];
+        var val = this.value;
+        if (val) {
+            garment_loadPrintSizes(val);
+        } else {
+            garment_hidePrintingSections();
+        }
+    };
+    fetch('/api/printing/options/dtf')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            garment_printingData = data;
+            var types = data.print_types || [];
+            types.forEach(function(t) {
+                var opt = document.createElement('option');
+                opt.value = t;
+                var label = t.charAt(0).toUpperCase() + t.slice(1) + ' Print';
+                opt.textContent = label;
+                select.appendChild(opt);
+            });
+        })
+        .catch(function(err) {
+            console.error('Error loading print types:', err);
+        });
+};
+
+// Load print sizes for selected print type
+window.garment_loadPrintSizes = function(printType) {
+    if (!printType) {
+        garment_hidePrintingSections();
+        return;
+    }
+    fetch('/api/printing/options/' + printType)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            garment_printingData = data;
+            garment_renderPrintSizes(data.prices);
+            var container = document.getElementById('garment_printSizesContainer');
+            if (container) container.style.display = 'block';
+            garment_selectedPrintSizes = [];
+            garment_updatePrintSummary();
+        })
+        .catch(function(err) {
+            console.error('Error loading print options:', err);
+            var list = document.getElementById('garment_printSizesList');
+            if (list) list.innerHTML = '<div class="text-danger small">Failed to load print options.</div>';
+        });
+};
+
+// Render print size checkboxes
+window.garment_renderPrintSizes = function(prices) {
+    var container = document.getElementById('garment_printSizesList');
+    if (!container) return;
+    if (!prices || prices.length === 0) {
+        container.innerHTML = '<div class="text-muted small">No print sizes available.</div>';
+        return;
+    }
+    var html = '';
+    prices.forEach(function(p) {
+        html += '<label class="print-size-checkbox d-block mb-1 p-1 border rounded" style="cursor:pointer;">';
+        html += '<input type="checkbox" value="' + p.id + '" onchange="garment_togglePrintSize(' + p.id + ', this)">';
+        html += ' <span>' + p.name + '</span>';
+        html += ' <span class="float-end text-muted">\u20B1' + p.price.toFixed(2) + '</span>';
+        html += '</label>';
+    });
+    container.innerHTML = html;
+};
+
+// Toggle print size selection
+window.garment_togglePrintSize = function(sizeId, checkbox) {
+    var labelEl = checkbox.closest('label');
+    if (checkbox.checked) {
+        if (labelEl) labelEl.style.borderColor = '#0d6efd';
+        if (garment_selectedPrintSizes.indexOf(sizeId) === -1) {
+            garment_selectedPrintSizes.push(sizeId);
+        }
+    } else {
+        if (labelEl) labelEl.style.borderColor = '#dee2e6';
+        var idx = garment_selectedPrintSizes.indexOf(sizeId);
+        if (idx !== -1) {
+            garment_selectedPrintSizes.splice(idx, 1);
+        }
+    }
+    garment_updatePrintSummary();
+};
+
+// Special Price functions
+window.garment_hasSpecialPrice = false;
+window.garment_toggleSpecialPrice = function() {
+    var section = document.getElementById('garment_specialPriceSection');
+    var btn = document.getElementById('garment_specialPriceBtn');
+    if (!section) return;
+    var showing = section.style.display !== 'none';
+    if (showing) {
+        section.style.display = 'none';
+        btn.textContent = '💰 Special Price';
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-outline-warning');
+        garment_hasSpecialPrice = false;
+        garment_updatePrintSummary();
+    } else {
+        section.style.display = 'block';
+        btn.textContent = '💰 Cancel Special Price';
+        btn.classList.remove('btn-outline-warning');
+        btn.classList.add('btn-warning');
+        // Pre-fill with current print total
+        var printTotalEl = document.getElementById('garment_printTotalDisplay');
+        var spInput = document.getElementById('garment_specialPrintTotal');
+        if (printTotalEl && spInput) {
+            var current = parseFloat(printTotalEl.textContent.replace(/[₱,]/g, '')) || 0;
+            if (current > 0) spInput.value = current.toFixed(2);
+        }
+        garment_hasSpecialPrice = true;
+        garment_updatePrintSummary();
+    }
+};
+
+window.garment_clearSpecialPrice = function() {
+    var section = document.getElementById('garment_specialPriceSection');
+    var btn = document.getElementById('garment_specialPriceBtn');
+    var spInput = document.getElementById('garment_specialPrintTotal');
+    var reasonInput = document.getElementById('garment_specialPriceReason');
+    if (section) section.style.display = 'none';
+    if (btn) {
+        btn.textContent = '💰 Special Price';
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-outline-warning');
+    }
+    if (spInput) spInput.value = '';
+    if (reasonInput) reasonInput.value = '';
+    garment_hasSpecialPrice = false;
+    garment_updatePrintSummary();
+};
+
+window.garment_onSpecialPriceChange = function() {
+    garment_updatePrintSummary();
+};
+
+// Clear print selection
+window.garment_clearPrintSelection = function() {
+    garment_selectedPrintSizes = [];
+    garment_printingData = {};
+    var select = document.getElementById('garment_printTypeSelect');
+    if (select) select.value = '';
+    garment_hidePrintingSections();
+};
+
+// Hide printing sections
+window.garment_hidePrintingSections = function() {
+    var container = document.getElementById('garment_printSizesContainer');
+    var sidebar = document.getElementById('garment_printSummarySidebar');
+    var qtySection = document.getElementById('garment_printQuantitySection');
+    if (container) container.style.display = 'none';
+    if (sidebar) sidebar.style.display = 'none';
+    if (qtySection) qtySection.style.display = 'none';
+};
+
+// Update print summary (combo, bulk, totals)
+window.garment_updatePrintSummary = function() {
+    var sidebar = document.getElementById('garment_printSummarySidebar');
+    var qtySection = document.getElementById('garment_printQuantitySection');
+    if (garment_selectedPrintSizes.length === 0) {
+        if (sidebar) sidebar.style.display = 'none';
+        if (qtySection) qtySection.style.display = 'none';
+        return;
+    }
+    if (qtySection) qtySection.style.display = 'block';
+    var prices = garment_printingData.prices || [];
+    var combos = garment_printingData.combos || [];
+    var bulkTiers = garment_printingData.bulk_tiers || [];
+    var qtyInputEl = document.getElementById('garment_printQuantityInput');
+    var totalQty = qtyInputEl ? parseInt(qtyInputEl.value) || 1 : 1;
+    var printCostPerItem = 0;
+    var selectedSizeDetails = [];
+    garment_selectedPrintSizes.forEach(function(sizeId) {
+        var found = null;
+        for (var i = 0; i < prices.length; i++) {
+            if (prices[i].id === sizeId) {
+                found = prices[i];
+                break;
+            }
+        }
+        if (found) {
+            printCostPerItem += found.price;
+            selectedSizeDetails.push(found);
+        }
+    });
+    // Store original print cost BEFORE any discounts (for special price display)
+    var rawPrintCostPerItem = printCostPerItem;
+    var comboDiscount = 0;
+    var comboDetails = [];
+    combos.forEach(function(c) {
+        if (garment_selectedPrintSizes.indexOf(c.size1_id) !== -1 && 
+            garment_selectedPrintSizes.indexOf(c.size2_id) !== -1) {
+            comboDetails.push(c);
+        }
+    });
+    if (comboDetails.length > 0) {
+        comboDetails.sort(function(a, b) { return b.discount - a.discount; });
+        var best = comboDetails[0];
+        comboDiscount = best.discount;
+        comboDetails = [best];
+    }
+    var printCostAfterCombo = printCostPerItem - comboDiscount;
+    var subtotal = printCostAfterCombo * totalQty;
+    var bulkDiscount = 0;
+    var bulkLabel = '';
+    for (var bi = bulkTiers.length - 1; bi >= 0; bi--) {
+        var tier = bulkTiers[bi];
+        if (totalQty >= tier.min && totalQty <= tier.max) {
+            if (tier.type === 'percentage') {
+                bulkDiscount = subtotal * (tier.percent / 100);
+                bulkLabel = tier.label;
+            } else if (tier.type === 'fixed') {
+                bulkDiscount = tier.amount * totalQty;
+                bulkLabel = tier.label;
+            }
+            break;
+        }
+    }
+    var total = subtotal - bulkDiscount;
+    
+    // SPECIAL PRICE OVERRIDE
+    var isSpecialPrice = window.garment_hasSpecialPrice || false;
+    var specialTotal = 0;
+    if (isSpecialPrice) {
+        var spInput = document.getElementById('garment_specialPrintTotal');
+        if (spInput) {
+            specialTotal = parseFloat(spInput.value) || 0;
+        }
+    }
+    
+    // Render sizes breakdown
+    var sizesHtml = '';
+    selectedSizeDetails.forEach(function(s) {
+        sizesHtml += '<div class="d-flex justify-content-between">';
+        sizesHtml += '<span>' + s.name + '</span>';
+        sizesHtml += '<span>₱' + s.price.toFixed(2) + '</span>';
+        sizesHtml += '</div>';
+    });
+    var sizesBreakdown = document.getElementById('garment_printSizesBreakdown');
+    if (sizesBreakdown) sizesBreakdown.innerHTML = sizesHtml;
+    var costPerItemEl = document.getElementById('garment_printCostPerItemDisplay');
+    var qtyDisplayEl = document.getElementById('garment_printQtyDisplay');
+    var subtotalEl = document.getElementById('garment_printSubtotalDisplay');
+    var comboRow = document.getElementById('garment_comboDiscountRow');
+    var comboDisplay = document.getElementById('garment_comboDiscountDisplay');
+    var bulkRow = document.getElementById('garment_bulkDiscountRow');
+    var bulkDisplay = document.getElementById('garment_bulkDiscountDisplay');
+    var printTotalEl = document.getElementById('garment_printTotalDisplay');
+    var grandTotalEl = document.getElementById('garment_grandTotalDisplay');
+    // Show original print cost (before any discounts)
+    if (costPerItemEl) costPerItemEl.textContent = '₱' + rawPrintCostPerItem.toFixed(2);
+    if (qtyDisplayEl) qtyDisplayEl.textContent = totalQty;
+    if (subtotalEl) subtotalEl.textContent = '₱' + subtotal.toFixed(2);
+    if (isSpecialPrice && specialTotal > 0) {
+        // Special price: hide combo/bulk, show original qty/cost but use special total
+        if (comboRow) comboRow.style.display = 'none';
+        if (bulkRow) bulkRow.style.display = 'none';
+        if (printTotalEl) printTotalEl.textContent = '₱' + specialTotal.toFixed(2) + ' (Special Price)';
+    } else {
+        // Normal: show combo/bulk discounts as before
+        var displayCostPerItem = printCostAfterCombo;
+        if (costPerItemEl) costPerItemEl.textContent = '₱' + displayCostPerItem.toFixed(2);
+        if (comboDiscount > 0 && comboRow && comboDisplay) {
+            comboRow.style.display = 'flex';
+            comboDisplay.textContent = '-₱' + comboDiscount.toFixed(2);
+        } else if (comboRow) {
+            comboRow.style.display = 'none';
+        }
+        if (bulkDiscount > 0 && bulkRow && bulkDisplay) {
+            bulkRow.style.display = 'flex';
+            bulkDisplay.textContent = '-₱' + bulkDiscount.toFixed(2);
+        } else if (bulkRow) {
+            bulkRow.style.display = 'none';
+        }
+        if (printTotalEl) printTotalEl.textContent = '₱' + total.toFixed(2);
+    }
+    
+    // Calculate grand total
+    var productTotal = 0;
+    var qtyTotal = 0;
+    document.querySelectorAll('#garment_productRowsContainer .product-row').forEach(function(row) {
+        var qty = parseInt(row.querySelector('.product-quantity').value) || 0;
+        var opt = row.querySelector('.product-select option:checked');
+        var price = opt && opt.dataset.price ? parseFloat(opt.dataset.price) : 0;
+        qtyTotal += qty;
+        productTotal += qty * price;
+    });
+    var grandTotal = productTotal + (isSpecialPrice && specialTotal > 0 ? specialTotal : total);
+    if (grandTotalEl) grandTotalEl.textContent = '\u20B1' + grandTotal.toFixed(2);
+    if (sidebar) sidebar.style.display = 'block';
+    var qtyDisplay = document.getElementById('garment_totalQtyDisplay');
+    var amtDisplay = document.getElementById('garment_totalAmountDisplay');
+    if (qtyDisplay) qtyDisplay.textContent = qtyTotal;
+    if (amtDisplay) amtDisplay.textContent = '\u20B1' + productTotal.toFixed(2);
+    
+    // Render products breakdown
+    var breakdownEl = document.getElementById('garment_productsBreakdown');
+    if (breakdownEl) {
+        var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
+        var hasProducts = false;
+        var html = '';
+        rows.forEach(function(row) {
+            var sel = row.querySelector('.product-select');
+            var qtyInput = row.querySelector('.product-quantity');
+            if (!sel || !qtyInput) return;
+            var opt = sel.options[sel.selectedIndex];
+            var qty = parseInt(qtyInput.value) || 0;
+            if (!opt || !opt.value || qty === 0) return;
+            hasProducts = true;
+            var price = opt.dataset.price ? parseFloat(opt.dataset.price) : 0;
+            var subtotal = qty * price;
+            var brand = opt.dataset.brand || '';
+            var size = opt.dataset.size || '';
+            var color = opt.dataset.color || '';
+            var shortName = [brand, color, size].filter(Boolean).join(' ');
+            if (!shortName) {
+                var name = opt.textContent.split(' - ')[0] || 'Product';
+                shortName = name;
+            }
+            html += '<div class="d-flex justify-content-between align-items-center mb-1 small">';
+            html += '<span>' + shortName + ' <span class="text-muted">x' + qty + '</span></span>';
+            html += '<span>\u20B1' + subtotal.toFixed(2) + '</span>';
+            html += '</div>';
+        });
+        if (hasProducts) {
+            breakdownEl.innerHTML = html;
+        } else {
+            breakdownEl.innerHTML = '<div class="text-muted small mb-2">No products selected yet</div>';
+        }
+    }
+};
+
+// Reference image handling
+window.garment_triggerReferenceFilePicker = function() {
+    var picker = document.getElementById('referenceFilePicker');
+    if (picker) picker.click();
+};
+window.garment_onReferencePaste = function(e) {
+    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') === 0) {
+            var file = items[i].getAsFile();
+            if (file) garment_handleReferenceImage(file);
+        }
+    }
+};
+window.garment_onReferenceDragOver = function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var dz = document.getElementById('referenceDropZone');
+    if (dz) dz.style.borderColor = '#0d6efd';
+};
+window.garment_onReferenceDragLeave = function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var dz = document.getElementById('referenceDropZone');
+    if (dz) dz.style.borderColor = '#ccc';
+};
+window.garment_onReferenceDrop = function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var dz = document.getElementById('referenceDropZone');
+    if (dz) dz.style.borderColor = '#ccc';
+    var files = e.dataTransfer.files;
+    for (var i = 0; i < files.length; i++) {
+        if (files[i].type.indexOf('image') === 0) {
+            garment_handleReferenceImage(files[i]);
+        }
+    }
+};
+window.garment_onReferenceFilePickerChange = function(e) {
+    var files = e.target.files;
+    for (var i = 0; i < files.length; i++) {
+        garment_handleReferenceImage(files[i]);
+    }
+    e.target.value = '';
+};
+window.garment_handleReferenceImage = function(file) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        garment_referenceImageCounter++;
+        garment_uploadedReferenceImages.push({
+            id: garment_referenceImageCounter,
+            dataUrl: e.target.result,
+            name: file.name
+        });
+        garment_renderReferencePreviews();
+    };
+    reader.readAsDataURL(file);
+};
+window.garment_renderReferencePreviews = function() {
+    var container = document.getElementById('referencePreviewsGallery');
+    if (!container) return;
+    if (garment_uploadedReferenceImages.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    var html = '';
+    garment_uploadedReferenceImages.forEach(function(img) {
+        html += '<div style="position:relative;display:inline-block;width:80px;height:80px;border:1px solid #dee2e6;border-radius:6px;overflow:hidden;">';
+        html += '<img src="' + img.dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
+        html += '<button type="button" onclick="garment_removeReferenceImage(' + img.id + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;text-align:center;padding:0;cursor:pointer;">&times;</button>';
+        html += '</div>';
+    });
+    container.innerHTML = html;
+};
+window.garment_clearAllReferenceImages = function() {
+    garment_uploadedReferenceImages = [];
+    garment_referenceImageCounter = 0;
+    garment_renderReferencePreviews();
+};
+window.garment_removeReferenceImage = function(id) {
+    garment_uploadedReferenceImages = garment_uploadedReferenceImages.filter(function(img) { return img.id !== id; });
+    garment_renderReferencePreviews();
+};
+
+// Garment add to cart
+window.garment_addItemToCart = function() {
+    var deptSelect = document.getElementById('garment_departmentSelect');
+    if (!deptSelect) return;
+    var department = deptSelect.value;
+    if (!department) {
+        alert('Please select a department');
+        deptSelect.focus();
+        return;
+    }
+    var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
+    var subItems = [];
+    var validationError = false;
+    var notes = document.getElementById('garment_productNotes');
+    var printTypeEl = document.getElementById('garment_printTypeSelect');
+    var qtyInputPrint = document.getElementById('garment_printQuantityInput');
+    rows.forEach(function(row, index) {
+        if (validationError) return;
+        var select = row.querySelector('.product-select');
+        var qtyInput = row.querySelector('.product-quantity');
+        if (!select || !qtyInput) return;
+        var selectedOption = select.options[select.selectedIndex];
+        var quantity = parseInt(qtyInput.value) || 0;
+        var price = selectedOption && selectedOption.value ? parseFloat(selectedOption.dataset.price) : 0;
+        if (!select.value) { alert('Please select a product for row ' + (index + 1)); select.focus(); validationError = true; return; }
+        if (quantity <= 0) { alert('Please enter valid quantity for row ' + (index + 1)); qtyInput.focus(); validationError = true; return; }
+        if (price <= 0) { alert('Invalid price for product in row ' + (index + 1)); validationError = true; return; }
+        var brand = selectedOption.dataset.brand || '';
+        var size = selectedOption.dataset.size || '';
+        var color = selectedOption.dataset.color || '';
+        var productName = selectedOption.dataset.productName || 'Unknown Product';
+        var shortName = [brand, color, size].filter(Boolean).join(' ');
+        if (!shortName) shortName = productName;
+        subItems.push({
+            productId: select.value,
+            name: productName,
+            shortName: shortName,
+            brand: brand,
+            size: size,
+            color: color,
+            quantity: quantity,
+            unitPrice: price,
+            totalPrice: quantity * price
+        });
+    });
+    if (validationError) return;
+    if (subItems.length === 0) { alert('Please add at least one product'); return; }
+    // Compute combined totals
+    var totalQty = 0;
+    var totalProductPrice = 0;
+    subItems.forEach(function(si) {
+        totalQty += si.quantity;
+        totalProductPrice += si.totalPrice;
+    });
+    // Build printing summary (mirroring garment_updatePrintSummary logic)
+    var printDetails = null;
+    if (garment_selectedPrintSizes && garment_selectedPrintSizes.length > 0) {
+        var printTypeName = printTypeEl ? printTypeEl.options[printTypeEl.selectedIndex]?.text || printTypeEl.value : '';
+        var printPrices = garment_printingData.prices || [];
+        var combos = garment_printingData.combos || [];
+        var selectedPrintNames = [];
+        var printCostRaw = 0;
+        garment_selectedPrintSizes.forEach(function(sizeId) {
+            for (var pi = 0; pi < printPrices.length; pi++) {
+                if (printPrices[pi].id === sizeId) {
+                    selectedPrintNames.push(printPrices[pi].name);
+                    printCostRaw += printPrices[pi].price;
+                    break;
+                }
+            }
+        });
+        var printQty = qtyInputPrint ? parseInt(qtyInputPrint.value) || 0 : 0;
+        // Combo discount (same logic as garment_updatePrintSummary)
+        var comboDiscount = 0;
+        combos.forEach(function(c) {
+            if (garment_selectedPrintSizes.indexOf(c.size1_id) !== -1 &&
+                garment_selectedPrintSizes.indexOf(c.size2_id) !== -1) {
+                if (c.discount > comboDiscount) comboDiscount = c.discount;
+            }
+        });
+        var printCostAfterCombo = printCostRaw - comboDiscount;
+        var subtotalBeforeBulk = printCostAfterCombo * printQty;
+        // Bulk discount
+        var bulkTiers = garment_printingData.bulk_tiers || [];
+        var bulkDiscount = 0;
+        for (var bi = bulkTiers.length - 1; bi >= 0; bi--) {
+            var tier = bulkTiers[bi];
+            if (printQty >= tier.min && printQty <= tier.max) {
+                if (tier.type === 'percentage') {
+                    bulkDiscount = subtotalBeforeBulk * (tier.percent / 100);
+                } else if (tier.type === 'fixed') {
+                    bulkDiscount = tier.amount * printQty;
+                }
+                break;
+            }
+        }
+        // Special price override
+        var isSpecialPrice = window.garment_hasSpecialPrice || false;
+        var specialTotal = 0;
+        var specialReason = '';
+        if (isSpecialPrice) {
+            var spInput = document.getElementById('garment_specialPrintTotal');
+            var reasonInput = document.getElementById('garment_specialPriceReason');
+            if (spInput) specialTotal = parseFloat(spInput.value) || 0;
+            if (reasonInput) specialReason = reasonInput.value.trim();
+        }
+        printDetails = {
+            printType: printTypeName,
+            printSizes: selectedPrintNames,
+            printCostPerItem: isSpecialPrice && specialTotal > 0 ? (specialTotal / printQty) : printCostAfterCombo,
+            printQty: printQty,
+            printSubtotal: isSpecialPrice && specialTotal > 0 ? specialTotal : (subtotalBeforeBulk - bulkDiscount),
+            comboDiscount: comboDiscount,
+            bulkDiscount: bulkDiscount,
+            isSpecialPrice: isSpecialPrice,
+            specialTotal: isSpecialPrice ? specialTotal : 0,
+            specialReason: specialReason
+        };
+    }
+    // Create single garment order item
+    var garmentItem = {
+        id: Date.now(),
+        productType: 'garment',
+        department: department,
+        name: 'Garment Order',
+        totalQty: totalQty,
+        totalProductPrice: totalProductPrice,
+        quantity: totalQty,
+        unitPrice: totalProductPrice,
+        totalPrice: totalProductPrice,
+        notes: notes ? notes.value.trim() : '',
+        timestamp: new Date().toISOString(),
+        subItems: subItems,
+        printing: printDetails,
+        referenceImages: garment_uploadedReferenceImages.map(function(img) {
+            return { id: img.id, name: img.name, dataUrl: img.dataUrl };
+        })
+    };
+    selectedItems.push(garmentItem);
+    updateSelectedItemsDisplay();
+    updateOrderSummary();
+    garment_clearAllReferenceImages();
+    garment_clearPrintSelection();
+    if (typeof garment_initializeProductRows === 'function') garment_initializeProductRows();
+    var deptSelectEl = document.getElementById('garment_departmentSelect');
+    if (deptSelectEl) deptSelectEl.value = '';
+    var notesEl = document.getElementById('garment_productNotes');
+    if (notesEl) notesEl.value = '';
+    var modalEl = document.getElementById('productModal');
+    if (modalEl) {
+        var modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    }
+    showToast('Garment order added to cart!', 'success');
+};
 
 </script>
 @endpush
