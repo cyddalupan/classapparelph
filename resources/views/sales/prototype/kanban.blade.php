@@ -167,6 +167,86 @@
     .all-tab:not(.active) {
         color: #212529 !important;
     }
+
+    /* Sale Details Modal */
+    .sale-detail-section {
+        margin-bottom: 20px;
+    }
+    .sale-detail-section h6 {
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 6px;
+        margin-bottom: 12px;
+    }
+    .sale-detail-section .item-card {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+    .sale-detail-section .item-card .item-label {
+        font-size: 11px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .sale-detail-section .item-card .item-value {
+        font-size: 13px;
+        font-weight: 500;
+    }
+    .sale-detail-section .subitem-row {
+        display: inline-flex;
+        align-items: center;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 4px 10px;
+        margin: 2px;
+        font-size: 12px;
+    }
+    .sale-detail-section .print-detail {
+        background: #e7f5ff;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-top: 8px;
+        font-size: 12px;
+    }
+    .sale-detail-section .ref-image {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        margin: 3px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .sale-detail-section .ref-image:hover {
+        transform: scale(1.1);
+    }
+    .sale-detail-section .payment-img {
+        max-width: 100%;
+        max-height: 200px;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+    .sale-detail-section .subtotal-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        font-size: 13px;
+    }
+    .sale-detail-section .total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-weight: 700;
+        font-size: 15px;
+        border-top: 2px solid #dee2e6;
+        margin-top: 4px;
+    }
 </style>
 @endpush
 
@@ -281,6 +361,42 @@
         @endforeach
     </div>
 </div>
+
+<!-- === SALE DETAILS MODAL === -->
+<div class="modal fade" id="saleDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalSaleTitle">Sale Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalSaleBody">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Loading...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- === IMAGE LIGHTBOX === -->
+<div class="modal fade" id="imageLightbox" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="lightboxImage" src="" alt="" style="max-width:100%;max-height:80vh;">
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -382,7 +498,47 @@
         
         draggedCard = null;
     });
-// === DEPARTMENT TAB CLICK (AJAX) ===
+// === CARD CLICK - OPEN DETAILS MODAL ===
+    document.addEventListener('click', function(e) {
+        var card = e.target.closest('.kanban-card:not(.dragging)');
+        if (!card || !board.contains(card)) return;
+        var saleId = card.dataset.id;
+        if (saleId) openSaleDetails(saleId);
+    });
+    
+    // === OPEN SALE DETAILS ===
+    window.openSaleDetails = function(saleId) {
+        var modal = document.getElementById('saleDetailsModal');
+        var body = document.getElementById('modalSaleBody');
+        var title = document.getElementById('modalSaleTitle');
+        
+        if (!modal || !body) return;
+        
+        // Show loading
+        body.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading...</p></div>';
+        title.textContent = 'Sale Details';
+        
+        // Fetch sale data
+        fetch('/sales/prototype/' + saleId + '/details' + window.location.search, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            title.textContent = data.title || 'Sale #' + saleId;
+            body.innerHTML = data.html;
+        })
+        .catch(function(err) {
+            body.innerHTML = '<div class="alert alert-danger">Failed to load sale details: ' + err.message + '</div>';
+        });
+        
+        var bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    };
+    
+    // === DEPARTMENT TAB CLICK (AJAX) ===
     tabs.forEach(function(tab) {
         tab.addEventListener('click', function() {
             const dept = this.dataset.dept;
@@ -426,6 +582,16 @@
             });
         });
     });
+    
+    // === IMAGE LIGHTBOX ===
+    window.openLightbox = function(src) {
+        var img = document.getElementById('lightboxImage');
+        if (img) {
+            img.src = src;
+            var lb = new bootstrap.Modal(document.getElementById('imageLightbox'));
+            lb.show();
+        }
+    };
 })();
 </script>
 @endpush

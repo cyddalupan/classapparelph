@@ -116,6 +116,25 @@ class PrototypeSalesController extends Controller
             $department = \DB::table('sales_departments')->where('code', 'iprint')->first();
         }
         
+        // Handle payment screenshot upload
+        $paymentScreenshotPath = null;
+        if ($request->hasFile('payment_screenshot')) {
+            $file = $request->file('payment_screenshot');
+            $filename = 'payment_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs('uploads/payments', $filename, 'public');
+            $paymentScreenshotPath = '/storage/' . $filePath;
+        }
+        
+        // Get item count from items_json
+        $itemsCount = 0;
+        $itemsJson = $request->items_json;
+        if ($itemsJson) {
+            $decoded = json_decode($itemsJson, true);
+            if (is_array($decoded)) {
+                $itemsCount = count($decoded);
+            }
+        }
+        
         // Calculate balance due
         $balanceDue = $request->total_amount - $request->deposit_paid;
         
@@ -131,7 +150,7 @@ class PrototypeSalesController extends Controller
             'sales_agent_name' => auth()->user()->name,
             'department_id' => $department->id,
             'department_name' => $department->name,
-            'services' => json_encode($request->services),
+            'services' => $request->items_json ?: json_encode($request->services ?: []),
             'subtotal' => $request->subtotal ?: 0,
             'tax' => $request->tax ?: 0,
             'total_amount' => $request->total_amount ?: 0,
@@ -140,6 +159,7 @@ class PrototypeSalesController extends Controller
             'payment_method' => $request->payment_method ?: 'cash',
             'payment_owner' => $request->payment_owner ?: 'company',
             'payment_status' => 'pending',
+            'payment_screenshot_path' => $paymentScreenshotPath,
             'customer_notes' => $request->customer_notes,
             'internal_notes' => $request->internal_notes,
             'estimated_completion_date' => $request->estimated_completion_date,
@@ -168,7 +188,7 @@ class PrototypeSalesController extends Controller
             'sale_id' => $saleId,
             'department_id' => $department->id,
             'title' => 'New Sale: ' . $request->customer_name,
-            'description' => 'Services: ' . count($request->services ?? []) . ' items | Total: ₱' . number_format($request->total_amount ?: 0, 2),
+            'description' => 'Services: ' . $itemsCount . ' items | Total: ₱' . number_format($request->total_amount ?: 0, 2),
             'status' => 'todo',
             'assigned_to' => null,
             'position' => 0,
@@ -183,6 +203,174 @@ class PrototypeSalesController extends Controller
     /**
      * Display the specified resource.
      */
+    public function details(Request $request, string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+        
+        $services = json_decode($sale->services, true) ?: [];
+        
+        // Build HTML for modal
+        $html = '';
+        
+        // --- Customer Info ---
+        $html .= '<div class="sale-detail-section">';
+        $html .= '<h6><i class="fas fa-user me-2"></i>Customer Information</h6>';
+        $html .= '<div class="row g-2 small">';
+        $html .= '<div class="col-6"><span class="text-muted">Name:</span> <strong>' . e($sale->customer_name) . '</strong></div>';
+        $html .= '<div class="col-6"><span class="text-muted">Sales #:</span> <strong>' . e($sale->sales_number) . '</strong></div>';
+        if ($sale->customer_phone) $html .= '<div class="col-6"><span class="text-muted">Phone:</span> ' . e($sale->customer_phone) . '</div>';
+        if ($sale->customer_email) $html .= '<div class="col-6"><span class="text-muted">Email:</span> ' . e($sale->customer_email) . '</div>';
+        if ($sale->customer_address) $html .= '<div class="col-12"><span class="text-muted">Address:</span> ' . e($sale->customer_address) . '</div>';
+        $html .= '<div class="col-6"><span class="text-muted">Agent:</span> ' . e($sale->sales_agent_name ?? 'N/A') . '</div>';
+        $html .= '<div class="col-6"><span class="text-muted">Dept:</span> ' . e($sale->department_name ?? 'N/A') . '</div>';
+        $html .= '</div></div>';
+        
+        // --- Notes ---
+        if ($sale->customer_notes || $sale->internal_notes) {
+            $html .= '<div class="sale-detail-section">';
+            $html .= '<h6><i class="fas fa-sticky-note me-2"></i>Notes</h6>';
+            if ($sale->customer_notes) {
+                $html .= '<div class="mb-1"><span class="text-muted small">Customer Notes:</span><br>' . nl2br(e($sale->customer_notes)) . '</div>';
+            }
+            if ($sale->internal_notes) {
+                $html .= '<div><span class="text-muted small">Internal Notes:</span><br>' . nl2br(e($sale->internal_notes)) . '</div>';
+            }
+            $html .= '</div>';
+        }
+        
+        // --- Items (from services JSON) ---
+        if (!empty($services)) {
+            $html .= '<div class="sale-detail-section">';
+            $html .= '<h6><i class="fas fa-box me-2"></i>Order Items (' . count($services) . ')</h6>';
+            
+            foreach ($services as $idx => $item) {
+                $itemTotal = $item['totalPrice'] ?? $item['total_price'] ?? $item['price'] ?? 0;
+                $itemName = $item['name'] ?? $item['product_name'] ?? 'Item #' . ($idx + 1);
+                $itemNotes = $item['notes'] ?? '';
+                $subItems = $item['subItems'] ?? [];
+                $printing = $item['printing'] ?? null;
+                $refImages = $item['referenceImages'] ?? [];
+                
+                $html .= '<div class="item-card">';
+                $html .= '<div class="d-flex justify-content-between align-items-start mb-2">';
+                $html .= '<div><strong>' . e($itemName) . '</strong>';
+                if ($item['department'] ?? null) {
+                    $html .= ' <span class="badge bg-secondary">' . e($item['department']) . '</span>';
+                }
+                $html .= '</div>';
+                $html .= '<div class="fw-bold text-nowrap">₱' . number_format($itemTotal, 2) . '</div>';
+                $html .= '</div>';
+                
+                // Sub-items: brand, size, color, qty
+                if (!empty($subItems)) {
+                    $html .= '<div class="mb-2">';
+                    foreach ($subItems as $si) {
+                        $brand = $si['brand'] ?? $si['product_brand'] ?? '';
+                        $size = $si['size'] ?? $si['type'] ?? $si['product_size'] ?? '';
+                        $color = $si['color'] ?? $si['product_color'] ?? '';
+                        $qty = $si['qty'] ?? $si['quantity'] ?? 1;
+                        $unitPrice = $si['price'] ?? $si['unit_price'] ?? 0;
+                        
+                        $html .= '<span class="subitem-row">';
+                        $parts = [];
+                        if ($brand) $parts[] = e($brand);
+                        if ($size) $parts[] = e($size);
+                        if ($color) $parts[] = e($color);
+                        $parts[] = '×' . $qty;
+                        if ($unitPrice > 0) $parts[] = '₱' . number_format($unitPrice, 2);
+                        $html .= implode(' • ', $parts);
+                        $html .= '</span>';
+                    }
+                    $html .= '</div>';
+                }
+                
+                // Print details
+                if ($printing) {
+                    $html .= '<div class="print-detail">';
+                    $html .= '<div class="fw-semibold small mb-1">🖨️ Print Details</div>';
+                    if ($printing['printType'] ?? null) {
+                        $html .= '<div><span class="text-muted">Type:</span> ' . e($printing['printType']) . '</div>';
+                    }
+                    if (!empty($printing['printSizes'] ?? [])) {
+                        $sizes = is_array($printing['printSizes']) ? implode(', ', $printing['printSizes']) : $printing['printSizes'];
+                        $html .= '<div><span class="text-muted">Sizes:</span> ' . e($sizes) . '</div>';
+                    }
+                    $html .= '<div><span class="text-muted">Qty:</span> ' . ($printing['printQty'] ?? 'N/A') . '</div>';
+                    if (($printing['printSubtotal'] ?? 0) > 0) {
+                        $html .= '<div><span class="text-muted">Print Subtotal:</span> ₱' . number_format($printing['printSubtotal'], 2) . '</div>';
+                    }
+                    if ($printing['isSpecialPrice'] ?? false) {
+                        $html .= '<div class="text-warning">⭐ Special Price: ' . e($printing['specialReason'] ?? '') . '</div>';
+                    }
+                    $html .= '</div>';
+                }
+                
+                // Item notes
+                if ($itemNotes) {
+                    $html .= '<div class="mt-2 small"><span class="text-muted">📝 Notes:</span> ' . nl2br(e($itemNotes)) . '</div>';
+                }
+                
+                // Reference images
+                if (!empty($refImages)) {
+                    $html .= '<div class="mt-2">';
+                    $html .= '<div class="small text-muted mb-1">🖼️ Reference Images (' . count($refImages) . ')</div>';
+                    $html .= '<div class="d-flex flex-wrap">';
+                    foreach ($refImages as $rimg) {
+                        $src = $rimg['dataUrl'] ?? $rimg['url'] ?? $rimg['src'] ?? '';
+                        if ($src) {
+                            $html .= '<img src="' . e($src) . '" class="ref-image" onclick="openLightbox(\'' . e($src) . '\')" title="' . e($rimg['name'] ?? 'Image') . '">';
+                        }
+                    }
+                    $html .= '</div></div>';
+                }
+                
+                $html .= '</div>'; // item-card
+            }
+            
+            $html .= '</div>'; // section
+        }
+        
+        // --- Payment Info ---
+        $html .= '<div class="sale-detail-section">';
+        $html .= '<h6><i class="fas fa-credit-card me-2"></i>Payment & Totals</h6>';
+        $html .= '<div class="subtotal-row"><span>Subtotal</span><span>₱' . number_format($sale->subtotal ?? 0, 2) . '</span></div>';
+        if (($sale->tax ?? 0) > 0) {
+            $html .= '<div class="subtotal-row"><span>Tax (12%)</span><span>₱' . number_format($sale->tax, 2) . '</span></div>';
+        }
+        $html .= '<div class="total-row"><span>Total</span><span>₱' . number_format($sale->total_amount ?? 0, 2) . '</span></div>';
+        if (($sale->deposit_paid ?? 0) > 0) {
+            $html .= '<div class="subtotal-row text-success"><span>Deposit Paid</span><span>-₱' . number_format($sale->deposit_paid, 2) . '</span></div>';
+        }
+        if (($sale->balance_due ?? 0) > 0) {
+            $html .= '<div class="subtotal-row text-danger fw-bold"><span>Balance Due</span><span>₱' . number_format($sale->balance_due, 2) . '</span></div>';
+        }
+        $html .= '<div class="mt-2 small">';
+        $html .= '<span class="text-muted">Payment Method:</span> ' . e(ucfirst($sale->payment_method ?? 'N/A')) . ' &nbsp;|&nbsp; ';
+        $html .= '<span class="text-muted">Paid by:</span> ' . e(ucfirst($sale->payment_owner ?? 'N/A')) . '<br>';
+        if ($sale->payment_status) {
+            $badgeClass = $sale->payment_status === 'verified' ? 'success' : ($sale->payment_status === 'pending' ? 'warning' : 'secondary');
+            $html .= '<span class="badge bg-' . $badgeClass . '">' . e(ucfirst($sale->payment_status)) . '</span>';
+        }
+        $html .= '</div></div>';
+        
+        // --- Payment Screenshot ---
+        if ($sale->payment_screenshot_path) {
+            $html .= '<div class="sale-detail-section">';
+            $html .= '<h6><i class="fas fa-camera me-2"></i>Payment Screenshot</h6>';
+            $html .= '<img src="' . e($sale->payment_screenshot_path) . '" class="payment-img" onclick="openLightbox(\'' . e($sale->payment_screenshot_path) . '\')" style="cursor:pointer;">';
+            $html .= '<div class="small text-muted mt-1">Click to enlarge</div>';
+            $html .= '</div>';
+        }
+        
+        return response()->json([
+            'html' => $html,
+            'title' => 'Sale: ' . $sale->customer_name . ' (#' . $sale->sales_number . ')'
+        ]);
+    }
+
     public function show(string $id)
     {
         $sale = \DB::table('prototype_sales')->find($id);

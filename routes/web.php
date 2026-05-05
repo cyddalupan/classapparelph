@@ -540,6 +540,7 @@ Route::get('/inventorylist', function() {
         Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
         Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
 
+        Route::get('/sales/prototype/{id}/details', [App\Http\Controllers\PrototypeSalesController::class, 'details'])->name('sales.prototype.details');
         Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
         Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');
         Route::put('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'update'])->name('sales.prototype.update');
