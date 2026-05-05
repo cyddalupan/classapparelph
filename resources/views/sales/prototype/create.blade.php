@@ -225,11 +225,18 @@
         </div>
     </div>
     
-    <form id="prototypeSaleForm" action="{{ route('sales.prototype.store') }}" method="POST" enctype="multipart/form-data">
+    <form id="prototypeSaleForm" action="{{ route('sales.prototype.store') }}" method="POST" enctype="multipart/form-data" novalidate>
         @csrf
         
         <!-- Step 1: Customer Information -->
         <div class="form-section">
+            @if(session('success'))
+                <div class="alert alert-success alert-dismissible fade show mb-4">
+                    {{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+            
             <h3 class="section-title">Step 1: Customer Information</h3>
             
             <!-- Smart Customer Detection -->
@@ -474,7 +481,7 @@
             </div>
             
             <!-- Hidden fields for form submission -->
-            <input type="hidden" name="department_id" id="auto_department_id" value="">
+            <input type="hidden" name="auto_department_id" id="auto_department_id" value="">
             <input type="hidden" name="items_json" id="items_json" value="">
             <input type="hidden" name="subtotal" id="subtotal" value="0">
             <input type="hidden" name="tax" id="tax" value="0">
@@ -741,12 +748,12 @@
                                         <div class="product-row-template d-none">
                                             <div class="row g-2 mb-2 align-items-center">
                                                 <div class="col-md-6">
-                                                    <select class="form-control product-select" required>
+                                                    <select class="form-control product-select" name="product_id[]">
                                                         <option value="">Select a product</option>
                                                     </select>
                                                 </div>
                                                 <div class="col-md-4">
-                                                    <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
+                                                    <input type="number" class="form-control product-quantity" name="quantity[]" min="1" value="1" placeholder="Qty">
                                                 </div>
                                                 <div class="col-md-2">
                                                     <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
@@ -765,7 +772,7 @@
                                                     </select>
                                                 </div>
                                                 <div class="col-md-4">
-                                                    <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
+                                                    <input type="number" class="form-control product-quantity" name="quantity[]" min="1" value="1" placeholder="Qty" required>
                                                 </div>
                                                 <div class="col-md-2">
                                                     <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
@@ -944,7 +951,7 @@
                                     
                                     <div class="mb-3">
                                         <label class="form-label">Assign to Department *</label>
-                                        <select class="form-control" id="garment_departmentSelect" required>
+                                        <select class="form-control" id="garment_departmentSelect" name="department_id" required>
                                             <option value="">-- Select Department --</option>
                                             <option value="iprint">iPrint Department</option>
                                             <option value="consol">Consol Department</option>

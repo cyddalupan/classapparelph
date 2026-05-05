@@ -139,13 +139,9 @@ Route::get('/printing-calculator', function() {
     Route::post('/products/{product}/update-stock', [\App\Http\Controllers\ProductController::class, 'updateStock'])
         ->name('products.update-stock');
     
-    Route::get('/customers', function () {
-        return view('customers.index');
-    })->name('customers.index');
+    Route::get('/customers', [App\Http\Controllers\CustomerController::class, 'index'])->name('customers.index');
     
-    Route::get('/customers/{id}', function ($id) {
-        return view('customers.show', ['id' => $id]);
-    })->name('customers.show');
+    Route::get('/customers/{id}', [App\Http\Controllers\CustomerController::class, 'show'])->name('customers.show');
     
     Route::get('/design-studio', function () {
         return view('design.studio');
@@ -533,14 +529,22 @@ Route::get('/inventorylist', function() {
         Route::get('/api/printing/options/{type}', [App\Http\Controllers\PrintingPricingController::class, 'getPrintingOptions'])->name('api.printing.options');
         Route::post('/api/printing/calculate', [App\Http\Controllers\PrintingPricingController::class, 'calculateModal'])->name('api.printing.calculate-modal');
         
+        
+
+
+
+        // LIST route (MUST be before {id} route)
+        Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
+
+        // KANBAN routes
+        Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
+        Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
+
         Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
         Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');
         Route::put('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'update'])->name('sales.prototype.update');
         Route::delete('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'destroy'])->name('sales.prototype.destroy');
         
-        // KANBAN routes
-        Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
-        Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
         
         // Payment verification
         Route::post('/sales/prototype/{id}/verify-payment', [App\Http\Controllers\PrototypeSalesController::class, 'verifyPayment'])->name('sales.prototype.verify-payment');

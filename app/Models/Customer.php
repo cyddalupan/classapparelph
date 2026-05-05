@@ -10,11 +10,13 @@ class Customer extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'customer_id_number',
         'name',
         'phone',
         'marketplace',
         'email',
         'location',
+        'address',
         'company',
         'total_orders',
         'total_spent',
@@ -35,11 +37,33 @@ class Customer extends Model
         'is_active' => 'boolean',
     ];
 
+    public function sales()
+    {
+        return $this->hasMany(PrototypeSaleHeader::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
     // Tier thresholds
     const TIER_BRONZE = 'bronze';    // < ₱10,000
     const TIER_SILVER = 'silver';    // ₱10,000 - ₱50,000
     const TIER_GOLD = 'gold';        // ₱50,000 - ₱200,000
     const TIER_PLATINUM = 'platinum'; // > ₱200,000
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($customer) {
+            // Auto-generate customer ID number
+            $latest = static::withTrashed()->latest('id')->first();
+            $nextId = $latest ? $latest->id + 1 : 1;
+            $customer->customer_id_number = 'CLASS-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        });
+    }
 
     /**
      * Update customer tier based on total spent

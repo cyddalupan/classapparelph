@@ -5,9 +5,45 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
 {
+    // Show customer list page
+    public function index()
+    {
+        $customers = Customer::with('creator')
+            ->orderBy('total_spent', 'desc')
+            ->paginate(20);
+
+        return view('customers.index', compact('customers'));
+    }
+
+    // Show customer detail page (NEW — dedicated profile page)
+    public function show($id)
+    {
+        $customer = Customer::with('creator')->findOrFail($id);
+        
+        // Get orders from prototype_sales table
+        $orders = DB::table('prototype_sales')
+            ->where('customer_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        $orderCount = $orders->count();
+        $totalSpent = $orders->sum('subtotal');
+        
+        // Get products purchased from prototype_order_items via prototype_orders
+        $recentItems = DB::table('prototype_order_items')
+            ->join('prototype_orders', 'prototype_order_items.order_id', '=', 'prototype_orders.id')
+            ->where('prototype_orders.customer_id', $id)
+            ->orderBy('prototype_order_items.created_at', 'desc')
+            ->limit(10)
+            ->get();
+        
+        return view('customers.show', compact('customer', 'orders', 'orderCount', 'totalSpent', 'recentItems'));
+    }
+
     // Save customer (create or update)
     public function save(Request $request)
     {
@@ -38,7 +74,7 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Customer updated successfully',
-                'customer' => $customer
+                'customer' => $customer->load('creator')
             ]);
         } else {
             // Create new customer
@@ -49,7 +85,7 @@ class CustomerController extends Controller
                 'marketplace' => $request->marketplace,
                 'address' => $request->address,
                 'company' => $request->company,
-                'customer_tier' => 'bronze', // Default tier
+                'customer_tier' => 'bronze',
                 'total_orders' => 0,
                 'total_spent' => 0,
                 'average_order_value' => 0,
@@ -60,41 +96,15 @@ class CustomerController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Customer created successfully',
-                'customer' => $customer
+                'customer' => $customer->load('creator')
             ]);
         }
     }
 
-    // Search customers
-    public function search(Request $request)
+    // API: Get customer by ID (AJAX endpoint)
+    public function apiShow($id)
     {
-        $query = $request->get('q');
-        
-        if (strlen($query) < 3) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Search query must be at least 3 characters'
-            ], 400);
-        }
-        
-        $customers = Customer::where('name', 'like', "%{$query}%")
-            ->orWhere('phone', 'like', "%{$query}%")
-            ->orWhere('email', 'like', "%{$query}%")
-            ->orWhere('company', 'like', "%{$query}%")
-            ->orderBy('total_spent', 'desc')
-            ->limit(10)
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'customers' => $customers
-        ]);
-    }
-
-    // Get customer by ID
-    public function show($id)
-    {
-        $customer = Customer::find($id);
+        $customer = Customer::with('creator')->find($id);
         
         if (!$customer) {
             return response()->json([
@@ -106,6 +116,50 @@ class CustomerController extends Controller
         return response()->json([
             'success' => true,
             'customer' => $customer
+        ]);
+    }
+
+    // Search customers
+    public function search(Request $request)
+    {
+        $query = $request->get('q');
+        
+        $customers = Customer::with('creator')
+            ->where('name', 'like', "%{$query}%")
+            ->orWhere('phone', 'like', "%{$query}%")
+            ->orWhere('email', 'like', "%{$query}%")
+            ->orWhere('company', 'like', "%{$query}%")
+            ->orWhere('customer_id_number', 'like', "%{$query}%")
+            ->orderBy('total_spent', 'desc')
+            ->limit(20)
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'customers' => $customers
+        ]);
+    }
+
+    // Get customer orders (API)
+    public function orders($id)
+    {
+        $customer = Customer::find($id);
+        
+        if (!$customer) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Customer not found'
+            ], 404);
+        }
+        
+        $orders = DB::table('prototype_sales')
+            ->where('customer_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'orders' => $orders
         ]);
     }
 
@@ -121,12 +175,43 @@ class CustomerController extends Controller
             ], 400);
         }
         
-        $customer = Customer::where('phone', $phone)->first();
+        $customer = Customer::where('phone', $phone)->with('creator')->first();
         
         return response()->json([
             'success' => true,
             'exists' => $customer ? true : false,
             'customer' => $customer
+        ]);
+    }
+
+    // Update customer data (from AJAX edit)
+    public function update(Request $request, $id)
+    {
+        $customer = Customer::findOrFail($id);
+        
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
+            'email' => 'nullable|email|max:255',
+            'marketplace' => 'nullable|string|max:100',
+            'location' => 'nullable|string|max:255',
+            'company' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        $customer->update($request->only(['name', 'phone', 'email', 'marketplace', 'location', 'company']));
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Customer updated successfully',
+            'customer' => $customer->fresh()->load('creator')
         ]);
     }
 }
