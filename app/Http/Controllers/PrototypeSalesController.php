@@ -365,7 +365,8 @@ class PrototypeSalesController extends Controller
         
         return response()->json([
             'html' => $html,
-            'title' => 'Sale: ' . $sale->customer_name . ' (#' . $sale->sales_number . ')'
+            'title' => 'Sale: ' . $sale->customer_name . ' (#' . $sale->sales_number . ')',
+            'can_addon' => !in_array($sale->kanban_status, ['delivered', 'completed'])
         ]);
     }
 

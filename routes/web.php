@@ -549,6 +549,13 @@ Route::get('/inventorylist', function() {
         
         // Payment verification
         Route::post('/sales/prototype/{id}/verify-payment', [App\Http\Controllers\PrototypeSalesController::class, 'verifyPayment'])->name('sales.prototype.verify-payment');
+        
+        // Add-on request routes
+        Route::get('/sales/prototype/addon/pending', [App\Http\Controllers\SaleAddonController::class, 'allPending'])->name('sales.prototype.addon.all-pending');
+        Route::get('/sales/prototype/{id}/addon/pending', [App\Http\Controllers\SaleAddonController::class, 'pending'])->name('sales.prototype.addon.pending');
+        Route::post('/sales/prototype/{id}/addon/request', [App\Http\Controllers\SaleAddonController::class, 'request'])->name('sales.prototype.addon.request');
+        Route::post('/sales/prototype/addon/{requestId}/approve', [App\Http\Controllers\SaleAddonController::class, 'approve'])->name('sales.prototype.addon.approve');
+        Route::post('/sales/prototype/addon/{requestId}/reject', [App\Http\Controllers\SaleAddonController::class, 'reject'])->name('sales.prototype.addon.reject');
 
 
         
