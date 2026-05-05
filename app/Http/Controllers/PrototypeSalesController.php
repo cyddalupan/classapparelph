@@ -222,8 +222,6 @@ class PrototypeSalesController extends Controller
         $html .= '<div class="col-6"><span class="text-muted">Name:</span> <strong>' . e($sale->customer_name) . '</strong></div>';
         $html .= '<div class="col-6"><span class="text-muted">Sales #:</span> <strong>' . e($sale->sales_number) . '</strong></div>';
         if ($sale->customer_phone) $html .= '<div class="col-6"><span class="text-muted">Phone:</span> ' . e($sale->customer_phone) . '</div>';
-        if ($sale->customer_email) $html .= '<div class="col-6"><span class="text-muted">Email:</span> ' . e($sale->customer_email) . '</div>';
-        if ($sale->customer_address) $html .= '<div class="col-12"><span class="text-muted">Address:</span> ' . e($sale->customer_address) . '</div>';
         $html .= '<div class="col-6"><span class="text-muted">Agent:</span> ' . e($sale->sales_agent_name ?? 'N/A') . '</div>';
         $html .= '<div class="col-6"><span class="text-muted">Dept:</span> ' . e($sale->department_name ?? 'N/A') . '</div>';
         $html .= '</div></div>';
