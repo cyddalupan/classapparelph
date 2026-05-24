@@ -255,8 +255,26 @@ class MasterItemsController extends Controller
                     }
                 }
                 
+                $categoryFields = [];
+                if ($category === 'Shirt Products') {
+                    $categoryFields = [
+                        'brand' => $request->input('brand', ''),
+                        'shirt_type' => $request->input('type', ''),
+                        'color' => $request->input('color', ''),
+                        'size' => $size,
+                        'material' => $request->input('material', ''),
+                    ];
+                } elseif ($category === 'Other Products') {
+                    $categoryFields = [
+                        'other_product_type' => $request->input('product_type', ''),
+                        'other_material' => $request->input('other_material', ''),
+                        'other_color' => $request->input('other_color', ''),
+                        'brand' => $request->input('other_brand', ''),
+                    ];
+                }
+
                 // Create product data - ONLY fields that exist in database
-                $productData = [
+                $productData = array_merge([
                     'name' => $baseData['name'],
                     'category' => $baseData['category'] ?? null,
                     'description' => $baseData['description'] ?? '',
@@ -264,7 +282,7 @@ class MasterItemsController extends Controller
                     'barcode' => $baseData['barcode'] ?? null,
                     'sku' => $sku ?: null,
                     'created_by' => $baseData['created_by'],
-                ];
+                ], $categoryFields);
                 
                 // Add category-specific details to description
                 if (!empty($descriptionParts)) {
@@ -282,8 +300,24 @@ class MasterItemsController extends Controller
                 }
                 
                 // Create the product - use only explicit fields
-                MasterItem::create($productData);
+                $newItem = MasterItem::create($productData);
                 $createdCount++;
+                
+                // Log the activity
+                try {
+                    \App\Models\InventoryActivityLog::create([
+                        'master_item_id' => $newItem->id,
+                        'action_type' => 'item_created',
+                        'item_name' => $newItem->name,
+                        'sku' => $newItem->sku,
+                        'category' => $newItem->category,
+                        'new_value' => $newItem->current_stock ?? 0,
+                        'user_id' => auth()->id(),
+                    ]);
+                } catch (\Exception $logErr) {
+                    // Don't fail the whole request if logging fails
+                    \Log::error('Failed to log item creation: ' . $logErr->getMessage());
+                }
                 
             } catch (\Exception $e) {
                 $errors[] = "Failed to create product for size {$size}: " . $e->getMessage();
@@ -328,7 +362,25 @@ class MasterItemsController extends Controller
             'barcode' => 'nullable|string|max:100',
         ]);
         
+        $oldName = $masterItem->name;
         $masterItem->update($validated);
+        
+        // Log if name changed (other updates are minor)
+        if ($oldName !== $validated['name']) {
+            try {
+                \App\Models\InventoryActivityLog::create([
+                    'master_item_id' => $masterItem->id,
+                    'action_type' => 'item_updated',
+                    'item_name' => $validated['name'],
+                    'sku' => $masterItem->sku,
+                    'category' => $masterItem->category,
+                    'notes' => "Renamed from '{$oldName}' to '{$validated['name']}'",
+                    'user_id' => auth()->id(),
+                ]);
+            } catch (\Exception $logErr) {
+                \Log::error('Failed to log item update: ' . $logErr->getMessage());
+            }
+        }
         
         return redirect()->route('master-items.index')
             ->with('success', 'Master item updated successfully.');
@@ -342,6 +394,25 @@ class MasterItemsController extends Controller
      */
     public function destroy(MasterItem $masterItem)
     {
+        $itemName = $masterItem->name;
+        $itemSku = $masterItem->sku;
+        $itemCategory = $masterItem->category;
+        
+        // Log before deleting
+        try {
+            \App\Models\InventoryActivityLog::create([
+                'master_item_id' => $masterItem->id,
+                'action_type' => 'item_deleted',
+                'item_name' => $itemName,
+                'sku' => $itemSku,
+                'category' => $itemCategory,
+                'old_value' => $masterItem->current_stock ?? 0,
+                'user_id' => auth()->id(),
+            ]);
+        } catch (\Exception $logErr) {
+            \Log::error('Failed to log item deletion: ' . $logErr->getMessage());
+        }
+        
         $masterItem->delete();
         
         return redirect()->route('master-items.index')

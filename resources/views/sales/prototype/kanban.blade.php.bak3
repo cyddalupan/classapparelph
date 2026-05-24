@@ -1109,7 +1109,6 @@ var addon_garment_selectedPrintSizes = [];
 var addon_garment_uploadedReferenceImages = [];
 var addon_garment_referenceImageCounter = 0;
 var addon_garment_hasSpecialPrice = false;
-var addon_currentSaleId = '';
 
 window.addonOpenProductModal = function(productType) {
     addon_currentProductType = productType;
@@ -1140,7 +1139,7 @@ window.addonLoadProductsFromDatabase = function(productType) {
         .then(products => {
             var select = document.getElementById("addonProductsSelect");
             if (select) {
-                select.innerHTML = `<option value="">-- Select Product --</option>`;
+                select.innerHTML = "<option value="">-- Select Product --</option>";
                 products.forEach(function(p) {
                     var opt = document.createElement("option");
                     opt.value = p.id;
@@ -1169,7 +1168,7 @@ window.addonGarment_openModal = function(pt) {
 window.addonGarment_initializeProductRows = function() {
     const container = document.getElementById("addonGarment_productRowsContainer");
     if (!container) return;
-    container.innerHTML = `<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>`;
+    container.innerHTML = "<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>";
     fetch("/api/products-for-box/garment")
         .then(r => r.json())
         .then(products => {
@@ -1198,18 +1197,18 @@ window.addonGarment_addProductRow = function() {
     fetch("/api/products-for-box/garment")
         .then(r => r.json())
         .then(products => {
-            var opts = `<option value="">-- Select --</option>`;
+            var opts = "<option value="">-- Select --</option>";
             products.forEach(function(p) {
                 var txt = p.name;
                 if (p.description) {
                     var m = p.description.match(/Size:\\s*([^,]+)/i);
                     if (m) txt += " (" + m[1].trim() + ")";
                 }
-                opts += '<option value="' + p.id + '" data-price="' + (p.price || 0) + '" data-brand="' + (p.brand || '') + '" data-size="' + (p.size || '') + '" data-color="' + (p.color || '') + '">' + txt + '</option>';
+                opts += "<option value="" + p.id + "" data-price="" + (p.price || 0) + "" data-brand="" + (p.brand || "") + "" data-size="" + (p.size || "") + "" data-color="" + (p.color || "") + "">" + txt + "</option>";
             });
             var row = document.createElement("div");
             row.className = "product-row mb-2 p-2 border rounded bg-light";
-            row.innerHTML = '<div class="d-flex gap-2 align-items-start"><div style="flex:1;"><select class="form-select form-select-sm product-select">' + opts + '</select></div><div style="width:70px;"><input type="number" class="form-control form-control-sm product-qty" value="1" min="1"></div><button type="button" class="btn btn-sm btn-outline-danger remove-row-btn">\u2715</button></div>';
+            row.innerHTML = "<div class="d-flex gap-2 align-items-start"><div style="flex:1;"><select class="form-select form-select-sm product-select">" + opts + "</select></div><div style="width:70px;"><input type="number" class="form-control form-control-sm product-qty" value="1" min="1"></div><button type="button" class="btn btn-sm btn-outline-danger remove-row-btn">\u2715</button></div>";
             container.appendChild(row);
             addonGarment_setupProductRowEvents();
             addonGarment_updatePrintSummary();
@@ -1219,23 +1218,18 @@ window.addonGarment_addProductRow = function() {
 window.addonGarment_populatePrintTypes = function() {
     var sel = document.getElementById("addonGarment_printTypeSelect");
     if (!sel) return;
-    sel.innerHTML = '<option value="">-- Select Print Type --</option>';
-    fetch("/api/printing/options/dtf").then(function(r) { return r.json(); }).then(function(data) {
-        var types = data.print_types || [];
-        if (types.length) {
-            types.forEach(function(t) {
-                var o = document.createElement("option");
-                o.value = t.toLowerCase();
-                var label = t.charAt(0).toUpperCase() + t.slice(1) + ' Print';
-                o.textContent = label;
-                sel.appendChild(o);
-            });
-        } else {
-            ["DTF","Sublimation","Heat Transfer","Embroidery"].forEach(function(t) {
-                var o = document.createElement("option"); o.value = t; o.textContent = t;
-                sel.appendChild(o);
-            });
-        }
+    sel.innerHTML = "<option value="">-- Select Print Type --</option>";
+    fetch("/api/printing/options/dtf").then(r => r.json()).then(data => {
+        if (data && data.length) data.forEach(function(p) {
+            var o = document.createElement("option");
+            o.value = p.name || p.id || p;
+            o.textContent = (p.name || p) + " (DTF)";
+            sel.appendChild(o);
+        });
+        ["Sublimation","Heat Transfer","Embroidery"].forEach(function(t) {
+            var o = document.createElement("option"); o.value = t; o.textContent = t;
+            sel.appendChild(o);
+        });
     }).catch(function() {
         ["DTF","Sublimation","Heat Transfer","Embroidery"].forEach(function(t) {
             var o = document.createElement("option"); o.value = t; o.textContent = t;
@@ -1254,9 +1248,9 @@ window.addonGarment_loadPrintSizes = function(printType) {
     fetch("/api/printing/options/" + printType).then(r => r.json()).then(prices => {
         if (prices && prices.length) {
             document.getElementById("addonGarment_printSizesContainer").style.display = "";
-            var html = '<div class="row g-1">';
+            var html = "<div class="row g-1">";
             prices.forEach(function(p) {
-                html += '<div class="col-4"><div class="form-check"><input class="form-check-input" type="checkbox" value="' + p.id + '" id="addonPS_" + p.id + "" onchange="addonGarment_togglePrintSize(' + p.id + ', this)"><label class="form-check-label small" for="addonPS_" + p.id + "">' + (p.size_name || p.name) + ' (\u20B1' + (parseFloat(p.price) || 0).toFixed(2) + ')</label></div></div>';
+                html += "<div class="col-4"><div class="form-check"><input class="form-check-input" type="checkbox" value="" + p.id + "" id="addonPS_" + p.id + "" onchange="addonGarment_togglePrintSize(" + p.id + ", this)"><label class="form-check-label small" for="addonPS_" + p.id + "">" + (p.size_name || p.name) + " (\u20B1" + (parseFloat(p.price) || 0).toFixed(2) + ")</label></div></div>";
             });
             html += "</div>";
             document.getElementById("addonGarment_printSizesList").innerHTML = html;
@@ -1351,7 +1345,7 @@ window.addonGarment_updatePrintSummary = function() {
                 var st = parseFloat(document.getElementById("addonGarment_specialPrintTotal")?.value) || 0;
                 if (st > 0) pt = st;
             }
-            document.getElementById("addonGarment_printSizesBreakdown").innerHTML = si.map(function(s) { return '<div class="d-flex justify-content-between"><span>' + (s.size_name || s.name) + '</span><span>\u20B1' + (parseFloat(s.price) || 0).toFixed(2) + '</span></div>'; }).join('');
+            document.getElementById("addonGarment_printSizesBreakdown").innerHTML = si.map(function(s) { return "<div class="d-flex justify-content-between"><span>" + (s.size_name || s.name) + "</span><span>\u20B1" + (parseFloat(s.price) || 0).toFixed(2) + "</span></div>"; }).join("");
             document.getElementById("addonGarment_printCostPerItemDisplay").textContent = "\u20B1" + ppi.toFixed(2);
             document.getElementById("addonGarment_printQtyDisplay").textContent = pq;
             document.getElementById("addonGarment_printSubtotalDisplay").textContent = "\u20B1" + ps.toFixed(2);
@@ -1399,11 +1393,11 @@ window.addonGarment_handleReferenceImage = function(file) {
 window.addonGarment_renderReferencePreviews = function() {
     var c = document.getElementById("addonGarment_referencePreviews");
     if (!c) return;
-    c.innerHTML = '<div class="d-flex flex-wrap gap-2 mt-2">';
+    c.innerHTML = "<div class="d-flex flex-wrap gap-2 mt-2">";
     addon_garment_uploadedReferenceImages.forEach(function(img) {
-        c.innerHTML += '<div class="position-relative" style="width:80px;height:80px;"><img src="' + img.dataUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #ddd;"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="font-size:10px;padding:1px 4px;border-radius:50%;" onclick="addonGarment_removeReferenceImage(' + img.id + ')">\u2715</button></div>';
+        c.innerHTML += "<div class="position-relative" style="width:80px;height:80px;"><img src="" + img.dataUrl + "" style="width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #ddd;"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="font-size:10px;padding:1px 4px;border-radius:50%;" onclick="addonGarment_removeReferenceImage(" + img.id + ")">\u2715</button></div>";
     });
-    c.innerHTML += '</div>';
+    c.innerHTML += "</div>";
 };
 window.addonGarment_clearAllReferenceImages = function() { addon_garment_uploadedReferenceImages = []; addonGarment_renderReferencePreviews(); };
 window.addonGarment_removeReferenceImage = function(id) { addon_garment_uploadedReferenceImages = addon_garment_uploadedReferenceImages.filter(function(i) { return i.id !== id; }); addonGarment_renderReferencePreviews(); };
@@ -1417,7 +1411,7 @@ window.addonGarment_loadFilterOptions = function(productType) {
             if (!list) return;
             if (f === "type") f = "size";
             var vals = [...new Set(products.filter(p => p[f]).map(p => p[f]))];
-            list.innerHTML = vals.map(function(v) { return '<option value="' + v + '">'; }).join('');
+            list.innerHTML = vals.map(function(v) { return "<option value="" + v + "">"; }).join("");
         });
     });
 };
@@ -1520,7 +1514,7 @@ window.addonGarment_submitRequest = function() {
     var payload = { reason: reason, requested_by: requestedBy || "Agent", requested_items: JSON.stringify(items) };
     
     var btn = document.getElementById("addonGarment_addItemBtn") || document.getElementById("addonGarment_submitBtn");
-    if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>Submitting...`; }
+    if (btn) { btn.disabled = true; btn.innerHTML = "<i class="fas fa-spinner fa-spin me-1"></i>Submitting..."; }
     
     fetch("/sales/prototype/" + saleId + "/addon/request", {
         method: "POST",
@@ -1538,7 +1532,7 @@ window.addonGarment_submitRequest = function() {
     }).catch(function(err) {
         alert("Request failed: " + err.message);
     }).finally(function() {
-        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fas fa-cart-plus me-2"></i>Add to Add-on Request`; }
+        if (btn) { btn.disabled = false; btn.innerHTML = "<i class="fas fa-cart-plus me-2"></i>Add to Add-on Request"; }
     });
 };
 

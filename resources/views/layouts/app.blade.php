@@ -218,8 +218,8 @@
 
                     @auth
                     <!-- Show Business Operations only for NON-SALES AGENTS -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
-                    <!-- Business Operations -->
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
+                    <!-- Business Operations (orders, pricing, customers, production — hidden from procurement) -->
                     <div class="nav-section">
                         <div class="nav-section-title">Business</div>
                         <a href="{{ route('orders.index') }}" class="nav-item {{ request()->routeIs('orders.*') ? 'active' : '' }}">
@@ -239,13 +239,44 @@
                             <i class="fas fa-users"></i>
                             <span class="nav-text">Customers</span>
                         </a>
+                    </div>
+                    @endif
+
+                    <!-- Production Section -->
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
+                    <div class="nav-section">
+                        <div class="nav-section-title">Production</div>
+                        <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
+                            <i class="fas fa-cogs"></i>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
+                            <i class="fas fa-columns"></i>
+                            <span class="nav-text">Kanban Board</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
+                            <i class="fas fa-list"></i>
+                            <span class="nav-text">Manager List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span class="nav-text">Calendar</span>
+                        </a>
+                        <a href="{{ route('procurement.orders.create') }}" class="nav-item {{ request()->routeIs('procurement.orders.create') || request()->routeIs('procurement.orders.*') ? 'active' : '' }}">
+                            <i class="fas fa-plus-circle"></i>
+                            <span class="nav-text">Create Order</span>
+                            <span class="nav-badge new">NEW</span>
+                        </a>
+                    </div>
+                    @endif
+
+                    <!-- Inventory Management (visible to all including procurement) -->
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
+                    <div class="nav-section">
+                        <div class="nav-section-title">Supplies</div>
                         <a href="{{ route('inventory.unified') }}" class="nav-item {{ request()->routeIs('inventory.unified') ? 'active' : '' }}">
                             <i class="fas fa-boxes"></i>
                             <span class="nav-text">Inventory Management</span>
-                        </a>
-                        <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.*') ? 'active' : '' }}">
-                            <i class="fas fa-cogs"></i>
-                            <span class="nav-text">Production</span>
                         </a>
                     </div>
                     @endif
@@ -263,12 +294,16 @@
                             <span class="nav-text">Add Sales</span>
                             <span class="nav-badge new">NEW</span>
                         </a>
+                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span class="nav-text">Production Calendar</span>
+                            <span class="nav-badge new">NEW</span>
+                        </a>
                     </div>
                     @endif
 
-                    <!-- Show other sections only for NON-SALES AGENTS -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
-                    <!-- Design & Creative -->
+                    <!-- Design & Analytics (hidden from procurement) -->
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
                     <div class="nav-section">
                         <div class="nav-section-title">Design</div>
                         <a href="{{ route('design.studio') }}" class="nav-item {{ request()->routeIs('design.*') ? 'active' : '' }}">
@@ -277,7 +312,6 @@
                         </a>
                     </div>
 
-                    <!-- Analytics & Reports -->
                     <div class="nav-section">
                         <div class="nav-section-title">Analytics</div>
                         <a href="{{ route('analytics.dashboard') }}" class="nav-item {{ request()->routeIs('analytics.*') ? 'active' : '' }}">
@@ -289,8 +323,10 @@
                             <span class="nav-text">Reports</span>
                         </a>
                     </div>
+                    @endif
 
-                    <!-- Finance -->
+                    <!-- Finance (visible to all including procurement) -->
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
                     <div class="nav-section">
                         <div class="nav-section-title">Finance</div>
                         <a href="{{ route('finance.dashboard') }}" class="nav-item {{ request()->routeIs('finance.dashboard') ? 'active' : '' }}">

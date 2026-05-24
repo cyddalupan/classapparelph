@@ -18,9 +18,14 @@ class MasterItem extends Model
         'barcode',
         'created_by',
         'sales_box',
-        // NOTE: Database only has above columns
-        // Other fields (size, color, brand, etc.) are stored in description field
-        // Do NOT add fields that don't exist in database table!
+        'brand',
+        'shirt_type',
+        'color',
+        'size',
+        'material',
+        'other_product_type',
+        'other_material',
+        'other_color',
     ];
     
     protected $casts = [

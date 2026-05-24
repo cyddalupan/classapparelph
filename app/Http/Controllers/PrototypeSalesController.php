@@ -169,6 +169,64 @@ class PrototypeSalesController extends Controller
             'updated_at' => now(),
         ]);
         
+        // 🆕 Track sold items for reorder system
+        try {
+            $trackedItems = [];
+            if ($request->items_json) {
+                $decoded = json_decode($request->items_json, true);
+                if (is_array($decoded)) {
+                    foreach ($decoded as $soldItem) {
+                        $masterItemId = null;
+                        $sku = null;
+                        $itemName = $soldItem['name'] ?? 'Unknown';
+                        
+                        // Try to find matching master_item by printing_prices
+                        if (isset($soldItem['productId'])) {
+                            $priceRecord = \DB::table('printing_prices')->find($soldItem['productId']);
+                            if ($priceRecord && $priceRecord->master_item_id) {
+                                $masterItemId = $priceRecord->master_item_id;
+                                $masterItem = \DB::table('master_items')->find($masterItemId);
+                                if ($masterItem) {
+                                    $sku = $masterItem->sku;
+                                }
+                            }
+                        }
+                        
+                        // Fallback: try to match by item name
+                        if (!$masterItemId) {
+                            $matched = \App\Models\MasterItem::where('name', 'LIKE', '%' . substr($itemName, 0, 30) . '%')
+                                ->whereNull('deleted_at')
+                                ->first();
+                            if ($matched) {
+                                $masterItemId = $matched->id;
+                                $sku = $matched->sku;
+                            }
+                        }
+                        
+                        $trackedItems[] = [
+                            'sale_id' => $saleId,
+                            'master_item_id' => $masterItemId,
+                            'item_name' => $itemName,
+                            'sku' => $sku,
+                            'quantity' => $soldItem['quantity'] ?? 1,
+                            'unit_price' => $soldItem['unitPrice'] ?? $soldItem['totalPrice'] ?? 0,
+                            'department_id' => $department->id,
+                            'department_name' => $department->name,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
+                }
+            }
+            
+            if (!empty($trackedItems)) {
+                \DB::table('sale_tracked_items')->insert($trackedItems);
+            }
+        } catch (\Exception $e) {
+            // Don't fail sale creation if tracking fails
+            \Log::error('Failed to track sale items: ' . $e->getMessage());
+        }
+        
         // Update customer LTV stats
         $customer->total_orders += 1;
         $customer->total_spent += $request->subtotal ?: 0;
@@ -649,6 +707,83 @@ class PrototypeSalesController extends Controller
     /**
      * Verify payment for a sale.
      */
+    public function calendar()
+    {
+        $departments = \DB::table('sales_departments')->where('is_active', true)->get();
+        return view('sales.prototype.calendar', compact('departments'));
+    }
+
+    public function calendarData(Request $request)
+    {
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+        $department = $request->department;
+
+        $query = \App\Models\PrototypeSale::whereIn('status', ['pending', 'confirmed', 'in_production', 'completed']);
+        
+        // Filter by date range (use created_at, estimated_completion_date, or date_needed)
+        $query->where(function($q) use ($startDate, $endDate) {
+            $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+              ->orWhereBetween('estimated_completion_date', [$startDate, $endDate]);
+        });
+        
+        // Filter by department
+        if ($department && $department !== 'all') {
+            $query->where('department_name', $department);
+        }
+        
+        $projects = $query->orderBy('created_at', 'desc')->get();
+        
+        // Also get all sales with date_needed if they have it stored differently
+        // We return all data needed by the frontend
+        $projectsFormatted = $projects->map(function($p) {
+            $items = [];
+            $raw = $p->services;
+            $services = [];
+            if ($raw) {
+                // Handle cases: string JSON, already decoded array, or just a string
+                if (is_string($raw)) {
+                    $decoded = json_decode($raw, true);
+                    if (is_array($decoded)) {
+                        $services = $decoded;
+                    } elseif ($raw !== '[]' && $raw !== '') {
+                        $services = [$raw];
+                    }
+                } elseif (is_array($raw)) {
+                    $services = $raw;
+                }
+                // Parse items into structured format
+                foreach ($services as $s) {
+                    if (is_string($s)) {
+                        $items[] = ['name' => $s, 'qty' => 1];
+                    } elseif (is_array($s)) {
+                        $items[] = $s;
+                    }
+                }
+            }
+            return [
+                'id' => $p->id,
+                'sales_number' => $p->sales_number,
+                'customer_name' => $p->customer_name,
+                'customer_phone' => $p->customer_phone,
+                'department_id' => $p->department_id,
+                'department_name' => $p->department_name,
+                'total_amount' => $p->total_amount,
+                'deposit_paid' => $p->deposit_paid,
+                'balance_due' => $p->balance_due,
+                'kanban_status' => $p->kanban_status,
+                'services' => $items,
+                'services_raw' => $services,
+                'date_needed' => $p->estimated_completion_date,
+                'estimated_completion_date' => $p->estimated_completion_date,
+                'created_at' => $p->created_at,
+                'status' => $p->status,
+            ];
+        });
+        
+        return response()->json(['projects' => $projectsFormatted]);
+    }
+
     public function verifyPayment(Request $request, $id)
     {
         //

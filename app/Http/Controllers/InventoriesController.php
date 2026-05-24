@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Inventory;
+use App\Models\MasterItem;
 
 class InventoriesController extends Controller
 {
@@ -14,26 +14,36 @@ class InventoriesController extends Controller
      */
     public function index()
     {
-        // Calculate dynamic category counts from database
+        // Calculate dynamic category counts from master_items table
         $categoryCounts = [
-            'shirt' => Inventory::where('category', 'Shirt Products')->count(),
-            'uncategorized' => Inventory::where('category', 'Uncategorized')->count(),
-            'machines' => Inventory::where('category', 'Machines & Equipment')->count(),
-            'materials' => Inventory::where('category', 'Garment Materials')->count(),
-            'printing' => Inventory::where('category', 'Printing & Office')->count(),
+            'shirt' => MasterItem::where('category', 'Shirt Products')->whereNull('deleted_at')->count(),
+            'uncategorized' => MasterItem::where('category', 'Other Products')->whereNull('deleted_at')->count(),
+            'machines' => MasterItem::where('category', 'Machine and Equipments')->whereNull('deleted_at')->count(),
+            'materials' => MasterItem::where('category', 'Garment Materials')->whereNull('deleted_at')->count(),
+            'printing' => MasterItem::where('category', 'Printing and Office Supplies')->whereNull('deleted_at')->count(),
         ];
 
         // Calculate total active items (excluding soft-deleted)
-        $totalActiveItems = Inventory::count();
+        $totalActiveItems = MasterItem::whereNull('deleted_at')->count();
 
-        // Calculate total items including soft-deleted for reference
-        $totalItemsIncludingDeleted = Inventory::withTrashed()->count();
+        // Get departments for the department filter
+        $departments = \DB::table('sales_departments')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+
+        // Get count of items assigned to iPrint (from department_master_items)
+        $iprintItemCount = \DB::table('department_master_items')
+            ->where('department_id', 1) // iPrint = id 1
+            ->count();
 
         // Pass all data to the view
         return view('inventories.index', [
             'categoryCounts' => $categoryCounts,
             'totalActiveItems' => $totalActiveItems,
-            'totalItemsIncludingDeleted' => $totalItemsIncludingDeleted,
+            'totalItemsIncludingDeleted' => MasterItem::withTrashed()->count(),
+            'departments' => $departments,
+            'iprintItemCount' => $iprintItemCount,
         ]);
     }
 }

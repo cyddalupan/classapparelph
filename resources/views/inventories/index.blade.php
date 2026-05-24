@@ -295,6 +295,49 @@
             margin-right: 0.5rem;
             margin-bottom: 0.5rem;
         }
+        
+        /* Activity Timeline Styles */
+        .activity-timeline {
+            padding: 0;
+        }
+        
+        .activity-item {
+            padding: 0.45rem 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+        
+        .activity-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-action-badge {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+        }
+        
+        .activity-action-badge.add-stock { background: #d1e7dd; color: #0f5132; }
+        .activity-action-badge.deduct-stock { background: #f8d7da; color: #842029; }
+        .activity-action-badge.item-created { background: #cfe2ff; color: #0a58ca; }
+        .activity-action-badge.item-deleted { background: #e2e3e5; color: #41464b; }
+        .activity-action-badge.item-updated { background: #fff3cd; color: #664d03; }
+        .activity-action-badge.item-ordered { background: #d1e7dd; color: #0f5132; }
+        
+        .activity-time {
+            font-size: 0.75rem;
+            color: #adb5bd;
+        }
+        
+        .activity-load-more {
+            text-align: center;
+            padding: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -325,6 +368,59 @@
             <p class="mb-0"><small>Total active items: {{ $totalActiveItems }} | Including deleted: {{ $totalItemsIncludingDeleted }}</small></p>
         </div>
         @endif
+
+        <!-- Activity History Section (replaces old iPrint banner) -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i>Recent Activity</h5>
+                            <small class="text-muted">Latest additions, deductions, new items, and updates</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" id="refresh-activity-btn" onclick="loadActivityHistory()">
+                            <i class="fas fa-sync-alt me-1"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body p-0" id="activity-history-container">
+                        <div class="text-center py-4" id="activity-loading">
+                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                            <span class="text-muted">Loading recent activity...</span>
+                        </div>
+                        <div id="activity-timeline" style="display: none;">
+                            <!-- Timeline items will be injected here via JavaScript -->
+                        </div>
+                        <div class="text-center py-4 text-muted" id="activity-empty" style="display: none;">
+                            <i class="fas fa-inbox fa-2x mb-2"></i>
+                            <p class="mb-0">No recent activity yet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Department Filter Tabs -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="btn-group flex-wrap" role="group" id="departmentFilterGroup">
+                    <input type="radio" class="btn-check" name="dept-filter" id="dept-all" value="all" checked>
+                    <label class="btn btn-outline-primary" for="dept-all">
+                        <i class="fas fa-globe me-1"></i> All Items
+                    </label>
+                    @foreach($departments as $dept)
+                    <input type="radio" class="btn-check" name="dept-filter" id="dept-{{ $dept->code }}" value="{{ $dept->id }}">
+                    <label class="btn btn-outline-secondary" for="dept-{{ $dept->code }}">
+                        <i class="fas fa-{{ $dept->code === 'iprint' ? 'print' : ($dept->code === 'consol' ? 'layer-group' : ($dept->code === 'cinco' ? 'palette' : ($dept->code === 'class' ? 'star' : ($dept->code === 'mto' ? 'gem' : 'box')))) }} me-1"></i> {{ $dept->name }}
+                    </label>
+                    @endforeach
+                    <input type="radio" class="btn-check" name="dept-filter" id="dept-unassigned" value="unassigned">
+                    <label class="btn btn-outline-warning" for="dept-unassigned">
+                        <i class="fas fa-question-circle me-1"></i> Unassigned
+                    </label>
+                </div>
+            </div>
+        </div>
+
         <!-- Category Selection Section -->
         <div class="row mb-4">
             <div class="col-12">
@@ -573,9 +669,11 @@
                 <table class="table table-hover" id="inventory-table">
                     <thead>
                         <tr>
+                            <th style="width: 40px;"><input type="checkbox" id="select-all-items"></th>
                             <th>SKU</th>
                             <th>Name</th>
                             <th>Category</th>
+                            <th>Department</th>
                             <th>Type</th>
                             <th>Unit Price</th>
                             <th>Current Stock</th>
@@ -650,8 +748,143 @@
         // Global variable for current category (accessible across all functions)
         let currentCategory = null;
         
+        // ============================================
+        // ACTIVITY HISTORY FUNCTIONS
+        // ============================================
+        
+        function getActionLabel(type) {
+            const labels = {
+                'add_stock': 'Added Stock',
+                'deduct_stock': 'Deducted Stock',
+                'item_created': 'New Item',
+                'item_deleted': 'Deleted Item',
+                'item_updated': 'Updated Item',
+                'item_ordered': 'Ordered',
+            };
+            return labels[type] || type;
+        }
+        
+        
+        function loadActivityHistory() {
+            const container = document.getElementById('activity-timeline');
+            const loading = document.getElementById('activity-loading');
+            const empty = document.getElementById('activity-empty');
+            const refreshBtn = document.getElementById('refresh-activity-btn');
+            
+            if (!container) return;
+            
+            // Get current department filter
+            const checkedDept = document.querySelector('input[name="dept-filter"]:checked');
+            const deptValue = checkedDept ? checkedDept.value : 'all';
+            
+            // Build API URL with department filter
+            let apiUrl = '/api/inventory-activity?limit=30';
+            if (deptValue !== 'all') {
+                apiUrl += '&department_id=' + encodeURIComponent(deptValue);
+            }
+            
+            // Show loading state
+            loading.style.display = 'block';
+            container.style.display = 'none';
+            empty.style.display = 'none';
+            if (refreshBtn) {
+                refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Loading...';
+                refreshBtn.disabled = true;
+            }
+            
+            fetch(apiUrl)
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to fetch');
+                    return r.json();
+                })
+                .then(logs => {
+                    loading.style.display = 'none';
+                    
+                    if (logs.length === 0) {
+                        empty.style.display = 'block';
+                        return;
+                    }
+                    
+                    container.style.display = 'block';
+                    container.innerHTML = '<div class="activity-timeline"></div>';
+                    const timeline = container.querySelector('.activity-timeline');
+                    
+                    logs.forEach((log, index) => {
+                        const isLast = index === logs.length - 1;
+                        const actionClass = log.action_type;
+
+                        const item = document.createElement('div');
+                        item.className = 'activity-item' + (isLast ? '' : '');
+                        
+                        // Quantity display with color
+                        let quantityHtml = '';
+                        if (log.action_type === 'add_stock' && log.quantity) {
+                            quantityHtml = `<span class="text-success fw-bold me-1">+${log.quantity}</span>`;
+                        } else if (log.action_type === 'deduct_stock' && log.quantity) {
+                            quantityHtml = `<span class="text-danger fw-bold me-1">-${log.quantity}</span>`;
+                        } else if (log.action_type === 'item_ordered' && log.quantity) {
+                            quantityHtml = `<span class="text-primary fw-bold me-1">x${log.quantity}</span>`;
+                        }
+                        
+                        // Department name (shown when not filtering by specific dept)
+                        let deptHtml = '';
+                        if (log.department_name) {
+                            deptHtml = `<span class="badge bg-light text-dark border me-1" style="font-size:0.65rem;"><i class="fas fa-store fa-xs me-1"></i>${log.department_name}</span>`;
+                        }
+                        
+                        item.innerHTML = `
+                            <div class="d-flex align-items-center flex-wrap gap-1" style="padding-left: 0.5rem;">
+                                <span class="activity-action-badge ${actionClass} me-1">${getActionLabel(log.action_type)}</span>
+                                <strong class="me-1">${log.item_name}</strong>
+                                ${log.sku ? `<code class="text-muted me-1" style="font-size:0.75rem;">${log.sku}</code>` : ''}
+                                ${quantityHtml}
+                                ${deptHtml}
+                                <small class="text-muted me-2">
+                                    ${log.user_name ? `<i class="fas fa-user fa-xs me-1"></i>${log.user_name}` : ''}
+                                    ${log.category ? `<span class="ms-1"><i class="fas fa-tag fa-xs me-1"></i>${log.category}</span>` : ''}
+                                </small>
+                                ${log.notes ? `<small class="text-muted fst-italic me-2">${log.notes}</small>` : ''}
+                                <small class="activity-time ms-auto text-nowrap">${log.created_at}</small>
+                            </div>
+                        `;
+                        timeline.appendChild(item);
+                    });
+                    
+                    if (refreshBtn) {
+                        refreshBtn.innerHTML = '<i class="fas fa-sync-alt me-1"></i> Refresh';
+                        refreshBtn.disabled = false;
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load activity history:', err);
+                    loading.style.display = 'none';
+                    
+                    container.style.display = 'block';
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <p class="mb-1">Failed to load activity history</p>
+                            <small class="text-muted">${err.message}</small>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadActivityHistory()">
+                                    <i class="fas fa-sync-alt me-1"></i> Try Again
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (refreshBtn) {
+                        refreshBtn.innerHTML = '<i class="fas fa-sync-alt me-1"></i> Refresh';
+                        refreshBtn.disabled = false;
+                    }
+                });
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Inventory page loaded');
+            
+            // Load recent activity history
+            loadActivityHistory();
             
             // Check if we're in view-only mode (from URL parameter)
             const urlParams = new URLSearchParams(window.location.search);
@@ -767,7 +1000,62 @@
             });
             
             // Load inventory items function
-            function loadInventoryItems(category) {
+            // Department filter state
+            let currentDepartmentFilter = 'all'; // 'all', department_id, or 'unassigned'
+            
+            // Department filter radio handler
+            document.querySelectorAll('input[name="dept-filter"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    currentDepartmentFilter = this.value;
+                    
+                    // Update category box counts based on selected department
+                    updateCategoryCounts(currentDepartmentFilter);
+                    
+                    if (currentCategory) {
+                        loadInventoryItems(currentCategory);
+                    }
+                    
+                    // Also reload activity history for selected department
+                    loadActivityHistory();
+                });
+            });
+            
+            // Function to update category box counts based on department filter
+            window.updateCategoryCounts = function(departmentFilter) {
+                const categories = ['Shirt Products', 'Other Products', 'Machine and Equipments', 'Garment Materials', 'Printing and Office Supplies'];
+                
+                categories.forEach(category => {
+                    const box = document.querySelector(`.category-box[data-category="${category}"]`);
+                    if (!box) return;
+                    
+                    const badge = box.querySelector('.badge');
+                    if (!badge) return;
+                    
+                    // Show loading state
+                    badge.textContent = '...';
+                    
+                    let apiUrl;
+                    if (departmentFilter === 'all') {
+                        apiUrl = `/api/products-by-category-count?category=${encodeURIComponent(category)}`;
+                    } else if (departmentFilter === 'unassigned') {
+                        apiUrl = `/api/products-by-category-count?category=${encodeURIComponent(category)}&unassigned=1`;
+                    } else {
+                        apiUrl = `/api/products-by-category-count?category=${encodeURIComponent(category)}&department_id=${departmentFilter}`;
+                    }
+                    
+                    fetch(apiUrl)
+                        .then(r => r.json())
+                        .then(data => {
+                            badge.textContent = `${data.count} items`;
+                        })
+                        .catch(() => {
+                            badge.textContent = '0 items';
+                        });
+                });
+            }
+            
+            // Load inventory items function (department-aware)
+            window.loadInventoryItems = function(category) {
                 // Show loading, hide table and no data message
                 loadingSpinner.classList.add('active');
                 tableWrapper.style.display = 'none';
@@ -776,13 +1064,21 @@
                 // Clear existing table rows
                 tableBody.innerHTML = '';
                 
-                // Fetch inventory items from API
-                fetch(`/api/products-by-category?category=${encodeURIComponent(category)}`)
+                // Get current department filter
+                const deptFilter = getCurrentDepartmentFilter();
+                
+                // Build API URL - use department-aware endpoint when filtered
+                let apiUrl;
+                if (deptFilter === 'all') {
+                    apiUrl = `/api/products-by-category?category=${encodeURIComponent(category)}`;
+                } else {
+                    apiUrl = `/api/department-inventory?category=${encodeURIComponent(category)}&department_id=${deptFilter}`;
+                }
+                
+                fetch(apiUrl)
                     .then(response => {
-                        // Check if response is JSON
                         const contentType = response.headers.get('content-type');
                         if (!contentType || !contentType.includes('application/json')) {
-                            // If not JSON, might be redirect to login page
                             throw new Error('Authentication required or server error. Please check if you are logged in.');
                         }
                         
@@ -798,10 +1094,23 @@
                         loadingSpinner.classList.remove('active');
                         
                         if (items.length === 0) {
-                            // Show no data message
+                            const deptFilter = getCurrentDepartmentFilter();
+                            if (deptFilter !== 'all') {
+                                noDataMessage.innerHTML = `
+                                    <i class="fas fa-box-open fa-3x mb-3 text-muted"></i>
+                                    <h5>No items in this category</h5>
+                                    <p class="text-muted">This category has items in the masterlist but none are assigned to the selected department yet.</p>
+                                    <p class="text-muted small">Go to "All Items" or "Unassigned" to assign items to this department.</p>
+                                `;
+                            } else {
+                                noDataMessage.innerHTML = `
+                                    <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
+                                    <h5>No inventory items found</h5>
+                                    <p class="text-muted">No items found in this category. Add some items to get started.</p>
+                                `;
+                            }
                             noDataMessage.style.display = 'block';
                         } else {
-                            // Populate table
                             items.forEach(item => {
                                 const row = document.createElement('tr');
                                 
@@ -838,10 +1147,24 @@
                                     </div>` :
                                     `<span class="badge ${formattedStock > 0 ? 'bg-success' : 'bg-danger'}">${formattedStock}</span>`;
                                 
+                                // Department display
+                                let departmentDisplay = '<span class="text-muted small">None</span>';
+                                if (item.department_names) {
+                                    const deptNames = item.department_names.split(', ');
+                                    departmentDisplay = deptNames.map(d => 
+                                        `<span class="badge bg-secondary me-1">${d}</span>`
+                                    ).join('');
+                                }
+                                
                                 row.innerHTML = `
+                                    <td><input type="checkbox" class="item-select-checkbox" value="${item.id}"></td>
                                     <td><strong>${item.sku || 'N/A'}</strong></td>
-                                    <td>${item.name || 'Unnamed Item'}</td>
+                                    <td>
+                                        ${item.name || 'Unnamed Item'}
+                                        ${item.description ? `<br><small class="text-muted"><em>${item.description}</em></small>` : ''}
+                                    </td>
                                     <td><span class="badge-category badge">${item.category || 'Other Products'}</span></td>
+                                    <td>${departmentDisplay}</td>
                                     <td>${item.type || 'N/A'}</td>
                                     <td>${formattedPrice}</td>
                                     <td>${stockCellContent}</td>
@@ -851,8 +1174,8 @@
                                         <button class="btn btn-sm btn-warning edit-item-btn" data-id="${item.id}">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-danger delete-item-btn" data-id="${item.id}">
-                                            <i class="fas fa-trash"></i>
+                                        <button class="btn btn-sm btn-danger delete-item-btn" data-id="${item.id}" data-dept-id="${currentDepartmentFilter || ''}">
+                                            ${currentDepartmentFilter && currentDepartmentFilter !== 'all' && currentDepartmentFilter !== 'unassigned' ? '<i class="fas fa-times"></i>' : '<i class="fas fa-trash"></i>'}${currentDepartmentFilter && currentDepartmentFilter !== 'all' && currentDepartmentFilter !== 'unassigned' ? ' Remove' : ''}
                                         </button>
                                         ` : `
                                         <span class="text-muted small">View only</span>
@@ -877,13 +1200,30 @@
                             document.querySelectorAll('.delete-item-btn').forEach(btn => {
                                 btn.addEventListener('click', function() {
                                     const itemId = this.getAttribute('data-id');
-                                    const itemName = this.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
+                                    const deptId = this.getAttribute('data-dept-id');
+                                    const itemName = this.closest('tr').querySelector('td:nth-child(3)').textContent.trim();
                                     
-                                    if (confirm(`Are you sure you want to delete "${itemName}" (ID: ${itemId})? This action cannot be undone.`)) {
-                                        deleteInventoryItem(itemId);
+                                    if (deptId && deptId !== 'all' && deptId !== 'unassigned') {
+                                        if (confirm(`Remove "${itemName}" from this department?`)) {
+                                            removeItemFromDepartment(itemId, deptId);
+                                        }
+                                    } else {
+                                        if (confirm(`Are you sure you want to delete "${itemName}" (ID: ${itemId})? This action cannot be undone.`)) {
+                                            deleteInventoryItem(itemId);
+                                        }
                                     }
                                 });
                             });
+                            
+                            // Select all checkbox
+                            const selectAll = document.getElementById('select-all-items');
+                            if (selectAll) {
+                                selectAll.addEventListener('change', function() {
+                                    document.querySelectorAll('.item-select-checkbox').forEach(cb => {
+                                        cb.checked = this.checked;
+                                    });
+                                });
+                            }
                         }
                     })
                     .catch(error => {
@@ -1095,7 +1435,10 @@
                         
                         row.innerHTML = `
                             <td><strong>${item.sku || 'N/A'}</strong></td>
-                            <td>${item.name || 'Unnamed Item'}</td>
+                            <td>
+                                ${item.name || 'Unnamed Item'}
+                                ${item.description ? `<br><small class="text-muted"><em>${item.description}</em></small>` : ''}
+                            </td>
                             <td><span class="badge-category badge">${item.category || 'Other Products'}</span></td>
                             <td>${item.type || 'N/A'}</td>
                             <td>${formattedPrice}</td>
@@ -1106,8 +1449,8 @@
                                 <button class="btn btn-sm btn-warning edit-item-btn" data-id="${item.id}">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger delete-item-btn" data-id="${item.id}">
-                                    <i class="fas fa-trash"></i>
+                                <button class="btn btn-sm btn-danger delete-item-btn" data-id="${item.id}" data-dept-id="${currentDepartmentFilter || ''}">
+                                    ${currentDepartmentFilter && currentDepartmentFilter !== 'all' && currentDepartmentFilter !== 'unassigned' ? '<i class="fas fa-times"></i> Remove' : '<i class="fas fa-trash"></i>'}
                                 </button>
                                 ` : `
                                 <span class="text-muted small">View only</span>
@@ -1133,10 +1476,17 @@
                     document.querySelectorAll('.delete-item-btn').forEach(btn => {
                         btn.addEventListener('click', function() {
                             const itemId = this.getAttribute('data-id');
+                            const deptId = this.getAttribute('data-dept-id');
                             const itemName = this.closest('tr').querySelector('td:nth-child(2)').textContent.trim();
                             
-                            if (confirm(`Are you sure you want to delete "${itemName}" (ID: ${itemId})? This action cannot be undone.`)) {
-                                deleteInventoryItem(itemId);
+                            if (deptId && deptId !== 'all' && deptId !== 'unassigned') {
+                                if (confirm(`Remove "${itemName}" from this department?`)) {
+                                    removeItemFromDepartment(itemId, deptId);
+                                }
+                            } else {
+                                if (confirm(`Are you sure you want to delete "${itemName}" (ID: ${itemId})? This action cannot be undone.`)) {
+                                    deleteInventoryItem(itemId);
+                                }
                             }
                         });
                     });
@@ -1269,6 +1619,35 @@
                         deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
                         deleteBtn.disabled = false;
                     }
+                });
+            }
+
+            /**
+             * Remove an item from a department (not delete, just unassign).
+             */
+            function removeItemFromDepartment(itemId, departmentId) {
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                const formData = new FormData();
+                formData.append('_token', token);
+                formData.append('department_id', departmentId);
+                formData.append('inventory_ids[0]', itemId);
+
+                fetch('/api/department-inventory/remove', {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': token },
+                    body: formData,
+                    credentials: 'same-origin'
+                })
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP error: ' + r.status);
+                    return r.json();
+                })
+                .then(data => {
+                    showToast('success', 'Removed from department', 'Item removed from department successfully.');
+                    loadItems(currentCategory, getCurrentDepartmentFilter());
+                })
+                .catch(err => {
+                    showToast('error', 'Error', 'Failed to remove item from department: ' + err.message);
                 });
             }
             
@@ -1778,6 +2157,17 @@
             if (addNewItemBtn) {
                 addNewItemBtn.addEventListener('click', function() {
                     if (currentCategory) {
+                        const deptFilter = getCurrentDepartmentFilter();
+                        
+                        // If a specific department is selected, show the masterlist picker
+                        if (deptFilter !== 'all' && deptFilter !== 'unassigned') {
+                            console.log('Department filter active - showing masterlist picker');
+                            const deptName = document.querySelector('input[name="dept-filter"]:checked');
+                            const deptLabel = deptName ? (document.querySelector('label[for="' + deptName.id + '"]')?.textContent?.trim() || deptName.value) : 'Department';
+                            openMasterlistPicker(currentCategory, deptFilter, deptLabel);
+                            return;
+                        }
+                        
                         // Check if current category is "Shirt Products"
                         if (currentCategory === 'Shirt Products') {
                             console.log('Shirt Products category selected - Redirecting to master items form');
@@ -1899,6 +2289,12 @@
             }
         });
         // Stock Adjustment Functionality
+        // Global helper: get current department filter value
+        function getCurrentDepartmentFilter() {
+            const checked = document.querySelector('input[name="dept-filter"]:checked');
+            return checked ? checked.value : 'all';
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             const addStockBtn = document.getElementById('add-stock-btn');
             const deductStockBtn = document.getElementById('deduct-stock-btn');
@@ -2126,6 +2522,9 @@
             
             // Load items on page load
             loadInventoryItems();
+            
+            // Update category counts for current department
+            updateCategoryCounts(getCurrentDepartmentFilter());
         });
 
         // Inline stock adjustment buttons are now added directly when table rows are created
@@ -2152,6 +2551,13 @@
             formData.append('item_id', itemId);
             formData.append('quantity', quantity);
             formData.append('type', type);
+            
+            // Include department_id if a specific department is selected
+            const deptFilter = getCurrentDepartmentFilter();
+            if (deptFilter !== 'all' && deptFilter !== 'unassigned') {
+                formData.append('department_id', deptFilter);
+            }
+            
             formData.append('reason', 'Quick adjustment');
             
             fetch('/inventory/adjust-stock', {
@@ -2165,16 +2571,8 @@
                     showToast('success', 'Stock Updated', 
                         `${type === 'add' ? 'Added' : 'Deducted'} ${quantity} units successfully`);
                     
-                    // Update UI
-                    const row = document.querySelector(`tr[data-id="${itemId}"]`);
-                    if (row) {
-                        const stockDisplay = row.querySelector('.stock-value');
-                        if (stockDisplay) {
-                            const newStock = parseInt(stockDisplay.textContent) + 
-                                            (type === 'add' ? quantity : -quantity);
-                            stockDisplay.textContent = newStock;
-                        }
-                    }
+                    // Reload inventory data to reflect updated stocks
+                    loadInventoryItems(currentCategory);
                 } else {
                     throw new Error(data.message || 'Unknown error');
                 }
@@ -2376,6 +2774,563 @@
         </div>
     </div>
 
+    <!-- Department Assignment Modal -->
+    <div class="modal fade" id="departmentAssignModal" tabindex="-1" aria-labelledby="departmentAssignModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h5 class="modal-title text-white" id="departmentAssignModalLabel">
+                        <i class="fas fa-print me-2"></i>Manage Department Inventory
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <div>
+                                <h6 class="mb-1" id="departmentModalTitle">iPrint Department</h6>
+                                <small class="text-muted" id="departmentModalCount">Loading items...</small>
+                            </div>
+                            <input type="hidden" id="departmentModalId" value="1">
+                            <div class="d-flex gap-2">
+                                <div class="input-group input-group-sm" style="max-width: 250px;">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" id="deptModalSearch" placeholder="Search items...">
+                                </div>
+                                <select class="form-select form-select-sm" id="deptModalCategory" style="max-width: 180px;">
+                                    <option value="">All Categories</option>
+                                    <option value="Shirt Products">Shirt Products</option>
+                                    <option value="Printing and Office Supplies">Printing &amp; Office</option>
+                                    <option value="Machine and Equipments">Machines</option>
+                                    <option value="Garment Materials">Materials</option>
+                                    <option value="Other Products">Other Products</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center py-4" id="deptModalLoading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading items...</p>
+                        </div>
+                        
+                        <div id="deptModalContent" style="display: none;">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted small">
+                                    <span id="deptAssignedCount">0</span> items assigned
+                                </span>
+                                <span class="text-muted small">
+                                    <span id="deptTotalCount">0</span> items available
+                                </span>
+                            </div>
+                            <div class="list-group" id="deptItemList" style="max-height: 400px; overflow-y: auto;">
+                            </div>
+                        </div>
+                        
+                        <div id="deptModalEmpty" style="display: none;" class="text-center py-5">
+                            <i class="fas fa-box-open fa-4x text-muted mb-3"></i>
+                            <h5>No Items Found</h5>
+                            <p class="text-muted">No items match the current search/category filter.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Close
+                    </button>
+                    <button type="button" class="btn btn-primary" id="deptModalSaveBtn">
+                        <i class="fas fa-save me-1"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @endsection
+
+    <!-- Masterlist Picker Modal -->
+    <div class="modal fade" id="masterlistPickerModal" tabindex="-1" aria-labelledby="masterlistPickerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <h5 class="modal-title" id="masterlistPickerModalLabel">
+                        <i class="fas fa-list me-2"></i>Add from Masterlist
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Select items from the masterlist to add to <strong id="masterlistPickerDeptName">iPrint</strong>.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="masterlistSearch" placeholder="Search items...">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="masterlistSelectAll">
+                            <label class="form-check-label" for="masterlistSelectAll">
+                                Select All <span id="masterlistTotalCount">(0 items)</span>
+                            </label>
+                        </div>
+                        <span class="badge bg-primary" id="masterlistSelectedCount">0 selected</span>
+                    </div>
+                    
+                    <div class="text-center py-4" id="masterlistLoading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading masterlist items...</p>
+                    </div>
+                    
+                    <div id="masterlistContent" style="display: none;">
+                        <div class="list-group" id="masterlistItemList" style="max-height: 400px; overflow-y: auto;">
+                        </div>
+                    </div>
+                    
+                    <div id="masterlistEmpty" style="display: none;" class="text-center py-5">
+                        <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                        <h5>All items already in this department!</h5>
+                        <p class="text-muted">All items from this category are already assigned to this department.</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" id="masterlistAddBtn">
+                        <i class="fas fa-plus me-1"></i> Add to <span id="masterlistAddDeptName">Department</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    @push('scripts')
+    <script>
+        // Masterlist Picker functions
+        let masterlistPickerCategory = '';
+        let masterlistPickerDeptId = '';
+        let masterlistPickerDeptLabel = '';
+        
+        /**
+         * Open the masterlist picker modal
+         */
+        function openMasterlistPicker(category, departmentId, departmentLabel) {
+            masterlistPickerCategory = category;
+            masterlistPickerDeptId = departmentId;
+            masterlistPickerDeptLabel = departmentLabel || 'Department';
+            
+            // Update labels
+            document.getElementById('masterlistPickerDeptName').textContent = masterlistPickerDeptLabel;
+            document.getElementById('masterlistAddDeptName').textContent = masterlistPickerDeptLabel;
+            document.getElementById('masterlistPickerModalLabel').innerHTML = 
+                `<i class="fas fa-list me-2"></i>Add ${category} from Masterlist`;
+            
+            // Reset
+            document.getElementById('masterlistSearch').value = '';
+            document.getElementById('masterlistSelectAll').checked = false;
+            document.getElementById('masterlistSelectedCount').textContent = '0 selected';
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('masterlistPickerModal'));
+            modal.show();
+            
+            // Load items
+            loadMasterlistItems();
+        }
+        
+        /**
+         * Load masterlist items that are NOT yet assigned to the department
+         */
+        function loadMasterlistItems() {
+            const loading = document.getElementById('masterlistLoading');
+            const content = document.getElementById('masterlistContent');
+            const empty = document.getElementById('masterlistEmpty');
+            const itemList = document.getElementById('masterlistItemList');
+            const search = document.getElementById('masterlistSearch').value.trim();
+            
+            loading.style.display = 'block';
+            content.style.display = 'none';
+            empty.style.display = 'none';
+            
+            // Fetch all items of this category
+            let url = `/api/products-by-category?category=${encodeURIComponent(masterlistPickerCategory)}`;
+            if (search) {
+                url += `&search=${encodeURIComponent(search)}`;
+            }
+            
+            fetch(url)
+                .then(r => {
+                    if (!r.ok) throw new Error('Failed to load');
+                    return r.json();
+                })
+                .then(allItems => {
+                    // Also fetch items already in the department
+                    return fetch(`/api/department-inventory?department_id=${masterlistPickerDeptId}&category=${encodeURIComponent(masterlistPickerCategory)}`)
+                        .then(r => r.json())
+                        .then(deptItems => {
+                            const deptIds = new Set(deptItems.map(i => i.id));
+                            
+                            // Filter to only items NOT assigned
+                            const availableItems = allItems.filter(item => !deptIds.has(item.id));
+                            
+                            loading.style.display = 'none';
+                            
+                            if (availableItems.length === 0) {
+                                empty.style.display = 'block';
+                                document.getElementById('masterlistTotalCount').textContent = '(0 available)';
+                                return;
+                            }
+                            
+                            content.style.display = 'block';
+                            document.getElementById('masterlistTotalCount').textContent = `(${availableItems.length} items)`;
+                            
+                            itemList.innerHTML = '';
+                            availableItems.forEach(item => {
+                                const itemEl = document.createElement('div');
+                                itemEl.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                                itemEl.innerHTML = `
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="checkbox" class="form-check-input masterlist-item-cb" value="${item.id}">
+                                        <div>
+                                            <strong>${item.name}</strong>
+                                            <div class="text-muted small">
+                                                SKU: ${item.sku || 'N/A'} | ${item.brand || 'No brand'}
+                                            </div>
+                                            ${item.description ? `<div class="text-muted small mt-1"><em>${item.description}</em></div>` : ''}
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-secondary">Available</span>
+                                `;
+                                itemList.appendChild(itemEl);
+                            });
+                            
+                            // Update selected count on checkbox change
+                            document.querySelectorAll('.masterlist-item-cb').forEach(cb => {
+                                cb.addEventListener('change', updateMasterlistSelectedCount);
+                            });
+                            
+                            // Select all / deselect all
+                            document.getElementById('masterlistSelectAll').addEventListener('change', function() {
+                                document.querySelectorAll('.masterlist-item-cb').forEach(cb => {
+                                    cb.checked = this.checked;
+                                });
+                                updateMasterlistSelectedCount();
+                            });
+                        });
+                })
+                .catch(error => {
+                    loading.style.display = 'none';
+                    empty.style.display = 'block';
+                    empty.innerHTML = `
+                        <i class="fas fa-exclamation-triangle fa-4x mb-3 text-danger"></i>
+                        <h5>Error Loading Items</h5>
+                        <p class="text-muted">Failed to load items. Please try again.</p>
+                    `;
+                    console.error('Error:', error);
+                });
+        }
+        
+        function updateMasterlistSelectedCount() {
+            const checked = document.querySelectorAll('.masterlist-item-cb:checked').length;
+            document.getElementById('masterlistSelectedCount').textContent = checked + ' selected';
+        }
+        
+        /**
+         * Open the department assignment modal
+         */
+        function openDepartmentAssignModal(departmentId, departmentName) {
+            document.getElementById('departmentModalId').value = departmentId;
+            document.getElementById('departmentModalTitle').textContent = departmentName + ' Department';
+            document.getElementById('departmentAssignModalLabel').innerHTML = '<i class="fas fa-' + 
+                (departmentId === 1 ? 'print' : 'layer-group') + ' me-2"></i>Manage ' + departmentName + ' Inventory';
+            
+            // Reset filters
+            document.getElementById('deptModalSearch').value = '';
+            document.getElementById('deptModalCategory').value = '';
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('departmentAssignModal'));
+            modal.show();
+            
+            // Load items
+            loadDepartmentModalItems(departmentId);
+        }
+        
+        /**
+         * Load items for the department modal
+         */
+        function loadDepartmentModalItems(departmentId) {
+            const loading = document.getElementById('deptModalLoading');
+            const content = document.getElementById('deptModalContent');
+            const empty = document.getElementById('deptModalEmpty');
+            const itemList = document.getElementById('deptItemList');
+            const category = document.getElementById('deptModalCategory').value;
+            const search = document.getElementById('deptModalSearch').value.trim();
+            
+            loading.style.display = 'block';
+            content.style.display = 'none';
+            empty.style.display = 'none';
+            
+            // Build URL with filters
+            let url = '/api/department-inventory?department_id=' + departmentId;
+            if (category) url += '&category=' + encodeURIComponent(category);
+            if (search) url += '&search=' + encodeURIComponent(search);
+            
+            // Also fetch ALL items for the unassigned count
+            let allUrl = '/api/department-inventory?department_id=all';
+            if (category) allUrl += '&category=' + encodeURIComponent(category);
+            if (search) allUrl += '&search=' + encodeURIComponent(search);
+            
+            Promise.all([
+                fetch(url).then(r => { if(!r.ok) throw new Error(); return r.json(); }),
+                fetch(allUrl).then(r => { if(!r.ok) throw new Error(); return r.json(); })
+            ])
+            .then(([assignedItems, allItems]) => {
+                loading.style.display = 'none';
+                
+                if (allItems.length === 0) {
+                    empty.style.display = 'block';
+                    return;
+                }
+                
+                content.style.display = 'block';
+                document.getElementById('deptAssignedCount').textContent = assignedItems.length;
+                document.getElementById('deptTotalCount').textContent = allItems.length;
+                document.getElementById('departmentModalCount').textContent = 
+                    assignedItems.length + ' of ' + allItems.length + ' items assigned';
+                
+                // Build item list
+                const assignedIds = new Set(assignedItems.map(i => i.id));
+                itemList.innerHTML = '';
+                
+                allItems.forEach(item => {
+                    const isAssigned = assignedIds.has(item.id);
+                    const itemEl = document.createElement('div');
+                    itemEl.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                    itemEl.innerHTML = `
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="checkbox" class="form-check-input dept-item-checkbox" 
+                                   value="${item.id}" ${isAssigned ? 'checked' : ''}>
+                            <div>
+                                <strong>${item.name}</strong>
+                                <div class="text-muted small">
+                                    SKU: ${item.sku || 'N/A'} | ${item.category || 'Other Products'}
+                                </div>
+                                ${item.description ? `<div class="text-muted small mt-1"><em>${item.description}</em></div>` : ''}
+                            </div>
+                        </div>
+                        <span class="badge ${isAssigned ? 'bg-success' : 'bg-secondary'}">
+                            ${isAssigned ? 'Assigned' : 'Available'}
+                        </span>
+                    `;
+                    itemList.appendChild(itemEl);
+                });
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                empty.style.display = 'block';
+                empty.innerHTML = `
+                    <i class="fas fa-exclamation-triangle fa-4x mb-3 text-danger"></i>
+                    <h5>Error Loading Items</h5>
+                    <p class="text-muted">Failed to load items. Please try again.</p>
+                `;
+                console.error('Error loading department items:', error);
+            });
+        }
+        
+        // Save department assignment changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const saveBtn = document.getElementById('deptModalSaveBtn');
+            if (!saveBtn) return;
+            
+            saveBtn.addEventListener('click', function() {
+                const departmentId = document.getElementById('departmentModalId').value;
+                const checkboxes = document.querySelectorAll('.dept-item-checkbox');
+                
+                const checkedIds = [];
+                const uncheckedIds = [];
+                
+                checkboxes.forEach(cb => {
+                    const id = parseInt(cb.value);
+                    if (cb.checked) {
+                        checkedIds.push(id);
+                    } else {
+                        uncheckedIds.push(id);
+                    }
+                });
+                
+                if (checkedIds.length === 0 && uncheckedIds.length === 0) {
+                    return;
+                }
+                
+                // Disable button during save
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+                
+                // Get currently assigned items to compute diffs
+                fetch('/api/department-inventory?department_id=' + departmentId)
+                    .then(r => r.json())
+                    .then(currentAssigned => {
+                        const currentAssignedIds = new Set(currentAssigned.map(i => i.id));
+                        
+                        const toAdd = checkedIds.filter(id => !currentAssignedIds.has(id));
+                        const toRemove = uncheckedIds.filter(id => currentAssignedIds.has(id));
+                        
+                        const promises = [];
+                        
+                        if (toAdd.length > 0) {
+                            promises.push(
+                                fetch('/api/department-inventory/assign', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                                        'Accept': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        department_id: parseInt(departmentId),
+                                        inventory_ids: toAdd
+                                    })
+                                }).then(r => r.json())
+                            );
+                        }
+                        
+                        if (toRemove.length > 0) {
+                            promises.push(
+                                fetch('/api/department-inventory/remove', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                                        'Accept': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        department_id: parseInt(departmentId),
+                                        inventory_ids: toRemove
+                                    })
+                                }).then(r => r.json())
+                            );
+                        }
+                        
+                        return Promise.all(promises);
+                    })
+                    .then(results => {
+                        showToast('success', 'Saved', 'Department assignments updated successfully.');
+                        
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('departmentAssignModal'));
+                        if (modal) modal.hide();
+                        
+                        // Reload main table if a category is selected
+                        if (typeof currentCategory !== 'undefined' && currentCategory) {
+                            loadInventoryItems(currentCategory);
+                        }
+                    })
+                    .catch(error => {
+                        showToast('error', 'Error', 'Failed to save changes: ' + error.message);
+                        console.error('Save error:', error);
+                    })
+                    .finally(() => {
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fas fa-save me-1"></i> Save Changes';
+                    });
+            });
+            
+            // Search/category filter changes
+            const searchInput = document.getElementById('deptModalSearch');
+            const categorySelect = document.getElementById('deptModalCategory');
+            
+            if (searchInput) {
+                let searchTimeout;
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        const deptId = document.getElementById('departmentModalId').value;
+                        loadDepartmentModalItems(deptId);
+                    }, 300);
+                });
+            }
+            
+            if (categorySelect) {
+                categorySelect.addEventListener('change', function() {
+                    const deptId = document.getElementById('departmentModalId').value;
+                    loadDepartmentModalItems(deptId);
+                });
+            }
+            
+            // Masterlist Picker - Add button
+            const masterlistAddBtn = document.getElementById('masterlistAddBtn');
+            if (masterlistAddBtn) {
+                masterlistAddBtn.addEventListener('click', function() {
+                    const checked = document.querySelectorAll('.masterlist-item-cb:checked');
+                    const ids = [];
+                    checked.forEach(cb => ids.push(parseInt(cb.value)));
+                    
+                    if (ids.length === 0) {
+                        showToast('warning', 'No Selection', 'Please select at least one item.');
+                        return;
+                    }
+                    
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Adding...';
+                    
+                    fetch('/api/department-inventory/assign', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            department_id: parseInt(masterlistPickerDeptId),
+                            inventory_ids: ids
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(result => {
+                        showToast('success', 'Added!', `${ids.length} item(s) added to ${masterlistPickerDeptLabel}.`);
+                        
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('masterlistPickerModal'));
+                        if (modal) modal.hide();
+                        
+                        // Reload main table
+                        if (typeof currentCategory !== 'undefined' && currentCategory) {
+                            loadInventoryItems(currentCategory);
+                        }
+                    })
+                    .catch(error => {
+                        showToast('error', 'Error', 'Failed to add items: ' + error.message);
+                        console.error('Add error:', error);
+                    })
+                    .finally(() => {
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fas fa-plus me-1"></i> Add to <span id="masterlistAddDeptName">' + masterlistPickerDeptLabel + '</span>';
+                    });
+                });
+            }
+            
+            // Masterlist search
+            const masterlistSearch = document.getElementById('masterlistSearch');
+            if (masterlistSearch) {
+                let searchTimeout;
+                masterlistSearch.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        loadMasterlistItems();
+                    }, 300);
+                });
+            }
+        });
+    </script>
+    @endpush
 </body>
 </html>

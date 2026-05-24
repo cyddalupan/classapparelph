@@ -241,14 +241,14 @@ Route::get('/printing-calculator', function() {
     Route::post('/inventory/adjust-stock', function (\Illuminate\Http\Request $request) {
         // Validate request
         $validated = $request->validate([
-            'item_id' => 'required|exists:inventories,id',
+            'item_id' => 'required|exists:master_items,id',
             'quantity' => 'required|integer|min:1',
             'type' => 'required|in:add,deduct',
+            'department_id' => 'nullable|exists:sales_departments,id',
             'reason' => 'nullable|string|max:500',
         ]);
         
-        // Get the inventory item
-        $inventory = \App\Models\Inventory::findOrFail($validated['item_id']);
+        $departmentId = $validated['department_id'] ?? null;
         
         // Check permissions
         if (!\Illuminate\Support\Facades\Gate::allows('manage-inventory')) {
@@ -258,15 +258,81 @@ Route::get('/printing-calculator', function() {
             ], 403);
         }
         
-        // Calculate new stock
+        // If a specific department is selected, update department-level stock
+        if ($departmentId) {
+            $deptItem = \Illuminate\Support\Facades\DB::table('department_master_items')
+                ->where('master_item_id', $validated['item_id'])
+                ->where('department_id', $departmentId)
+                ->first();
+            
+            if (!$deptItem) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item is not assigned to this department.'
+                ], 400);
+            }
+            
+            $oldStock = $deptItem->current_stock ?? 0;
+            
+            if ($validated['type'] === 'add') {
+                $newStock = $oldStock + $validated['quantity'];
+            } else {
+                $newStock = max(0, $oldStock - $validated['quantity']);
+                if ($newStock === 0 && $validated['quantity'] > $oldStock) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Cannot deduct more than available stock. Available: ' . $oldStock
+                    ], 400);
+                }
+            }
+            
+            \Illuminate\Support\Facades\DB::table('department_master_items')
+                ->where('master_item_id', $validated['item_id'])
+                ->where('department_id', $departmentId)
+                ->update([
+                    'current_stock' => $newStock,
+                    'last_restocked_at' => now(),
+                ]);
+            
+            // Log the activity
+            \App\Models\InventoryActivityLog::create([
+                'master_item_id' => $validated['item_id'],
+                'department_id' => $departmentId,
+                'action_type' => $validated['type'] === 'add' ? 'add_stock' : 'deduct_stock',
+                'item_name' => \App\Models\MasterItem::find($validated['item_id'])?->name ?? 'Unknown',
+                'sku' => \App\Models\MasterItem::find($validated['item_id'])?->sku ?? null,
+                'category' => \App\Models\MasterItem::find($validated['item_id'])?->category ?? null,
+                'old_value' => $oldStock,
+                'new_value' => $newStock,
+                'quantity' => $validated['quantity'],
+                'user_id' => auth()->id(),
+                'notes' => $validated['reason'] ?? null,
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Department stock updated successfully',
+                'data' => [
+                    'item_id' => (int)$validated['item_id'],
+                    'department_id' => (int)$departmentId,
+                    'old_stock' => $oldStock,
+                    'new_stock' => $newStock,
+                    'adjustment' => $validated['type'] === 'add' ? 
+                        '+' . $validated['quantity'] : 
+                        '-' . $validated['quantity']
+                ]
+            ]);
+        }
+        
+        // No department — update global master_items stock
+        $inventory = \App\Models\MasterItem::findOrFail($validated['item_id']);
+        
         $oldStock = $inventory->current_stock;
         
         if ($validated['type'] === 'add') {
             $newStock = $oldStock + $validated['quantity'];
         } else {
-            // For deduct, ensure we don't go below 0
             $newStock = max(0, $oldStock - $validated['quantity']);
-            
             if ($newStock === 0 && $validated['quantity'] > $oldStock) {
                 return response()->json([
                     'success' => false,
@@ -275,21 +341,23 @@ Route::get('/printing-calculator', function() {
             }
         }
         
-        // Update stock
         $inventory->current_stock = $newStock;
         $inventory->last_restocked_at = now();
         $inventory->save();
         
-        // Log the transaction (optional - could create a StockTransaction model)
-        // \App\Models\StockTransaction::create([
-        //     'inventory_id' => $inventory->id,
-        //     'user_id' => auth()->id(),
-        //     'type' => $validated['type'],
-        //     'quantity' => $validated['quantity'],
-        //     'old_stock' => $oldStock,
-        //     'new_stock' => $newStock,
-        //     'reason' => $validated['reason'] ?? 'Manual adjustment',
-        // ]);
+        // Log the activity
+        \App\Models\InventoryActivityLog::create([
+            'master_item_id' => $inventory->id,
+            'action_type' => $validated['type'] === 'add' ? 'add_stock' : 'deduct_stock',
+            'item_name' => $inventory->name,
+            'sku' => $inventory->sku,
+            'category' => $inventory->category,
+            'old_value' => $oldStock,
+            'new_value' => $newStock,
+            'quantity' => $validated['quantity'],
+            'user_id' => auth()->id(),
+            'notes' => $validated['reason'] ?? null,
+        ]);
         
         return response()->json([
             'success' => true,
@@ -305,6 +373,54 @@ Route::get('/printing-calculator', function() {
             ]
         ]);
     })->name('inventory.adjust-stock');
+    
+    // API: Get recent inventory activity history
+    Route::get('/api/inventory-activity', function () {
+        $limit = request()->get('limit', 30);
+        $departmentId = request()->get('department_id');
+        
+        $query = \App\Models\InventoryActivityLog::with('user');
+        
+        // Filter by department if specified
+        if ($departmentId && $departmentId !== 'all' && $departmentId !== 'unassigned') {
+            $query->where('department_id', $departmentId);
+        } elseif ($departmentId === 'unassigned') {
+            // Show activities that aren't tied to any department
+            $query->whereNull('department_id');
+        }
+        // 'all' or no filter = show everything
+        
+        $logs = $query->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get()
+            ->map(function ($log) {
+                $deptName = null;
+                if ($log->department_id) {
+                    $dept = \Illuminate\Support\Facades\DB::table('sales_departments')
+                        ->where('id', $log->department_id)
+                        ->value('name');
+                    $deptName = $dept;
+                }
+                return [
+                    'id' => $log->id,
+                    'action_type' => $log->action_type,
+                    'item_name' => $log->item_name,
+                    'sku' => $log->sku,
+                    'category' => $log->category,
+                    'department_id' => $log->department_id,
+                    'department_name' => $deptName,
+                    'old_value' => $log->old_value,
+                    'new_value' => $log->new_value,
+                    'quantity' => $log->quantity,
+                    'user_name' => $log->user ? $log->user->name : 'System',
+                    'notes' => $log->notes,
+                    'created_at' => $log->created_at->diffForHumans(),
+                    'created_at_raw' => $log->created_at->toDateTimeString(),
+                ];
+            });
+        
+        return response()->json($logs);
+    })->name('api.inventory.activity');
     
     Route::get('/production', function () {
         return view('production.tracking');
@@ -326,6 +442,40 @@ Route::get('/printing-calculator', function() {
     Route::get('/api/expenses/statistics', [ExpenseController::class, 'statistics'])->name('expenses.statistics');
     
     // Product List API
+    Route::get('/api/products-by-category-count', function (Request $request) {
+        $category = $request->query('category');
+        $departmentId = $request->query('department_id');
+        $unassigned = $request->query('unassigned');
+        
+        if (!$category) {
+            return response()->json(['error' => 'Category parameter is required'], 400);
+        }
+        
+        $query = \App\Models\MasterItem::where('category', $category)
+            ->whereNull('deleted_at');
+        
+        if ($departmentId) {
+            // Count items assigned to specific department
+            $query->whereExists(function ($q) use ($departmentId) {
+                $q->select(\DB::raw(1))
+                  ->from('department_master_items')
+                  ->whereColumn('department_master_items.master_item_id', 'master_items.id')
+                  ->where('department_master_items.department_id', $departmentId);
+            });
+        } elseif ($unassigned) {
+            // Count items NOT assigned to any department
+            $query->whereNotExists(function ($q) {
+                $q->select(\DB::raw(1))
+                  ->from('department_master_items')
+                  ->whereColumn('department_master_items.master_item_id', 'master_items.id');
+            });
+        }
+        
+        $count = $query->count();
+        
+        return response()->json(['count' => $count, 'category' => $category]);
+    });
+    
     Route::get('/api/products-by-category', function (Request $request) {
         $category = $request->query('category');
         
@@ -333,11 +483,47 @@ Route::get('/printing-calculator', function() {
             return response()->json(['error' => 'Category parameter is required'], 400);
         }
         
-        // Fetch products by category from inventory table
-        $products = \App\Models\Inventory::where('category', $category)
-            ->where('is_active', true)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = \DB::table('master_items')
+            ->leftJoin('department_master_items', 'master_items.id', '=', 'department_master_items.master_item_id')
+            ->whereNull('master_items.deleted_at')
+            ->where('master_items.category', $category)
+            ->select(
+                'master_items.id',
+                'master_items.name',
+                'master_items.sku',
+                'master_items.brand',
+                'master_items.category',
+                'master_items.unit_price',
+                'master_items.description',
+                \DB::raw('COALESCE(sum(department_master_items.current_stock), master_items.current_stock) as current_stock'),
+                \DB::raw('COALESCE(sum(department_master_items.minimum_stock), master_items.minimum_stock) as minimum_stock'),
+                'master_items.created_at'
+            )
+            ->groupBy('master_items.id')
+            ->orderBy('master_items.name', 'asc');
+        
+        // Optional search filter
+        $search = $request->query('search');
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('master_items.name', 'like', "%{$search}%")
+                  ->orWhere('master_items.sku', 'like', "%{$search}%")
+                  ->orWhere('master_items.brand', 'like', "%{$search}%");
+            });
+        }
+        
+        $products = $query->get();
+        
+        // Role-based pricing: non-admin users see sales_team_price instead of unit_price
+        $user = $request->user();
+        $isNonAdmin = $user && !$user->isAdmin();
+        
+        if ($isNonAdmin) {
+            $products->transform(function ($item) {
+                $item->unit_price = $item->sales_team_price ?? $item->unit_price;
+                return $item;
+            });
+        }
         
         return response()->json($products);
     });
@@ -533,6 +719,10 @@ Route::get('/inventorylist', function() {
 
 
 
+        // CALENDAR route (MUST be before {id} route)
+        Route::get('/sales/prototype/calendar', [App\Http\Controllers\PrototypeSalesController::class, 'calendar'])->name('sales.prototype.calendar');
+        Route::post('/sales/prototype/calendar-data', [App\Http\Controllers\PrototypeSalesController::class, 'calendarData'])->name('sales.prototype.calendar-data');
+
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
 
@@ -556,6 +746,24 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/{id}/addon/request', [App\Http\Controllers\SaleAddonController::class, 'request'])->name('sales.prototype.addon.request');
         Route::post('/sales/prototype/addon/{requestId}/approve', [App\Http\Controllers\SaleAddonController::class, 'approve'])->name('sales.prototype.addon.approve');
         Route::post('/sales/prototype/addon/{requestId}/reject', [App\Http\Controllers\SaleAddonController::class, 'reject'])->name('sales.prototype.addon.reject');
+
+
+        // Department Inventory Management (iPrint & others)
+        Route::middleware(['auth'])->group(function () {
+            Route::get('/api/departments', [App\Http\Controllers\DepartmentInventoryController::class, 'departments'])->name('api.departments.list');
+            Route::get('/api/department-inventory', [App\Http\Controllers\DepartmentInventoryController::class, 'departmentItems'])->name('api.department-inventory.items');
+            Route::post('/api/department-inventory/assign', [App\Http\Controllers\DepartmentInventoryController::class, 'assign'])->name('api.department-inventory.assign');
+            Route::post('/api/department-inventory/remove', [App\Http\Controllers\DepartmentInventoryController::class, 'remove'])->name('api.department-inventory.remove');
+        });
+
+        // Procurement Ordering System
+        Route::middleware(['auth'])->group(function () {
+            Route::get('/procurement/orders', [App\Http\Controllers\ProcurementOrderController::class, 'index'])->name('procurement.orders.index');
+            Route::get('/procurement/orders/create', [App\Http\Controllers\ProcurementOrderController::class, 'create'])->name('procurement.orders.create');
+            Route::post('/procurement/orders', [App\Http\Controllers\ProcurementOrderController::class, 'store'])->name('procurement.orders.store');
+            Route::get('/procurement/orders/{id}', [App\Http\Controllers\ProcurementOrderController::class, 'show'])->name('procurement.orders.show');
+            Route::put('/procurement/orders/{id}/status', [App\Http\Controllers\ProcurementOrderController::class, 'updateStatus'])->name('procurement.orders.status');
+        });
 
 
         

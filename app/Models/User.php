@@ -105,6 +105,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Check if user has procurement role
+     */
+    public function isProcurement(): bool
+    {
+        return $this->role === 'procurement';
+    }
+
+    /**
      * Check if user can input sales
      */
     public function canInputSales(): bool
