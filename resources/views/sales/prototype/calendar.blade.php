@@ -454,6 +454,13 @@ function renderWeek(monday, projects) {
                 html += `<span class="dp-name">${name}</span>`;
                 html += `<div class="dp-meta">`;
                 html += `<span class="dp-dept" style="background:${color};color:white;">${dept}</span>`;
+                if (p.payment_status === 'verified') {
+                    html += `<span class="dp-status" style="color:#198754;font-weight:600;">✅</span>`;
+                } else if (p.payment_status === 'pending' && p.payment_account_id) {
+                    html += `<span class="dp-status" style="color:#856404;">⏳</span>`;
+                } else if (p.payment_status === 'rejected') {
+                    html += `<span class="dp-status" style="color:#842029;font-weight:600;">❌</span>`;
+                }
                 html += `<span class="dp-amount">${curr(amt)}</span>`;
                 html += `</div>`;
                 if (itemsHtml) {

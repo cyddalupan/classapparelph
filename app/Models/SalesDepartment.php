@@ -13,6 +13,7 @@ class SalesDepartment extends Model
         'code',
         'description',
         'is_active',
+        'manager_id',
     ];
 
     protected $casts = [
@@ -23,5 +24,15 @@ class SalesDepartment extends Model
     {
         return $this->belongsToMany(MasterItem::class, 'department_master_items', 'department_id', 'master_item_id')
             ->withPivot(['current_stock', 'minimum_stock', 'last_restocked_at']);
+    }
+
+    public function manager()
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    public function procurementOrders()
+    {
+        return $this->hasMany(ProcurementOrder::class, 'department_id');
     }
 }

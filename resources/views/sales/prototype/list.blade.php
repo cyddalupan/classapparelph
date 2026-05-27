@@ -176,6 +176,7 @@
                     <th>Department</th>
                     <th>Total</th>
                     <th>Deposit</th>
+                    <th>Payment</th>
                     <th>Progress</th>
                     <th>Agent</th>
                     <th>Date</th>
@@ -198,6 +199,17 @@
                         </td>
                         <td>₱{{ number_format($sale->total_amount, 2) }}</td>
                         <td>₱{{ number_format($sale->deposit_paid, 2) }}</td>
+                        <td>
+                            @if($sale->payment_status === 'verified')
+                                <span class="badge bg-success">✅ Paid</span>
+                            @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
+                                <span class="badge bg-warning text-dark">⏳ Pending</span>
+                            @elseif($sale->payment_status === 'rejected')
+                                <span class="badge bg-danger">❌ Rejected</span>
+                            @else
+                                <span class="badge bg-secondary">—</span>
+                            @endif
+                        </td>
                         <td>
                             <div class="pipeline">
                                 @foreach($kanbanStatuses as $i => $status)
@@ -223,7 +235,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" style="text-align:center;padding:40px;color:#6c757d;">
+                        <td colspan="9" style="text-align:center;padding:40px;color:#6c757d;">
                             No orders found.
                             <br><br>
                             <a href="{{ route('sales.prototype.create') }}" class="btn btn-primary">➕ Create First Order</a>

@@ -633,14 +633,30 @@
                     </div>
 
                     <div class="mb-3" id="paymentOwnerSection">
-                        <label for="payment_owner" class="form-label">Payment Account Owner *</label>
-                        <select class="form-control" id="payment_owner" name="payment_owner" required>
-                            <option value="">Select account owner</option>
-                            <option value="company">Company Account</option>
-                            <option value="owner_personal">Owner Personal Account</option>
-                            <option value="sales_agent">Sales Agent Account</option>
-                            <option value="department_head">Department Head Account</option>
+                        <label for="payment_account_id" class="form-label">Payment Received By *</label>
+                        <select class="form-control" id="payment_account_id" name="payment_account_id">
+                            <option value="">Select account...</option>
+                            @foreach($paymentAccounts as $account)
+                                <option value="{{ $account->id }}" data-user="{{ $account->user_id }}">
+                                    {{ $account->name }} @if($account->user)
+                                        ({{ $account->user->name }})
+                                    @endif
+                                </option>
+                            @endforeach
                         </select>
+                        <small class="text-muted">Who will receive/verify this payment?</small>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="payment_date" class="form-label">Payment Date</label>
+                            <input type="date" class="form-control" id="payment_date" name="payment_date" value="{{ date('Y-m-d') }}">
+                            <small class="text-muted">When was this paid?</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="reference_number" class="form-label">Reference Number</label>
+                            <input type="text" class="form-control" id="reference_number" name="reference_number" placeholder="GCash ref / Bank ref / OR #">
+                            <small class="text-muted">For reconciliation</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -675,6 +691,7 @@
             <!-- Hidden fields -->
             <input type="hidden" name="payment_type" id="payment_type_hidden" value="">
             <input type="hidden" name="payment_amount" id="payment_amount_hidden" value="0">
+            <input type="hidden" name="payment_owner" id="payment_owner_hidden" value="">
         </div>
         
         <!-- Submit Button -->

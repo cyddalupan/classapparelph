@@ -30,10 +30,15 @@ class PrototypeSale extends Model
         'balance_due',
         'payment_method',
         'payment_owner',
+        'payment_account_id',
+        'payment_date',
+        'reference_number',
         'payment_screenshot_path',
         'payment_status',
         'verified_by',
         'verified_at',
+        'verify_requested_at',
+        'verify_requested_by',
         'mockup_images',
         'reference_images',
         'kanban_status',
@@ -63,6 +68,21 @@ class PrototypeSale extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function paymentAccount()
+    {
+        return $this->belongsTo(PaymentAccount::class);
+    }
+
+    public function verifiedBy()
+    {
+        return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function auditLogs()
+    {
+        return $this->hasMany(PaymentAuditLog::class, 'prototype_sale_id');
     }
 
     /**

@@ -739,6 +739,10 @@ Route::get('/inventorylist', function() {
         
         // Payment verification
         Route::post('/sales/prototype/{id}/verify-payment', [App\Http\Controllers\PrototypeSalesController::class, 'verifyPayment'])->name('sales.prototype.verify-payment');
+        Route::get('/sales/verification', [App\Http\Controllers\PrototypeSalesController::class, 'paymentVerification'])->name('sales.verification');
+        Route::get('/sales/cash-flow', [App\Http\Controllers\PrototypeSalesController::class, 'cashFlow'])->name('sales.cash-flow');
+        Route::get('/sales/audit-logs/{saleId}', [App\Http\Controllers\PrototypeSalesController::class, 'getAuditLogs'])->name('sales.audit-logs');
+        Route::get('/sales/account-history/{accountId}', [App\Http\Controllers\PrototypeSalesController::class, 'getAccountHistory'])->name('sales.account-history');
         
         // Add-on request routes
         Route::get('/sales/prototype/addon/pending', [App\Http\Controllers\SaleAddonController::class, 'allPending'])->name('sales.prototype.addon.all-pending');
@@ -758,11 +762,28 @@ Route::get('/inventorylist', function() {
 
         // Procurement Ordering System
         Route::middleware(['auth'])->group(function () {
+            Route::get('/procurement/dashboard', [App\Http\Controllers\ProcurementOrderController::class, 'dashboard'])->name('procurement.dashboard');
             Route::get('/procurement/orders', [App\Http\Controllers\ProcurementOrderController::class, 'index'])->name('procurement.orders.index');
             Route::get('/procurement/orders/create', [App\Http\Controllers\ProcurementOrderController::class, 'create'])->name('procurement.orders.create');
             Route::post('/procurement/orders', [App\Http\Controllers\ProcurementOrderController::class, 'store'])->name('procurement.orders.store');
             Route::get('/procurement/orders/{id}', [App\Http\Controllers\ProcurementOrderController::class, 'show'])->name('procurement.orders.show');
             Route::put('/procurement/orders/{id}/status', [App\Http\Controllers\ProcurementOrderController::class, 'updateStatus'])->name('procurement.orders.status');
+            Route::post('/procurement/orders/{id}/remark', [App\Http\Controllers\ProcurementOrderController::class, 'addRemark'])->name('procurement.orders.remark');
+            Route::post('/procurement/orders/{id}/notify', [App\Http\Controllers\ProcurementOrderController::class, 'notifyManager'])->name('procurement.orders.notify');
+            Route::put('/procurement/notifications/{id}/read', [App\Http\Controllers\ProcurementOrderController::class, 'markNotificationRead'])->name('procurement.notifications.read');
+            Route::post('/procurement/orders/{id}/supplier-availability', [App\Http\Controllers\ProcurementOrderController::class, 'updateSupplierAvailability'])->name('procurement.orders.supplier-availability');
+            Route::post('/procurement/orders/{id}/items/{itemId}/substitute', [App\Http\Controllers\ProcurementOrderController::class, 'substituteItem'])->name('procurement.orders.substitute-item');
+            Route::post('/procurement/orders/{id}/verify', [App\Http\Controllers\ProcurementOrderController::class, 'verifyDelivery'])->name('procurement.orders.verify');
+            Route::get('/procurement/analytics', [App\Http\Controllers\ProcurementOrderController::class, 'analytics'])->name('procurement.analytics');
+
+            Route::resource('procurement/suppliers', App\Http\Controllers\SupplierController::class)->names([
+                'index' => 'procurement.suppliers.index',
+                'create' => 'procurement.suppliers.create',
+                'store' => 'procurement.suppliers.store',
+                'edit' => 'procurement.suppliers.edit',
+                'update' => 'procurement.suppliers.update',
+                'destroy' => 'procurement.suppliers.destroy',
+            ])->except(['show']);
         });
 
 

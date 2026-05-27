@@ -29,7 +29,8 @@ class PrototypeSalesController extends Controller
     {
         $departments = \DB::table('sales_departments')->where('is_active', true)->get();
         $marketplaceOptions = \App\Models\Customer::getMarketplaceOptions();
-        return view('sales.prototype.create', compact('departments', 'marketplaceOptions'));
+        $paymentAccounts = \App\Models\PaymentAccount::where('is_active', true)->get();
+        return view('sales.prototype.create', compact('departments', 'marketplaceOptions', 'paymentAccounts'));
     }
 
     /**
@@ -157,7 +158,10 @@ class PrototypeSalesController extends Controller
             'deposit_paid' => $request->deposit_paid ?: 0,
             'balance_due' => $balanceDue,
             'payment_method' => $request->payment_method ?: 'cash',
-            'payment_owner' => $request->payment_owner ?: 'company',
+            'payment_owner' => $request->payment_owner ?: ($request->payment_account_id ? App\Models\PaymentAccount::find($request->payment_account_id)?->name : 'company'),
+            'payment_account_id' => $request->payment_account_id ?: null,
+            'payment_date' => $request->payment_date ?: null,
+            'reference_number' => $request->reference_number ?: null,
             'payment_status' => 'pending',
             'payment_screenshot_path' => $paymentScreenshotPath,
             'customer_notes' => $request->customer_notes,
@@ -406,11 +410,46 @@ class PrototypeSalesController extends Controller
         $html .= '<div class="mt-2 small">';
         $html .= '<span class="text-muted">Payment Method:</span> ' . e(ucfirst($sale->payment_method ?? 'N/A')) . ' &nbsp;|&nbsp; ';
         $html .= '<span class="text-muted">Paid by:</span> ' . e(ucfirst($sale->payment_owner ?? 'N/A')) . '<br>';
-        if ($sale->payment_status) {
-            $badgeClass = $sale->payment_status === 'verified' ? 'success' : ($sale->payment_status === 'pending' ? 'warning' : 'secondary');
-            $html .= '<span class="badge bg-' . $badgeClass . '">' . e(ucfirst($sale->payment_status)) . '</span>';
+        if ($sale->payment_account_id) {
+            $account = \App\Models\PaymentAccount::find($sale->payment_account_id);
+            if ($account) {
+                $html .= '<span class="text-muted">Account:</span> <strong>' . e($account->name) . '</strong>';
+                if ($account->user) {
+                    $html .= ' <span class="text-muted">(' . e($account->user->name) . ')</span>';
+                }
+                $html .= '<br>';
+            }
         }
-        $html .= '</div></div>';
+        $html .= '<span class="text-muted">Payment Status:</span> ';
+        if ($sale->payment_status === 'verified') {
+            $html .= '<span class="badge bg-success">✅ Verified</span>';
+            if ($sale->verified_at) $html .= ' <small class="text-muted">' . \Carbon\Carbon::parse($sale->verified_at)->format('M d, g:i A') . '</small>';
+        } elseif ($sale->payment_status === 'rejected') {
+            $html .= '<span class="badge bg-danger">❌ Rejected</span>';
+        } elseif ($sale->payment_status === 'pending' && $sale->payment_account_id) {
+            $html .= '<span class="badge bg-warning text-dark">⏳ Pending</span>';
+        } else {
+            $html .= '<span class="badge bg-secondary">—</span>';
+        }
+        if ($sale->reference_number) {
+            $html .= '<br><span class="text-muted">Reference:</span> ' . e($sale->reference_number);
+        }
+        if ($sale->payment_date) {
+            $html .= ' &nbsp;|&nbsp; <span class="text-muted">Date:</span> ' . \Carbon\Carbon::parse($sale->payment_date)->format('M d, Y');
+        }
+        if ($sale->verify_requested_at) {
+            $html .= '<br><span class="badge bg-info"><i class="fas fa-exclamation-circle"></i> Verify Requested</span>';
+            $html .= ' <small class="text-muted">' . \Carbon\Carbon::parse($sale->verify_requested_at)->format('M d, g:i A') . '</small>';
+        }
+        $html .= '</div>';
+        // Audit log link
+        $auditCount = \App\Models\PaymentAuditLog::where('prototype_sale_id', $id)->count();
+        if ($auditCount > 0) {
+            $html .= '<div class="mt-1 small">';
+            $html .= '<button class="btn btn-sm btn-outline-info" onclick="showAuditLogs(' . $id . ')"><i class="fas fa-history"></i> View Audit Log (' . $auditCount . ')</button>';
+            $html .= '</div>';
+        }
+        $html .= '</div>';
         
         // --- Payment Screenshot ---
         if ($sale->payment_screenshot_path) {
@@ -430,7 +469,10 @@ class PrototypeSalesController extends Controller
 
     public function show(string $id)
     {
-        $sale = \DB::table('prototype_sales')->find($id);
+        $sale = \DB::table('prototype_sales')->leftJoin('sales_departments', 'prototype_sales.department_id', '=', 'sales_departments.id')
+            ->select('prototype_sales.*', 'sales_departments.name as department_name', 'sales_departments.code as department_code')
+            ->where('prototype_sales.id', $id)
+            ->first();
         if (!$sale) {
             abort(404);
         }
@@ -786,6 +828,250 @@ class PrototypeSalesController extends Controller
 
     public function verifyPayment(Request $request, $id)
     {
-        //
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        $action = $request->action; // 'verify', 'reject', 're_tag', 'edit_ref'
+        $remark = $request->remark;
+        $oldAccountId = $sale->payment_account_id;
+        $oldRef = $sale->reference_number;
+        $oldDate = $sale->payment_date;
+
+        if ($action === 'verify') {
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'payment_status' => 'verified',
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $sale->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'verified',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Payment verified successfully!';
+
+        } elseif ($action === 'reject') {
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'payment_status' => 'rejected',
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $sale->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'rejected',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Payment rejected.';
+
+        } elseif ($action === 're_tag') {
+            $newAccountId = $request->new_account_id;
+            if (!$newAccountId) {
+                return response()->json(['error' => 'Please select a new account'], 400);
+            }
+
+            $oldAccount = \App\Models\PaymentAccount::find($oldAccountId);
+            $newAccount = \App\Models\PaymentAccount::find($newAccountId);
+
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'payment_account_id' => $newAccountId,
+                'payment_owner' => $newAccount?->name ?? 're-tagged',
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $newAccountId,
+                'user_id' => auth()->id(),
+                'action' => 're_tagged',
+                'old_value' => $oldAccount?->name,
+                'new_value' => $newAccount?->name,
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Payment re-tagged from ' . ($oldAccount?->name ?? 'Unknown') . ' to ' . ($newAccount?->name ?? 'Unknown') . '.';
+
+        } elseif ($action === 'edit_ref') {
+            $newRef = $request->new_reference_number;
+            $newDate = $request->new_payment_date;
+
+            $changes = [];
+            if ($newRef && $newRef !== $oldRef) {
+                $changes['reference_number'] = $newRef;
+            }
+            if ($newDate && $newDate !== $oldDate) {
+                $changes['payment_date'] = $newDate;
+            }
+
+            if (!empty($changes)) {
+                $changes['updated_at'] = now();
+                \DB::table('prototype_sales')->where('id', $id)->update($changes);
+
+                \App\Models\PaymentAuditLog::create([
+                    'prototype_sale_id' => $id,
+                    'payment_account_id' => $sale->payment_account_id,
+                    'user_id' => auth()->id(),
+                    'action' => 'edited_ref',
+                    'old_value' => $oldRef ?: $oldDate,
+                    'new_value' => $newRef ?: $newDate,
+                    'remarks' => $remark,
+                ]);
+            }
+
+            $msg = 'Payment details updated.';
+
+        } elseif ($action === 'request_verify') {
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'verify_requested_at' => now(),
+                'verify_requested_by' => auth()->id(),
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $sale->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'requested_verify',
+                'remarks' => $remark ?: 'Manager requested verification',
+            ]);
+
+            $msg = 'Verification request sent!';
+
+        } else {
+            return response()->json(['error' => 'Invalid action'], 400);
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'sale_id' => $id,
+                'payment_status' => \DB::table('prototype_sales')->where('id', $id)->value('payment_status'),
+            ]);
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    /**
+     * Payment verification dashboard - shows all pending and recent payments.
+     */
+    public function paymentVerification()
+    {
+        $pendingPayments = \DB::table('prototype_sales')
+            ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as verifier', 'prototype_sales.verified_by', '=', 'verifier.id')
+            ->leftJoin('users as requester', 'prototype_sales.verify_requested_by', '=', 'requester.id')
+            ->select([
+                'prototype_sales.*',
+                'payment_accounts.name as account_name',
+                'payment_accounts.user_id as account_user_id',
+                'verifier.name as verified_by_name',
+                'requester.name as requested_by_name',
+            ])
+            ->whereIn('prototype_sales.payment_status', ['pending', 'rejected'])
+            ->orderBy('prototype_sales.created_at', 'desc')
+            ->get();
+
+        $verifiedPayments = \DB::table('prototype_sales')
+            ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as verifier', 'prototype_sales.verified_by', '=', 'verifier.id')
+            ->select([
+                'prototype_sales.*',
+                'payment_accounts.name as account_name',
+                'verifier.name as verified_by_name',
+            ])
+            ->where('prototype_sales.payment_status', 'verified')
+            ->orderBy('prototype_sales.verified_at', 'desc')
+            ->limit(50)
+            ->get();
+
+        $accounts = \App\Models\PaymentAccount::with('user')->where('is_active', true)->get();
+
+        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts'));
+    }
+
+    /**
+     * Cash flow view - per account breakdown.
+     */
+    public function cashFlow(Request $request)
+    {
+        $accountId = $request->account_id;
+
+        $accounts = \App\Models\PaymentAccount::where('is_active', true)->get();
+
+        $query = \DB::table('prototype_sales')
+            ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as verifier', 'prototype_sales.verified_by', '=', 'verifier.id')
+            ->select([
+                'prototype_sales.*',
+                'payment_accounts.name as account_name',
+                'verifier.name as verified_by_name',
+            ])
+            ->where('prototype_sales.payment_status', 'verified');
+
+        if ($accountId) {
+            $query->where('prototype_sales.payment_account_id', $accountId);
+        }
+
+        $payments = $query->orderBy('prototype_sales.verified_at', 'desc')->get();
+
+        // Calculate totals per account for the summary
+        $accountTotals = \DB::table('prototype_sales')
+            ->select([
+                'payment_account_id',
+                \DB::raw('COUNT(*) as total_count'),
+                \DB::raw('COALESCE(SUM(total_amount), 0) as total_amount'),
+                \DB::raw('COALESCE(SUM(deposit_paid), 0) as total_deposit'),
+            ])
+            ->where('payment_status', 'verified')
+            ->groupBy('payment_account_id')
+            ->get()
+            ->keyBy('payment_account_id');
+
+        // Recent audit trail
+        $auditLogs = \App\Models\PaymentAuditLog::with(['user', 'prototypeSale', 'paymentAccount'])
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
+
+        return view('sales.prototype.cashflow', compact('accounts', 'payments', 'accountTotals', 'auditLogs', 'accountId'));
+    }
+
+    /**
+     * Get audit logs for a specific sale (AJAX).
+     */
+    public function getAuditLogs($saleId)
+    {
+        $logs = \App\Models\PaymentAuditLog::with(['user', 'paymentAccount'])
+            ->where('prototype_sale_id', $saleId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($logs);
+    }
+
+    /**
+     * Get audit logs for a specific payment account (AJAX).
+     */
+    public function getAccountHistory($accountId)
+    {
+        $logs = \App\Models\PaymentAuditLog::with(['user', 'prototypeSale', 'paymentAccount'])
+            ->where('payment_account_id', $accountId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($logs);
     }
 }

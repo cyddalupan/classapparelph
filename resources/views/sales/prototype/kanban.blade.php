@@ -351,6 +351,13 @@
                                 @if($sale->created_at)
                                     <span>📅 {{ \Carbon\Carbon::parse($sale->created_at)->format('M d') }}</span>
                                 @endif
+                                @if($sale->payment_status === 'verified')
+                                    <span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:4px;font-size:10px;background:#d1e7dd;color:#0f5132;font-weight:600;">✅ Paid</span>
+                                @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
+                                    <span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:4px;font-size:10px;background:#fff3cd;color:#664d03;font-weight:600;">⏳ Pending</span>
+                                @elseif($sale->payment_status === 'rejected')
+                                    <span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:4px;font-size:10px;background:#f8d7da;color:#842029;font-weight:600;">❌ Rejected</span>
+                                @endif
                                 @if($sale->sales_agent_name)
                                     <span>👤 {{ $sale->sales_agent_name }}</span>
                                 @endif
@@ -1675,6 +1682,59 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById('addonOpenBtn').style.display = 'none';
         }
     });
+
+    // Payment audit log viewer
+    window.showAuditLogs = function(saleId) {
+        fetch('/sales/audit-logs/' + saleId)
+        .then(function(r) { return r.json(); })
+        .then(function(logs) {
+            if (!logs || logs.length === 0) {
+                alert('No audit logs found for this sale.');
+                return;
+            }
+            var html = '<div style="max-height:400px;overflow-y:auto;padding:10px;">';
+            logs.forEach(function(log) {
+                var actionBadge = '';
+                if (log.action === 'verified') actionBadge = '<span class="badge bg-success">Verified</span>';
+                else if (log.action === 'rejected') actionBadge = '<span class="badge bg-danger">Rejected</span>';
+                else if (log.action === 're_tagged') actionBadge = '<span class="badge bg-warning text-dark">Re-tagged</span>';
+                else if (log.action === 'edited_ref') actionBadge = '<span class="badge bg-info">Edited</span>';
+                else if (log.action === 'requested_verify') actionBadge = '<span class="badge bg-primary">Requested</span>';
+                else actionBadge = '<span class="badge bg-secondary">' + log.action + '</span>';
+
+                html += '<div style="padding:6px 0;border-bottom:1px solid #eee;">';
+                html += '<div style="display:flex;justify-content:space-between;">';
+                html += '<div><strong>' + (log.user ? log.user.name : 'System') + '</strong> ' + actionBadge + '</div>';
+                html += '<div style="font-size:0.75rem;color:#999;">' + new Date(log.created_at).toLocaleString() + '</div>';
+                html += '</div>';
+                if (log.payment_account) {
+                    html += '<div style="font-size:0.8rem;color:#666;margin-top:2px;">Account: ' + log.payment_account.name + '</div>';
+                }
+                if (log.old_value && log.new_value) {
+                    html += '<div style="font-size:0.8rem;color:#666;"><span style="text-decoration:line-through;">' + log.old_value + '</span> → <strong>' + log.new_value + '</strong></div>';
+                }
+                if (log.remarks) {
+                    html += '<div style="font-size:0.8rem;color:#666;"><em>' + log.remarks + '</em></div>';
+                }
+                html += '</div>';
+            });
+            html += '</div>';
+
+            // Show in a Bootstrap modal
+            var modalEl = document.getElementById('saleDetailsModal');
+            if (modalEl) {
+                document.getElementById('saleDetailsModalLabel').innerHTML = '<i class="fas fa-history"></i> Audit Log';
+                document.querySelector('#saleDetailsModal .modal-body').innerHTML = html;
+            } else {
+                // Fallback
+                var w = window.open('', '_blank', 'width=600,height=500');
+                w.document.write('<html><head><title>Audit Log</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"></head><body><div class="container mt-3">' + html + '</div></body></html>');
+            }
+        })
+        .catch(function(e) {
+            alert('Failed to load audit logs: ' + e);
+        });
+    };
 
 })();
 </script>
