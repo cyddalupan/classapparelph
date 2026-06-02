@@ -65,7 +65,7 @@
                     <div class="text-muted small mb-1">Days Since Last Order</div>
                     @php
                         $daysSince = $customer->last_order_date 
-                            ? \Carbon\Carbon::parse($customer->last_order_date)->diffInDays(now()) 
+                            ? round(\Carbon\Carbon::parse($customer->last_order_date)->diffInDays(now()), 2) 
                             : null;
                     @endphp
                     <div class="display-6 fw-bold {{ $daysSince !== null && $daysSince > 30 ? 'text-warning' : 'text-secondary' }}">

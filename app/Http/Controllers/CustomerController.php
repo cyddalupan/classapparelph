@@ -119,19 +119,50 @@ class CustomerController extends Controller
         ]);
     }
 
-    // Search customers
+    // Search customers with filters
     public function search(Request $request)
     {
-        $query = $request->get('q');
+        $query = Customer::with('creator');
         
-        $customers = Customer::with('creator')
-            ->where('name', 'like', "%{$query}%")
-            ->orWhere('phone', 'like', "%{$query}%")
-            ->orWhere('email', 'like', "%{$query}%")
-            ->orWhere('company', 'like', "%{$query}%")
-            ->orWhere('customer_id_number', 'like', "%{$query}%")
-            ->orderBy('total_spent', 'desc')
-            ->limit(20)
+        // Text search
+        if ($q = $request->get('q')) {
+            $query->where(function ($qry) use ($q) {
+                $qry->where('name', 'like', "%{$q}%")
+                    ->orWhere('phone', 'like', "%{$q}%")
+                    ->orWhere('email', 'like', "%{$q}%")
+                    ->orWhere('company', 'like', "%{$q}%")
+                    ->orWhere('customer_id_number', 'like', "%{$q}%");
+            });
+        }
+        
+        // Tier filter
+        if ($tier = $request->get('tier')) {
+            $query->where('customer_tier', $tier);
+        }
+        
+        // Total spent range
+        if ($minSpent = $request->get('min_spent')) {
+            $query->where('total_spent', '>=', (float) $minSpent);
+        }
+        if ($maxSpent = $request->get('max_spent')) {
+            $query->where('total_spent', '<=', (float) $maxSpent);
+        }
+        
+        // Last order date range
+        if ($dateFrom = $request->get('date_from')) {
+            $query->whereDate('last_order_date', '>=', $dateFrom);
+        }
+        if ($dateTo = $request->get('date_to')) {
+            $query->whereDate('last_order_date', '<=', $dateTo);
+        }
+        
+        // Marketplace filter
+        if ($marketplace = $request->get('marketplace')) {
+            $query->where('marketplace', $marketplace);
+        }
+        
+        $customers = $query->orderBy('total_spent', 'desc')
+            ->limit(50)
             ->get();
         
         return response()->json([

@@ -424,10 +424,54 @@
                             <button class="header-btn" title="Search">
                                 <i class="fas fa-search"></i>
                             </button>
-                            <button class="header-btn" title="Notifications">
-                                <i class="fas fa-bell"></i>
-                                <span class="notification-badge">3</span>
-                            </button>
+                            <div class="dropdown d-inline-block">
+                                <button class="header-btn dropdown-toggle" data-bs-toggle="dropdown" title="Notifications">
+                                    <i class="fas fa-bell"></i>
+                                    @if($navNotificationCount > 0 || $navPendingVerifications > 0)
+                                    <span class="notification-badge">{{ $navNotificationCount + $navPendingVerifications }}</span>
+                                    @endif
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end shadow" style="min-width: 380px; max-height: 480px; overflow-y: auto;">
+                                    @if($navPendingVerifications > 0)
+                                    <div class="px-3 py-2 bg-warning bg-opacity-10 border-bottom">
+                                        <a href="{{ route('procurement.orders.index', ['status' => 'for_verification']) }}" class="text-decoration-none d-flex align-items-center gap-2">
+                                            <i class="fas fa-clipboard-check text-warning"></i>
+                                            <strong class="small">{{ $navPendingVerifications }} order(s)</strong>
+                                            <span class="small text-muted">pending verification</span>
+                                            <i class="fas fa-arrow-right ms-auto small text-muted"></i>
+                                        </a>
+                                    </div>
+                                    @endif
+                                    <h6 class="dropdown-header small text-muted text-uppercase">Procurement Notifications</h6>
+                                    @forelse($navUnreadNotifications as $n)
+                                    <a class="dropdown-item" href="{{ route('procurement.orders.show', $n->procurement_order_id) }}">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div style="max-width: 280px;">
+                                                <span class="badge bg-{{ $n->type === 'urgent' ? 'danger' : ($n->type === 'reminder' ? 'warning' : 'info') }} me-1" style="font-size:9px;">{{ ucfirst($n->type) }}</span>
+                                                <strong class="small">{{ $n->title }}</strong>
+                                                @if($n->message)<p class="mb-0 small text-muted text-truncate">{{ $n->message }}</p>@endif
+                                                <small class="text-muted" style="font-size:10px;">{{ $n->fromUser?->name }} &middot; {{ $n->created_at->diffForHumans() }}</small>
+                                            </div>
+                                            <form method="POST" action="{{ route('procurement.notifications.read', $n->id) }}" class="d-inline ms-1">
+                                                @csrf @method('PUT')
+                                                <button type="submit" class="btn btn-sm btn-link text-muted p-0" title="Mark as read"><i class="fas fa-check-circle"></i></button>
+                                            </form>
+                                        </div>
+                                    </a>
+                                    @if(!$loop->last)<hr class="my-1">@endif
+                                    @empty
+                                    <div class="text-center py-3 text-muted small">
+                                        <i class="fas fa-check-circle fa-2x mb-1"></i>
+                                        <p class="mb-0">All caught up!</p>
+                                    </div>
+                                    @endforelse
+                                    @if($navNotificationCount > 0)
+                                    <div class="text-center py-1 border-top">
+                                        <a href="{{ route('procurement.orders.index') }}" class="small text-muted">View all orders</a>
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
                             <button class="header-btn" title="Help">
                                 <i class="fas fa-question-circle"></i>
                             </button>

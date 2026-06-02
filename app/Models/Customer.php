@@ -130,7 +130,7 @@ class Customer extends Model
         if (!$this->last_order_date) {
             return null;
         }
-        return now()->diffInDays($this->last_order_date);
+        return round(now()->diffInDays($this->last_order_date), 2);
     }
 
     /**

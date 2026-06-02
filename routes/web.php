@@ -3,6 +3,7 @@
 # API: Products for sales box (public)
 Route::get("/api/products-for-box/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getProductsForBox"])->name("product-pricing.api.products-for-box");
 Route::get("/api/filter-options/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getFilterOptions"])->name("product-pricing.api.filter-options");
+Route::get("/api/sublimation-prices", [App\Http\Controllers\PricingRulesController::class, 'getSublimationPrices'])->name('api.sublimation-prices');
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExpenseController;
@@ -83,6 +84,12 @@ Route::get('/printing-calculator', function() {
     Route::get('/productpricing/rules/tarpaulin', [App\Http\Controllers\PricingRulesController::class, 'tarpaulinRules'])->name('pricing.rules.tarpaulin');
     Route::get('/productpricing/rules/embroidery', [App\Http\Controllers\PricingRulesController::class, 'embroideryRules'])->name('pricing.rules.embroidery');
     Route::get('/productpricing/rules/sticker', [App\Http\Controllers\PricingRulesController::class, 'stickerRules'])->name('pricing.rules.sticker');
+    Route::post('/productpricing/rules/sublimation/prices', [App\Http\Controllers\PricingRulesController::class, 'updateSublimationPrices'])->name('pricing.rules.sublimation.prices');
+    Route::post('/productpricing/rules/sublimation/bulk', [App\Http\Controllers\PricingRulesController::class, 'updateSublimationBulk'])->name('pricing.rules.sublimation.bulk');
+    Route::post('/productpricing/rules/sublimation/prices/add', [App\Http\Controllers\PricingRulesController::class, 'addSublimationPrice'])->name('pricing.rules.sublimation.add-price');
+    Route::post('/productpricing/rules/sublimation/prices/delete', [App\Http\Controllers\PricingRulesController::class, 'deleteSublimationPrice'])->name('pricing.rules.sublimation.delete-price');
+    Route::post('/productpricing/rules/sublimation/connect', [App\Http\Controllers\PricingRulesController::class, 'addConnectedProduct'])->name('pricing.rules.sublimation.connect');
+    Route::delete('/productpricing/rules/sublimation/disconnect/{id}', [App\Http\Controllers\PricingRulesController::class, 'removeConnectedProduct'])->name('pricing.rules.sublimation.disconnect');
     
     // Admin Routes
     Route::middleware(['admin'])->group(function () {
@@ -671,10 +678,41 @@ Route::get('/inventorylist', function() {
         });
         
         Route::get("/api/customers/search", function (\Illuminate\Http\Request $request) {
-            $searchTerm = $request->query("q");
-            $customers = \App\Models\Customer::search($searchTerm)
-                ->active()
-                ->limit(10)
+            $query = \App\Models\Customer::active()->with('creator');
+            
+            // Text search (keep using scopeSearch for fulltext) 
+            if ($q = $request->query('q')) {
+                $query->search($q);
+            }
+            
+            // Tier filter
+            if ($tier = $request->query('tier')) {
+                $query->where('customer_tier', $tier);
+            }
+            
+            // Total spent range
+            if ($minSpent = $request->query('min_spent')) {
+                $query->where('total_spent', '>=', (float) $minSpent);
+            }
+            if ($maxSpent = $request->query('max_spent')) {
+                $query->where('total_spent', '<=', (float) $maxSpent);
+            }
+            
+            // Last order date range
+            if ($dateFrom = $request->query('date_from')) {
+                $query->whereDate('last_order_date', '>=', $dateFrom);
+            }
+            if ($dateTo = $request->query('date_to')) {
+                $query->whereDate('last_order_date', '<=', $dateTo);
+            }
+            
+            // Marketplace filter
+            if ($marketplace = $request->query('marketplace')) {
+                $query->where('marketplace', $marketplace);
+            }
+            
+            $customers = $query->orderBy('total_spent', 'desc')
+                ->limit(50)
                 ->get();
             
             return response()->json(["customers" => $customers]);
@@ -692,6 +730,7 @@ Route::get('/inventorylist', function() {
             
             return response()->json($customer);
         });
+        Route::put("/api/customers/{id}", [\App\Http\Controllers\CustomerController::class, 'update']);
         // PROTOTYPE SALES SYSTEM
         Route::get('/sales/prototype', function () {
             if (!Gate::allows('input-sales')) {
@@ -731,6 +770,9 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
 
         Route::get('/sales/prototype/{id}/details', [App\Http\Controllers\PrototypeSalesController::class, 'details'])->name('sales.prototype.details');
+        Route::get('/sales/prototype/{id}/print-slip', [App\Http\Controllers\PrototypeSalesController::class, 'printSlip'])->name('sales.prototype.print-slip');
+        Route::get('/api/production/checklist/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'getProductionChecklist'])->name('api.production.checklist.get');
+        Route::post('/api/production/checklist/{id}/save', [App\Http\Controllers\PrototypeSalesController::class, 'saveProductionChecklist'])->name('api.production.checklist.save');
         Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
         Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');
         Route::put('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'update'])->name('sales.prototype.update');

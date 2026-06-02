@@ -189,7 +189,7 @@
                         if ($statusIndex === false) $statusIndex = 0;
                         $isActive = false;
                     @endphp
-                    <tr onclick="window.location.href='{{ route('sales.prototype.edit', $sale->id) }}'">
+                    <tr onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'">
                         <td><strong>{{ $sale->sales_number }}</strong></td>
                         <td>{{ $sale->customer_name ?: '—' }}</td>
                         <td>
@@ -197,7 +197,7 @@
                                 {{ $departmentLabels[$sale->department_id] ?? 'Unknown' }}
                             </span>
                         </td>
-                        <td>₱{{ number_format($sale->total_amount, 2) }}</td>
+                        <td>₱{{ number_format($sale->subtotal ?? 0, 2) }}</td>
                         <td>₱{{ number_format($sale->deposit_paid, 2) }}</td>
                         <td>
                             @if($sale->payment_status === 'verified')

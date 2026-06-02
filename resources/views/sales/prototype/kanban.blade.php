@@ -247,6 +247,37 @@
         border-top: 2px solid #dee2e6;
         margin-top: 4px;
     }
+
+    /* Production Slip (Interactive) */
+    .pslip { font-family: 'Courier New', monospace; font-size: 10pt; color: #000; padding:0 4px; }
+    .pslip h1 { font-size: 14pt; margin:0 0 2px; text-align:center; }
+    .pslip .divider { border-top:2px solid #000; margin:2px 0; }
+    .pslip table { width:100%; border-collapse:collapse; }
+    .pslip td, .pslip th { border:1px solid #000; padding:2px 4px; text-align:left; font-size:9pt; vertical-align:top; }
+    .pslip .field-label { font-weight:bold; background:#f0f0f0; white-space:nowrap; width:1%; }
+    .pslip .mockup-box { border:2px dashed #999; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:9pt; overflow:hidden; width:100%; aspect-ratio:4/3; max-height:250px; }
+    .pslip .mockup-box img { max-width:100%; max-height:100%; object-fit:contain; }
+    .pslip .section-title { font-weight:bold; font-size:11pt; margin:2px 0; }
+    .pslip .chk { width:16px; height:16px; cursor:pointer; accent-color:#198754; margin:0; vertical-align:middle; }
+    .pslip .chk-done + td, .pslip .chk-done + td + td { text-decoration:line-through; color:#999; }
+    .pslip tr.done td { text-decoration:line-through; color:#999; }
+    .pslip .no-border td, .pslip .no-border { border:none; }
+
+    /* QA & GA Checks row */
+    .ps-checks { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+    .ps-check-item { flex:1; min-width:160px; }
+    .ps-check-item label { display:flex; align-items:flex-start; gap:5px; font-size:10px; cursor:pointer; padding:5px 8px; border:1px solid #dee2e6; border-radius:6px; transition:all 0.2s; }
+    .ps-check-item label.checked { border-color:#198754; background:#f0fff4; }
+    .ps-check-item input[type=checkbox] { margin-top:1px; }
+    /* Comment thread */
+    .ps-comment-list { margin-top:6px; max-height:150px; overflow-y:auto; }
+    .ps-comment-entry { padding:4px 6px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:10px; border-left:3px solid #0d6efd; }
+    .ps-comment-entry .time { font-size:8px; color:#999; }
+    .ps-comment-input { display:flex; gap:4px; margin-top:4px; }
+    .ps-comment-input input { flex:1; border:1px solid #dee2e6; border-radius:4px; padding:4px 6px; font-size:10px; }
+    .ps-comment-input button { padding:4px 10px; font-size:10px; background:#0d6efd; color:white; border:none; border-radius:4px; cursor:pointer; }
+
+    #modalProdSlipBody { max-height:70vh; overflow-y:auto; }
 </style>
 @endpush
 
@@ -315,10 +346,11 @@
                                 $itemCount = count($svc);
                                 $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
                                 $firstMockup = $mockups[0] ?? null;
+                                $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
                             @endphp
 
-                            @if($firstMockup)
-                                <img src="{{ $firstMockup }}" alt="mockup" 
+                            @if($firstMockupUrl)
+                                <img src="{{ $firstMockupUrl }}" alt="mockup" 
                                      style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:8px;" 
                                      onerror="this.style.display='none'">
                             @endif
@@ -342,8 +374,8 @@
                                 @if($itemCount > 1)
                                     <span>📦 +{{ $itemCount - 1 }} more items</span>
                                 @endif
-                                @if($sale->total_amount > 0)
-                                    <span>💰 ₱{{ number_format($sale->total_amount, 2) }}</span>
+                                @if(($sale->subtotal ?? 0) > 0)
+                                    <span>💰 ₱{{ number_format($sale->subtotal, 2) }}</span>
                                 @endif
                                 @if($sale->deposit_paid > 0)
                                     <span>💳 ₱{{ number_format($sale->deposit_paid, 2) }} paid</span>
@@ -380,16 +412,32 @@
                 <h5 class="modal-title" id="modalSaleTitle">Sale Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+            <!-- Tab bar -->
+            <div style="display:flex;border-bottom:2px solid #dee2e6;padding:0 16px;">
+                <button class="prod-tab active" data-tab="details" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:600;color:#0d6efd;border-bottom:3px solid #0d6efd;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-info-circle me-1"></i>Details
+                </button>
+                <button class="prod-tab" data-tab="prodSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-clipboard-list me-1"></i>Production Slip
+                </button>
+            </div>
             <div class="modal-body" id="modalSaleBody">
                 <div class="text-center text-muted py-4">
                     <i class="fas fa-spinner fa-spin fa-2x"></i>
                     <p class="mt-2">Loading...</p>
                 </div>
             </div>
+            <div class="modal-body" id="modalProdSlipBody" style="display:none;"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-success" id="addonOpenBtn" style="display:none;" onclick="addonOpenProductModal('garment')">
                     <i class="fas fa-plus me-1"></i>+ Add Items
                 </button>
+                <a href="#" id="modalEditBtn" class="btn btn-primary" target="_blank" style="display:none;">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="#" id="modalPrintSlipBtn" class="btn btn-success" target="_blank" style="display:none;">
+                    <i class="fas fa-print"></i> View Printable
+                </a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -886,19 +934,7 @@
     </div>
 </div>
 
-<!-- === IMAGE LIGHTBOX === -->
-<div class="modal fade" id="imageLightbox" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content bg-dark">
-            <div class="modal-header border-0">
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body text-center">
-                <img id="lightboxImage" src="" alt="" style="max-width:100%;max-height:80vh;">
-            </div>
-        </div>
-    </div>
-</div>
+<!-- LIGHTBOX overlay is created dynamically by JS (avoids Bootstrap modal repaint issues) -->
 
 @endsection
 
@@ -1021,8 +1057,29 @@
         body.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading...</p></div>';
         title.textContent = 'Sale Details';
         
-        // Store sale ID for addon button
+        // Store sale ID immediately (before fetch completes) for Production Slip tab
         title.dataset.saleId = saleId;
+        body.dataset.saleId = saleId;
+        
+        // Clear production slip cache so it reloads when switching tabs
+        var prodBody = document.getElementById('modalProdSlipBody');
+        if (prodBody) prodBody.dataset.loaded = '';
+        
+        // Reset to Details tab on open
+        var allTabs = document.querySelectorAll('.prod-tab');
+        allTabs.forEach(function(t) {
+            t.style.color = '#666';
+            t.style.borderBottomColor = 'transparent';
+            t.style.fontWeight = '500';
+        });
+        var detailsTab = document.querySelector('.prod-tab[data-tab="details"]');
+        if (detailsTab) {
+            detailsTab.style.color = '#0d6efd';
+            detailsTab.style.borderBottomColor = '#0d6efd';
+            detailsTab.style.fontWeight = '600';
+        }
+        if (prodBody) prodBody.style.display = 'none';
+        body.style.display = '';
         
         // Fetch sale data
         fetch('/sales/prototype/' + saleId + '/details' + window.location.search, {
@@ -1036,12 +1093,30 @@
             title.textContent = data.title || 'Sale #' + saleId;
             title.dataset.saleId = saleId;
             body.innerHTML = data.html;
+            // Attach lightbox click handlers to dynamically loaded images
+            body.querySelectorAll('.ref-image, .payment-img').forEach(function(img) {
+                img.addEventListener('click', function() {
+                    window.openLightbox(this.src);
+                });
+            });
             // Show addon button only if sale is still active
             if (data.can_addon !== false) {
                 document.getElementById('addonOpenBtn').style.display = '';
             } else {
                 document.getElementById('addonOpenBtn').style.display = 'none';
             }
+            // Update Edit and Print Slip button links
+            var editBtn = document.getElementById('modalEditBtn');
+            var printBtn = document.getElementById('modalPrintSlipBtn');
+            if (editBtn) {
+                editBtn.href = '/sales/prototype/' + saleId + '/edit';
+                editBtn.style.display = '';
+            }
+            if (printBtn) {
+                printBtn.href = '/sales/prototype/' + saleId + '/print-slip';
+                printBtn.style.display = '';
+            }
+            // Body dataset already set before the fetch
         })
         .catch(function(err) {
             body.innerHTML = '<div class="alert alert-danger">Failed to load sale details: ' + err.message + '</div>';
@@ -1096,15 +1171,83 @@
         });
     });
     
-    // === IMAGE LIGHTBOX ===
+    // === IMAGE LIGHTBOX (dynamically created — avoids Bootstrap modal repaint issues) ===
     window.openLightbox = function(src) {
-        var img = document.getElementById('lightboxImage');
-        if (img) {
-            img.src = src;
-            var lb = new bootstrap.Modal(document.getElementById('imageLightbox'));
-            lb.show();
+        // Remove existing lightbox if any
+        var old = document.getElementById('imageLightbox');
+        if (old) old.remove();
+        
+        var overlay = document.createElement('div');
+        overlay.id = 'imageLightbox';
+        overlay.style.cssText = 'display:flex!important;align-items:center;justify-content:center;position:fixed;top:0;left:0;width:100%;height:100%;z-index:100000;background:rgba(0,0,0,0.85);cursor:zoom-out;';
+        
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText = 'position:absolute;top:15px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;z-index:100001;';
+        closeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeLightbox();
+        });
+        
+        var imgContainer = document.createElement('div');
+        imgContainer.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:40px;';
+        
+        var img = document.createElement('img');
+        img.id = 'lightboxImage';
+        img.style.cssText = 'max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px;';
+        img.alt = '';
+        
+        imgContainer.appendChild(img);
+        overlay.appendChild(closeBtn);
+        overlay.appendChild(imgContainer);
+        
+        // Close on background click
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                closeLightbox();
+            }
+        });
+        
+        // Set src, then show when loaded (or immediately if cached)
+        img.src = src;
+        if (img.complete) {
+            document.body.appendChild(overlay);
+            document.body.style.overflow = 'hidden';
+        } else {
+            img.addEventListener('load', function() {
+                document.body.appendChild(overlay);
+                document.body.style.overflow = 'hidden';
+            });
+            img.addEventListener('error', function() {
+                // Still show even if image fails
+                document.body.appendChild(overlay);
+                document.body.style.overflow = 'hidden';
+            });
+            // Timeout fallback (5s)
+            setTimeout(function() {
+                if (!overlay.parentNode) {
+                    document.body.appendChild(overlay);
+                    document.body.style.overflow = 'hidden';
+                }
+            }, 5000);
         }
     };
+    window.closeLightbox = function() {
+        var overlay = document.getElementById('imageLightbox');
+        if (overlay) {
+            overlay.remove();
+            document.body.style.overflow = '';
+        }
+    };
+    // ESC key to close
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var overlay = document.getElementById('imageLightbox');
+            if (overlay) {
+                closeLightbox();
+            }
+        }
+    });
     
 // === ADD-ON GARMENT MODAL SYSTEM (ported from create.blade) ===
 let addon_selectedItems = [];
@@ -1736,6 +1879,394 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     };
 
+// ============================================================
+// PRODUCTION SLIP (Interactive Print Slip)
+// ============================================================
+
+// Tab switching
+(function() {
+    document.addEventListener('click', function(e) {
+        var tab = e.target.closest('.prod-tab');
+        if (!tab) return;
+        var tabName = tab.dataset.tab;
+        var tabs = tab.parentElement.querySelectorAll('.prod-tab');
+        tabs.forEach(function(t) {
+            t.style.color = '#666';
+            t.style.borderBottomColor = 'transparent';
+            t.style.fontWeight = '500';
+        });
+        tab.style.color = '#0d6efd';
+        tab.style.borderBottomColor = '#0d6efd';
+        tab.style.fontWeight = '600';
+
+        var detailsBody = document.getElementById('modalSaleBody');
+        var prodBody = document.getElementById('modalProdSlipBody');
+
+        if (tabName === 'details') {
+            detailsBody.style.display = '';
+            prodBody.style.display = 'none';
+        } else {
+            detailsBody.style.display = 'none';
+            prodBody.style.display = '';
+            // Reload if different sale or not loaded yet
+            var needReload = !prodBody.dataset.loaded || prodBody.dataset.saleId !== detailsBody.dataset.saleId;
+            if (needReload) {
+                var saleId = detailsBody.dataset.saleId;
+                if (saleId) {
+                    prodBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading production slip...</p></div>';
+                    prodBody.dataset.loaded = '';
+                    loadProductionSlip(saleId);
+                }
+            }
+        }
+    });
 })();
+
+function loadProductionSlip(saleId) {
+    var prodBody = document.getElementById('modalProdSlipBody');
+    if (!saleId || !prodBody) return;
+
+    fetch('/api/production/checklist/' + saleId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                prodBody.innerHTML = '<div class="alert alert-danger">' + escHtml(data.error) + '</div>';
+                return;
+            }
+            renderProductionSlip(data);
+        })
+        .catch(function(err) {
+            prodBody.innerHTML = '<div class="alert alert-danger">Failed to load production slip</div>';
+        });
+}
+
+function renderProductionSlip(data) {
+    var chk = data.checklist || {};
+    var slip = data.slip || {};
+    var saleId = chk.sale_id || 0;
+    var items = chk.items || [];
+    var partRows = slip.partRows || [];
+    var allRosters = slip.allRosters || [];
+    var sizes = slip.sizes || [];
+    var hasRoster = slip.hasRoster || false;
+    var mockupImages = slip.mockupImages || [];
+    var firstMockup = mockupImages.length > 0 ? mockupImages[0] : null;
+    var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
+
+    // Split parts into two columns
+    var splitMid = Math.ceil(partRows.length / 2);
+    var leftParts = partRows.slice(0, splitMid);
+    var rightParts = partRows.slice(splitMid);
+
+    // Helper: find item index by type and label match
+    function findItemIdx(type, matchStr) {
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type === type && items[i].label.indexOf(matchStr) >= 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // Helper: find nth item of a type
+    function findNthItemIdx(type, n) {
+        var count = 0;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type === type) {
+                if (count === n) return i;
+                count++;
+            }
+        }
+        return -1;
+    }
+
+    var html = '';
+    html += '<div class="pslip" id="pslipContent">';
+
+    // Title
+    html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
+    if (slip.salesNumber) {
+        html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
+    }
+    html += '<div class="divider"></div>';
+
+    // Top: 2 columns — Info (33%) | Parts (67%)
+    html += '<table><tr>';
+    html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+    var infoFields = [
+        ['PROJECT:', slip.projectName],
+        ['DESCRIPTION:', slip.description],
+        ['FABRIC:', slip.fabric],
+        ['DESIGNER:', slip.designer],
+        ['QTY:', slip.totalQty + ' PCS'],
+        ['DATE NEEDED:', slip.dateNeeded],
+        ['AGENT:', slip.agent],
+        ['CUSTOMER:', slip.customer],
+    ];
+    infoFields.forEach(function(f) {
+        html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + f[0] + '</td><td>' + escHtml(f[1] || '') + '</td></tr></table>';
+    });
+    html += '</td>';
+
+    // Parts column (67%)
+    html += '<td style="width:67%;vertical-align:top;">';
+    html += '<div style="width:100%;">';
+    // Left parts
+    html += '<table style="width:49%;float:left;">';
+    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+    leftParts.forEach(function(row) {
+        var itemIdx = findItemIdx('part', row.part);
+        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+        html += '<tr' + (done ? ' class="done"' : '') + '>';
+        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+        html += '<td>' + escHtml(row.detail) + '</td></tr>';
+    });
+    html += '</table>';
+    // Right parts
+    html += '<table style="width:49%;float:right;">';
+    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+    rightParts.forEach(function(row) {
+        var itemIdx = findItemIdx('part', row.part);
+        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+        html += '<tr' + (done ? ' class="done"' : '') + '>';
+        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+        html += '<td>' + escHtml(row.detail) + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<div style="clear:both;"></div>';
+    html += '</div></td>';
+    html += '</tr></table>';
+
+    html += '<div class="divider"></div>';
+
+    // Bottom: Mock-up (30%) | Name List (70%)
+    html += '<table><tr>';
+    html += '<td style="width:30%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">MOCK UP</div>';
+    html += '<div class="mockup-box">';
+    if (firstMockupUrl) {
+        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
+    } else {
+        html += '<span>MOCK UP HERE</span>';
+    }
+    html += '</div>';
+    html += '</td>';
+    html += '<td style="width:70%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">NAME LIST</div>';
+    if (hasRoster && allRosters.length > 0) {
+        html += '<table class="roster-table">';
+        html += '<thead><tr><th>#</th><th>NAME</th><th>SIZE</th><th>QTY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+        html += '<tbody>';
+        allRosters.forEach(function(rosterItem, idx) {
+            var itemIdx = findNthItemIdx('roster', idx);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + (idx + 1) + '</td>';
+            html += '<td>' + escHtml(rosterItem.name || '') + '</td>';
+            html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
+            html += '<td>' + (rosterItem.number || 1) + '</td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else if (sizes.length > 0) {
+        html += '<table class="roster-table">';
+        html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+        html += '<tbody>';
+        sizes.forEach(function(s, idx) {
+            var itemIdx = findNthItemIdx('size', idx);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + escHtml(s.size || '') + '</td>';
+            html += '<td>' + (s.quantity || 0) + '</td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else {
+        html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+    }
+    html += '</td>';
+    html += '</tr></table>';
+
+    // Notes from sale
+    if (slip.notes) {
+        html += '<div style="margin-top:4px;font-size:9pt;text-align:right;border-top:1px solid #000;padding-top:2px;">Note: ' + escHtml(slip.notes) + '</div>';
+    }
+
+    html += '<div class="divider"></div>';
+
+    // === COMMENTS (append-only) ===
+    html += '<div style="margin-top:8px;"><strong>Comments</strong></div>';
+    html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
+    var comments = (chk.ga_notes || '').trim();
+    if (comments) {
+        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
+        if (Array.isArray(comments)) {
+            comments.forEach(function(c) {
+                html += '<div class="ps-comment-entry">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></div>';
+            });
+        }
+    }
+    html += '</div>';
+    html += '<div class="ps-comment-input">';
+    html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
+    html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+
+    html += '</div>'; // end .pslip
+
+    var prodBody = document.getElementById('modalProdSlipBody');
+    prodBody.innerHTML = html;
+    prodBody.dataset.loaded = '1';
+    prodBody.dataset.saleId = saleId;
+}
+
+})();
+
+// Global helper functions (must be outside IIFE for inline event handlers)
+function toggleProdItem(saleId, index, checked) {
+    if (index < 0) return;
+    fetch('/api/production/checklist/' + saleId + '/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({
+            items: [{index: index, status: checked ? 'done' : 'pending'}]
+        })
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var cb = event && event.target;
+            if (cb) {
+                var tr = cb.closest('tr');
+                if (tr) tr.classList.toggle('done', checked);
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to update item', err);
+    });
+
+
+}
+
+function toggleProdCheck(saleId, index, field, checked) {
+    if (index < 0) return;
+    var itemUpdate = {index: index};
+    itemUpdate[field] = checked;
+    fetch('/api/production/checklist/' + saleId + '/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({
+            items: [itemUpdate]
+        })
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var cb = event && event.target;
+            if (cb) {
+                var tr = cb.closest('tr');
+                if (tr) tr.style.backgroundColor = checked ? '#e8f5e9' : '';
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to update check', err);
+    });
+}
+
+
+function toggleQaCheck(saleId, type, checked) {
+    var payload = {};
+    payload[type + '_done'] = checked;
+
+    fetch('/api/production/checklist/' + saleId + '/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var qaCls = checked ? 'checked' : '';
+            var labels = document.querySelectorAll('.ps-check-item label');
+            var idx = (type === 'ga') ? 0 : (type === 'qa1') ? 1 : 2;
+            if (labels[idx]) labels[idx].className = qaCls;
+        }
+    }).catch(function(err) {
+        console.error('Failed to update check', err);
+    });
+}
+
+function addComment(saleId) {
+    var input = document.getElementById('ps-comment-input-' + saleId);
+    if (!input || !input.value.trim()) return;
+    var text = input.value.trim();
+    input.value = '';
+    input.disabled = true;
+
+    // Get current checklist to append to existing comments
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var existing = [];
+        try { existing = JSON.parse(data.checklist.ga_notes || '[]'); } catch(e) {}
+        if (!Array.isArray(existing)) existing = [];
+
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        existing.push({text: text, at: ts});
+
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({ga_notes: JSON.stringify(existing)})
+        });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // Add comment to the list without reloading
+            var list = document.getElementById('ps-comments-' + saleId);
+            if (list) {
+                var entry = document.createElement('div');
+                entry.className = 'ps-comment-entry';
+                var now = new Date();
+                var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+                var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+                entry.innerHTML = escHtml(text) + ' <span class="time">' + ts + '</span>';
+                list.appendChild(entry);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to add comment', err);
+    })
+    .finally(function() {
+        if (input) input.disabled = false;
+    });
+}
+
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 @endpush

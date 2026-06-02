@@ -158,7 +158,7 @@ class PrototypeSalesController extends Controller
             'deposit_paid' => $request->deposit_paid ?: 0,
             'balance_due' => $balanceDue,
             'payment_method' => $request->payment_method ?: 'cash',
-            'payment_owner' => $request->payment_owner ?: ($request->payment_account_id ? App\Models\PaymentAccount::find($request->payment_account_id)?->name : 'company'),
+            'payment_owner' => $request->payment_owner ?: ($request->payment_account_id ? \App\Models\PaymentAccount::find($request->payment_account_id)?->name : 'company'),
             'payment_account_id' => $request->payment_account_id ?: null,
             'payment_date' => $request->payment_date ?: null,
             'reference_number' => $request->reference_number ?: null,
@@ -258,6 +258,24 @@ class PrototypeSalesController extends Controller
             'updated_at' => now(),
         ]);
         
+        // Save mockup image from sublimation form
+        if ($request->items_json) {
+            $items = json_decode($request->items_json, true);
+            if (is_array($items)) {
+                foreach ($items as $item) {
+                    if (isset($item['sublimationForm']['mockup']) && !empty($item['sublimationForm']['mockup'])) {
+                        $mockupImages = [[
+                            'name' => ($item['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
+                            'url' => $item['sublimationForm']['mockup'],
+                            'type' => 'sublimation'
+                        ]];
+                        \DB::table('prototype_sales')->where('id', $saleId)->update(['mockup_images' => json_encode($mockupImages)]);
+                        break;
+                    }
+                }
+            }
+        }
+
         return redirect()->route('sales.prototype.create')
             ->with('success', 'Sale saved! It has been added to the Kanban board.');
     }
@@ -381,7 +399,7 @@ class PrototypeSalesController extends Controller
                     foreach ($refImages as $rimg) {
                         $src = $rimg['dataUrl'] ?? $rimg['url'] ?? $rimg['src'] ?? '';
                         if ($src) {
-                            $html .= '<img src="' . e($src) . '" class="ref-image" onclick="openLightbox(\'' . e($src) . '\')" title="' . e($rimg['name'] ?? 'Image') . '">';
+                            $html .= '<img src="' . e($src) . '" class="ref-image" style="cursor:pointer;" alt="' . e($rimg['name'] ?? 'Image') . '">';
                         }
                     }
                     $html .= '</div></div>';
@@ -396,17 +414,15 @@ class PrototypeSalesController extends Controller
         // --- Payment Info ---
         $html .= '<div class="sale-detail-section">';
         $html .= '<h6><i class="fas fa-credit-card me-2"></i>Payment & Totals</h6>';
-        $html .= '<div class="subtotal-row"><span>Subtotal</span><span>₱' . number_format($sale->subtotal ?? 0, 2) . '</span></div>';
-        if (($sale->tax ?? 0) > 0) {
-            $html .= '<div class="subtotal-row"><span>Tax (12%)</span><span>₱' . number_format($sale->tax, 2) . '</span></div>';
-        }
-        $html .= '<div class="total-row"><span>Total</span><span>₱' . number_format($sale->total_amount ?? 0, 2) . '</span></div>';
+        $html .= '<div class="total-row"><span>Total Amount</span><span>₱' . number_format($sale->subtotal ?? 0, 2) . '</span></div>';
         if (($sale->deposit_paid ?? 0) > 0) {
             $html .= '<div class="subtotal-row text-success"><span>Deposit Paid</span><span>-₱' . number_format($sale->deposit_paid, 2) . '</span></div>';
         }
-        if (($sale->balance_due ?? 0) > 0) {
-            $html .= '<div class="subtotal-row text-danger fw-bold"><span>Balance Due</span><span>₱' . number_format($sale->balance_due, 2) . '</span></div>';
+        $balance = ($sale->subtotal ?? 0) - ($sale->deposit_paid ?? 0);
+        if ($balance > 0) {
+            $html .= '<div class="subtotal-row text-danger fw-bold"><span>Balance Due</span><span>₱' . number_format($balance, 2) . '</span></div>';
         }
+
         $html .= '<div class="mt-2 small">';
         $html .= '<span class="text-muted">Payment Method:</span> ' . e(ucfirst($sale->payment_method ?? 'N/A')) . ' &nbsp;|&nbsp; ';
         $html .= '<span class="text-muted">Paid by:</span> ' . e(ucfirst($sale->payment_owner ?? 'N/A')) . '<br>';
@@ -455,7 +471,7 @@ class PrototypeSalesController extends Controller
         if ($sale->payment_screenshot_path) {
             $html .= '<div class="sale-detail-section">';
             $html .= '<h6><i class="fas fa-camera me-2"></i>Payment Screenshot</h6>';
-            $html .= '<img src="' . e($sale->payment_screenshot_path) . '" class="payment-img" onclick="openLightbox(\'' . e($sale->payment_screenshot_path) . '\')" style="cursor:pointer;">';
+            $html .= '<img src="' . e($sale->payment_screenshot_path) . '" class="payment-img" style="cursor:pointer;">';
             $html .= '<div class="small text-muted mt-1">Click to enlarge</div>';
             $html .= '</div>';
         }
@@ -481,6 +497,300 @@ class PrototypeSalesController extends Controller
         $kanbanItem = \DB::table('sales_kanban_items')->where('sale_id', $id)->first();
         
         return view('sales.prototype.show', compact('sale', 'services', 'kanbanItem'));
+    }
+
+    /**
+     * Print slip for a saved sale.
+     */
+    public function printSlip(string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            abort(404);
+        }
+        
+        $services = json_decode($sale->services, true);
+        if (!is_array($services)) {
+            $services = [];
+        }
+        
+        return view('sales.prototype.print-slip', compact('sale', 'services'));
+    }
+
+    /**
+     * Get or auto-generate production checklist for a sale.
+     */
+    public function getProductionChecklist(string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        $services = json_decode($sale->services, true) ?: [];
+        $sublimationForm = null;
+        foreach ($services as $item) {
+            if (isset($item['sublimationForm'])) {
+                $sublimationForm = $item['sublimationForm'];
+                break;
+            }
+        }
+
+        // Build spec parts map (same as print-slip.blade.php)
+        $specPartsMap = [
+            'neckRibbingColor' => 'Neck Ribbing', 'neckTape' => 'Neck Tape', 'cuffs' => 'Cuffs',
+            'slit' => 'Slit', 'pocket' => 'Pocket', 'collar' => 'Collar', 'neckShape' => 'Neck Shape',
+            'cutType' => 'Cut Type', 'inner' => 'Inner', 'buttonColor' => 'Button',
+            'zipperColor' => 'Zipper', 'innerStr' => 'Inner String', 'jersey' => 'Jersey',
+            'defaultDesign' => 'Design', 'armsleeve' => 'Arm Sleeve', 'shoulder' => 'Shoulder',
+            'sizeLabel' => 'Size Label'
+        ];
+
+        $main = $sublimationForm;
+        $specs = $main['specifications'] ?? [];
+        $partRows = [];
+        $garmentName = $main['garment']['name'] ?? '';
+        $partsAdded = $main['parts'] ?? [];
+
+        if ($garmentName) {
+            $partRows[] = ['part' => 'Garment', 'detail' => $garmentName];
+        }
+        foreach ($specPartsMap as $key => $label) {
+            $val = $specs[$key] ?? '';
+            if ($val) {
+                $partRows[] = ['part' => $label, 'detail' => $val];
+            }
+        }
+        if (!empty($partsAdded)) {
+            $partDetails = implode(', ', array_map(function($p) { return $p['name'] ?? ''; }, $partsAdded));
+            if ($partDetails) {
+                $partRows[] = ['part' => 'Parts Added', 'detail' => $partDetails];
+            }
+        }
+
+        // Roster data
+        $allRosters = [];
+        foreach ($services as $item) {
+            if (isset($item['sublimationForm']['roster'])) {
+                foreach ($item['sublimationForm']['roster'] as $r) {
+                    $allRosters[] = $r;
+                }
+            }
+        }
+
+        // Sizes (from sublimation or fallback)
+        $sizes = $main['sizes'] ?? [];
+
+        // Total QTY
+        $totalQty = 0;
+        if ($main) {
+            foreach ($main['sizes'] ?? [] as $s) {
+                $totalQty += intval($s['quantity'] ?? 0);
+            }
+            foreach ($main['roster'] ?? [] as $r) {
+                $totalQty += intval($r['number'] ?? 1);
+            }
+        }
+
+        // Customer info
+        $customerName = $sale->customer_name ?? '';
+        $salesNumber = $sale->sales_number ?? '';
+        $salesAgent = $sale->sales_agent_name ?? '';
+        $notes = $services[0]['notes'] ?? '';
+
+        // Build checklist items for status tracking
+        $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
+
+        if (!$checklist) {
+            $items = [];
+            // Part items
+            foreach ($partRows as $pi) {
+                $items[] = [
+                    'type' => 'part',
+                    'label' => $pi['part'] . ': ' . $pi['detail'],
+                    'value' => '',
+                    'status' => 'pending',
+                ];
+            }
+            // Roster items
+            foreach ($allRosters as $r) {
+                $items[] = [
+                    'type' => 'roster',
+                    'label' => $r['name'] ?? 'Unknown',
+                    'value' => ($r['size'] ?? '') . ' ×' . ($r['number'] ?? 1),
+                    'status' => 'pending',
+                ];
+            }
+            // Size items
+            foreach ($sizes as $s) {
+                $items[] = [
+                    'type' => 'size',
+                    'label' => ($s['size'] ?? 'Size') . ' ×' . ($s['quantity'] ?? 0),
+                    'value' => '',
+                    'status' => 'pending',
+                ];
+            }
+
+            $checklist = \App\Models\ProductionChecklist::create([
+                'sale_id' => $id,
+                'items' => $items,
+            ]);
+        }
+        // Build mockupImages with fallback
+        $mockupImages_final = [];
+        $mockupsRaw_svc = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+        if (!empty($mockupsRaw_svc)) {
+            $mockupImages_final = $mockupsRaw_svc;
+        } else {
+            foreach ((array)$services as $svcItem) {
+                if (!empty($svcItem['sublimationForm']['mockup'])) {
+                    $mockupImages_final = [[
+                        'name' => ($svcItem['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
+                        'url' => $svcItem['sublimationForm']['mockup'],
+                        'type' => 'sublimation'
+                    ]];
+                    break;
+                }
+            }
+        }
+
+        return response()->json([
+            'checklist' => [
+                'sale_id' => $checklist->sale_id,
+                'id' => $checklist->id,
+                'items' => $checklist->items ?? [],
+                'ga_done' => $checklist->ga_done,
+                'ga_done_at' => $checklist->ga_done_at ? $checklist->ga_done_at->toISOString() : null,
+                'ga_notes' => $checklist->ga_notes,
+                'qa1_done' => $checklist->qa1_done,
+                'qa1_done_at' => $checklist->qa1_done_at ? $checklist->qa1_done_at->toISOString() : null,
+                'qa1_notes' => $checklist->qa1_notes,
+                'press_done' => $checklist->press_done,
+                'press_done_at' => $checklist->press_done_at ? $checklist->press_done_at->toISOString() : null,
+                'qa2_done' => $checklist->qa2_done,
+                'qa2_done_at' => $checklist->qa2_done_at ? $checklist->qa2_done_at->toISOString() : null,
+                'qa2_notes' => $checklist->qa2_notes,
+            ],
+            'slip' => [
+                'projectName' => $main['projectName'] ?? '',
+                'description' => $main['description'] ?? '',
+                'fabric' => $main['fabric']['name'] ?? '',
+                'designer' => $main['designer'] ?? '',
+                'totalQty' => $totalQty,
+                'dateNeeded' => $main['dateNeeded'] ?? '',
+                'salesNumber' => $salesNumber,
+                'agent' => $salesAgent,
+                'customer' => $customerName,
+                'partRows' => $partRows,
+                'allRosters' => $allRosters,
+                'sizes' => $sizes,
+                'notes' => $notes,
+                'hasRoster' => !empty($allRosters),
+                'mockupImages' => $mockupImages_final,
+            ],
+        ]);
+    }
+
+    /**
+     * Save production checklist status updates.
+     */
+    public function saveProductionChecklist(string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
+        if (!$checklist) {
+            return response()->json(['error' => 'Checklist not found. Create it first.'], 404);
+        }
+
+        $input = request()->all();
+
+        // Update individual item statuses
+        if (isset($input['items'])) {
+            $incomingItems = $input['items'];
+            // Check if this is partial update (array of {index, status}) or full replacement
+            if (is_array($incomingItems) && isset($incomingItems[0]['index'])) {
+                // Partial update: apply status changes by index
+                $currentItems = $checklist->items ?? [];
+                foreach ($incomingItems as $update) {
+                    $idx = $update['index'] ?? -1;
+                    if ($idx >= 0 && $idx < count($currentItems)) {
+                        if (isset($update['status'])) {
+                            $currentItems[$idx]['status'] = $update['status'];
+                        }
+                        if (isset($update['ga_done'])) {
+                            $currentItems[$idx]['ga_done'] = filter_var($update['ga_done'], FILTER_VALIDATE_BOOLEAN);
+                        }
+                        if (isset($update['qa1_done'])) {
+                            $currentItems[$idx]['qa1_done'] = filter_var($update['qa1_done'], FILTER_VALIDATE_BOOLEAN);
+                        }
+                        if (isset($update['qa2_done'])) {
+                            $currentItems[$idx]['qa2_done'] = filter_var($update['qa2_done'], FILTER_VALIDATE_BOOLEAN);
+                        }
+                    }
+                }
+                $checklist->items = $currentItems;
+            } else {
+                // Full replacement
+                $checklist->items = $incomingItems;
+            }
+        }
+
+        // Update stage flags
+        if (isset($input['ga_done'])) {
+            $checklist->ga_done = filter_var($input['ga_done'], FILTER_VALIDATE_BOOLEAN);
+            if ($checklist->ga_done && !$checklist->ga_done_at) {
+                $checklist->ga_done_at = now();
+            } elseif (!$checklist->ga_done) {
+                $checklist->ga_done_at = null;
+            }
+        }
+        if (array_key_exists('ga_notes', $input)) {
+            $checklist->ga_notes = $input['ga_notes'];
+        }
+
+        if (isset($input['qa1_done'])) {
+            $checklist->qa1_done = filter_var($input['qa1_done'], FILTER_VALIDATE_BOOLEAN);
+            if ($checklist->qa1_done && !$checklist->qa1_done_at) {
+                $checklist->qa1_done_at = now();
+            } elseif (!$checklist->qa1_done) {
+                $checklist->qa1_done_at = null;
+            }
+        }
+        if (array_key_exists('qa1_notes', $input)) {
+            $checklist->qa1_notes = $input['qa1_notes'];
+        }
+
+        if (isset($input['press_done'])) {
+            $checklist->press_done = filter_var($input['press_done'], FILTER_VALIDATE_BOOLEAN);
+            if ($checklist->press_done && !$checklist->press_done_at) {
+                $checklist->press_done_at = now();
+            } elseif (!$checklist->press_done) {
+                $checklist->press_done_at = null;
+            }
+        }
+
+        if (isset($input['qa2_done'])) {
+            $checklist->qa2_done = filter_var($input['qa2_done'], FILTER_VALIDATE_BOOLEAN);
+            if ($checklist->qa2_done && !$checklist->qa2_done_at) {
+                $checklist->qa2_done_at = now();
+            } elseif (!$checklist->qa2_done) {
+                $checklist->qa2_done_at = null;
+            }
+        }
+        if (array_key_exists('qa2_notes', $input)) {
+            $checklist->qa2_notes = $input['qa2_notes'];
+        }
+
+        $checklist->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Checklist saved',
+        ]);
     }
 
     /**
@@ -567,6 +877,20 @@ class PrototypeSalesController extends Controller
             'balance_due' => $totalAmount - ($sale->deposit_paid ?? 0),
             'updated_at' => now(),
         ]);
+        
+        // Save mockup image from sublimation form
+        $items = json_decode($request->items_json, true) ?: [];
+        foreach ($items as $item) {
+            if (isset($item['sublimationForm']['mockup']) && !empty($item['sublimationForm']['mockup'])) {
+                $mockupImages = [[
+                    'name' => ($item['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
+                    'url' => $item['sublimationForm']['mockup'],
+                    'type' => 'sublimation'
+                ]];
+                \DB::table('prototype_sales')->where('id', $id)->update(['mockup_images' => json_encode($mockupImages)]);
+                break;
+            }
+        }
         
         return redirect()->route('sales.prototype.edit', $id)
             ->with('success', 'Order updated successfully! New total: ₱' . number_format($totalAmount, 2));
@@ -811,6 +1135,7 @@ class PrototypeSalesController extends Controller
                 'department_id' => $p->department_id,
                 'department_name' => $p->department_name,
                 'total_amount' => $p->total_amount,
+                'subtotal' => $p->subtotal,
                 'deposit_paid' => $p->deposit_paid,
                 'balance_due' => $p->balance_due,
                 'kanban_status' => $p->kanban_status,

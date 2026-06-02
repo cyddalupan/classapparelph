@@ -4,6 +4,85 @@
 
 @push('styles')
 <style>
+/* ========== SALE DETAIL MODAL STYLES (shared with kanban) ========== */
+.sale-detail-section {
+        margin-bottom: 20px;
+    }
+    .sale-detail-section h6 {
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 6px;
+        margin-bottom: 12px;
+    }
+    .sale-detail-section .item-card {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+    .sale-detail-section .item-card .item-label {
+        font-size: 11px;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .sale-detail-section .item-card .item-value {
+        font-size: 13px;
+        font-weight: 500;
+    }
+    .sale-detail-section .subitem-row {
+        display: inline-flex;
+        align-items: center;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        padding: 4px 10px;
+        margin: 2px;
+        font-size: 12px;
+    }
+    .sale-detail-section .print-detail {
+        background: #e7f5ff;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-top: 8px;
+        font-size: 12px;
+    }
+    .sale-detail-section .ref-image {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        margin: 3px;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .sale-detail-section .ref-image:hover {
+        transform: scale(1.1);
+    }
+    .sale-detail-section .payment-img {
+        max-width: 100%;
+        max-height: 200px;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+    .sale-detail-section .subtotal-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        font-size: 13px;
+    }
+    .sale-detail-section .total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-weight: 700;
+        font-size: 15px;
+        border-top: 2px solid #dee2e6;
+        margin-top: 4px;
+    }
 /* ========== BASE ========== */
 .calendar-wrapper {
     background: white;
@@ -337,6 +416,12 @@
             </div>
             <div class="modal-body" id="projectModalBody">Loading...</div>
             <div class="modal-footer">
+                <a href="#" id="calendarEditBtn" class="btn btn-primary" target="_blank" style="display:none;">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="#" id="calendarPrintSlipBtn" class="btn btn-success" target="_blank" style="display:none;">
+                    <i class="fas fa-print"></i> Print Slip
+                </a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -435,7 +520,7 @@ function renderWeek(monday, projects) {
                 const dept = p.department_name || 'other';
                 const color = dc[dept] || '#6c757d';
                 const name = p.customer_name || 'Unknown';
-                const amt = parseFloat(p.total_amount||0);
+                const amt = parseFloat(p.subtotal || p.total_amount || 0);
                 
                 // Build items summary from services
                 let itemsHtml = '';
@@ -558,7 +643,7 @@ function loadCal() {
 // ========== SUMMARY ==========
 function updateSummary(projects) {
     const total = projects.length;
-    const totalAmt = projects.reduce((s,p)=>s+parseFloat(p.total_amount||0),0);
+    const totalAmt = projects.reduce((s,p)=>s+parseFloat(p.subtotal || p.total_amount || 0),0);
     const totalDep = projects.reduce((s,p)=>s+parseFloat(p.deposit_paid||0),0);
 
     const sb = {}, db = {}, itemb = {};
@@ -618,13 +703,82 @@ function updateSummary(projects) {
 
 function showDetail(id) {
     const modal = new bootstrap.Modal(document.getElementById('projectModal'));
-    document.getElementById('projectModalBody').innerHTML = '<p class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</p>';
+    const body = document.getElementById('projectModalBody');
+    body.innerHTML = '<p class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</p>';
     modal.show();
     fetch(`/sales/prototype/${id}/details`)
-        .then(r=>r.text())
-        .then(h=>{ document.getElementById('projectModalBody').innerHTML = h; })
-        .catch(()=>{ document.getElementById('projectModalBody').innerHTML = '<p class="text-danger">Failed to load details.</p>'; });
+        .then(r=>r.json())
+        .then(function(data) {
+            var mt = document.querySelector('#projectModal .modal-title');
+            mt.innerHTML = '<i class="fas fa-info-circle me-2"></i>' + (data.title || 'Sale #' + id);
+            body.innerHTML = data.html;
+            // Attach lightbox click handlers to dynamically loaded images
+            body.querySelectorAll('.ref-image, .payment-img').forEach(function(img) {
+                img.addEventListener('click', function() {
+                    window.openLightbox(this.src);
+                });
+            });
+            // Update Edit and Print Slip button links
+            var editBtn = document.getElementById('calendarEditBtn');
+            var printBtn = document.getElementById('calendarPrintSlipBtn');
+            if (editBtn) {
+                editBtn.href = '/sales/prototype/' + id + '/edit';
+                editBtn.style.display = '';
+            }
+            if (printBtn) {
+                printBtn.href = '/sales/prototype/' + id + '/print-slip';
+                printBtn.style.display = '';
+            }
+        })
+        .catch(()=>{ body.innerHTML = '<p class="text-danger">Failed to load details.</p>'; });
 }
+
+// Lightbox functions (shared with kanban modal)
+window.openLightbox = function(src) {
+    var old = document.getElementById('imageLightbox');
+    if (old) old.remove();
+    
+    var overlay = document.createElement('div');
+    overlay.id = 'imageLightbox';
+    overlay.style.cssText = 'display:flex!important;align-items:center;justify-content:center;position:fixed;top:0;left:0;width:100%;height:100%;z-index:100000;background:rgba(0,0,0,0.85);cursor:zoom-out;';
+    
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'position:absolute;top:15px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;z-index:100001;';
+    closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        closeLightbox();
+    });
+    
+    var imgContainer = document.createElement('div');
+    imgContainer.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:40px;';
+    
+    var img = document.createElement('img');
+    img.id = 'lightboxImage';
+    img.style.cssText = 'max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px;';
+    img.alt = '';
+    
+    imgContainer.appendChild(img);
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(imgContainer);
+    
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            closeLightbox();
+        }
+    });
+    
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+    img.src = src;
+};
+window.closeLightbox = function() {
+    var overlay = document.getElementById('imageLightbox');
+    if (overlay) {
+        overlay.remove();
+        document.body.style.overflow = '';
+    }
+};
 
 document.addEventListener('DOMContentLoaded', loadCal);
 </script>

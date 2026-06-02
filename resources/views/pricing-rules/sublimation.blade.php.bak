@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Full Sublimation Pricing Rules - CLASS Apparel PH</title>
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); min-height: 100vh; padding: 20px; }
+        .rule-card { background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); padding: 25px; margin-top: 20px; }
+        .header-card { background: linear-gradient(135deg, #059669 0%, #047857 100%); border-radius: 15px; padding: 25px 30px; color: white; margin-top: 20px; }
+        .nav-tabs .nav-link { color: #059669; font-weight: 600; border: none; padding: 12px 25px; }
+        .nav-tabs .nav-link.active { color: white; background: #059669; border-radius: 10px 10px 0 0; }
+        .section-title { color: #047857; border-left: 4px solid #059669; padding-left: 15px; margin: 25px 0 15px 0; font-weight: 600; }
+        .price-input { border: 2px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-weight: 600; text-align: right; width: 120px; transition: all 0.3s; }
+        .price-input:focus { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.1); outline: none; }
+        .item-row { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; transition: all 0.2s; }
+        .item-row:hover { border-color: #059669; background: #f0fdf4; }
+        .item-row.linked { border-left: 4px solid #059669; background: #f0fdf4; }
+        .bulk-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 15px; margin-bottom: 8px; }
+        .btn-save { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: none; border-radius: 10px; padding: 12px 30px; font-size: 1.1rem; font-weight: 600; }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(5,150,105,0.3); }
+        .btn-add { background: #059669; color: white; border: none; border-radius: 8px; padding: 8px 20px; font-weight: 600; }
+        .btn-add:hover { background: #047857; }
+        .btn-remove { background: #ef4444; color: white; border: none; border-radius: 6px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+        .btn-remove:hover { background: #dc2626; }
+        .badge-category { font-size: 0.8rem; padding: 4px 10px; border-radius: 20px; }
+        .badge-garment { background: #dbeafe; color: #1d4ed8; }
+        .badge-fabric { background: #fce7f3; color: #be185d; }
+        .badge-part { background: #fef3c7; color: #b45309; }
+        .badge-linked { background: #d1fae5; color: #047857; font-size: 0.75rem; }
+        .tab-pane { padding-top: 20px; }
+        .master-select { border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.85rem; }
+        .master-select option { padding: 4px; }
+        .auto-fill-badge { background: #059669; color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1"><i class="fas fa-paint-roller me-2"></i>Full Sublimation Pricing Rules</h1>
+                    <p class="mb-0 opacity-75">Connect items to Product Pricing, configure garment/fabric/parts pricing and bulk discounts</p>
+                </div>
+                <div>
+                    <a href="{{ route('pricing.rules') }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+            <i class="fas fa-check-circle me-1"></i> {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+        @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+            <i class="fas fa-exclamation-circle me-1"></i> {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        @endif
+
+        <!-- Tabs Navigation -->
+        <div class="rule-card">
+            <ul class="nav nav-tabs" id="sublimationTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="shirt-tab" data-bs-toggle="tab" data-bs-target="#shirt" type="button" role="tab">
+                        <i class="fas fa-tshirt me-1"></i> Shirt Fullsublimation
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="pillow-tab" data-bs-toggle="tab" data-bs-target="#pillow" type="button" role="tab" disabled>
+                        <i class="fas fa-couch me-1"></i> Pillow Sublimation
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="other-tab" data-bs-toggle="tab" data-bs-target="#other" type="button" role="tab" disabled>
+                        <i class="fas fa-plus-circle me-1"></i> More Coming..
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="sublimationTabsContent">
+                <!-- ==================== SHIRT TAB ==================== -->
+                <div class="tab-pane fade show active" id="shirt" role="tabpanel">
+
+                    <!-- === Available Product Pricing (reference) === -->
+                    @if(count($sublimationMasterItems) > 0)
+                    <div class="alert alert-success py-2 px-3 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-link me-2"></i>
+                            <strong class="me-2">Connected to Product Pricing:</strong>
+                            @foreach($sublimationMasterItems as $smi)
+                                @php
+                                    $salesPrice = $smi->productPricings->where('price_tier', 'sales_team')->first();
+                                @endphp
+                                <span class="badge bg-light text-dark me-2 py-1">
+                                    {{ $smi->name }}
+                                    @if($salesPrice)
+                                        (₱{{ number_format($salesPrice->final_price, 2) }})
+                                    @endif
+                                </span>
+                            @endforeach
+                        </div>
+                    </div>
+                    @else
+                    <div class="alert alert-warning py-2 px-3 mb-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No sublimation master items found.
+                        <a href="{{ route('master-items.index') }}" class="alert-link">Create master items</a> 
+                        first with "FULLSUBLIMATION" or "Sublimation" in the name/description.
+                    </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('pricing.rules.sublimation.prices') }}">
+                        @csrf
+
+                        <!-- === GARMENT PRICING === -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="section-title mb-0"><i class="fas fa-tshirt me-2"></i>Garment Types</h5>
+                            <button class="btn btn-add btn-sm" onclick="showAddForm('garment', 'shirt')">
+                                <i class="fas fa-plus me-1"></i> Add Garment
+                            </button>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            Base pricing for each garment type. 
+                            <strong>Use the dropdown to link each item to a Product Pricing entry</strong> 
+                            for auto price-fill.
+                        </p>
+
+                        @forelse($garments as $item)
+                        <div class="item-row {{ $item->master_item_id ? 'linked' : '' }}">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    <strong>{{ $item->name }}</strong>
+                                    <span class="badge badge-category badge-garment ms-1">Garment</span>
+                                    @if($item->master_item_id)
+                                        <span class="badge badge-linked ms-1">
+                                            <i class="fas fa-link me-1"></i>Linked
+                                        </span>
+                                    @endif
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Sales Price (₱)</label>
+                                    <input type="number" step="0.01" class="form-control price-input form-control-sm" 
+                                        name="prices[{{ $item->id }}][price]" value="{{ $item->price }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Agent Price (₱)</label>
+                                    <input type="number" step="0.01" class="form-control price-input form-control-sm" 
+                                        name="prices[{{ $item->id }}][agent_price]" value="{{ $item->agent_price ?? '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">
+                                        <i class="fas fa-link me-1"></i> Connect to Product Pricing
+                                    </label>
+                                    <select class="form-select form-select-sm master-select" 
+                                        name="prices[{{ $item->id }}][master_item_id]"
+                                        onchange="autoFillPrice(this, {{ $item->id }})">
+                                        <option value="">— None (manual) —</option>
+                                        @foreach($sublimationMasterItems as $smi)
+                                            @php
+                                                $salesPrice = $smi->productPricings->where('price_tier', 'sales_team')->first();
+                                                $agentPrice = $smi->productPricings->where('price_tier', 'agent_cost')->first();
+                                                $label = $smi->name . ' (₱' . number_format($salesPrice?->final_price ?? 0, 2) . ')';
+                                            @endphp
+                                            <option value="{{ $smi->id }}" 
+                                                data-sales="{{ $salesPrice?->final_price ?? '' }}"
+                                                data-agent="{{ $agentPrice?->final_price ?? '' }}"
+                                                {{ $item->master_item_id == $smi->id ? 'selected' : '' }}>
+                                                {{ $label }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    @if($item->master_item_id)
+                                        <label class="form-label small mb-0 d-block">&nbsp;</label>
+                                        <a href="{{ route('product-pricing.edit', $item->master_item_id) }}" 
+                                           class="btn btn-outline-success btn-sm" target="_blank" title="View in Product Pricing">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    @endif
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    <label class="form-label small mb-0 d-block">&nbsp;</label>
+                                    <form method="POST" action="{{ route('pricing.rules.sublimation.delete-price') }}" class="d-inline" onsubmit="return confirm('Delete this item?')">
+                                        @csrf
+                                        <input type="hidden" name="id" value="{{ $item->id }}">
+                                        <button type="submit" class="btn-remove" title="Delete"><i class="fas fa-trash-alt fa-sm"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+                            @if($item->master_item_id && $item->masterItem)
+                            <div class="mt-1">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Linked to: <strong>{{ $item->masterItem->name }}</strong>
+                                    @if($item->masterItem->description)
+                                        — {{ $item->masterItem->description }}
+                                    @endif
+                                </small>
+                            </div>
+                            @endif
+                        </div>
+                        @empty
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-tshirt fa-3x mb-2 opacity-25"></i>
+                            <p>No garment types yet. Click "Add Garment" to get started.</p>
+                        </div>
+                        @endforelse
+
+                        <hr class="my-4">
+
+                        <!-- === FABRIC PRICING === -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="section-title mb-0"><i class="fas fa-tshirt me-2"></i>Fabric Types</h5>
+                            <button class="btn btn-add btn-sm" onclick="showAddForm('fabric', 'shirt')">
+                                <i class="fas fa-plus me-1"></i> Add Fabric
+                            </button>
+                        </div>
+                        <p class="text-muted small mb-3">Fabric material pricing. Link to Product Pricing for auto-fill.</p>
+
+                        @forelse($fabrics as $item)
+                        <div class="item-row {{ $item->master_item_id ? 'linked' : '' }}">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    <strong>{{ $item->name }}</strong>
+                                    <span class="badge badge-category badge-fabric ms-1">Fabric</span>
+                                    @if($item->master_item_id)
+                                        <span class="badge badge-linked ms-1"><i class="fas fa-link me-1"></i>Linked</span>
+                                    @endif
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Sales Price (₱)</label>
+                                    <input type="number" step="0.01" class="form-control price-input form-control-sm" 
+                                        name="prices[{{ $item->id }}][price]" value="{{ $item->price }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Agent Price (₱)</label>
+                                    <input type="number" step="0.01" class="form-control price-input form-control-sm" 
+                                        name="prices[{{ $item->id }}][agent_price]" value="{{ $item->agent_price ?? '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0"><i class="fas fa-link me-1"></i> Connect to Product Pricing</label>
+                                    <select class="form-select form-select-sm master-select" 
+                                        name="prices[{{ $item->id }}][master_item_id]"
+                                        onchange="autoFillPrice(this, {{ $item->id }})">
+                                        <option value="">— None (manual) —</option>
+                                        @foreach($sublimationMasterItems as $smi)
+                                            @php
+                                                $salesPrice = $smi->productPricings->where('price_tier', 'sales_team')->first();
+                                                $agentPrice = $smi->productPricings->where('price_tier', 'agent_cost')->first();
+                                                $label = $smi->name . ' (₱' . number_format($salesPrice?->final_price ?? 0, 2) . ')';
+                                            @endphp
+                                            <option value="{{ $smi->id }}" 
+                                                data-sales="{{ $salesPrice?->final_price ?? '' }}"
+                                                data-agent="{{ $agentPrice?->final_price ?? '' }}"
+                                                {{ $item->master_item_id == $smi->id ? 'selected' : '' }}>
+                                                {{ $label }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    @if($item->master_item_id)
+                                        <label class="form-label small mb-0 d-block">&nbsp;</label>
+                                        <a href="{{ route('product-pricing.edit', $item->master_item_id) }}" 
+                                           class="btn btn-outline-success btn-sm" target="_blank" title="View in Product Pricing">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    @endif
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    <label class="form-label small mb-0 d-block">&nbsp;</label>
+                                    <form method="POST" action="{{ route('pricing.rules.sublimation.delete-price') }}" class="d-inline" onsubmit="return confirm('Delete this item?')">
+                                        @csrf
+                                        <input type="hidden" name="id" value="{{ $item->id }}">
+                                        <button type="submit" class="btn-remove" title="Delete"><i class="fas fa-trash-alt fa-sm"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+                            @if($item->master_item_id && $item->masterItem)
+                            <div class="mt-1">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Linked to: <strong>{{ $item->masterItem->name }}</strong>
+                                    @if($item->masterItem->description)
+                                        — {{ $item->masterItem->description }}
+                                    @endif
+                                </small>
+                            </div>
+                            @endif
+                        </div>
+                        @empty
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-tshirt fa-3x mb-2 opacity-25"></i>
+                            <p>No fabric types yet. Click "Add Fabric" to get started.</p>
+                        </div>
+                        @endforelse
+
+                        <hr class="my-4">
+
+                        <!-- === PARTS / ADD-ONS === -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="section-title mb-0"><i class="fas fa-puzzle-piece me-2"></i>Parts / Add-ons</h5>
+                            <button class="btn btn-add btn-sm" onclick="showAddForm('part', 'shirt')">
+                                <i class="fas fa-plus me-1"></i> Add Part
+                            </button>
+                        </div>
+                        <p class="text-muted small mb-3">Additional parts and customization. Link to Product Pricing for auto-fill.</p>
+
+                        @forelse($parts as $item)
+                        <div class="item-row {{ $item->master_item_id ? 'linked' : '' }}">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    <strong>{{ $item->name }}</strong>
+                                    <span class="badge badge-category badge-part ms-1">Part</span>
+                                    @if($item->master_item_id)
+                                        <span class="badge badge-linked ms-1"><i class="fas fa-link me-1"></i>Linked</span>
+                                    @endif
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0">Sales Price (₱)</label>
+                                    <input type="number" step="0.01" class="form-control price-input form-control-sm" 
+                                        name="prices[{{ $item->id }}][price]" value="{{ $item->price }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Agent Price (₱)</label>
+                                    <input type="number" step="0.01" class="form-control price-input form-control-sm" 
+                                        name="prices[{{ $item->id }}][agent_price]" value="{{ $item->agent_price ?? '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small mb-0"><i class="fas fa-link me-1"></i> Connect to Product Pricing</label>
+                                    <select class="form-select form-select-sm master-select" 
+                                        name="prices[{{ $item->id }}][master_item_id]"
+                                        onchange="autoFillPrice(this, {{ $item->id }})">
+                                        <option value="">— None (manual) —</option>
+                                        @foreach($sublimationMasterItems as $smi)
+                                            @php
+                                                $salesPrice = $smi->productPricings->where('price_tier', 'sales_team')->first();
+                                                $agentPrice = $smi->productPricings->where('price_tier', 'agent_cost')->first();
+                                                $label = $smi->name . ' (₱' . number_format($salesPrice?->final_price ?? 0, 2) . ')';
+                                            @endphp
+                                            <option value="{{ $smi->id }}" 
+                                                data-sales="{{ $salesPrice?->final_price ?? '' }}"
+                                                data-agent="{{ $agentPrice?->final_price ?? '' }}"
+                                                {{ $item->master_item_id == $smi->id ? 'selected' : '' }}>
+                                                {{ $label }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    @if($item->master_item_id)
+                                        <label class="form-label small mb-0 d-block">&nbsp;</label>
+                                        <a href="{{ route('product-pricing.edit', $item->master_item_id) }}" 
+                                           class="btn btn-outline-success btn-sm" target="_blank" title="View in Product Pricing">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    @endif
+                                </div>
+                                <div class="col-md-1 text-end">
+                                    <label class="form-label small mb-0 d-block">&nbsp;</label>
+                                    <form method="POST" action="{{ route('pricing.rules.sublimation.delete-price') }}" class="d-inline" onsubmit="return confirm('Delete this item?')">
+                                        @csrf
+                                        <input type="hidden" name="id" value="{{ $item->id }}">
+                                        <button type="submit" class="btn-remove" title="Delete"><i class="fas fa-trash-alt fa-sm"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+                            @if($item->master_item_id && $item->masterItem)
+                            <div class="mt-1">
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Linked to: <strong>{{ $item->masterItem->name }}</strong>
+                                    @if($item->masterItem->description)
+                                        — {{ $item->masterItem->description }}
+                                    @endif
+                                </small>
+                            </div>
+                            @endif
+                        </div>
+                        @empty
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-puzzle-piece fa-3x mb-2 opacity-25"></i>
+                            <p>No parts yet. Click "Add Part" to get started.</p>
+                        </div>
+                        @endforelse
+
+                        <div class="text-center mt-4">
+                            <button type="submit" class="btn-save">
+                                <i class="fas fa-save me-2"></i> Save All Pricing Changes
+                            </button>
+                        </div>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <!-- === BULK DISCOUNT === -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="section-title mb-0"><i class="fas fa-layer-group me-2"></i>Bulk Order Discounts</h5>
+                    </div>
+                    <p class="text-muted small mb-3">Quantity-based discounts for bulk sublimation orders</p>
+
+                    <form method="POST" action="{{ route('pricing.rules.sublimation.bulk') }}">
+                        @csrf
+                        @forelse($bulkDiscounts as $discount)
+                        <div class="bulk-row">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    <strong>{{ $discount->name ?? 'Tier' }}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Min Qty</label>
+                                    <input type="number" class="form-control form-control-sm" 
+                                        name="discounts[{{ $discount->id }}][min_qty]" value="{{ $discount->min_qty }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Max Qty</label>
+                                    <input type="number" class="form-control form-control-sm" 
+                                        name="discounts[{{ $discount->id }}][max_qty]" value="{{ $discount->max_qty }}" placeholder="∞">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Discount %</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" step="0.01" class="form-control" 
+                                            name="discounts[{{ $discount->id }}][discount_percent]" value="{{ $discount->discount_percent }}">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Label</label>
+                                    <input type="text" class="form-control form-control-sm" 
+                                        name="discounts[{{ $discount->id }}][name]" value="{{ $discount->name }}">
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <small class="text-muted">{{ $discount->min_qty }}+ pcs</small>
+                                </div>
+                            </div>
+                        </div>
+                        @empty
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-layer-group fa-3x mb-2 opacity-25"></i>
+                            <p>No bulk discounts configured yet.</p>
+                        </div>
+                        @endforelse
+
+                        @if(count($bulkDiscounts) > 0)
+                        <div class="text-center mt-3">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save me-1"></i> Save Bulk Discounts
+                            </button>
+                        </div>
+                        @endif
+                    </form>
+                </div>
+
+                <!-- ==================== PILLOW TAB (placeholder) ==================== -->
+                <div class="tab-pane fade" id="pillow" role="tabpanel">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-couch fa-4x mb-3 opacity-25"></i>
+                        <h4>Pillow Sublimation</h4>
+                        <p>Coming soon! This tab will contain pricing for pillow sublimation products.</p>
+                    </div>
+                </div>
+
+                <!-- ==================== OTHER TAB (placeholder) ==================== -->
+                <div class="tab-pane fade" id="other" role="tabpanel">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-plus-circle fa-4x mb-3 opacity-25"></i>
+                        <h4>More Products</h4>
+                        <p>Additional sublimation product categories will appear here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div class="modal fade" id="addItemModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-1"></i> Add New Item</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="{{ route('pricing.rules.sublimation.add-price') }}">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Item Name *</label>
+                            <input type="text" name="name" class="form-control" required placeholder="e.g., Polo Button">
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Category *</label>
+                                <select name="category" class="form-select" required id="addCategory">
+                                    <option value="garment">Garment</option>
+                                    <option value="fabric">Fabric</option>
+                                    <option value="part">Part / Add-on</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tab Group</label>
+                                <select name="tab_group" class="form-select" id="addTabGroup">
+                                    <option value="shirt">Shirt Fullsublimation</option>
+                                    <option value="pillow">Pillow Sublimation</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Sales Price (₱) *</label>
+                                <input type="number" step="0.01" name="price" class="form-control" required value="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Agent Price (₱)</label>
+                                <input type="number" step="0.01" name="agent_price" class="form-control" placeholder="Optional">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Link to Product Pricing (optional)</label>
+                            <select name="master_item_id" class="form-select">
+                                <option value="">— None —</option>
+                                @foreach($sublimationMasterItems as $smi)
+                                <option value="{{ $smi->id }}">
+                                    {{ $smi->name }}
+                                    @if($smi->description) — {{ $smi->description }} @endif
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Order (lower = first)</label>
+                            <input type="number" name="order" class="form-control" value="0">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i> Add Item</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showAddForm(category, tabGroup) {
+            document.getElementById('addCategory').value = category;
+            document.getElementById('addTabGroup').value = tabGroup;
+            const modal = new bootstrap.Modal(document.getElementById('addItemModal'));
+            modal.show();
+        }
+
+        function autoFillPrice(selectEl, itemId) {
+            const selected = selectEl.options[selectEl.selectedIndex];
+            if (selected && selected.value) {
+                const salesPrice = selected.dataset.sales;
+                const agentPrice = selected.dataset.agent;
+                
+                // Find the parent item-row
+                const row = selectEl.closest('.item-row');
+                if (row && salesPrice) {
+                    const priceInput = row.querySelector('input[name*="[price]"]');
+                    if (priceInput) {
+                        priceInput.value = salesPrice;
+                        priceInput.style.borderColor = '#059669';
+                        priceInput.style.backgroundColor = '#f0fdf4';
+                    }
+                }
+                if (row && agentPrice) {
+                    const agentInput = row.querySelector('input[name*="[agent_price]"]');
+                    if (agentInput) {
+                        agentInput.value = agentPrice;
+                    }
+                }
+            }
+        }
+
+        // Auto-highlight linked items on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.master-select').forEach(function(select) {
+                if (select.value) {
+                    const row = select.closest('.item-row');
+                    if (row) {
+                        const priceInput = row.querySelector('input[name*="[price]"]');
+                        if (priceInput && priceInput.value) {
+                            priceInput.style.borderColor = '#059669';
+                            priceInput.style.backgroundColor = '#f0fdf4';
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

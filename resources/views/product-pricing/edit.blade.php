@@ -123,7 +123,7 @@
                                                 <option value="garment" {{ $item->sales_box == 'garment' ? 'selected' : '' }}>Garment Printing</option>
                                                 <option value="tarpaulin" {{ $item->sales_box == 'tarpaulin' ? 'selected' : '' }}>Tarpaulin Printing</option>
                                                 <option value="embroidery" {{ $item->sales_box == 'embroidery' ? 'selected' : '' }}>Embroidery</option>
-                                                <option value="cutting" {{ $item->sales_box == 'cutting' ? 'selected' : '' }}>Cutting</option>
+                                                <option value="cutting" {{ $item->sales_box == 'cutting' ? 'selected' : '' }}>Fullsublimation Printing</option>
                                                 <option value="sewing" {{ $item->sales_box == 'sewing' ? 'selected' : '' }}>Sewing</option>
                                                 <option value="design" {{ $item->sales_box == 'design' ? 'selected' : '' }}>Design</option>
                                             </select>

@@ -11,6 +11,9 @@
         margin-bottom: 20px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
+    .ref-image:hover, .payment-img:hover {
+        opacity: 0.85;
+    }
     .detail-title {
         font-weight: 600;
         font-size: 18px;
@@ -35,6 +38,9 @@
         <div class="d-flex gap-2">
             <a href="{{ route('sales.prototype.edit', $sale->id) }}" class="btn btn-primary">
                 <i class="fas fa-edit"></i> Edit
+            </a>
+            <a href="{{ route('sales.prototype.print-slip', $sale->id) }}" target="_blank" class="btn btn-success">
+                <i class="fas fa-print"></i> Print Slip
             </a>
             <a href="{{ url('/sales/prototype/kanban/' . ($sale->department_code ?? '')) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Back
@@ -70,7 +76,7 @@
                         <div class="info-label">Department</div>
                         <div class="info-value">{{ $sale->department_name ?? 'N/A' }}</div>
                     </div>
-                    @if($sale->marketplace)
+                    @if(($sale->marketplace ?? false))
                     <div>
                         <div class="info-label">Marketplace</div>
                         <div class="info-value">{{ $sale->marketplace }}</div>
@@ -96,16 +102,82 @@
                 <h5 class="detail-title"><i class="fas fa-box me-2"></i>Order Items</h5>
                 @if($services && count($services) > 0)
                     @foreach($services as $item)
+                        @php
+                            $itemTotal = $item['totalPrice'] ?? $item['total_price'] ?? $item['price'] ?? 0;
+                            $itemName = $item['name'] ?? $item['product_name'] ?? 'Item #' . ($loop->index + 1);
+                            $itemNotes = $item['notes'] ?? '';
+                            $subItems = $item['subItems'] ?? [];
+                            $printing = $item['printing'] ?? null;
+                            $refImages = $item['referenceImages'] ?? [];
+                        @endphp
                         <div class="p-3 mb-2 bg-light rounded">
-                            <div class="d-flex justify-content-between">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div>
-                                    <strong>{{ $item['name'] ?? 'Item' }}</strong>
-                                    @if(isset($item['qty'])) <span class="text-muted">× {{ $item['qty'] }}</span> @endif
+                                    <strong>{{ $itemName }}</strong>
+                                    @if(isset($item['department']))
+                                        <span class="badge bg-secondary">{{ $item['department'] }}</span>
+                                    @endif
                                 </div>
-                                @if(isset($item['price']))
-                                    <div class="fw-semibold">₱{{ number_format($item['price'], 2) }}</div>
-                                @endif
+                                <div class="fw-bold text-nowrap">₱{{ number_format($itemTotal, 2) }}</div>
                             </div>
+
+                            @if(!empty($subItems))
+                                <div class="mb-2">
+                                    @foreach($subItems as $si)
+                                        @php
+                                            $brand = $si['brand'] ?? $si['product_brand'] ?? '';
+                                            $size = $si['size'] ?? $si['type'] ?? $si['product_size'] ?? '';
+                                            $color = $si['color'] ?? $si['product_color'] ?? '';
+                                            $qty = $si['qty'] ?? $si['quantity'] ?? 1;
+                                            $unitPrice = $si['price'] ?? $si['unit_price'] ?? 0;
+                                            $parts = [];
+                                            if ($brand) $parts[] = $brand;
+                                            if ($size) $parts[] = $size;
+                                            if ($color) $parts[] = $color;
+                                            $parts[] = '×' . $qty;
+                                            if ($unitPrice > 0) $parts[] = '₱' . number_format($unitPrice, 2);
+                                        @endphp
+                                        <div class="small text-muted">{{ implode(' • ', $parts) }}</div>
+                                    @endforeach
+                                </div>
+                            @endif
+
+                            @if($printing)
+                                <div class="small mb-2 p-2 bg-white rounded">
+                                    <div class="fw-semibold mb-1">🖨️ Print Details</div>
+                                    @if(isset($printing['printType']))
+                                        <div><span class="text-muted">Type:</span> {{ $printing['printType'] }}</div>
+                                    @endif
+                                    @if(!empty($printing['printSizes'] ?? []))
+                                        <div><span class="text-muted">Sizes:</span> {{ is_array($printing['printSizes']) ? implode(', ', $printing['printSizes']) : $printing['printSizes'] }}</div>
+                                    @endif
+                                    <div><span class="text-muted">Qty:</span> {{ $printing['printQty'] ?? 'N/A' }}</div>
+                                    @if(($printing['printSubtotal'] ?? 0) > 0)
+                                        <div><span class="text-muted">Print Subtotal:</span> ₱{{ number_format($printing['printSubtotal'], 2) }}</div>
+                                    @endif
+                                    @if($printing['isSpecialPrice'] ?? false)
+                                        <div class="text-warning">⭐ Special Price: {{ $printing['specialReason'] ?? '' }}</div>
+                                    @endif
+                                </div>
+                            @endif
+
+                            @if($itemNotes)
+                                <div class="mt-2 small"><span class="text-muted">📝 Notes:</span> {{ $itemNotes }}</div>
+                            @endif
+
+                            @if(!empty($refImages))
+                                <div class="mt-2">
+                                    <div class="small text-muted mb-1">🖼️ Reference Images ({{ count($refImages) }})</div>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach($refImages as $rimg)
+                                            @php $src = $rimg['dataUrl'] ?? $rimg['url'] ?? $rimg['src'] ?? ''; @endphp
+                                            @if($src)
+                                                <img src="{{ $src }}" alt="{{ $rimg['name'] ?? 'Image' }}" style="max-width:100px;max-height:80px;border-radius:4px;cursor:pointer;" class="border ref-image" onclick="openLightbox(this.src)">
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 @else
@@ -114,7 +186,7 @@
             </div>
 
             <!-- Notes -->
-            @if($sale->reason)
+            @if(($sale->reason ?? false))
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-sticky-note me-2"></i>Reason</h5>
                 <p>{{ $sale->reason }}</p>
@@ -146,7 +218,7 @@
                     <div class="info-label">Created</div>
                     <div>{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y g:i A') }}</div>
                 </div>
-                @if($sale->date_needed)
+                @if(($sale->date_needed ?? false))
                 <div class="mt-2">
                     <div class="info-label">Date Needed</div>
                     <div>{{ \Carbon\Carbon::parse($sale->date_needed)->format('M d, Y') }}</div>
@@ -158,18 +230,8 @@
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-credit-card me-2"></i>Payment</h5>
                 <div class="mb-2">
-                    <div class="info-label">Subtotal</div>
-                    <div class="info-value">₱{{ number_format($sale->subtotal ?? 0, 2) }}</div>
-                </div>
-                @if(($sale->tax ?? 0) > 0)
-                <div class="mb-2">
-                    <div class="info-label">Tax</div>
-                    <div class="info-value">₱{{ number_format($sale->tax, 2) }}</div>
-                </div>
-                @endif
-                <div class="mb-2">
                     <div class="info-label">Total Amount</div>
-                    <div class="info-value fw-bold fs-5">₱{{ number_format($sale->total_amount ?? 0, 2) }}</div>
+                    <div class="info-value fw-bold fs-5">₱{{ number_format($sale->subtotal ?? 0, 2) }}</div>
                 </div>
                 @if(($sale->deposit_paid ?? 0) > 0)
                 <div class="mb-2">
@@ -177,12 +239,14 @@
                     <div class="info-value text-success">₱{{ number_format($sale->deposit_paid, 2) }}</div>
                 </div>
                 @endif
-                @if(($sale->balance_due ?? 0) > 0)
+                @php $bal = ($sale->subtotal ?? 0) - ($sale->deposit_paid ?? 0); @endphp
+                @if($bal > 0)
                 <div class="mb-2">
                     <div class="info-label">Balance Due</div>
-                    <div class="info-value text-danger fw-bold">₱{{ number_format($sale->balance_due, 2) }}</div>
+                    <div class="info-value text-danger fw-bold">₱{{ number_format($bal, 2) }}</div>
                 </div>
                 @endif
+
                 <hr>
                 <div class="mb-2">
                     <div class="info-label">Payment Method</div>
@@ -249,9 +313,7 @@
                 @if($sale->payment_screenshot_path)
                 <div class="mt-3">
                     <div class="info-label">Payment Screenshot</div>
-                    <a href="{{ $sale->payment_screenshot_path }}" target="_blank">
-                        <img src="{{ $sale->payment_screenshot_path }}" alt="Payment Screenshot" class="img-fluid rounded mt-1" style="max-height:200px;">
-                    </a>
+                    <img src="{{ $sale->payment_screenshot_path }}" alt="Payment Screenshot" class="img-fluid rounded mt-1 payment-img" style="max-height:200px;cursor:pointer;" onclick="openLightbox(this.src)">
                 </div>
                 @endif
             </div>
@@ -315,3 +377,53 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    window.openLightbox = function(src) {
+        var old = document.getElementById('imageLightbox');
+        if (old) old.remove();
+        
+        var overlay = document.createElement('div');
+        overlay.id = 'imageLightbox';
+        overlay.style.cssText = 'display:flex!important;align-items:center;justify-content:center;position:fixed;top:0;left:0;width:100%;height:100%;z-index:100000;background:rgba(0,0,0,0.85);cursor:zoom-out;';
+        
+        var closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText = 'position:absolute;top:15px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;z-index:100001;';
+        closeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeLightbox();
+        });
+        
+        var imgContainer = document.createElement('div');
+        imgContainer.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:40px;';
+        
+        var img = document.createElement('img');
+        img.id = 'lightboxImage';
+        img.style.cssText = 'max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px;';
+        img.alt = '';
+        
+        imgContainer.appendChild(img);
+        overlay.appendChild(closeBtn);
+        overlay.appendChild(imgContainer);
+        
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                closeLightbox();
+            }
+        });
+        
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+        img.src = src;
+    };
+    window.closeLightbox = function() {
+        var overlay = document.getElementById('imageLightbox');
+        if (overlay) {
+            overlay.remove();
+            document.body.style.overflow = '';
+        }
+    };
+</script>
+@endpush

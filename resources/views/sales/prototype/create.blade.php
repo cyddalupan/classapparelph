@@ -208,6 +208,28 @@
         border-color: #0d6efd !important;
         background-color: #f0f7ff;
     }
+    #sublimationModalBody .card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    #sublimationModalBody .card-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+    #sublimationModalBody .form-text {
+        font-size: 0.8rem;
+    }
+    #sublimation_rosterTable th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    #sublimation_rosterBody tr.roster-row td {
+        vertical-align: middle;
+    }
+    #sublimation_rosterBody tr.roster-row:hover {
+        background-color: #f8f9fa;
+    }
 </style>
 @endpush
 
@@ -425,8 +447,8 @@
                             <div class="product-icon mb-3">
                                 <i class="fas fa-cut fa-3x text-success"></i>
                             </div>
-                            <h5 class="card-title mb-2">Cutting Services</h5>
-                            <p class="text-muted small mb-3">Fabric cutting, pattern making</p>
+                            <h5 class="card-title mb-2">Fullsublimation Printing</h5>
+                            <p class="text-muted small mb-3">Full sublimation printing</p>
                             <button type="button" class="btn btn-outline-success w-100" onclick="openProductModal('cutting')">
                                 <i class="fas fa-plus-circle me-2"></i> Add Items
                             </button>
@@ -808,19 +830,7 @@
                                     <div class="form-text">Add multiple products in one go. Products loaded from database based on category.</div>
                                 </div>
                                 
-                                <div class="mb-3">
-                                    <label class="form-label">Assign to Department *</label>
-                                    <select class="form-control" id="departmentSelect" required>
-                                        <option value="">-- Select Department --</option>
-                                        <option value="iprint">iPrint Department</option>
-                                        <option value="consol">Consol Department</option>
-                                        <option value="cinco">Cinco Department</option>
-                                        <option value="class">Class Department</option>
-                                        <option value="mto">Made to Order Department</option>
-                                        <option value="other">Other Department</option>
-                                    </select>
-                                    <div class="form-text">Select which department will handle these items</div>
-                                </div>
+                                <!-- Department auto-assigned from product box selection (no manual pick) -->
                                 
                                 <!-- Unit Price Display (Read-only) -->
                                 <div class="mb-3">
@@ -966,18 +976,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="mb-3">
-                                        <label class="form-label">Assign to Department *</label>
-                                        <select class="form-control" id="garment_departmentSelect" name="department_id" required>
-                                            <option value="">-- Select Department --</option>
-                                            <option value="iprint">iPrint Department</option>
-                                            <option value="consol">Consol Department</option>
-                                            <option value="cinco">Cinco Department</option>
-                                            <option value="class">Class Department</option>
-                                            <option value="mto">Made to Order Department</option>
-                                            <option value="other">Other Department</option>
-                                        </select>
-                                    </div>
+                                    <!-- Department auto-assigned from product box selection (no manual pick) -->
                                     
                                     <div class="mb-3">
                                         <label class="form-label">Notes (Optional)</label>
@@ -1120,6 +1119,351 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- SUBLIMATION MODAL BODY - CUSTOMER FORM (hidden by default) -->
+                        <div id="sublimationModalBody" style="display:none;">
+                            <ul class="nav nav-tabs mb-3" id="sublimationTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="order-details-tab" data-bs-toggle="tab" data-bs-target="#order-details" type="button" role="tab">Order Details</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="specs-tab" data-bs-toggle="tab" data-bs-target="#specs" type="button" role="tab">Specifications</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="sizes-tab" data-bs-toggle="tab" data-bs-target="#sizes" type="button" role="tab">Sizes</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="pricing-tab-sub" data-bs-toggle="tab" data-bs-target="#pricing-tab-body" type="button" role="tab">Pricing</button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="sublimationTabContent">
+                                <!-- TAB 1: ORDER DETAILS -->
+                                <div class="tab-pane fade show active" id="order-details" role="tabpanel">
+                                    <div class="row">
+                                        <div class="col-md-7">
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Project Name *</label>
+                                                    <input type="text" class="form-control" id="sublimation_projectName" placeholder="e.g. DANNA" required oninput="sublimation_autoGenerateDescription()">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Description *</label>
+                                                    <input type="text" class="form-control" id="sublimation_description" placeholder="Auto-generated from selections" readonly style="background:#f0f0f0;cursor:default;">
+                                                    <div class="form-text small" id="sublimation_descHelp">Auto-generated from Garment + Fabric + Parts selection.</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Fabric *</label>
+                                                    <select class="form-control" id="sublimation_fabricSelect" onchange="sublimation_calculateTotal(); sublimation_autoGenerateDescription()">
+                                                        <option value="">-- Select Fabric --</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Designer *</label>
+                                                    <input type="text" class="form-control" id="sublimation_designer" placeholder="e.g. ALLAN - CONSOL" required>
+                                                </div>
+                                                <!-- Department auto-assigned; PIC field removed per business req -->
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Date Needed *</label>
+                                                    <input type="date" class="form-control" id="sublimation_dateNeeded" required>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3">
+                                                <label class="form-label">Notes / Special Instructions</label>
+                                                <textarea class="form-control" id="sublimation_notes" rows="2" placeholder="Additional notes for this order..."></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <div class="card border-primary">
+                                                <div class="card-header bg-primary text-white small py-2">
+                                                    <i class="fas fa-image me-1"></i> Mock-up Design
+                                                </div>
+                                                <div class="card-body py-2 text-center">
+                                                    <div id="mockupPreviewArea" class="mb-2" style="min-height:140px;display:flex;align-items:center;justify-content:center;border:2px dashed #ddd;border-radius:8px;cursor:pointer;background:#fafafa;overflow:hidden;" onclick="document.getElementById('mockupUpload').click()">
+                                                        <div id="mockupPlaceholder">
+                                                            <i class="fas fa-cloud-upload-alt fa-3x text-muted"></i>
+                                                            <p class="text-muted small mb-0 mt-1">Click to upload mock-up image</p>
+                                                        </div>
+                                                        <img id="mockupPreview" src="" style="max-height:180px;display:none;max-width:100%;object-fit:contain;">
+                                                    </div>
+                                                    <input type="file" id="mockupUpload" accept="image/*" style="display:none" onchange="sublimation_previewMockup(event)">
+                                                    <div id="mockupFileInfo" class="small" style="display:none;">
+                                                        <span id="mockupFileName" class="text-muted"></span>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2 py-0 px-1" onclick="sublimation_removeMockup()" title="Remove"><i class="fas fa-times"></i></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 2: SPECIFICATIONS -->
+                                <div class="tab-pane fade" id="specs" role="tabpanel">
+                                    <!-- Garment Type + Additional Parts at top for immediate visibility -->
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Garment Type *</label>
+                                            <select class="form-control" id="sublimation_garmentSelect" onchange="sublimation_renderSpecs(); sublimation_calculateTotal(); sublimation_autoGenerateDescription()">
+                                                <option value="">-- Select Garment --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Additional Parts</label>
+                                            <div id="sublimation_partsContainer" class="border rounded p-2 bg-light" style="max-height:80px;overflow-y:auto;">
+                                                <p class="text-muted small mb-0">Select Garment type first...</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div id="sublimation_specsFields">
+                                        <p class="text-muted small mb-0">Select a garment type to see specifications.</p>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 3: SIZES -->
+                                <div class="tab-pane fade" id="sizes" role="tabpanel">
+                                    <div class="btn-group btn-group-sm mb-3 w-100" role="group">
+                                        <input type="radio" class="btn-check" name="sublimationSizeMode" id="sizeModeByQty" value="by-qty" checked onchange="sublimation_toggleSizeMode()">
+                                        <label class="btn btn-outline-primary" for="sizeModeByQty"><i class="fas fa-list-ol me-1"></i>By Size</label>
+                                        <input type="radio" class="btn-check" name="sublimationSizeMode" id="sizeModeRoster" value="roster" onchange="sublimation_toggleSizeMode()">
+                                        <label class="btn btn-outline-primary" for="sizeModeRoster"><i class="fas fa-users me-1"></i>Per Person (Names)</label>
+                                    </div>
+
+                                    <!-- MODE 1: BY SIZE (default) -->
+                                    <div id="sublimationSizeByQty">
+                                        <div class="alert alert-info py-2 small">
+                                            <i class="fas fa-info-circle me-1"></i> Enter the quantity per size. Total will be auto-calculated.
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">XS</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="XS" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">Small</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="SMALL" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">Medium</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="MEDIUM" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">Large</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="LARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">2XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="2XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">3XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="3XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">4XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="4XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">5XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="5XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">6XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="6XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">7XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="7XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">8XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="8XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MODE 2: PER PERSON (roster) -->
+                                    <div id="sublimationSizeRoster" style="display:none;">
+                                        <div class="alert alert-success py-2 small">
+                                            <i class="fas fa-users me-1"></i> Add each person's name and their assigned size. Total = number of people.
+                                        </div>
+
+                                        <!-- Quick Add Row -->
+                                        <div class="row g-2 mb-2 align-items-end">
+                                            <div class="col-2">
+                                                <label class="form-label small mb-0">#</label>
+                                                <input type="text" class="form-control form-control-sm" id="roster_newNumber" placeholder="No.">
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small mb-0">Name *</label>
+                                                <input type="text" class="form-control form-control-sm" id="roster_newName" placeholder="Person's name">
+                                            </div>
+                                            <div class="col-3">
+                                                <label class="form-label small mb-0">Size *</label>
+                                                <select class="form-control form-control-sm" id="roster_newSize">
+                                                    <option value="">--</option>
+                                                    <option value="XS">XS</option>
+                                                    <option value="S">S</option>
+                                                    <option value="M">M</option>
+                                                    <option value="L">L</option>
+                                                    <option value="XL">XL</option>
+                                                    <option value="2XL">2XL</option>
+                                                    <option value="3XL">3XL</option>
+                                                    <option value="4XL">4XL</option>
+                                                    <option value="5XL">5XL</option>
+                                                    <option value="6XL">6XL</option>
+                                                    <option value="7XL">7XL</option>
+                                                    <option value="8XL">8XL</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-3">
+                                                <label class="form-label small mb-0">&nbsp;</label>
+                                                <button type="button" class="btn btn-success btn-sm w-100" onclick="sublimation_addRosterRow()">
+                                                    <i class="fas fa-plus"></i> Add
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Bulk Paste + Excel Upload -->
+                                        <div class="mb-2">
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sublimation_toggleBulkPaste()">
+                                                    <i class="fas fa-paste me-1"></i>Bulk Paste List
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('sublimation_excelInput').click()">
+                                                    <i class="fas fa-file-excel me-1"></i>Upload Excel
+                                                </button>
+                                                <input type="file" id="sublimation_excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="sublimation_uploadExcel(event)">
+                                            </div>
+                                            <div id="sublimationBulkPasteArea" style="display:none;" class="mt-2">
+                                                <label class="form-label small">Paste one per line: <code>Name,Size</code> or <code>Number,Name,Size</code></label>
+                                                <textarea class="form-control form-control-sm" id="sublimation_bulkPasteInput" rows="4" placeholder="e.g.&#10;MON,XL&#10;KOKO,L&#10;MANEX,XL&#10;JUN,L&#10;GERBIE,M"></textarea>
+                                                <button type="button" class="btn btn-info btn-sm mt-1" onclick="sublimation_bulkPaste()">
+                                                    <i class="fas fa-upload me-1"></i>Import List
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Roster Table -->
+                                        <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+                                            <table class="table table-sm table-bordered mb-0" id="sublimation_rosterTable">
+                                                <thead class="table-light">
+                                                    <tr id="sublimation_rosterHeader">
+                                                        <th style="width:50px">#</th>
+                                                        <th>Name</th>
+                                                        <th style="width:80px">Size</th>
+                                                        <th style="width:40px">Qty</th>
+                                                        <th style="width:40px"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="sublimation_rosterBody">
+                                                    <tr id="sublimation_rosterEmpty">
+                                                        <td colspan="5" class="text-center text-muted small py-3">
+                                                            <i class="fas fa-user-plus me-1"></i> Add names above to build your roster.
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="mt-1 text-end">
+                                            <small class="text-muted">
+                                                <span id="sublimation_rosterCount">0</span> people
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Column Mapping Modal -->
+                                    <div class="modal fade" id="sublimation_columnMapModal" tabindex="-1">
+                                        <div class="modal-dialog modal-sm">
+                                            <div class="modal-content">
+                                                <div class="modal-header py-2">
+                                                    <h6 class="modal-title"><i class="fas fa-columns me-1"></i>Map Columns</h6>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body py-2 small">
+                                                    <p class="mb-2 text-muted">Match your Excel columns to roster fields:</p>
+                                                    <div class="mb-2">
+                                                        <label class="form-label mb-0">→ <strong>Name</strong> column</label>
+                                                        <select class="form-select form-select-sm" id="mapCol_name">
+                                                            <option value="">-- skip --</option>
+                                                        </select>
+                                                        <div class="form-text mt-0">Person's name or identifier</div>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label class="form-label mb-0">→ <strong>Number</strong> column</label>
+                                                        <select class="form-select form-select-sm" id="mapCol_number">
+                                                            <option value="">-- skip --</option>
+                                                        </select>
+                                                        <div class="form-text mt-0">Jersey number / row number</div>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label class="form-label mb-0">→ <strong>Size</strong> column</label>
+                                                        <select class="form-select form-select-sm" id="mapCol_size">
+                                                            <option value="">-- skip --</option>
+                                                        </select>
+                                                        <div class="form-text mt-0">XS, S, M, L, XL, 2XL, etc.</div>
+                                                    </div>
+                                                    </div>
+                                                    <small class="text-muted" id="sublimation_mapPreview">Loading preview...</small>
+                                                </div>
+                                                <div class="modal-footer py-1">
+                                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="button" class="btn btn-sm btn-success" onclick="sublimation_applyMapping()">
+                                                        <i class="fas fa-check me-1"></i>Import
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 4: PRICING -->
+                                <div class="tab-pane fade" id="pricing-tab-body" role="tabpanel">
+                                    <div class="card border-success mt-3">
+                                        <div class="card-header bg-success text-white small py-2">
+                                            <i class="fas fa-file-invoice me-1"></i> Full Price Breakdown
+                                        </div>
+                                        <div class="card-body py-2">
+                                            <div class="d-flex justify-content-between small">
+                                                <span id="pricingTab_garmentLabel">Garment:</span>
+                                                <strong><span id="pricingTab_garmentPrice">₱0.00</span></strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between small">
+                                                <span id="pricingTab_fabricLabel">Fabric:</span>
+                                                <strong><span id="pricingTab_fabricPrice">₱0.00</span></strong>
+                                            </div>
+                                            <div id="pricingTab_partsBreakdown"></div>
+                                            <div id="pricingTab_sizeBreakdown"></div>
+                                            <hr class="my-1">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="fw-bold">Per Unit (base):</span>
+                                                <strong class="fs-6"><span id="pricingTab_unitPrice">₱0.00</span></strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between small">
+                                                <span>Total Qty (from Sizes tab):</span>
+                                                <strong><span id="pricingTab_totalQty">0</span></strong>
+                                            </div>
+                                            <hr class="my-1">
+                                            <div class="d-flex justify-content-between fw-bold fs-5" style="color:#198754;">
+                                                <span>TOTAL:</span>
+                                                <span id="pricingTab_grandTotal">₱0.00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-success w-100 mt-3" id="sublimation_addItemBtn">
+                                        <i class="fas fa-check-circle me-2"></i> Confirm &amp; Add to Cart
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info w-100 mt-2" onclick="sublimation_printOrderSlip()">
+                                        <i class="fas fa-print me-2"></i> Print Order Slip
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         
                     </div>
                     <div class="modal-footer">
@@ -1129,6 +1473,97 @@
             </div>
         </div>
     </form>
+</div>
+
+<!-- Print Order Slip Template (hidden, populated via JS) -->
+<div id="sublimation_printSlip" style="display:none;">
+    <style>
+        @media print {
+            @page { size: A4 landscape; margin: 12mm 15mm; }
+            body * { visibility: hidden; }
+            #sublimation_printSlip, #sublimation_printSlip * { visibility: visible; }
+            #sublimation_printSlip { position: absolute; left: 0; top: 0; width: 100%; max-width: 277mm; display: block !important; }
+            .no-print { display: none !important; }
+        }
+        .print-slip { font-family: 'Courier New', monospace; font-size: 10pt; color: #000; width: 100%; }
+        .print-slip h1 { font-size: 16pt; margin: 0; text-align: center; }
+        .print-slip h2 { font-size: 13pt; margin: 0; text-align: center; }
+        .print-slip table { width: 100%; border-collapse: collapse; }
+        .print-slip td, .print-slip th { border: 1px solid #000; padding: 3px 5px; text-align: left; font-size: 9pt; vertical-align: top; }
+        .print-slip .no-border td, .print-slip .no-border { border: none; }
+        .print-slip .field-label { font-weight: bold; background: #f0f0f0; width: 1%; white-space: nowrap; }
+        .print-slip .mockup-box { border: 2px dashed #999; display: flex; align-items: center; justify-content: center; text-align: center; color: #999; font-size: 9pt; overflow: hidden; width:100%; aspect-ratio: 4 / 3; max-height:300px; }
+        .print-slip .mockup-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .print-slip .roster-table th { background: #e0e0e0; font-weight: bold; text-align: center; }
+        .print-slip .roster-table td { text-align: center; }
+        .print-slip .section-title { font-weight: bold; font-size: 11pt; margin-top: 4px; margin-bottom: 2px; }
+        .print-slip .divider { border-top: 2px solid #000; margin: 1px 0; }
+        /* ⬇️ Compress upper 3-column area — keep text size, reduce padding/margins */
+        #ps_upperInfo > tbody > tr > td { padding: 1px 3px !important; }
+        #ps_upperInfo table td, #ps_upperInfo table th { padding: 1px 3px !important; font-size: 9pt; }
+        #ps_upperInfo .section-title { margin-top: 1px; margin-bottom: 1px; font-size: 11pt; }
+        #ps_upperInfo .field-label { padding: 1px 3px !important; }
+    </style>
+    <div id="printSlipContent" class="print-slip">
+        <!-- Title -->
+        <h1>CUSTOMER FORM SPECIFICATIONS</h1>
+
+        <div class="divider"></div>
+
+        <!-- Top: 2 columns — Info (33%) | Parts (67%) -->
+        <table id="ps_upperInfo"><tr>
+            <td style="width:33%;vertical-align:top;" class="no-border">
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">PROJECT:</td><td id="ps_projectName"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DESCRIPTION:</td><td id="ps_description"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">FABRIC:</td><td id="ps_fabric"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DESIGNER:</td><td id="ps_designer"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">QTY:</td><td id="ps_qty"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DATE NEEDED:</td><td id="ps_dateNeeded"></td></tr></table>
+            </td>
+            <td style="width:67%;vertical-align:top;">
+                <div id="ps_partsContainer" style="width:100%;">
+                    <table id="ps_leftPartsCol" style="width:49%;float:left;">
+                        <tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>
+                    </table>
+                    <table id="ps_rightPartsCol" style="width:49%;float:right;">
+                        <tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>
+                    </table>
+                    <div style="clear:both;"></div>
+                </div>
+                <!-- Hidden collectors for JS compatibility (populated first, then split into visible columns) -->
+                <div style="display:none;">
+                <table id="ps_specsParts">
+                    <tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>
+                </table>
+                <table id="ps_specsOthers">
+                    <tr><th style="width:100px;">Item</th><th>Details</th></tr>
+                </table>
+                </div>
+            </td>
+        </tr></table>
+
+        <div class="divider"></div>
+
+        <!-- Bottom: Mock-up (30%) | Name List (70%) -->
+        <table><tr>
+            <td style="width:30%;vertical-align:top" class="no-border">
+                <div class="section-title">MOCK UP</div>
+                <div id="ps_mockupBox" class="mockup-box" style="margin:0 auto;">
+                    <span id="ps_mockupPlaceholder">MOCK UP HERE</span>
+                    <img id="ps_mockupImg" src="" style="display:none;">
+                </div>
+            </td>
+            <td style="width:70%;vertical-align:top" class="no-border">
+                <div class="section-title">NAME LIST</div>
+                <table class="roster-table" id="ps_rosterTable">
+                    <thead></thead>
+                    <tbody id="ps_rosterBody"></tbody>
+                </table>
+            </td>
+        </tr></table>
+
+        <div style="margin-top:4px;font-size:9pt;text-align:right;border-top:1px solid #000;padding-top:2px;" id="ps_note"></div>
+    </div>
 </div>
 
 <!-- Production Calendar Section -->
@@ -1369,7 +1804,7 @@ window.openProductModal = function(productType) {
             'garment': 'Garment Printing',
             'tarpaulin': 'Tarpaulin Printing', 
             'embroidery': 'Embroidery',
-            'cutting': 'Cutting Services',
+            'cutting': 'Fullsublimation Printing',
             'sewing': 'Sewing Services',
             'design': 'Design Services'
         };
@@ -1387,12 +1822,14 @@ window.openProductModal = function(productType) {
     // Toggle modal body based on product type
     const genericBody = document.getElementById('genericModalBody');
     const garmentBody = document.getElementById('garmentModalBody');
+    const sublimationBody = document.getElementById('sublimationModalBody');
     const modalDialog = document.querySelector('#productModal .modal-dialog');
     
     if (productType === 'garment') {
-        // Show garment body, hide generic
+        // Show garment body, hide others
         if (genericBody) genericBody.style.display = 'none';
         if (garmentBody) garmentBody.style.display = 'block';
+        if (sublimationBody) sublimationBody.style.display = 'none';
         
         // Use wider modal for garment
         if (modalDialog) {
@@ -1404,10 +1841,27 @@ window.openProductModal = function(productType) {
         if (typeof garment_openModal === 'function') {
             garment_openModal(productType);
         }
+    } else if (productType === 'cutting') {
+        // Show sublimation body, hide others
+        if (genericBody) genericBody.style.display = 'none';
+        if (garmentBody) garmentBody.style.display = 'none';
+        if (sublimationBody) sublimationBody.style.display = 'block';
+        
+        // Use wider modal for sublimation
+        if (modalDialog) {
+            modalDialog.classList.remove('modal-lg');
+            modalDialog.classList.add('modal-xl');
+        }
+        
+        // Initialize sublimation modal
+        if (typeof sublimation_openModal === 'function') {
+            sublimation_openModal();
+        }
     } else {
-        // Show generic body, hide garment
+        // Show generic body, hide others
         if (genericBody) genericBody.style.display = 'block';
         if (garmentBody) garmentBody.style.display = 'none';
+        if (sublimationBody) sublimationBody.style.display = 'none';
         
         // Revert to normal width
         if (modalDialog) {
@@ -1524,8 +1978,7 @@ window.loadProductsFromDatabase = function(productType) {
                 // Reset qty and department for garment
                 var qtyInputs = document.querySelectorAll('#garment_productRowsContainer .product-quantity');
                 qtyInputs.forEach(function(el) { el.value = '1'; });
-                var deptSelect = document.getElementById('garment_departmentSelect');
-                if (deptSelect) deptSelect.value = '';
+                /* Department auto-assigned; no reset needed */
                 var notes = document.getElementById('garment_productNotes');
                 if (notes) notes.value = '';
                 // Recalculate garment summary
@@ -1535,11 +1988,10 @@ window.loadProductsFromDatabase = function(productType) {
                 const qty = document.getElementById('productQuantity');
                 const price = document.getElementById('productPrice');
                 const notes = document.getElementById('productNotes');
-                const deptSelect = document.getElementById('departmentSelect');
                 if (qty) qty.value = '1';
                 if (price) price.value = '';
                 if (notes) notes.value = '';
-                if (deptSelect) deptSelect.value = '';
+                /* Department auto-assigned; no manual select needed */
                 
                 // Auto-fill price on select
                 if (selects[0]) {
@@ -1658,22 +2110,15 @@ window.calculateItemTotal = function() {
 
 // Add item to cart - GLOBAL (UPDATED FOR MULTIPLE PRODUCTS)
 window.addItemToCart = function() {
-    const deptSelect = document.getElementById('departmentSelect');
-    const notes = document.getElementById('productNotes');
-    
-    if (!deptSelect) return;
+    var notes = document.getElementById('productNotes');
     
     // Get all product rows
-    const rows = document.querySelectorAll('.product-row');
-    const cartItems = [];
+    var rows = document.querySelectorAll('.product-row');
+    var cartItems = [];
     
-    // Validate department
-    const department = deptSelect.value;
-    if (!department) {
-        alert('Please select a department');
-        deptSelect.focus();
-        return;
-    }
+    // Department auto-assigned by product type
+    var deptMap = {'garment':'iprint','tarpaulin':'consol','embroidery':'cinco','cutting':'class','sewing':'class','design':'iprint'};
+    var department = deptMap[currentProductType] || 'class';
     
     // Process each product row
     let hasValidProducts = false;
@@ -1761,7 +2206,6 @@ window.addItemToCart = function() {
     
     // Reset form (keep first row)
     initializeProductRows();
-    if (deptSelect) deptSelect.value = '';
     if (notes) notes.value = '';
     
     // Close modal
@@ -3083,7 +3527,7 @@ document.addEventListener('DOMContentLoaded', function() {
         originalOpenProductModal(productType);
         
         // Only do non-garment setup for non-garment types
-        if (productType !== 'garment') {
+        if (productType !== 'garment' && productType !== 'cutting') {
             loadFilterOptions(productType);
             initializeProductRows();
         }
@@ -3942,14 +4386,9 @@ window.garment_removeReferenceImage = function(id) {
 
 // Garment add to cart
 window.garment_addItemToCart = function() {
-    var deptSelect = document.getElementById('garment_departmentSelect');
-    if (!deptSelect) return;
-    var department = deptSelect.value;
-    if (!department) {
-        alert('Please select a department');
-        deptSelect.focus();
-        return;
-    }
+    // Department auto-assigned by product type
+    var deptMap = {'garment':'iprint','tarpaulin':'consol','embroidery':'cinco','cutting':'class','sewing':'class','design':'iprint'};
+    var department = deptMap['garment'] || 'iprint';
     var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
     var subItems = [];
     var validationError = false;
@@ -4084,8 +4523,7 @@ window.garment_addItemToCart = function() {
     garment_clearAllReferenceImages();
     garment_clearPrintSelection();
     if (typeof garment_initializeProductRows === 'function') garment_initializeProductRows();
-    var deptSelectEl = document.getElementById('garment_departmentSelect');
-    if (deptSelectEl) deptSelectEl.value = '';
+    /* Department auto-assigned; no reset needed */
     var notesEl = document.getElementById('garment_productNotes');
     if (notesEl) notesEl.value = '';
     var modalEl = document.getElementById('productModal');
@@ -4095,6 +4533,1588 @@ window.garment_addItemToCart = function() {
     }
     showToast('Garment order added to cart!', 'success');
 };
+
+// ======================
+// SUBLIMATION PRINTING MODAL
+// ======================
+
+// ======================
+// SUBLIMATION PRINTING MODAL - CUSTOMER ORDER FORM
+// ======================
+
+// Helper: total qty from size inputs + roster
+window.sublimation_getTotalQty = function() {
+    // Sum size-by-qty inputs
+    var sizeInputs = document.querySelectorAll('#sizes .size-qty, #sublimationModalBody .size-qty');
+    var total = 0;
+    sizeInputs.forEach(function(inp) {
+        total += parseInt(inp.value) || 0;
+    });
+    // Sum roster rows (read roster-number value per row)
+    var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+    rosterRows.forEach(function(row) {
+        var qtyInput = row.querySelector('.roster-number');
+        total += parseInt(qtyInput ? qtyInput.value : '') || 1;
+    });
+    return total;
+};
+
+// Auto-generate description from garment + fabric + parts selections
+window.sublimation_autoGenerateDescription = function() {
+    var descEl = document.getElementById('sublimation_description');
+    if (!descEl) return;
+    
+    var parts = [];
+    
+    // Get garment name
+    var garmentSelect = document.getElementById('sublimation_garmentSelect');
+    if (garmentSelect && garmentSelect.selectedIndex > 0) {
+        var garmentName = garmentSelect.options[garmentSelect.selectedIndex].textContent.split(' - ')[0];
+        if (garmentName) parts.push(garmentName.toUpperCase());
+    }
+    
+    // Get fabric name
+    var fabricSelect = document.getElementById('sublimation_fabricSelect');
+    if (fabricSelect && fabricSelect.selectedIndex > 0) {
+        var fabricName = fabricSelect.options[fabricSelect.selectedIndex].textContent.split(' - ')[0];
+        if (fabricName) parts.push(fabricName.toUpperCase());
+    }
+    
+    // Get selected parts
+    var checkboxes = document.querySelectorAll('.sublimation-part-checkbox:checked');
+    var partNames = [];
+    checkboxes.forEach(function(cb) {
+        var label = cb.nextElementSibling;
+        if (label) {
+            var name = label.textContent.split(' (+')[0];
+            if (name) partNames.push(name.toUpperCase());
+        }
+    });
+    if (partNames.length > 0) {
+        parts.push(partNames.join(' + '));
+    }
+    
+    // Project name prefix if set
+    var projEl = document.getElementById('sublimation_projectName');
+    var prefix = projEl && projEl.value.trim() ? projEl.value.trim().toUpperCase() + ' - ' : '';
+    
+    descEl.value = prefix + (parts.length > 0 ? parts.join(' / ') : '');
+};
+
+// Sublimation open modal - loads pricing items from API and resets form
+window.sublimation_openModal = function() {
+    // Reset ALL form fields
+    var fieldsToReset = [
+        'sublimation_projectName', 'sublimation_description',
+        'sublimation_designer', 'sublimation_dateNeeded',
+        'sublimation_notes'
+    ];
+    fieldsToReset.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    /* Department auto-assigned; no manual select needed */
+    
+    // Reset spec fields (dynamic fields inside #sublimation_specsFields)
+    var specInputs = document.querySelectorAll('#specs input, #specs select');
+    specInputs.forEach(function(el) {
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else el.value = '';
+    });
+    
+    // Uncheck all part checkboxes (auto-addon cleanup) & re-enable any disabled ones
+    document.querySelectorAll('.sublimation-part-checkbox').forEach(function(cb) { cb.checked = false; cb.disabled = false; });
+    
+    // Reset size inputs
+    var sizeInputs = document.querySelectorAll('#sizes .size-qty');
+    sizeInputs.forEach(function(el) { el.value = '0'; });
+    
+    // Reset roster
+    var rosterBody = document.getElementById('sublimation_rosterBody');
+    if (rosterBody) {
+        var rows = rosterBody.querySelectorAll('tr.roster-row');
+        rows.forEach(function(r) { r.remove(); });
+        var empty = document.getElementById('sublimation_rosterEmpty');
+        if (empty) empty.style.display = '';
+        var countEl = document.getElementById('sublimation_rosterCount');
+        if (countEl) countEl.textContent = '0';
+    }
+    
+    // Reset size mode to By Qty
+    var byQtyRadio = document.getElementById('sizeModeByQty');
+    if (byQtyRadio) { byQtyRadio.checked = true; sublimation_toggleSizeMode(); }
+    
+    // Reset garment/fabric selects
+    var garmentSelect = document.getElementById('sublimation_garmentSelect');
+    var fabricSelect = document.getElementById('sublimation_fabricSelect');
+    if (garmentSelect) garmentSelect.innerHTML = '<option value="">Loading...</option>';
+    if (fabricSelect) fabricSelect.innerHTML = '<option value="">Loading...</option>';
+    document.getElementById('sublimation_partsContainer').innerHTML = '<p class="text-muted small mb-0">Select Garment type first...</p>';
+    
+    // Reset summary
+    sublimation_calculateTotal();
+    
+    // Switch to first tab
+    var firstTab = document.querySelector('#sublimationTab .nav-link');
+    if (firstTab && bootstrap && bootstrap.Tab) {
+        var tab = new bootstrap.Tab(firstTab);
+        tab.show();
+    }
+    
+    // Fetch SublimationPrice records
+    fetch('/api/sublimation-prices')
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            // Store sizes pricing globally for calculateTotal
+            window.sublimation_sizesData = {};
+            if (data.sizes && data.sizes.length) {
+                data.sizes.forEach(function(item) {
+                    window.sublimation_sizesData[item.name.toUpperCase()] = parseFloat(item.price) || 0;
+                });
+            }
+            // Populate garment select
+            if (garmentSelect) {
+                garmentSelect.innerHTML = '<option value="">-- Select Garment --</option>';
+                var count = 0;
+                data.garments.forEach(function(item) {
+                    var opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.dataset.price = item.price;
+                    opt.textContent = item.name;
+                    garmentSelect.appendChild(opt);
+                    count++;
+                });
+            }
+            
+            // Populate fabric select
+            if (fabricSelect) {
+                fabricSelect.innerHTML = '<option value="">-- Select Fabric --</option>';
+                data.fabrics.forEach(function(item) {
+                    var opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.dataset.price = item.price;
+                    opt.textContent = item.name;
+                    fabricSelect.appendChild(opt);
+                });
+            }
+            
+            // Populate parts (single-column checkboxes for Pricing tab)
+            var partsContainer = document.getElementById('sublimation_partsContainer');
+            if (partsContainer) {
+                if (data.parts.length === 0) {
+                    partsContainer.innerHTML = '<p class="text-muted small mb-0">No parts available.</p>';
+                } else {
+                    partsContainer.innerHTML = '';
+                    data.parts.forEach(function(item) {
+                        var div = document.createElement('div');
+                        div.className = 'form-check form-check-inline';
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'form-check-input sublimation-part-checkbox';
+                        cb.dataset.price = item.price;
+                        cb.value = item.id;
+                        cb.onchange = function() { sublimation_calculateTotal(); sublimation_autoGenerateDescription(); };
+                        var label = document.createElement('label');
+                        label.className = 'form-check-label small';
+                        label.textContent = item.name + ' (+\u20B1' + parseFloat(item.price).toFixed(2) + ')';
+                        div.appendChild(cb);
+                        div.appendChild(label);
+                        partsContainer.appendChild(div);
+                    });
+                }
+            }
+            
+            // Recalculate after load
+            sublimation_calculateTotal();
+            sublimation_autoGenerateDescription();
+        })
+        .catch(function() {
+            if (garmentSelect) garmentSelect.innerHTML = '<option value="">-- Failed to load --</option>';
+            if (fabricSelect) fabricSelect.innerHTML = '<option value="">-- Failed to load --</option>';
+            document.getElementById('sublimation_partsContainer').innerHTML = '<p class="text-danger small mb-0">Failed to load.</p>';
+        });
+};
+
+// =============================================
+// GARMENT SPECIFICATION DEFINITIONS
+// =============================================
+// Each group matches garment names (case-insensitive) via nameKeywords.
+// fields[] defines the specification fields shown for that garment type.
+// autoAddon maps a selected option value -> part DB id to auto-check.
+var garmentSpecMap = {
+    tshirt: {
+        nameKeywords: ['TSHIRT'],
+        fields: [
+            { id: 'spec_neckRibbingColor', label: 'Neck Ribbings Color', type: 'select', options: ['BLACK', 'WHITE', 'SUBILI PRINT'] },
+            { id: 'spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
+    polo: {
+        nameKeywords: ['POLO'],
+        fields: [
+            { id: 'spec_collar', label: 'Collar', type: 'select', options: ['SUBILI PRINT', 'KNITTED COLLAR'], autoAddon: { 'KNITTED COLLAR': 35 } },
+            { id: 'spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
+    jersey: {
+        nameKeywords: ['JERSEY UP', 'JERSEY UP AND DOWN'],
+        fields: [
+            { id: 'spec_neckRibbingColor', label: 'Neck Ribbings Color', type: 'select', options: ['BLACK', 'WHITE', 'SUBILI PRINT'] },
+            { id: 'spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'spec_neckShape', label: 'Neck Shape', type: 'select', options: ['VNECK', 'ROUNDNECK'] },
+            { id: 'spec_cutType', label: 'Type of Cut', type: 'select', options: ['NBA CUT', 'REGULAR'], autoAddon: { 'NBA CUT': 32 } }
+        ]
+    },
+    'jersey-short': {
+        nameKeywords: ['JERSEY SHORT'],
+        fields: [
+            { id: 'spec_inner', label: 'Inner', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 38 } },
+            { id: 'spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } }
+        ]
+    },
+    hoodie: {
+        nameKeywords: ['HOODIE'],
+        fields: [
+            { id: 'spec_neckRibbingColor', label: 'Neck Ribbings Color', type: 'select', options: ['BLACK', 'WHITE', 'SUBILI PRINT'] },
+            { id: 'spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    }
+};
+
+// =============================================
+// RENDER DYNAMIC SPEC FIELDS
+// =============================================
+// Called when garment type changes. Renders the relevant spec fields
+// and wires up auto-addon checkbox toggling.
+window.sublimation_renderSpecs = function () {
+    var container = document.getElementById('sublimation_specsFields');
+    if (!container) return;
+
+    var garmentSelect = document.getElementById('sublimation_garmentSelect');
+    if (!garmentSelect || garmentSelect.selectedIndex <= 0) {
+        container.innerHTML = '<p class="text-muted small mb-0">Select a garment type to see specifications.</p>';
+        return;
+    }
+
+    var garmentName = garmentSelect.options[garmentSelect.selectedIndex].textContent;
+    var upperName = garmentName.toUpperCase();
+
+    // Find matching spec group
+    var matchingGroup = null;
+    var groupKey = null;
+    for (var key in garmentSpecMap) {
+        if (!garmentSpecMap.hasOwnProperty(key)) continue;
+        var group = garmentSpecMap[key];
+        for (var kwIdx = 0; kwIdx < group.nameKeywords.length; kwIdx++) {
+            if (upperName.indexOf(group.nameKeywords[kwIdx].toUpperCase()) !== -1) {
+                matchingGroup = group;
+                groupKey = key;
+                break;
+            }
+        }
+        if (matchingGroup) break;
+    }
+
+    if (!matchingGroup) {
+        container.innerHTML = '<p class="text-muted small mb-0">No specific fields for this garment type.</p>';
+        return;
+    }
+
+    var fields = matchingGroup.fields;
+    
+    // Check if this is Jersey Up and Down (two-column layout)
+    var isJerseyUpDown = (groupKey === 'jersey' && upperName.indexOf('UP AND DOWN') !== -1);
+    
+    var allFields = fields;
+    
+    // Helper: render one field row (grouped card style)
+    function renderFieldRow(f, prefix) {
+        var fid = (prefix || '') + f.id;
+        var row = '<div class="d-flex align-items-center mb-2 p-2 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;" id="specRow_' + fid + '">';
+        row += '    <label class="form-label small fw-semibold mb-0 me-2" style="min-width:110px;white-space:nowrap;">' + f.label + '</label>';
+        if (f.type === 'select') {
+            row += '    <div class="flex-grow-1"><select class="form-control form-control-sm" id="' + fid + '">';
+            row += '        <option value="">-- Select --</option>';
+            for (var oo = 0; oo < f.options.length; oo++) {
+                row += '        <option value="' + f.options[oo] + '">' + f.options[oo] + '</option>';
+            }
+            row += '    </select></div>';
+        } else {
+            row += '    <div class="flex-grow-1"><input type="text" class="form-control form-control-sm" id="' + fid + '" placeholder="Enter ' + f.label.toLowerCase() + '"></div>';
+        }
+        row += '</div>';
+        return row;
+    }
+    
+    // Helper: wire up auto-addon for a group of fields
+    function wireAutoAddon(fieldList, prefix) {
+        for (var w = 0; w < fieldList.length; w++) {
+            var fd = fieldList[w];
+            if (!fd.autoAddon) continue;
+            var el = document.getElementById((prefix || '') + fd.id);
+            if (!el) continue;
+            (function (ff, pfx) {
+                el.onchange = function () {
+                    sublimation_handleSpecAddon(ff, this.value);
+                    sublimation_calculateTotal();
+                    sublimation_autoGenerateDescription();
+                };
+            })(fd, prefix || '');
+        }
+    }
+    
+    var html = '';
+    
+    if (isJerseyUpDown) {
+        // Two-column layout: Jersey Up on left, Jersey Short on right
+        html += '<div class="row">';
+        
+        // LEFT COLUMN: Jersey Up
+        html += '<div class="col-md-6 border-end">';
+        html += '<h6 class="fw-bold mb-3" style="color:#667eea;">JERSEY UP</h6>';
+        for (var ui = 0; ui < fields.length; ui++) {
+            html += renderFieldRow(fields[ui], '');
+        }
+        html += '<div class="mt-3">';
+        html += renderFieldRow({ id: 'spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } }, '');
+        html += renderFieldRow({ id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }, '');
+        html += '</div>';
+        html += '</div>';
+        
+        // RIGHT COLUMN: Jersey Short
+        html += '<div class="col-md-6">';
+        html += '<h6 class="fw-bold mb-3" style="color:#667eea;">JERSEY SHORT</h6>';
+        var shortGroup = garmentSpecMap['jersey-short'];
+        if (shortGroup) {
+            for (var si = 0; si < shortGroup.fields.length; si++) {
+                html += renderFieldRow(shortGroup.fields[si], 'short_');
+            }
+        }
+        html += '</div>';
+        
+        html += '</div>';
+        
+        container.innerHTML = html;
+        
+        // Wire auto-addon for both columns (including armsleeve/shoulder)
+        wireAutoAddon(fields, '');
+        // Wire armsleeve/shoulder manually since they're inline objects
+        var alField = { id: 'spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } };
+        var shField = { id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } };
+        wireAutoAddon([alField, shField], '');
+        if (shortGroup) wireAutoAddon(shortGroup.fields, 'short_');
+        
+    } else {
+        // Normal single-column rendering
+        for (var i = 0; i < fields.length; i++) {
+            html += renderFieldRow(fields[i], '');
+        }
+        
+        // Add polo conditional fields (button/zipper)
+        if (groupKey === 'polo') {
+            var isButton = upperName.indexOf('BUTTON') !== -1;
+            if (isButton) {
+                html += '<div class="d-flex align-items-center mb-2 p-2 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;" id="specRow_spec_buttonColor">';
+                html += '    <label class="form-label small fw-semibold mb-0 me-2" style="min-width:110px;white-space:nowrap;">Button Color</label>';
+                html += '    <div class="flex-grow-1"><select class="form-control form-control-sm" id="spec_buttonColor"><option value="">-- Select --</option><option value="BLACK">BLACK</option><option value="WHITE">WHITE</option></select></div>';
+                html += '</div>';
+            } else {
+                html += '<div class="d-flex align-items-center mb-2 p-2 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;" id="specRow_spec_zipperColor">';
+                html += '    <label class="form-label small fw-semibold mb-0 me-2" style="min-width:110px;white-space:nowrap;">Zipper Color</label>';
+                html += '    <div class="flex-grow-1"><select class="form-control form-control-sm" id="spec_zipperColor"><option value="">-- Select --</option><option value="BLACK">BLACK</option><option value="WHITE">WHITE</option></select></div>';
+                html += '</div>';
+            }
+        }
+        
+        container.innerHTML = html;
+        
+        // Wire up auto-addon change handlers
+        wireAutoAddon(fields, '');
+        
+        // Also wire button/zipper
+        var btnZipperIds = ['spec_buttonColor', 'spec_zipperColor'];
+        for (var bz = 0; bz < btnZipperIds.length; bz++) {
+            var bzEl = document.getElementById(btnZipperIds[bz]);
+            if (bzEl) {
+                bzEl.onchange = function () { sublimation_calculateTotal(); sublimation_autoGenerateDescription(); };
+            }
+        }
+    }
+    
+    sublimation_calculateTotal();
+    sublimation_autoGenerateDescription();
+};
+
+// =============================================
+// AUTO-ADDON HANDLER
+// =============================================
+// Checks or unchecks a part checkbox based on spec selection.
+window.sublimation_handleSpecAddon = function (field, selectedValue) {
+    // Uncheck AND re-enable ALL part IDs mentioned in this field's autoAddon map
+    for (var val in field.autoAddon) {
+        if (!field.autoAddon.hasOwnProperty(val)) continue;
+        var partId = field.autoAddon[val];
+        var cb = document.querySelector('.sublimation-part-checkbox[value="' + partId + '"]');
+        if (cb) {
+            cb.checked = false;
+            cb.disabled = false;
+        }
+    }
+
+    // Check and LOCK the one matching the selected value
+    if (selectedValue && field.autoAddon[selectedValue] !== undefined) {
+        var targetPartId = field.autoAddon[selectedValue];
+        var targetCb = document.querySelector('.sublimation-part-checkbox[value="' + targetPartId + '"]');
+        if (targetCb) {
+            targetCb.checked = true;
+            targetCb.disabled = true; // Prevent manual uncheck
+        }
+    }
+};
+
+// Calculate total (quoted in both tabs)
+window.sublimation_calculateTotal = function() {
+    var garmentSelect = document.getElementById('sublimation_garmentSelect');
+    var fabricSelect = document.getElementById('sublimation_fabricSelect');
+    
+    // Get prices
+    var garmentPrice = 0;
+    var garmentName = '';
+    if (garmentSelect && garmentSelect.selectedIndex > 0) {
+        var garmentOpt = garmentSelect.options[garmentSelect.selectedIndex];
+        garmentPrice = parseFloat(garmentOpt.dataset.price) || 0;
+        garmentName = garmentOpt.textContent.split(' - ')[0];
+    }
+    
+    var fabricPrice = 0;
+    var fabricName = '';
+    if (fabricSelect && fabricSelect.selectedIndex > 0) {
+        var fabricOpt = fabricSelect.options[fabricSelect.selectedIndex];
+        fabricPrice = parseFloat(fabricOpt.dataset.price) || 0;
+        fabricName = fabricOpt.textContent.split(' - ')[0];
+    }
+    
+    // Get parts total
+    var partsPrice = 0;
+    var partsNames = [];
+    var checkboxes = document.querySelectorAll('.sublimation-part-checkbox:checked');
+    checkboxes.forEach(function(cb) {
+        partsPrice += parseFloat(cb.dataset.price) || 0;
+        var label = cb.nextElementSibling;
+        if (label) partsNames.push(label.textContent.split(' (+')[0]);
+    });
+    
+    // Get sizes pricing data (loaded from API)
+    var sizesData = window.sublimation_sizesData || {};
+    // Helper: flexible size name match (form uses 5XLARGE, pricing may use 5XL)
+    function getSizePrice(name) {
+        if (sizesData[name] !== undefined) return sizesData[name];
+        // Try without ARGE suffix (e.g., 5XLARGE -> 5XL)
+        if (name.endsWith('ARGE')) {
+            var alt = name.slice(0, -4);
+            if (sizesData[alt] !== undefined) return sizesData[alt];
+        }
+        // Try without LARGE suffix (e.g., XLARGE -> XL)
+        if (name.endsWith('LARGE')) {
+            var alt2 = name.slice(0, -5);
+            if (sizesData[alt2] !== undefined) return sizesData[alt2];
+        }
+        return 0;
+    }
+    
+    // Calculate per-size pricing with size markup
+    var baseUnitPrice = garmentPrice + fabricPrice + partsPrice;
+    var totalQty = 0;
+    var grandTotal = 0;
+    var sizePriceBreakdownItems = [];
+    
+    // By-size mode: iterate each size input
+    var sizeInputs = document.querySelectorAll('#sizes .size-qty, #sublimationModalBody .size-qty');
+    var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+    var hasRosterRows = rosterRows.length > 0;
+    
+    // Always count size-qty inputs (manual entries in By Sizes tab)
+    sizeInputs.forEach(function(inp) {
+        var qty = parseInt(inp.value) || 0;
+        if (qty > 0) {
+            var sizeName = (inp.dataset.size || '').toUpperCase();
+            var sizePrice = getSizePrice(sizeName);
+            var rowTotal = (baseUnitPrice + sizePrice) * qty;
+            grandTotal += rowTotal;
+            totalQty += qty;
+            sizePriceBreakdownItems.push({ size: sizeName, qty: qty, sizePrice: sizePrice, rowTotal: rowTotal });
+        }
+    });
+    
+    // Roster mode: each row counts as 1 qty, use each row's selected size
+    if (hasRosterRows) {
+        var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+        rosterRows.forEach(function(row) {
+        var sizeSelect = row.querySelector('.roster-size');
+        if (sizeSelect) {
+            var sizeName = (sizeSelect.value || '').toUpperCase();
+            var sizePrice = getSizePrice(sizeName);
+            // Read QTY from roster-number hidden input if available
+            var qtyInput = row.querySelector('.roster-number');
+            var rosterQty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+            if (rosterQty < 1) rosterQty = 1;
+            grandTotal += (baseUnitPrice + sizePrice) * rosterQty;
+            totalQty += rosterQty;
+            sizePriceBreakdownItems.push({ size: sizeName, qty: rosterQty, sizePrice: sizePrice, rowTotal: (baseUnitPrice + sizePrice) * rosterQty });
+        } else {
+            grandTotal += baseUnitPrice;
+            totalQty += 1;
+        }
+    });
+    }
+    
+    // Helper to format price
+    function fmt(price) {
+        if (price > 0) return '\u20B1' + price.toFixed(2);
+        return '-\u20B10.00';
+    }
+    
+    // Build size markup breakdown HTML
+    var sizeBreakdownHTML = '';
+    if (sizePriceBreakdownItems.length > 0) {
+        var seenSizes = {};
+        sizePriceBreakdownItems.forEach(function(si) {
+            var key = si.size || '??';
+            if (!seenSizes[key]) {
+                seenSizes[key] = { totalQty: 0, sizePrice: si.sizePrice };
+            }
+            seenSizes[key].totalQty += si.qty;
+        });
+        for (var sz in seenSizes) {
+            if (seenSizes[sz].sizePrice > 0) {
+                sizeBreakdownHTML += '<div class="d-flex justify-content-between small" style="padding-left:12px;">' +
+                    '<span>' + sz + ' (x' + seenSizes[sz].totalQty + ') × \u20B1' + seenSizes[sz].sizePrice.toFixed(2) + '</span>' +
+                    '<span>\u20B1' + (seenSizes[sz].sizePrice * seenSizes[sz].totalQty).toFixed(2) + '</span></div>';
+            }
+        }
+        if (sizeBreakdownHTML) {
+            sizeBreakdownHTML = '<div class="d-flex justify-content-between small fw-bold"><span>Size Markup:</span><span></span></div>' + sizeBreakdownHTML;
+        }
+    }
+    
+    // Update order details tab summary
+    var set = function(id, val) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+    
+    set('sublimation_garmentPriceDisplay', fmt(garmentPrice));
+    set('sublimation_fabricPriceDisplay', fmt(fabricPrice));
+    
+    // Build individual parts breakdown for both price cards
+    var partsBreakdownHTML = '';
+    checkboxes.forEach(function(cb) {
+        var label = cb.nextElementSibling;
+        if (label) {
+            var pn = label.textContent.split(' (+')[0];
+            var pp = parseFloat(cb.dataset.price) || 0;
+            partsBreakdownHTML += '<div class="d-flex justify-content-between small" style="padding-left:12px;">' +
+                '<span>' + pn + '</span>' +
+                '<span>\u20B1' + pp.toFixed(2) + '</span></div>';
+        }
+    });
+    if (partsBreakdownHTML) {
+        partsBreakdownHTML += '<hr class="my-1">';
+        partsBreakdownHTML += '<div class="d-flex justify-content-between small fw-bold">' +
+            '<span>Parts Total:</span>' +
+            '<span>\u20B1' + partsPrice.toFixed(2) + '</span></div>';
+    }
+    var partsEl = document.getElementById('sublimation_partsBreakdown');
+    if (partsEl) partsEl.innerHTML = partsBreakdownHTML + sizeBreakdownHTML;
+    document.getElementById('pricingTab_partsBreakdown').innerHTML = partsBreakdownHTML;
+    document.getElementById('pricingTab_sizeBreakdown').innerHTML = sizeBreakdownHTML;
+
+    set('sublimation_unitPriceDisplay', '\u20B1' + baseUnitPrice.toFixed(2));
+    set('sublimation_totalQtyDisplay', totalQty);
+    set('sublimation_totalDisplay', '\u20B1' + grandTotal.toFixed(2));
+    
+    // Update pricing tab summary with names + prices
+    var garmentEl = document.getElementById('sublimation_garmentSelect');
+    var garmentName = garmentEl && garmentEl.selectedIndex > 0 ? garmentEl.options[garmentEl.selectedIndex].textContent : 'Garment';
+    var fabricEl = document.getElementById('sublimation_fabricSelect');
+    var fabricName = fabricEl && fabricEl.selectedIndex > 0 ? fabricEl.options[fabricEl.selectedIndex].textContent : 'Fabric';
+    document.getElementById('pricingTab_garmentLabel').textContent = garmentName + ':';
+    document.getElementById('pricingTab_fabricLabel').textContent = fabricName + ':';
+    set('pricingTab_garmentPrice', fmt(garmentPrice));
+    set('pricingTab_fabricPrice', fmt(fabricPrice));
+    // Individual parts already set via sublimation_partsBreakdown / pricingTab_partsBreakdown above
+    set('pricingTab_unitPrice', '\u20B1' + baseUnitPrice.toFixed(2));
+    set('pricingTab_totalQty', totalQty);
+    set('pricingTab_grandTotal', '\u20B1' + grandTotal.toFixed(2));
+};
+
+// Add to cart
+window.sublimation_addItemToCart = function() {
+    var projectName = document.getElementById('sublimation_projectName');
+    var description = document.getElementById('sublimation_description');
+    var garmentSelect = document.getElementById('sublimation_garmentSelect');
+    var fabricSelect = document.getElementById('sublimation_fabricSelect');
+    /* Department auto-assigned; sublimation uses Class dept */
+    var deptSelect = null;
+    var notes = document.getElementById('sublimation_notes');
+    
+    // Validate basics — ALL required fields
+    if (!projectName || !projectName.value.trim()) {
+        alert('Please enter a Project Name.');
+        if (projectName) projectName.focus();
+        var tab = document.querySelector('#sublimationTab .nav-link');
+        if (tab && bootstrap && bootstrap.Tab) new bootstrap.Tab(tab).show();
+        return;
+    }
+    
+    if (!fabricSelect || fabricSelect.selectedIndex <= 0) {
+        alert('Please select a Fabric type (Order Details tab).');
+        var tab = document.querySelector('#sublimationTab .nav-link');
+        if (tab && bootstrap && bootstrap.Tab) new bootstrap.Tab(tab).show();
+        return;
+    }
+    
+    if (!garmentSelect || garmentSelect.selectedIndex <= 0) {
+        alert('Please select a Garment type (Specifications tab).');
+        var specsTab = document.querySelector('#specs-tab');
+        if (specsTab && bootstrap && bootstrap.Tab) new bootstrap.Tab(specsTab).show();
+        return;
+    }
+    
+    var designer = document.getElementById('sublimation_designer');
+    if (!designer || !designer.value.trim()) {
+        alert('Please enter a Designer name (Order Details tab).');
+        var tab = document.querySelector('#sublimationTab .nav-link');
+        if (tab && bootstrap && bootstrap.Tab) new bootstrap.Tab(tab).show();
+        return;
+    }
+    
+    var dateNeeded = document.getElementById('sublimation_dateNeeded');
+    if (!dateNeeded || !dateNeeded.value.trim()) {
+        alert('Please enter a Date Needed (Order Details tab).');
+        var tab = document.querySelector('#sublimationTab .nav-link');
+        if (tab && bootstrap && bootstrap.Tab) new bootstrap.Tab(tab).show();
+        return;
+    }
+    
+    // Department auto-assigned; sublimation uses Class department
+    var department = 'class';
+    
+    // Validate sizes - at least one size must have qty > 0
+    var totalQty = sublimation_getTotalQty();
+    if (totalQty <= 0) {
+        alert('Please enter at least 1 quantity in the Sizes tab.');
+        var sizesTab = document.querySelector('#sizes-tab');
+        if (sizesTab && bootstrap && bootstrap.Tab) new bootstrap.Tab(sizesTab).show();
+        return;
+    }
+    
+    // Get selected values
+    var garmentOpt = garmentSelect.options[garmentSelect.selectedIndex];
+    var garmentName = garmentOpt.textContent.split(' - ')[0];
+    var garmentPrice = parseFloat(garmentOpt.dataset.price) || 0;
+    
+    var fabricOpt = fabricSelect.options[fabricSelect.selectedIndex];
+    var fabricName = fabricOpt.textContent.split(' - ')[0];
+    var fabricPrice = parseFloat(fabricOpt.dataset.price) || 0;
+    
+    // Get selected parts
+    var partsPrice = 0;
+    var partsList = [];
+    var checkboxes = document.querySelectorAll('.sublimation-part-checkbox:checked');
+    checkboxes.forEach(function(cb) {
+        partsPrice += parseFloat(cb.dataset.price) || 0;
+        var label = cb.nextElementSibling;
+        if (label) partsList.push(label.textContent.split(' (+')[0]);
+    });
+    
+    var baseUnitPrice = garmentPrice + fabricPrice + partsPrice;
+    var sizesData = window.sublimation_sizesData || {};
+    // Helper: flexible size name match (form uses 5XLARGE, pricing may use 5XL)
+    function getSizeCartPrice(name) {
+        if (sizesData[name] !== undefined) return sizesData[name];
+        if (name.endsWith('ARGE')) {
+            var alt = name.slice(0, -4);
+            if (sizesData[alt] !== undefined) return sizesData[alt];
+        }
+        if (name.endsWith('LARGE')) {
+            var alt2 = name.slice(0, -5);
+            if (sizesData[alt2] !== undefined) return sizesData[alt2];
+        }
+        return 0;
+    }
+    var totalPrice = 0;
+    
+    // Collect size data (by-qty mode) + calculate per-size pricing
+    var sizeData = [];
+    var sizeInputs = document.querySelectorAll('#sizes .size-qty');
+    sizeInputs.forEach(function(inp) {
+        var q = parseInt(inp.value) || 0;
+        if (q > 0) {
+            var sizeName = (inp.dataset.size || '').toUpperCase();
+            var sizePrice = getSizeCartPrice(sizeName);
+            sizeData.push({ size: inp.dataset.size, quantity: q, price: sizePrice });
+            totalPrice += (baseUnitPrice + sizePrice) * q;
+        }
+    });
+    
+    // Roster rows: use roster-number value (not just 1 per row)
+    var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+    rosterRows.forEach(function(row) {
+        var sizeSelect = row.querySelector('.roster-size');
+        var qtyInput = row.querySelector('.roster-number');
+        var rosterQty = parseInt(qtyInput ? qtyInput.value : '') || 1;
+        if (rosterQty < 1) rosterQty = 1;
+        if (sizeSelect) {
+            var sizeName = (sizeSelect.value || '').toUpperCase();
+            var sizePrice = getSizeCartPrice(sizeName);
+            totalPrice += (baseUnitPrice + sizePrice) * rosterQty;
+        } else {
+            totalPrice += baseUnitPrice * rosterQty;
+        }
+    });
+    
+    // Collect roster data (per-person mode)
+    var rosterData = [];
+    var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+    rosterRows.forEach(function(row) {
+        var numCell = row.querySelector('td:first-child');
+        var nameInput = row.querySelector('.roster-name');
+        var numInput = row.querySelector('.roster-number');
+        var sizeInput = row.querySelector('.roster-size');
+        rosterData.push({
+            number: numInput ? numInput.value : (numCell ? numCell.textContent.trim() : ''),
+            name: nameInput ? nameInput.value : '',
+            size: sizeInput ? sizeInput.value : ''
+        });
+    });
+    
+    // Collect mockup image data URL
+    var mockupImg = document.getElementById('mockupPreview');
+    var mockupDataUrl = (mockupImg && mockupImg.src && mockupImg.style.display !== 'none') ? mockupImg.src : '';
+
+    // Collect spec data dynamically from rendered fields
+    var specData = {};
+    var specFieldIds = ['spec_neckRibbingColor','spec_neckTape','spec_sizeLabel','spec_cuffs','spec_slit','spec_pocket','spec_collar','spec_neckShape','spec_cutType','spec_inner','spec_buttonColor','spec_zipperColor','spec_innerStr','spec_jersey','spec_defaultDesign','spec_armsleeve','spec_shoulder','short_spec_inner','short_spec_pocket','short_spec_armsleeve','short_spec_shoulder','short_spec_neckRibbingColor','short_spec_neckTape','short_spec_sizeLabel','short_spec_cuffs','short_spec_slit','short_spec_pocket','short_spec_collar','short_spec_neckShape','short_spec_cutType','short_spec_buttonColor','short_spec_zipperColor','short_spec_jersey','short_spec_defaultDesign'];
+    specFieldIds.forEach(function (sid) {
+        var el = document.getElementById(sid);
+        if (el) {
+            specData[sid.replace('spec_','')] = el.value ? el.value.trim() : '';
+        }
+    });
+    
+    function getVal(id) {
+        var el = document.getElementById(id);
+        if (!el) return '';
+        return el.value ? el.value.trim() : '';
+    }
+    
+    // Build the item name
+    var itemName = 'FS: ' + (projectName.value.trim() || '?') + ' - ' + garmentName;
+    if (fabricName) itemName += ' (' + fabricName + ')';
+    if (partsList.length > 0) itemName += ' +' + partsList.join('+');
+    
+    // Create cart item
+    var sublimationItem = {
+        id: Date.now(),
+        productType: 'cutting',
+        department: department,
+        name: itemName,
+        quantity: totalQty,
+        unitPrice: baseUnitPrice,
+        totalPrice: totalPrice,
+        notes: notes ? notes.value.trim() : '',
+        timestamp: new Date().toISOString(),
+        sublimationForm: {
+            projectName: projectName.value.trim(),
+            description: description.value.trim(),
+            designer: getVal('sublimation_designer'),
+            /* PIC field removed */
+            dateNeeded: getVal('sublimation_dateNeeded'),
+            garment: { name: garmentName, price: garmentPrice, priceId: garmentSelect.value },
+            fabric: { name: fabricName, price: fabricPrice, priceId: fabricSelect.value },
+            parts: partsList.map(function(pn, idx) {
+                return { name: pn, price: parseFloat(checkboxes[idx]?.dataset.price) || 0 };
+            }),
+            sizes: sizeData,
+            roster: rosterData,
+            mockup: mockupDataUrl,
+            specifications: specData
+        }
+    };
+    
+    selectedItems.push(sublimationItem);
+    updateSelectedItemsDisplay();
+    updateOrderSummary();
+    
+    // Reset form
+    sublimation_openModal();
+    
+    // Close modal
+    var modalEl = document.getElementById('productModal');
+    if (modalEl) {
+        var modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+    }
+    
+    showToast('FS order added to cart!', 'success');
+};
+
+// === ROSTER FUNCTIONS ===
+
+// Toggle between By Size and Per Person modes
+window.sublimation_toggleSizeMode = function() {
+    var mode = document.querySelector('input[name="sublimationSizeMode"]:checked');
+    if (!mode) return;
+    var isRoster = mode.value === 'roster';
+    document.getElementById('sublimationSizeByQty').style.display = isRoster ? 'none' : '';
+    document.getElementById('sublimationSizeRoster').style.display = isRoster ? '' : 'none';
+    sublimation_calculateTotal();
+};
+
+// Add a single roster row
+window.sublimation_addRosterRow = function() {
+    var nameEl = document.getElementById('roster_newName');
+    var numEl = document.getElementById('roster_newNumber');
+    var sizeEl = document.getElementById('roster_newSize');
+    
+    var name = nameEl ? nameEl.value.trim() : '';
+    var number = numEl ? numEl.value.trim() : '';
+    var size = sizeEl ? sizeEl.value : '';
+    
+    if (!name) {
+        alert('Please enter a name.');
+        if (nameEl) nameEl.focus();
+        return;
+    }
+    if (!size) {
+        alert('Please select a size.');
+        if (sizeEl) sizeEl.focus();
+        return;
+    }
+    
+    var tbody = document.getElementById('sublimation_rosterBody');
+    if (!tbody) return;
+    
+    // Hide empty state
+    var empty = document.getElementById('sublimation_rosterEmpty');
+    if (empty) empty.style.display = 'none';
+    
+    // Determine dynamic column positions from header row
+    var headerRow = document.getElementById('sublimation_rosterHeader');
+    var displayHeaders = [];
+    if (headerRow) {
+        var ths = headerRow.querySelectorAll('th');
+        for (var i = 1; i < ths.length - 1; i++) { // skip #, skip last (empty Remove + Qty)
+            var txt = (ths[i].textContent || '').trim().toUpperCase();
+            displayHeaders.push(txt);
+        }
+        // The last th before the Remove button is Qty — remove it if present
+        if (displayHeaders.length > 0 && displayHeaders[displayHeaders.length - 1] === 'QTY') {
+            displayHeaders.pop();
+        }
+    }
+    
+    // If no dynamic headers found or table was reset, use default structure
+    if (displayHeaders.length === 0) {
+        displayHeaders = ['NAME', 'SIZE'];
+    }
+    
+    // Find name column index and size column index
+    var nameIdx = -1;
+    var sizeIdx = -1;
+    displayHeaders.forEach(function(h, i) {
+        if (h.indexOf('NAME') >= 0 && nameIdx < 0) nameIdx = i;
+        if (h.indexOf('SIZE') >= 0 && sizeIdx < 0) sizeIdx = i;
+    });
+    if (nameIdx < 0) nameIdx = 0; // default to first column
+    if (sizeIdx < 0) sizeIdx = displayHeaders.length - 1; // default to last
+    
+    var row = document.createElement('tr');
+    row.className = 'roster-row';
+    var rowNum = tbody.querySelectorAll('tr.roster-row').length + 1;
+    
+    var cellsHtml = '<td class="text-center align-middle">' + rowNum + '</td>';
+    displayHeaders.forEach(function(h, i) {
+        cellsHtml += '<td class="align-middle">';
+        if (i === nameIdx) {
+            cellsHtml += _escHtml(name)
+                + '<input type="hidden" class="roster-name" value="' + _escHtml(name) + '">'
+                + '<input type="hidden" class="roster-number" value="' + _escHtml(number) + '">';
+        } else if (i === sizeIdx) {
+            cellsHtml += size + '<input type="hidden" class="roster-size" value="' + size + '">';
+        } else {
+            cellsHtml += '&nbsp;';
+        }
+        cellsHtml += '</td>';
+    });
+    cellsHtml += '<td class="text-center align-middle">1</td>'
+        + '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="sublimation_removeRosterRow(this)" title="Remove"><i class="fas fa-times"></i></button></td>';
+    
+    row.innerHTML = cellsHtml;
+    tbody.appendChild(row);
+    
+    // Clear inputs
+    if (numEl) numEl.value = '';
+    if (nameEl) nameEl.value = '';
+    if (sizeEl) sizeEl.selectedIndex = 0;
+    if (nameEl) nameEl.focus();
+    
+    // Update counts
+    sublimation_updateRosterCount();
+    sublimation_calculateTotal();
+};
+
+// Remove a roster row
+window.sublimation_removeRosterRow = function(btn) {
+    var row = btn.closest('tr');
+    if (row) {
+        row.remove();
+        // Renumber
+        var tbody = document.getElementById('sublimation_rosterBody');
+        if (tbody) {
+            var remaining = tbody.querySelectorAll('tr.roster-row');
+            remaining.forEach(function(r, idx) {
+                var numTd = r.querySelector('td:first-child');
+                if (numTd) numTd.textContent = (idx + 1).toString();
+            });
+            if (remaining.length === 0) {
+                var empty = document.getElementById('sublimation_rosterEmpty');
+                if (empty) empty.style.display = '';
+            }
+        }
+        sublimation_updateRosterCount();
+        sublimation_calculateTotal();
+    }
+};
+
+// Update roster count display
+window.sublimation_updateRosterCount = function() {
+    var countEl = document.getElementById('sublimation_rosterCount');
+    var tbody = document.getElementById('sublimation_rosterBody');
+    if (countEl && tbody) {
+        countEl.textContent = tbody.querySelectorAll('tr.roster-row').length;
+    }
+};
+
+// Toggle bulk paste textarea
+window.sublimation_toggleBulkPaste = function() {
+    var area = document.getElementById('sublimationBulkPasteArea');
+    if (area) {
+        area.style.display = area.style.display === 'none' ? '' : 'none';
+    }
+};
+
+// Bulk paste: parse lines like "Name,Size" or "Number,Name,Size"
+window.sublimation_bulkPaste = function() {
+    var textarea = document.getElementById('sublimation_bulkPasteInput');
+    if (!textarea || !textarea.value.trim()) {
+        alert('Paste your list first.');
+        return;
+    }
+    
+    var lines = textarea.value.trim().split('\n');
+    var added = 0;
+    
+    lines.forEach(function(line) {
+        line = line.trim();
+        if (!line) return;
+        // Try Number,Name,Size or Name,Size
+        var parts = line.split(',').map(function(s) { return s.trim(); });
+        var name, number, size;
+        
+        if (parts.length === 3) {
+            number = parts[0];
+            name = parts[1];
+            size = parts[2].toUpperCase();
+        } else if (parts.length === 2) {
+            number = '';
+            name = parts[0];
+            size = parts[1].toUpperCase();
+        } else {
+            return; // skip malformed
+        }
+        
+        if (!name || !size) return;
+        
+        // Set fields and add
+        var nameEl = document.getElementById('roster_newName');
+        var numEl = document.getElementById('roster_newNumber');
+        var sizeEl = document.getElementById('roster_newSize');
+        if (nameEl) nameEl.value = name;
+        if (numEl) numEl.value = number;
+        if (sizeEl) { 
+            // Try to match size, case-insensitive
+            for (var i = 0; i < sizeEl.options.length; i++) {
+                if (sizeEl.options[i].value.toUpperCase() === size) {
+                    sizeEl.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        sublimation_addRosterRow();
+        added++;
+    });
+    
+    // Clear textarea
+    textarea.value = '';
+    var area = document.getElementById('sublimationBulkPasteArea');
+    if (area) area.style.display = 'none';
+    
+    showToast(added + ' person' + (added > 1 ? 's' : '') + ' added to roster!', 'success');
+};
+
+// Normalize size names from Excel to standard codes
+function normalizeSize(raw) {
+    raw = raw.toUpperCase().trim();
+    // Handle "SMALL", "MEDIUM", "LARGE", "XLARGE", "2XLARGE", "5XLARGE" etc.
+    var map = {
+        'SMALL': 'S',
+        'MEDIUM': 'M',
+        'LARGE': 'L',
+        'XLARGE': 'XL',
+        'EXTRA LARGE': 'XL',
+        'EXTRA-LARGE': 'XL',
+        'EXTRA_SMALL': 'XS',
+        'EXTRA SMALL': 'XS',
+        'EXTRA-SMALL': 'XS',
+        'XSMALL': 'XS',
+        'X-SMALL': 'XS',
+        'X LARGE': 'XL',
+        'X-LARGE': 'XL',
+        '2XLARGE': '2XL',
+        '2X LARGE': '2XL',
+        '2X-LARGE': '2XL',
+        '3XLARGE': '3XL',
+        '3X LARGE': '3XL',
+        '3X-LARGE': '3XL',
+        '4XLARGE': '4XL',
+        '4X LARGE': '4XL',
+        '4X-LARGE': '4XL',
+        '5XLARGE': '5XL',
+        '5X LARGE': '5XL',
+        '5X-LARGE': '5XL',
+        '6XLARGE': '6XL',
+        '7XLARGE': '7XL',
+        '8XLARGE': '8XL'
+    };
+    if (map[raw]) return map[raw];
+    
+    // Catch-alls: if ends with 'ARGE' or 'LARGE', strip the suffix
+    if (raw.endsWith('ARGE')) return raw.slice(0, -4);  // XLARGE -> XL, 5XLARGE -> 5XL
+    if (raw.endsWith('LARGE')) return raw.slice(0, -5); // X-LARGE -> X- (fallback)
+    if (raw.endsWith('SMALL')) return raw.slice(0, -5) + 'S';  // XSMALL -> XS
+    
+    return raw;
+}
+
+// Upload Excel file → show column mapping dialog
+var sublimation_excelData = null; // stores parsed rows for later
+var sublimation_excelHeaders = null; // stores headers for column mapping
+
+window.sublimation_uploadExcel = function(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    
+    function loadAndParse() {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var data = new Uint8Array(e.target.result);
+                var workbook = XLSX.read(data, {type: 'array'});
+                var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                var json = XLSX.utils.sheet_to_json(firstSheet, {header: 1, defval: ''});
+                
+                if (json.length < 1) {
+                    showToast('Excel file is empty.', 'warning');
+                    return;
+                }
+                
+                // First row = headers
+                var headers = json[0].map(function(h) { return String(h).trim(); });
+                sublimation_excelHeaders = headers;
+                var rows = json.slice(1).filter(function(r) {
+                    return r.some(function(cell) { return String(cell).trim() !== ''; });
+                });
+                
+                if (rows.length < 1) {
+                    showToast('No data rows found (header only).', 'warning');
+                    return;
+                }
+                
+                // Store for applyMapping
+                sublimation_excelData = { headers: headers, rows: rows };
+                
+                // Auto-build roster from all Excel columns (no mapping dialog needed)
+                sublimation_autoBuildFromExcel(headers, rows);
+                
+            } catch(err) {
+                showToast('Error reading file: ' + err.message, 'danger');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    
+    // Load SheetJS if needed
+    if (typeof XLSX === 'undefined') {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
+        script.onload = loadAndParse;
+        script.onerror = function() {
+            var script2 = document.createElement('script');
+            script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            script2.onload = loadAndParse;
+            script2.onerror = function() {
+                showToast('Failed to load Excel parser. Check internet connection.', 'danger');
+            };
+            document.head.appendChild(script2);
+        };
+        document.head.appendChild(script);
+    } else {
+        loadAndParse();
+    }
+};
+
+// Mock-up image upload functions
+window.sublimation_previewMockup = function(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var preview = document.getElementById('mockupPreview');
+        var placeholder = document.getElementById('mockupPlaceholder');
+        var fileInfo = document.getElementById('mockupFileInfo');
+        var fileName = document.getElementById('mockupFileName');
+        preview.src = e.target.result;
+        preview.style.display = '';
+        placeholder.style.display = 'none';
+        fileName.textContent = file.name;
+        fileInfo.style.display = '';
+    };
+    reader.readAsDataURL(file);
+};
+
+window.sublimation_removeMockup = function() {
+    var preview = document.getElementById('mockupPreview');
+    var placeholder = document.getElementById('mockupPlaceholder');
+    var fileInfo = document.getElementById('mockupFileInfo');
+    var upload = document.getElementById('mockupUpload');
+    preview.src = '';
+    preview.style.display = 'none';
+    placeholder.style.display = '';
+    fileInfo.style.display = 'none';
+    upload.value = '';
+};
+
+// Format YYYY-MM-DD to DD/MM/YYYY
+function formatDateDDMMYYYY(dateStr) {
+    if (!dateStr) return '';
+    var parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+    }
+    return dateStr;
+}
+
+// Print Order Slip (A4 landscape, excludes pricing)
+window.sublimation_printOrderSlip = function() {
+    // Collect form data
+    function getVal(id) { var el = document.getElementById(id); return el ? el.value || '' : ''; }
+    
+    // Header fields
+    document.getElementById('ps_projectName').textContent = getVal('sublimation_projectName');
+    document.getElementById('ps_description').textContent = getVal('sublimation_description');
+    var fabricEl = document.getElementById('sublimation_fabricSelect');
+    var fabricText = fabricEl && fabricEl.selectedIndex > 0 ? fabricEl.options[fabricEl.selectedIndex].textContent : '';
+    document.getElementById('ps_fabric').textContent = fabricText;
+    document.getElementById('ps_designer').textContent = getVal('sublimation_designer');
+    document.getElementById('ps_dateNeeded').textContent = formatDateDDMMYYYY(getVal('sublimation_dateNeeded'));
+    
+    // Total QTY
+    var totalQty = 0;
+    var totalSizeInputs = document.querySelectorAll('#sizes .size-qty');
+    totalSizeInputs.forEach(function(inp) { totalQty += parseInt(inp.value) || 0; });
+    var totalRosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+    totalRosterRows.forEach(function(row) {
+        var qtyInput = row.querySelector('.roster-number');
+        totalQty += qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+    });
+    document.getElementById('ps_qty').textContent = totalQty + ' PCS';
+    
+    // Mock-up image
+    var mockupPreview = document.getElementById('mockupPreview');
+    var mockupImg = document.getElementById('ps_mockupImg');
+    var mockupPlaceholder = document.getElementById('ps_mockupPlaceholder');
+    if (mockupPreview && mockupPreview.src && mockupPreview.style.display !== 'none') {
+        mockupImg.src = mockupPreview.src;
+        mockupImg.style.display = '';
+        mockupPlaceholder.style.display = 'none';
+    } else {
+        mockupImg.style.display = 'none';
+        mockupPlaceholder.style.display = '';
+    }
+    
+    // Garment name for specs section header
+    var garmentEl = document.getElementById('sublimation_garmentSelect');
+    var garmentName = garmentEl && garmentEl.selectedIndex > 0 ? garmentEl.options[garmentEl.selectedIndex].textContent : '';
+    
+    // Parts / Colors table (left column) — main garment + parts
+    var partsTbody = document.querySelector('#ps_specsParts tbody');
+    if (!partsTbody) partsTbody = document.querySelector('#ps_specsParts');
+    partsTbody.innerHTML = '<tr><th style="width:110px;">Part</th><th>Color/Details</th></tr>';
+    
+    // Garment type as first row
+    partsTbody.innerHTML += '<tr><td>Garment</td><td>' + garmentName + '</td></tr>';
+    
+    // Collect spec field data for parts (front, back, sleeves, collar etc)
+    var specPartsMap = {
+        'neckRibbingColor': 'Neck Ribbing', 'neckTape': 'Neck Tape', 'cuffs': 'Cuffs',
+        'slit': 'Slit', 'pocket': 'Pocket', 'collar': 'Collar', 'neckShape': 'Neck Shape',
+        'cutType': 'Cut Type', 'inner': 'Inner', 'buttonColor': 'Button',
+        'zipperColor': 'Zipper', 'innerStr': 'Inner String', 'jersey': 'Jersey',
+        'defaultDesign': 'Design', 'armsleeve': 'Arm Sleeve', 'shoulder': 'Shoulder',
+        'sizeLabel': 'Size Label'
+    };
+    
+    var specOthersMap = {}; // specs that don't fit the main parts table
+    
+    for (var key in specPartsMap) {
+        var label = specPartsMap[key];
+        var el = document.getElementById('spec_' + key);
+        var val = el ? (el.value || '').trim() : '';
+        if (val) {
+            partsTbody.innerHTML += '<tr><td>' + label + '</td><td>' + val + '</td></tr>';
+        }
+    }
+    
+    // Check short_spec variants (for shorts)
+    var shortSpecKeys = ['inner','pocket','armsleeve','shoulder','neckRibbingColor','neckTape','sizeLabel','cuffs','slit','pocket','collar','neckShape','cutType','buttonColor','zipperColor','jersey','defaultDesign'];
+    var existingLabels = Array.from(partsTbody.querySelectorAll('tr td:first-child')).map(function(td) {
+        return td.textContent.trim().toLowerCase();
+    });
+    shortSpecKeys.forEach(function(key) {
+        var el = document.getElementById('short_spec_' + key);
+        var val = el ? (el.value || '').trim() : '';
+        if (val) {
+            var label = specPartsMap[key];
+            if (label && existingLabels.indexOf(label.toLowerCase()) === -1) {
+                partsTbody.innerHTML += '<tr><td>' + label + ' (Short)</td><td>' + val + '</td></tr>';
+            }
+        }
+    });
+    
+    // Colors are already shown in DESCRIPTION field (left column), so skip adding a redundant "Colors" row here
+    
+    // Split parts rows into two columns (auto-detect: 10 rows → 5+5, 9 → 5+4, 8 → 4+4, etc.)
+    var allPartsTrs = partsTbody.querySelectorAll('tr');
+    var dataPartsRows = Array.from(allPartsTrs).slice(1); // skip header
+    var splitMid = Math.ceil(dataPartsRows.length / 2);
+    var splitHeader = '<tr><th style="width:110px;">Part</th><th>Color/Details</th></tr>';
+    document.getElementById('ps_leftPartsCol').innerHTML = splitHeader + dataPartsRows.slice(0, splitMid).map(function(r) { return r.outerHTML; }).join('');
+    document.getElementById('ps_rightPartsCol').innerHTML = splitHeader + dataPartsRows.slice(splitMid).map(function(r) { return r.outerHTML; }).join('');
+    
+    // Others table (right column)
+    var othersTbody = document.querySelector('#ps_specsOthers tbody');
+    if (!othersTbody) othersTbody = document.querySelector('#ps_specsOthers');
+    othersTbody.innerHTML = '<tr><th style="width:120px;">Item</th><th>Details</th></tr>';
+    
+    // Populate others with specs not suitable for parts table
+    var allSpecIds = ['spec_neckTape','spec_sizeLabel','spec_cuffs','spec_slit','spec_pocket','spec_collar','spec_neckShape','spec_cutType','spec_buttonColor','spec_zipperColor','spec_jersey','spec_defaultDesign','spec_innerStr'];
+    allSpecIds.forEach(function(sid) {
+        var el = document.getElementById(sid);
+        if (el && el.value && el.value.trim()) {
+            var labelText = sid.replace('spec_','').replace(/([A-Z])/g,' $1').replace(/^./, function(s){return s.toUpperCase();});
+            // Skip if already in parts table
+            var allPartsLabels = Array.from(partsTbody.querySelectorAll('tr td:first-child')).map(function(td) {
+                return td.textContent.trim().toLowerCase();
+            });
+            var shortLabel = labelText.replace(' Neck','').replace(' Color','').trim().toLowerCase();
+            var alreadyInParts = allPartsLabels.some(function(l) { return l.indexOf(shortLabel) >= 0; });
+            if (!alreadyInParts) {
+                othersTbody.innerHTML += '<tr><td>' + labelText + '</td><td>' + el.value.trim() + '</td></tr>';
+            }
+        }
+    });
+    
+    // Also add parts that were checked in the parts checkboxes
+    var checkboxes = document.querySelectorAll('.sublimation-part-checkbox:checked');
+    if (checkboxes.length > 0) {
+        othersTbody.innerHTML += '<tr><td>Parts Added</td><td>' + Array.from(checkboxes).map(function(cb) {
+            var lbl = cb.nextElementSibling;
+            return lbl ? lbl.textContent.split(' (+')[0] : '';
+        }).filter(Boolean).join(', ') + '</td></tr>';
+    }
+    
+    // Notes
+    var notesVal = getVal('sublimation_notes');
+    document.getElementById('ps_note').textContent = notesVal ? 'Note: ' + notesVal : '';
+    
+    // Roster table — DYNAMIC columns: reads directly from roster header + cells
+    // (shows ALL Excel import columns, not just NAME/SIZE/QTY)
+    var rosterBody = document.getElementById('ps_rosterBody');
+    rosterBody.innerHTML = '';
+    var rosterTable = document.getElementById('ps_rosterTable');
+    var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+    if (rosterRows.length > 0) {
+        // Read ALL headers from the roster table (skip first=# and last=remove)
+        var headerRow = document.getElementById('sublimation_rosterHeader');
+        var colHeaders = ['#'];
+        if (headerRow) {
+            var ths = headerRow.querySelectorAll('th');
+            for (var ci = 1; ci < ths.length - 1; ci++) {
+                colHeaders.push((ths[ci].textContent || '').trim());
+            }
+        } else {
+            // Fallback if no header row
+            colHeaders = ['#', 'NAME', 'SIZE', 'QTY'];
+        }
+        
+        // Build dynamic thead in print slip table
+        var thead = rosterTable.querySelector('thead');
+        if (!thead) { thead = document.createElement('thead'); rosterTable.insertBefore(thead, rosterBody); }
+        var hdrHtml = '<tr>';
+        colHeaders.forEach(function(h) { hdrHtml += '<th>' + h + '</th>'; });
+        hdrHtml += '</tr>';
+        thead.innerHTML = hdrHtml;
+        
+        // Build data rows — read ALL td cells (skip first=row#, skip last=remove)
+        var idx = 1;
+        rosterRows.forEach(function(row) {
+            var tds = row.querySelectorAll('td');
+            if (tds.length < 2) return;
+            var dataCells = [];
+            for (var i = 1; i < tds.length - 1; i++) {
+                dataCells.push(tds[i]);
+            }
+            
+            // Check if any cell has data
+            var hasData = dataCells.some(function(td) {
+                return (td.textContent || '').trim() !== '';
+            });
+            if (!hasData) return;
+            
+            var rowHtml = '<tr><td>' + (idx++) + '</td>';
+            for (var dc = 0; dc < dataCells.length; dc++) {
+                var val = (dataCells[dc].textContent || '').trim();
+                rowHtml += '<td style="text-align:left;">' + val + '</td>';
+            }
+            rowHtml += '</tr>';
+            rosterBody.innerHTML += rowHtml;
+        });
+    } else {
+        // Fallback: show sizes from by-qty inputs
+        var thead = rosterTable.querySelector('thead');
+        if (thead) thead.innerHTML = '';
+        var sizeInputs = document.querySelectorAll('#sizes .size-qty');
+        sizeInputs.forEach(function(inp) {
+            var qty = parseInt(inp.value) || 0;
+            if (qty > 0) {
+                rosterBody.innerHTML += '<tr><td></td><td style="text-align:left;">' + (inp.dataset.size || '') + '</td><td></td><td>' + qty + '</td></tr>';
+            }
+        });
+    }
+    
+    // Show and print
+    var slip = document.getElementById('sublimation_printSlip');
+    slip.style.display = 'block';
+    window.print();
+    slip.style.display = 'none';
+};
+
+// Auto-build roster from ALL Excel columns (no manual mapping needed)
+function sublimation_autoBuildFromExcel(headers, rows) {
+    // Store for reference
+    sublimation_excelHeaders = headers;
+    sublimation_excelData = { headers: headers, rows: rows };
+    
+    var tbody = document.getElementById('sublimation_rosterBody');
+    var theadRow = document.getElementById('sublimation_rosterHeader');
+    
+    // Auto-detect column roles from header text
+    var nameCols = [];
+    var sizeCol = -1;
+    var numCol = -1;
+    
+    // Two-pass column detection: first find name + size, then qty (priority over #/number)
+    headers.forEach(function(h, idx) {
+        var hl = (h || '').toLowerCase().trim();
+        if (hl.indexOf('name') >= 0 || hl === 'person' || hl === 'player' || hl === 'employee') {
+            nameCols.push(idx);
+        } else if (hl === 'size' || hl === 'sizes') {
+            sizeCol = idx;
+        }
+    });
+    // Second pass: QTY/QUANTITY/COUNT first, then #/NO/NUMBER/# as fallback
+    headers.forEach(function(h, idx) {
+        var hl = (h || '').toLowerCase().trim();
+        if ((hl === 'qty' || hl === 'quantity' || hl === 'count') && numCol < 0) {
+            numCol = idx;
+        }
+    });
+    if (numCol < 0) {
+        headers.forEach(function(h, idx) {
+            var hl = (h || '').toLowerCase().trim();
+            if ((hl === 'number' || hl === 'no' || hl === 'no.' || hl === '#' || hl === 'jersey') && numCol < 0) {
+                numCol = idx;
+            }
+        });
+    }
+    
+    // Build displayCols — ALL columns preserved, with cssClass for auto-detected roles
+    var displayCols = [];
+    headers.forEach(function(h, idx) {
+        var cssClass = '';
+        if (nameCols.indexOf(idx) >= 0) cssClass = 'roster-name';
+        else if (idx === sizeCol) cssClass = 'roster-size';
+        else if (idx === numCol) cssClass = 'roster-number';
+        displayCols.push({header: h || '(Col ' + (idx + 1) + ')', colIdx: idx, cssClass: cssClass});
+    });
+    
+    // Clear existing rows
+    tbody.innerHTML = '';
+    var empty = document.getElementById('sublimation_rosterEmpty');
+    if (empty) empty.style.display = 'none';
+    
+    // Rebuild header with ALL Excel columns + fixed #, Qty, Remove
+    var headerHtml = '<th style="width:50px">#</th>';
+    displayCols.forEach(function(col) {
+        headerHtml += '<th>' + _escHtml(col.header) + '</th>';
+    });
+    headerHtml += '<th style="width:40px"></th>';
+    theadRow.innerHTML = headerHtml;
+    
+    var added = 0;
+    rows.forEach(function(row) {
+        // Skip empty rows
+        var hasData = false;
+        for (var ci = 0; ci < row.length; ci++) {
+            if (row[ci] !== undefined && row[ci] !== null && String(row[ci]).trim() !== '') {
+                hasData = true;
+                break;
+            }
+        }
+        if (!hasData) return;
+        
+        var tr = document.createElement('tr');
+        tr.className = 'roster-row';
+            
+            var cellsHtml = '<td class="text-center align-middle">' + (added + 1) + '</td>';
+            
+            displayCols.forEach(function(col) {
+                var rawVal = (col.colIdx >= 0 && row[col.colIdx] !== undefined && row[col.colIdx] !== null)
+                    ? String(row[col.colIdx]).trim() : '';
+                
+                var displayVal = rawVal;
+                if (col.cssClass === 'roster-size') {
+                    displayVal = normalizeSize(displayVal.toUpperCase());
+                } else if (col.cssClass === 'roster-number') {
+                    // Clean up number display: strip trailing .0
+                    var numParsed = parseFloat(displayVal);
+                    if (!isNaN(numParsed) && String(numParsed) === displayVal) {
+                        // If parseFloat roundtrip matches, show parsed version
+                        displayVal = String(numParsed);
+                    } else {
+                        // Try removing trailing .0 manually
+                        displayVal = displayVal.replace(/\.0+$/, '');
+                    }
+                }
+                
+                cellsHtml += '<td class="align-middle">' + _escHtml(displayVal);
+                cellsHtml += '<input type="hidden" class="' + col.cssClass + '" value="' + _escHtml(displayVal) + '">';
+                cellsHtml += '</td>';
+            });
+            
+            cellsHtml += '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="sublimation_removeRosterRow(this)" title="Remove"><i class="fas fa-times"></i></button></td>';
+            
+            tr.innerHTML = cellsHtml;
+            tbody.appendChild(tr);
+            added++;
+    });
+    
+    if (added === 0 && empty) {
+        tbody.appendChild(empty);
+        empty.style.display = '';
+        empty.querySelector('td').colSpan = displayCols.length + 2;
+    }
+    
+    sublimation_updateRosterCount();
+    sublimation_calculateTotal();
+    
+    // Switch to roster mode
+    var sizeSelect = document.getElementById('sublimation_rosterSizeSelect');
+    if (sizeSelect) sizeSelect.value = 'roster';
+    if (typeof sublimation_toggleSizeMode === 'function') sublimation_toggleSizeMode();
+    
+    // Reset file input
+    var input = document.getElementById('sublimation_excelInput');
+    if (input) input.value = '';
+    
+    if (added > 0) {
+        showToast(added + ' person' + (added > 1 ? 's' : '') + ' imported from Excel!', 'success');
+    } else {
+        showToast('No valid rows to import from Excel.', 'warning');
+    }
+}
+
+// Escape HTML for roster display
+function _escHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+// Wire up the Add to Cart button + roster keyboard shortcuts
+document.addEventListener('DOMContentLoaded', function() {
+    var addBtn = document.getElementById('sublimation_addItemBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', sublimation_addItemToCart);
+    }
+    
+    // Enter key on roster fields adds person
+    var rosterFields = ['roster_newName', 'roster_newNumber', 'roster_newSize'];
+    rosterFields.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sublimation_addRosterRow();
+                }
+            });
+        }
+    });
+    
+    // Ctrl+Enter on bulk paste textarea triggers import
+    var bulkInput = document.getElementById('sublimation_bulkPasteInput');
+    if (bulkInput) {
+        bulkInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                sublimation_bulkPaste();
+            }
+        });
+    }
+});
 
 </script>
 @endpush

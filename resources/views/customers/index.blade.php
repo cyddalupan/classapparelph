@@ -20,13 +20,71 @@
                 <div class="col-md-6">
                     <div class="input-group">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
-                        <input type="text" id="customerSearch" class="form-control" placeholder="Search by name, phone, email, or ID number...">
+                        <input type="text" id="customerSearch" class="form-control" placeholder="Search by name, phone, email, or ID number..." autocomplete="off">
                     </div>
                 </div>
                 <div class="col-md-6 text-end">
+                    <button class="btn btn-outline-secondary me-2" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel">
+                        <i class="fas fa-filter me-1"></i> Filters
+                    </button>
                     <button class="btn btn-primary" onclick="window.location.href='{{ route('sales.prototype.create') }}'">
                         <i class="fas fa-plus-circle me-1"></i> New Sale
                     </button>
+                </div>
+            </div>
+
+            <!-- Filter Panel -->
+            <div class="collapse mb-3" id="filterPanel">
+                <div class="card card-body bg-light">
+                    <div class="row g-2">
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Tier</label>
+                            <select id="filterTier" class="form-select form-select-sm">
+                                <option value="">All Tiers</option>
+                                <option value="bronze">Bronze</option>
+                                <option value="silver">Silver</option>
+                                <option value="gold">Gold</option>
+                                <option value="platinum">Platinum</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Min Spent (₱)</label>
+                            <input type="number" id="filterMinSpent" class="form-control form-control-sm" placeholder="0" min="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Max Spent (₱)</label>
+                            <input type="number" id="filterMaxSpent" class="form-control form-control-sm" placeholder="999999" min="0">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Marketplace</label>
+                            <select id="filterMarketplace" class="form-select form-select-sm">
+                                <option value="">All</option>
+                                <option value="shopee">Shopee</option>
+                                <option value="lazada">Lazada</option>
+                                <option value="facebook">Facebook</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="direct">Direct</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Date From</label>
+                            <input type="date" id="filterDateFrom" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-1">Date To</label>
+                            <input type="date" id="filterDateTo" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col text-end">
+                            <button class="btn btn-sm btn-outline-danger" id="resetFiltersBtn">
+                                <i class="fas fa-undo me-1"></i> Reset Filters
+                            </button>
+                            <button class="btn btn-sm btn-primary" id="applyFiltersBtn">
+                                <i class="fas fa-search me-1"></i> Apply Filters
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -127,28 +185,78 @@
 
 @push('scripts')
 <script>
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
+    const $ = function(selector) {
+        if (selector.startsWith('#')) {
+            return document.getElementById(selector.slice(1));
+        }
+        return document.querySelector(selector);
+    };
+    $.val = function(el) { return el ? el.value : ''; };
+    $.get = function(url, params, cb) {
+        const qs = Object.keys(params).filter(k => params[k]).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k])).join('&');
+        fetch(url + (qs ? '?' + qs : ''))
+            .then(r => r.json())
+            .then(cb)
+            .catch(function() { renderTable([]); });
+    };
+
+    function getFilterParams() {
+        return {
+            q: $('#customerSearch').value,
+            tier: $('#filterTier').value,
+            min_spent: $('#filterMinSpent').value,
+            max_spent: $('#filterMaxSpent').value,
+            marketplace: $('#filterMarketplace').value,
+            date_from: $('#filterDateFrom').value,
+            date_to: $('#filterDateTo').value
+        };
+    }
+
+    function fetchCustomers() {
+        const params = getFilterParams();
+        const hasFilters = params.tier || params.min_spent || params.max_spent || params.marketplace || params.date_from || params.date_to;
+        const hasSearch = params.q && params.q.length >= 2;
+
+        if (!hasSearch && !hasFilters) {
+            window.location.reload();
+            return;
+        }
+
+        $.get('/api/customers/search', params, function(res) {
+            renderTable(res.customers);
+        });
+    }
+
     let searchTimeout;
-    $('#customerSearch').on('input', function() {
+    $('#customerSearch').addEventListener('input', function() {
         clearTimeout(searchTimeout);
-        const q = $(this).val();
-        searchTimeout = setTimeout(function() {
-            if (q.length >= 2) {
-                $.get('/api/customers/search', { q: q }, function(res) {
-                    renderTable(res.customers);
-                });
-            } else if (q.length === 0) {
-                window.location.reload();
-            }
-        }, 400);
+        searchTimeout = setTimeout(fetchCustomers, 400);
+    });
+
+    $('#applyFiltersBtn').addEventListener('click', fetchCustomers);
+
+    $('#resetFiltersBtn').addEventListener('click', function() {
+        $('#filterTier').value = '';
+        $('#filterMinSpent').value = '';
+        $('#filterMaxSpent').value = '';
+        $('#filterMarketplace').value = '';
+        $('#filterDateFrom').value = '';
+        $('#filterDateTo').value = '';
+        $('#customerSearch').value = '';
+        window.location.reload();
+    });
+
+    $('#customerSearch').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') fetchCustomers();
     });
 
     function renderTable(customers) {
-        const tbody = $('#customerTable tbody');
-        tbody.empty();
+        const tbody = document.querySelector('#customerTable tbody');
+        tbody.innerHTML = '';
 
         if (!customers || customers.length === 0) {
-            tbody.html('<tr><td colspan="9" class="text-center py-4 text-muted">No customers found.</td></tr>');
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No customers found.</td></tr>';
             return;
         }
 
@@ -158,7 +266,7 @@ $(document).ready(function() {
             const tierColor = tierColors[c.customer_tier] || '#cd7f32';
             const lastOrder = c.last_order_date ? new Date(c.last_order_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
 
-            tbody.append(`
+            tbody.innerHTML += `
                 <tr class="customer-row" data-id="${c.id}">
                     <td><code>${c.customer_id_number || '—'}</code></td>
                     <td>
@@ -185,7 +293,7 @@ $(document).ready(function() {
                         </div>
                     </td>
                 </tr>
-            `);
+            `;
         });
     }
 });
