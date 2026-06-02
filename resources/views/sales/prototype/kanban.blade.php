@@ -256,7 +256,7 @@
     .pslip td, .pslip th { border:1px solid #000; padding:2px 4px; text-align:left; font-size:9pt; vertical-align:top; }
     .pslip .field-label { font-weight:bold; background:#f0f0f0; white-space:nowrap; width:1%; }
     .pslip .mockup-box { border:2px dashed #999; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:9pt; overflow:hidden; width:100%; aspect-ratio:4/3; max-height:250px; }
-    .pslip .mockup-box img { max-width:100%; max-height:100%; object-fit:contain; }
+    .pslip .mockup-box img { max-width:100%; max-height:100%; object-fit:contain; cursor:pointer; }
     .pslip .section-title { font-weight:bold; font-size:11pt; margin:2px 0; }
     .pslip .chk { width:16px; height:16px; cursor:pointer; accent-color:#198754; margin:0; vertical-align:middle; }
     .pslip .chk-done + td, .pslip .chk-done + td + td { text-decoration:line-through; color:#999; }
@@ -271,11 +271,11 @@
     .ps-check-item input[type=checkbox] { margin-top:1px; }
     /* Comment thread */
     .ps-comment-list { margin-top:6px; max-height:150px; overflow-y:auto; }
-    .ps-comment-entry { padding:4px 6px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:10px; border-left:3px solid #0d6efd; }
-    .ps-comment-entry .time { font-size:8px; color:#999; }
+    .ps-comment-entry { padding:6px 8px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:12px; border-left:3px solid #0d6efd; line-height:1.4; }
+    .ps-comment-entry .time { font-size:10px; color:#999; }
     .ps-comment-input { display:flex; gap:4px; margin-top:4px; }
-    .ps-comment-input input { flex:1; border:1px solid #dee2e6; border-radius:4px; padding:4px 6px; font-size:10px; }
-    .ps-comment-input button { padding:4px 10px; font-size:10px; background:#0d6efd; color:white; border:none; border-radius:4px; cursor:pointer; }
+    .ps-comment-input input { flex:1; border:1px solid #dee2e6; border-radius:4px; padding:6px 8px; font-size:12px; }
+    .ps-comment-input button { padding:6px 12px; font-size:12px; background:#0d6efd; color:white; border:none; border-radius:4px; cursor:pointer; }
 
     #modalProdSlipBody { max-height:70vh; overflow-y:auto; }
 </style>
@@ -351,7 +351,8 @@
 
                             @if($firstMockupUrl)
                                 <img src="{{ $firstMockupUrl }}" alt="mockup" 
-                                     style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:8px;" 
+                                     style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:8px;cursor:pointer;" 
+                                     onclick="window.openLightbox('{{ $firstMockupUrl }}')"
                                      onerror="this.style.display='none'">
                             @endif
                             
@@ -1094,7 +1095,7 @@
             title.dataset.saleId = saleId;
             body.innerHTML = data.html;
             // Attach lightbox click handlers to dynamically loaded images
-            body.querySelectorAll('.ref-image, .payment-img').forEach(function(img) {
+            body.querySelectorAll('.ref-image, .payment-img, .mockup-box img').forEach(function(img) {
                 img.addEventListener('click', function() {
                     window.openLightbox(this.src);
                 });
@@ -2045,7 +2046,7 @@ function renderProductionSlip(data) {
     html += '<div class="section-title">MOCK UP</div>';
     html += '<div class="mockup-box">';
     if (firstMockupUrl) {
-        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
+        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
     } else {
         html += '<span>MOCK UP HERE</span>';
     }
@@ -2053,18 +2054,67 @@ function renderProductionSlip(data) {
     html += '</td>';
     html += '<td style="width:70%;vertical-align:top" class="no-border">';
     html += '<div class="section-title">NAME LIST</div>';
+    // Check if ANY roster entry has Excel columns data
+    var hasExcelCols = false;
+    var allColHeaders = [];
+    var isArrFormat = false;
+    allRosters.forEach(function(r) {
+        if (r.columns) {
+            hasExcelCols = true;
+            // Detect format: array of [header,value] pairs vs object
+            if (!isArrFormat && Array.isArray(r.columns) && r.columns.length > 0 && Array.isArray(r.columns[0])) {
+                isArrFormat = true;
+            }
+            if (isArrFormat) {
+                // Array of pairs: [["BACK NAMES","dfsdf"], ["SIZE","XL"], ...]
+                r.columns.forEach(function(pair) {
+                    if (allColHeaders.indexOf(pair[0]) < 0) allColHeaders.push(pair[0]);
+                });
+            } else {
+                // Object format (backward compat): {"BACK NAMES":"dfsdf", "SIZE":"XL", ...}
+                Object.keys(r.columns).forEach(function(h) {
+                    if (allColHeaders.indexOf(h) < 0) allColHeaders.push(h);
+                });
+            }
+        }
+    });
+    // Helper: get column value from whichever format
+    function getColVal(cols, hdr) {
+        if (!cols) return '';
+        if (isArrFormat && Array.isArray(cols)) {
+            for (var ci = 0; ci < cols.length; ci++) {
+                if (cols[ci][0] === hdr) return cols[ci][1];
+            }
+            return '';
+        }
+        return cols[hdr] || '';
+    }
     if (hasRoster && allRosters.length > 0) {
         html += '<table class="roster-table">';
-        html += '<thead><tr><th>#</th><th>NAME</th><th>SIZE</th><th>QTY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+        html += '<thead><tr><th>#</th>';
+        if (hasExcelCols) {
+            // Excel-imported: use ALL original column headers
+            allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+        } else {
+            // No Excel columns: use standard hardcoded headers
+            html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+        }
+        html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
         html += '<tbody>';
         allRosters.forEach(function(rosterItem, idx) {
             var itemIdx = findNthItemIdx('roster', idx);
             var done = itemIdx >= 0 && items[itemIdx].status === 'done';
             html += '<tr' + (done ? ' class="done"' : '') + '>';
             html += '<td>' + (idx + 1) + '</td>';
-            html += '<td>' + escHtml(rosterItem.name || '') + '</td>';
-            html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
-            html += '<td>' + (rosterItem.number || 1) + '</td>';
+            if (hasExcelCols) {
+                allColHeaders.forEach(function(h) {
+                    html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
+                });
+            } else {
+                html += '<td>' + escHtml(rosterItem.name || '') + '</td>';
+                html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
+                html += '<td>' + (rosterItem.number || 1) + '</td>';
+            }
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
@@ -2095,13 +2145,13 @@ function renderProductionSlip(data) {
 
     // Notes from sale
     if (slip.notes) {
-        html += '<div style="margin-top:4px;font-size:9pt;text-align:right;border-top:1px solid #000;padding-top:2px;">Note: ' + escHtml(slip.notes) + '</div>';
+        html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
     }
 
     html += '<div class="divider"></div>';
 
     // === COMMENTS (append-only) ===
-    html += '<div style="margin-top:8px;"><strong>Comments</strong></div>';
+    html += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
     html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
     var comments = (chk.ga_notes || '').trim();
     if (comments) {

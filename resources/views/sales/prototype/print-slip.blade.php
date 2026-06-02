@@ -192,7 +192,7 @@
                     }
                 @endphp
                 @if($mockupUrl)
-                    <img src="{{ $mockupUrl }}" alt="mockup" onerror="this.style.display='none';this.parentElement.innerHTML='<span>MOCK UP HERE</span>'">
+                    <a href="{{ $mockupUrl }}" target="_blank" style="display:block;width:100%;height:100%;"><img src="{{ $mockupUrl }}" alt="mockup" style="cursor:pointer;max-width:100%;max-height:100%;object-fit:contain;" onerror="this.style.display='none';this.parentElement.innerHTML='<span>MOCK UP HERE</span>'"></a>
                 @else
                     <span>MOCK UP HERE</span>
                 @endif
@@ -201,22 +201,93 @@
         <td style="width:70%;vertical-align:top" class="no-border">
             <div class="section-title">NAME LIST</div>
             @if($hasRoster && !empty($allRosters))
-                <table class="roster-table">
-                    <thead>
-                        <tr><th>#</th><th>NAME</th><th>SIZE</th><th>QTY</th><th>GA</th><th>QA1</th><th>QA2</th></tr>
-                    </thead>
-                    <tbody>
-                        @foreach($allRosters as $idx => $rosterItem)
+                @php
+                    // Check if ANY roster entry has columns data from Excel import
+                    $hasExcelCols = false;
+                    $allColHeaders = [];
+                    $isArrFormat = false; // array of [header,value] pairs vs object
+                    foreach ($allRosters as $r) {
+                        if (!empty($r['columns'])) {
+                            $hasExcelCols = true;
+                            // Detect format: array of pairs [header, value] vs object {header: value}
+                            if (!$isArrFormat && isset($r['columns'][0]) && is_array($r['columns'][0])) {
+                                $isArrFormat = true;
+                            }
+                            if ($isArrFormat) {
+                                // Array of pairs: [['BACK NAMES','dfsdf'], ['SIZE','XL'], ...]
+                                foreach ($r['columns'] as $pair) {
+                                    if (!in_array($pair[0], $allColHeaders)) $allColHeaders[] = $pair[0];
+                                }
+                            } else {
+                                // Object format (backward compat): {'BACK NAMES':'dfsdf', 'SIZE':'XL', ...}
+                                foreach (array_keys($r['columns']) as $h) {
+                                    if (!in_array($h, $allColHeaders)) $allColHeaders[] = $h;
+                                }
+                            }
+                        }
+                    }
+                    // Helper: get column value from whichever format
+                    $getColVal = function($item, $hdr) use ($isArrFormat) {
+                        if (empty($item['columns'])) return '';
+                        if ($isArrFormat) {
+                            foreach ($item['columns'] as $pair) {
+                                if ($pair[0] === $hdr) return $pair[1];
+                            }
+                            return '';
+                        } else {
+                            return $item['columns'][$hdr] ?? '';
+                        }
+                    };
+                @endphp
+                @if($hasExcelCols)
+                    {{-- Excel-imported: use ALL original column headers from Excel --}}
+                    <table class="roster-table">
+                        <thead>
                             <tr>
-                                <td>{{ $idx + 1 }}</td>
-                                <td>{{ $rosterItem['name'] ?? '' }}</td>
-                                <td>{{ $rosterItem['size'] ?? '' }}</td>
-                                <td>{{ $rosterItem['number'] ?? '1' }}</td>
-                            <td></td><td></td><td></td>
+                                <th>#</th>
+                                @foreach($allColHeaders as $hdr)
+                                    <th>{{ $hdr }}</th>
+                                @endforeach
+                                <th>GA</th><th>QA1</th><th>QA2</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach($allRosters as $idx => $rosterItem)
+                                <tr>
+                                    <td>{{ $idx + 1 }}</td>
+                                    @foreach($allColHeaders as $hdr)
+                                        <td>{{ $getColVal($rosterItem, $hdr) }}</td>
+                                    @endforeach
+                                    <td></td><td></td><td></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @else
+                    {{-- No Excel columns: use standard hardcoded headers (backward compat) --}}
+                    <table class="roster-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>NAME</th>
+                                <th>SIZE</th>
+                                <th>QTY</th>
+                                <th>GA</th><th>QA1</th><th>QA2</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($allRosters as $idx => $rosterItem)
+                                <tr>
+                                    <td>{{ $idx + 1 }}</td>
+                                    <td>{{ $rosterItem['name'] ?? '' }}</td>
+                                    <td>{{ $rosterItem['size'] ?? '' }}</td>
+                                    <td>{{ $rosterItem['number'] ?? '1' }}</td>
+                                    <td></td><td></td><td></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
             @else
                 {{-- Show quantities by size --}}
                 <table class="roster-table">
@@ -242,7 +313,7 @@
     </tr></table>
 
     @if($notes)
-        <div style="margin-top:4px;font-size:9pt;text-align:right;border-top:1px solid #000;padding-top:2px;">Note: {{ $notes }}</div>
+        <div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 {{ $notes }}</div>
     @endif
 </div>
 

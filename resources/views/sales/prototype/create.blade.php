@@ -5295,6 +5295,7 @@ window.sublimation_addItemToCart = function() {
     });
     
     // Collect roster data (per-person mode)
+    // Collect roster data (per-person mode) - SAVE ALL COLUMNS
     var rosterData = [];
     var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
     rosterRows.forEach(function(row) {
@@ -5302,10 +5303,22 @@ window.sublimation_addItemToCart = function() {
         var nameInput = row.querySelector('.roster-name');
         var numInput = row.querySelector('.roster-number');
         var sizeInput = row.querySelector('.roster-size');
+        
+        // Collect ALL hidden inputs with their header names (for Excel import)
+        // Use array of [header, value] pairs to preserve column order (object keys may reorder)
+        var allHidden = row.querySelectorAll('input[type="hidden"]');
+        var columns = [];
+        allHidden.forEach(function(inp) {
+            var header = inp.getAttribute('data-header') || '';
+            var val = inp.value;
+            if (header) columns.push([header, val]);
+        });
+        
         rosterData.push({
             number: numInput ? numInput.value : (numCell ? numCell.textContent.trim() : ''),
             name: nameInput ? nameInput.value : '',
-            size: sizeInput ? sizeInput.value : ''
+            size: sizeInput ? sizeInput.value : '',
+            columns: columns
         });
     });
     
@@ -6040,7 +6053,7 @@ function sublimation_autoBuildFromExcel(headers, rows) {
                 }
                 
                 cellsHtml += '<td class="align-middle">' + _escHtml(displayVal);
-                cellsHtml += '<input type="hidden" class="' + col.cssClass + '" value="' + _escHtml(displayVal) + '">';
+                cellsHtml += '<input type="hidden" class="' + col.cssClass + '" data-header="' + _escHtml(col.header) + '" value="' + _escHtml(displayVal) + '">';
                 cellsHtml += '</td>';
             });
             
