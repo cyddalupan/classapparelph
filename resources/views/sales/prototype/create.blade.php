@@ -542,73 +542,7 @@
             </div>
             
             <div class="row mb-4">
-                <div class="col-md-6">
-                    <label class="form-label mb-3">Payment Method *</label>
-                    <div class="row" id="paymentMethodSelection">
-                        <div class="col-12 mb-3">
-                            <div class="d-flex gap-2" id="paymentCategoryGroup">
-                                <div class="flex-fill">
-                                    <input type="radio" class="btn-check" name="payment_category" id="pc_online" value="online" autocomplete="off">
-                                    <label class="btn btn-outline-primary w-100 py-2" for="pc_online">
-                                        <i class="fas fa-globe d-block mb-1"></i>
-                                        <span>Online Payment</span>
-                                    </label>
-                                </div>
-                                <div class="flex-fill">
-                                    <input type="radio" class="btn-check" name="payment_category" id="pc_cash" value="cash" autocomplete="off">
-                                    <label class="btn btn-outline-success w-100 py-2" for="pc_cash">
-                                        <i class="fas fa-money-bill-wave d-block mb-1"></i>
-                                        <span>Cash Payment</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Online Account Selection (shown when Online is selected) -->
-                    <div class="mb-3" id="onlineAccountSection" style="display:none;">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Online Account *</label>
-                                <select class="form-select" id="online_account" name="online_account">
-                                    <option value="">Select account...</option>
-                                    <option value="jemel_gcash">JEMEL - GCASH</option>
-                                    <option value="drew_gcash">DREW - GCASH</option>
-                                    <option value="aj_gcash">AJ - GCASH</option>
-                                    <option value="jessa_gcash">JESSA - GCASH</option>
-                                    <option value="iprint_bdo">IPRINT - BDO</option>
-                                    <option value="jemel_bdo">JEMEL - BDO</option>
-                                    <option value="aj_bpi">AJ - BPI</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="payment_reference" class="form-label">Reference Number *</label>
-                                <input type="text" class="form-control" id="payment_reference" name="payment_reference" placeholder="GCash ref, bank ref, etc.">
-                                <small class="text-muted">Required for online payments</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Cash Account Selection (shown when Cash is selected) -->
-                    <div class="mb-3" id="cashAccountSection" style="display:none;">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label class="form-label">Cash Account *</label>
-                                <select class="form-select" id="cash_account" name="cash_account">
-                                    <option value="">Select account...</option>
-                                    <option value="iprint_cash">IPRINT CASH</option>
-                                    <option value="consol_cash">CONSOL CASH</option>
-                                    <option value="class_cash">CLASS CASH</option>
-                                    <option value="cinco_cash">CINCO CASH</option>
-                                    <option value="company_cash">COMPANY CASH</option>
-                                    <option value="warehouse_cash">WAREHOUSE CASH</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6" id="paymentDetailsSection">
+                <div class="col-md-12" id="paymentDetailsSection">
                     <!-- Payment Type & Amount -->
                     <div class="mb-3">
                         <label class="form-label"><strong>Payment Type *</strong></label>
@@ -654,6 +588,9 @@
                         <input type="text" class="form-control" id="po_reference" name="po_reference" placeholder="Enter P.O. number">
                     </div>
 
+                    <!-- Hidden payment_method auto-detected from Payment Received By selection -->
+                    <input type="hidden" name="payment_method" id="payment_method_input" value="cash">
+                    
                     <div class="mb-3" id="paymentOwnerSection">
                         <label for="payment_account_id" class="form-label">Payment Received By *</label>
                         <select class="form-control" id="payment_account_id" name="payment_account_id">
@@ -2495,32 +2432,19 @@ window.updatePaymentSuggestions = function(grandTotal) {
 
 // Payment type selection handlers
 document.addEventListener('DOMContentLoaded', function() {
-    // Payment category radio buttons: Online vs Cash
-    document.querySelectorAll('input[name="payment_category"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var onlineSection = document.getElementById('onlineAccountSection');
-            var cashSection = document.getElementById('cashAccountSection');
-            var refInput = document.getElementById('payment_reference');
-            
-            if (this.value === 'online') {
-                onlineSection.style.display = 'block';
-                cashSection.style.display = 'none';
-                if (refInput) {
-                    refInput.disabled = false;
-                    refInput.setAttribute('required', 'required');
-                    refInput.parentElement.parentElement.style.display = 'block';
-                }
+    // Auto-detect payment method from Payment Received By dropdown
+    var paymentAccountSelect = document.getElementById('payment_account_id');
+    var paymentMethodInput = document.getElementById('payment_method_input');
+    if (paymentAccountSelect && paymentMethodInput) {
+        paymentAccountSelect.addEventListener('change', function() {
+            var selectedText = this.options[this.selectedIndex]?.text?.toLowerCase() || '';
+            if (selectedText.includes('cash')) {
+                paymentMethodInput.value = 'cash';
             } else {
-                cashSection.style.display = 'block';
-                onlineSection.style.display = 'none';
-                if (refInput) {
-                    refInput.disabled = true;
-                    refInput.removeAttribute('required');
-                    refInput.value = '';
-                }
+                paymentMethodInput.value = 'online';
             }
         });
-    });
+    }
     
     // Listen for payment type radio changes
     document.querySelectorAll('input[name="payment_type"]').forEach(function(radio) {
