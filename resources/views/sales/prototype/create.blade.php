@@ -1395,7 +1395,7 @@
                                     <button type="button" class="btn btn-success w-100 mt-3" id="sublimation_addItemBtn">
                                         <i class="fas fa-check-circle me-2"></i> Confirm &amp; Add to Cart
                                     </button>
-                                    <button type="button" class="btn btn-outline-info w-100 mt-2" id="sublimation_printOrderSlip" onclick="sublimation_printOrderSlip()">
+                                    <button type="button" class="btn btn-outline-info w-100 mt-2" id="sublimation_printOrderSlip">
                                         <i class="fas fa-print me-2"></i> Print Order Slip
                                     </button>
                                 </div>
@@ -6085,6 +6085,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var addBtn = document.getElementById('sublimation_addItemBtn');
     if (addBtn) {
         addBtn.addEventListener('click', sublimation_addItemToCart);
+    }
+    
+    // Print Order Slip button
+    var printOrderSlipBtn = document.getElementById('sublimation_printOrderSlip');
+    if (printOrderSlipBtn) {
+        printOrderSlipBtn.addEventListener('click', sublimation_printOrderSlip);
     }
     
     // Enter key on roster fields adds person
