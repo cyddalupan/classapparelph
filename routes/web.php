@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FinanceDashboardController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\AdminUserController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Gate;
 
@@ -114,6 +115,18 @@ Route::get('/printing-calculator', function() {
         
         // API for sales agents dropdown
         Route::get('/api/sales-agents', [App\Http\Controllers\UserController::class, 'apiSalesAgents'])->name('api.sales-agents');
+        
+        // ======== User Management (All Roles) ========
+        Route::prefix('admin/users')->name('admin.users.')->group(function () {
+            Route::get('/', [AdminUserController::class, 'index'])->name('index');
+            Route::get('/create', [AdminUserController::class, 'create'])->name('create');
+            Route::post('/', [AdminUserController::class, 'store'])->name('store');
+            Route::get('/{user}', [AdminUserController::class, 'show'])->name('show');
+            Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit');
+            Route::put('/{user}', [AdminUserController::class, 'update'])->name('update');
+            Route::delete('/{user}', [AdminUserController::class, 'destroy'])->name('destroy');
+            Route::post('/{user}/toggle-active', [AdminUserController::class, 'toggleActive'])->name('toggle-active');
+        });
     });
     
     // Business Feature Routes
@@ -777,7 +790,13 @@ Route::get('/inventorylist', function() {
         Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');
         Route::put('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'update'])->name('sales.prototype.update');
         Route::delete('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'destroy'])->name('sales.prototype.destroy');
-        
+
+        // ======== Agent Routes (Sales Team Dashboard & Simplified Sales) ========
+        Route::get('/sales/team', [App\Http\Controllers\PrototypeSalesController::class, 'agentDashboard'])->middleware('auth')->name('sales.team.dashboard');
+        Route::get('/sales/prototype/agent/create', [App\Http\Controllers\PrototypeSalesController::class, 'agentCreate'])->name('sales.prototype.agent.create');
+        Route::post('/sales/prototype/agent', [App\Http\Controllers\PrototypeSalesController::class, 'agentStore'])->name('sales.prototype.agent.store');
+        Route::get('/sales/prototype/{id}/agent/payment', [App\Http\Controllers\PrototypeSalesController::class, 'agentAddPayment'])->name('sales.prototype.agent.payment');
+        Route::post('/sales/prototype/{id}/agent/payment', [App\Http\Controllers\PrototypeSalesController::class, 'agentPaymentStore'])->name('sales.prototype.agent.payment.store');
         
         // Payment verification
         Route::post('/sales/prototype/{id}/verify-payment', [App\Http\Controllers\PrototypeSalesController::class, 'verifyPayment'])->name('sales.prototype.verify-payment');

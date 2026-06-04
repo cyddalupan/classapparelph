@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->validateCsrfTokens(except: [
             '/api/production/*',
+            'sales/prototype/*/verify-payment',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

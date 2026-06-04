@@ -282,22 +282,16 @@
                     @endif
 
                     <!-- Sales Agent Navigation (Only for Sales Agents/Reps) -->
-                    @if(Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
+                    @if(Auth::user()->isAdmin() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
                     <div class="nav-section">
-                        <div class="nav-section-title">Sales Operations</div>
-                        <a href="{{ route('sales.pricing') }}" class="nav-item {{ request()->routeIs('sales.pricing') ? 'active' : '' }}">
-                            <i class="fas fa-tags"></i>
-                            <span class="nav-text">Product Pricing</span>
+                        <div class="nav-section-title">My Sales</div>
+                        <a href="{{ route('sales.team.dashboard') }}" class="nav-item {{ request()->routeIs('sales.team.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-th-list"></i>
+                            <span class="nav-text">My Sales Dashboard</span>
                         </a>
-                        <a href="{{ route('sales.create-quick') }}" class="nav-item {{ request()->routeIs('sales.create-quick') ? 'active' : '' }}">
+                        <a href="{{ route('sales.prototype.create') }}" class="nav-item {{ request()->routeIs('sales.prototype.create') ? 'active' : '' }}">
                             <i class="fas fa-plus-circle"></i>
-                            <span class="nav-text">Add Sales</span>
-                            <span class="nav-badge new">NEW</span>
-                        </a>
-                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
-                            <i class="fas fa-calendar-alt"></i>
-                            <span class="nav-text">Production Calendar</span>
-                            <span class="nav-badge new">NEW</span>
+                            <span class="nav-text">Add New Sale</span>
                         </a>
                     </div>
                     @endif
@@ -354,6 +348,14 @@
                         <a href="{{ route('admin.dashboard') }}" class="nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-cogs"></i>
                             <span class="nav-text">Admin Dashboard</span>
+                        </a>
+                        <a href="{{ route('admin.users.index') }}" class="nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                            <i class="fas fa-users-cog"></i>
+                            <span class="nav-text">User Management</span>
+                        </a>
+                        <a href="{{ route('sales-agents.index') }}" class="nav-item {{ request()->routeIs('sales-agents.*') ? 'active' : '' }}">
+                            <i class="fas fa-user-tie"></i>
+                            <span class="nav-text">Sales Agents</span>
                         </a>
                         <a href="{{ route('admin.settings') }}" class="nav-item {{ request()->routeIs('admin.settings') ? 'active' : '' }}">
                             <i class="fas fa-sliders-h"></i>

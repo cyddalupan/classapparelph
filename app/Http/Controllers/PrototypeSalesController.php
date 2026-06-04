@@ -36,7 +36,7 @@ class PrototypeSalesController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+            public function store(Request $request)
     {
         // Validate customer data
         $request->validate([
@@ -69,7 +69,6 @@ class PrototypeSalesController extends Controller
         
         // If customer already exists, update their info if provided
         if ($customer->wasRecentlyCreated === false) {
-            // Update customer info if new data is provided
             $updates = [];
             if ($request->customer_email && !$customer->email) {
                 $updates['email'] = $request->customer_email;
@@ -88,35 +87,6 @@ class PrototypeSalesController extends Controller
             }
         }
         
-        // Generate sales number
-        $salesNumber = 'SALE-' . date('Ymd') . '-' . strtoupper(uniqid());
-        
-        // Get department name
-        // Try department_id from form, then hidden_department_id, then extract from items_json
-        // Get department - try multiple sources
-        $deptCode = $request->department_id ?: $request->hidden_department_id;
-        
-        if (!$deptCode) {
-            // Extract from items_json
-            $itemsJson = $request->items_json;
-            if ($itemsJson) {
-                $items = json_decode($itemsJson, true);
-                if (is_array($items) && count($items) > 0 && isset($items[0]['department'])) {
-                    $deptCode = $items[0]['department'];
-                }
-            }
-        }
-        
-        if (!$deptCode) {
-            $deptCode = 'iprint'; // Default fallback
-        }
-        
-        $department = \DB::table('sales_departments')->where('code', $deptCode)->first();
-        
-        if (!$department) {
-            $department = \DB::table('sales_departments')->where('code', 'iprint')->first();
-        }
-        
         // Handle payment screenshot upload
         $paymentScreenshotPath = null;
         if ($request->hasFile('payment_screenshot')) {
@@ -126,114 +96,252 @@ class PrototypeSalesController extends Controller
             $paymentScreenshotPath = '/storage/' . $filePath;
         }
         
-        // Get item count from items_json
-        $itemsCount = 0;
+        // Parse items and group by department
         $itemsJson = $request->items_json;
+        $allItems = [];
         if ($itemsJson) {
-            $decoded = json_decode($itemsJson, true);
-            if (is_array($decoded)) {
-                $itemsCount = count($decoded);
-            }
+            $allItems = json_decode($itemsJson, true) ?: [];
         }
         
-        // Calculate balance due
-        $balanceDue = $request->total_amount - $request->deposit_paid;
+        // Group items by department
+        $deptGroups = [];
+        foreach ($allItems as $item) {
+            $dept = $item['department'] ?? 'iprint';
+            if (!isset($deptGroups[$dept])) {
+                $deptGroups[$dept] = [];
+            }
+            $deptGroups[$dept][] = $item;
+        }
         
-        // Create sale
-        $saleId = \DB::table('prototype_sales')->insertGetId([
-            'sales_number' => $salesNumber,
-            'customer_id' => $customer->id,
-            'customer_name' => $request->customer_name,
-            'customer_email' => $request->customer_email,
-            'customer_phone' => $request->customer_phone,
-            'customer_address' => $request->customer_address,
-            'sales_agent_id' => auth()->id(),
-            'sales_agent_name' => auth()->user()->name,
-            'department_id' => $department->id,
-            'department_name' => $department->name,
-            'services' => $request->items_json ?: json_encode($request->services ?: []),
-            'subtotal' => $request->subtotal ?: 0,
-            'tax' => $request->tax ?: 0,
-            'total_amount' => $request->total_amount ?: 0,
-            'deposit_paid' => $request->deposit_paid ?: 0,
-            'balance_due' => $balanceDue,
-            'payment_method' => $request->payment_method ?: 'cash',
-            'payment_owner' => $request->payment_owner ?: ($request->payment_account_id ? \App\Models\PaymentAccount::find($request->payment_account_id)?->name : 'company'),
-            'payment_account_id' => $request->payment_account_id ?: null,
-            'payment_date' => $request->payment_date ?: null,
-            'reference_number' => $request->reference_number ?: null,
-            'payment_status' => 'pending',
-            'payment_screenshot_path' => $paymentScreenshotPath,
-            'customer_notes' => $request->customer_notes,
-            'internal_notes' => $request->internal_notes,
-            'estimated_completion_date' => $request->estimated_completion_date,
-            'kanban_status' => 'new',
-            'status' => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Ensure at least one department group
+        if (empty($deptGroups)) {
+            $deptGroups['iprint'] = [];
+        }
         
-        // 🆕 Track sold items for reorder system
-        try {
-            $trackedItems = [];
-            if ($request->items_json) {
-                $decoded = json_decode($request->items_json, true);
-                if (is_array($decoded)) {
-                    foreach ($decoded as $soldItem) {
-                        $masterItemId = null;
-                        $sku = null;
-                        $itemName = $soldItem['name'] ?? 'Unknown';
-                        
-                        // Try to find matching master_item by printing_prices
-                        if (isset($soldItem['productId'])) {
-                            $priceRecord = \DB::table('printing_prices')->find($soldItem['productId']);
-                            if ($priceRecord && $priceRecord->master_item_id) {
-                                $masterItemId = $priceRecord->master_item_id;
-                                $masterItem = \DB::table('master_items')->find($masterItemId);
-                                if ($masterItem) {
-                                    $sku = $masterItem->sku;
-                                }
-                            }
-                        }
-                        
-                        // Fallback: try to match by item name
-                        if (!$masterItemId) {
-                            $matched = \App\Models\MasterItem::where('name', 'LIKE', '%' . substr($itemName, 0, 30) . '%')
-                                ->whereNull('deleted_at')
-                                ->first();
-                            if ($matched) {
-                                $masterItemId = $matched->id;
-                                $sku = $matched->sku;
-                            }
-                        }
-                        
-                        $trackedItems[] = [
-                            'sale_id' => $saleId,
-                            'master_item_id' => $masterItemId,
-                            'item_name' => $itemName,
-                            'sku' => $sku,
-                            'quantity' => $soldItem['quantity'] ?? 1,
-                            'unit_price' => $soldItem['unitPrice'] ?? $soldItem['totalPrice'] ?? 0,
-                            'department_id' => $department->id,
-                            'department_name' => $department->name,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-                }
+        // Calculate overall totals
+        $overallSubtotal = $request->subtotal ?: 0;
+        $overallTax = $request->tax ?: 0;
+        $overallTotal = $request->total_amount ?: 0;
+        $overallDeposit = $request->deposit_paid ?: 0;
+        
+        // Generate base sales number
+        $baseUid = strtoupper(uniqid());
+        $isMultiDept = count($deptGroups) > 1;
+        
+        // Generate a group_id to link multi-department sales
+        $group_id = $isMultiDept ? \Illuminate\Support\Str::uuid()->toString() : null;
+        $firstSaleId = null;
+        $saleIds = [];
+        
+        // Department code to id mapping
+        $deptCache = [];
+        $deptIndex = 0;
+        $deptCount = count($deptGroups);
+        $accumulatedDeposit = 0;
+        $accumulatedTax = 0;
+        
+        foreach ($deptGroups as $deptCode => $items) {
+            $deptIndex++;
+            
+            // Get department record
+            if (!isset($deptCache[$deptCode])) {
+                $deptCache[$deptCode] = \DB::table('sales_departments')->where('code', $deptCode)->first();
+            }
+            $department = $deptCache[$deptCode];
+            if (!$department) {
+                $department = \DB::table('sales_departments')->where('code', 'iprint')->first();
             }
             
-            if (!empty($trackedItems)) {
-                \DB::table('sale_tracked_items')->insert($trackedItems);
+            // Calculate this department's subtotal from its items
+            $deptItemTotal = 0;
+            foreach ($items as $item) {
+                $itemBase = $item['totalPrice'] ?? $item['unitPrice'] ?? $item['price'] ?? 0;
+                $printSub = $item['printing']['printSubtotal'] ?? 0;
+                $deptItemTotal += $itemBase + $printSub;
             }
-        } catch (\Exception $e) {
-            // Don't fail sale creation if tracking fails
-            \Log::error('Failed to track sale items: ' . $e->getMessage());
+            
+            // Calculate proportion of overall totals
+            $isOnlyDept = !$isMultiDept;
+            if ($isOnlyDept) {
+                // Single department: use submitted totals directly
+                $deptSubtotal = $overallSubtotal;
+                $deptTax = $overallTax;
+                $deptTotal = $overallTotal;
+                $deptDeposit = $overallDeposit;
+            } else {
+                // Multiple departments: use actual item prices as ground truth
+                // Calculate total of ALL items across all departments (including print costs)
+                $totalItemSum = 0;
+                foreach ($deptGroups as $dg) {
+                    foreach ($dg as $dItem) {
+                        $dItemBase = $dItem['totalPrice'] ?? $dItem['unitPrice'] ?? $dItem['price'] ?? 0;
+                        $dPrintSub = $dItem['printing']['printSubtotal'] ?? 0;
+                        $totalItemSum += $dItemBase + $dPrintSub;
+                    }
+                }
+                $deptSubtotal = $deptItemTotal;
+                $deptTotal = $deptItemTotal;
+                // Proportionally split deposit and tax based on item share
+                $proportion = $totalItemSum > 0 ? ($deptItemTotal / $totalItemSum) : (1 / $deptCount);
+                if ($deptIndex == $deptCount) {
+                    // Last department: take remainder to ensure exact match
+                    $deptDeposit = round($overallDeposit - $accumulatedDeposit, 2);
+                    $deptTax = round($overallTax - $accumulatedTax, 2);
+                } else {
+                    $deptDeposit = round($overallDeposit * $proportion, 2);
+                    $deptTax = round($overallTax * $proportion, 2);
+                }
+                // Cap deposit to department total to prevent negative balance
+                if ($deptDeposit > $deptTotal) {
+                    $deptDeposit = $deptTotal;
+                }
+            }
+            $accumulatedDeposit += $deptDeposit;
+            $accumulatedTax += $deptTax;
+            
+            $balanceDue = $deptTotal - $deptDeposit;
+            
+            // Generate sales number: base for single, base-1/base-2 for multi
+            if ($isOnlyDept) {
+                $salesNumber = 'SALE-' . date('Ymd') . '-' . $baseUid;
+            } else {
+                $salesNumber = 'SALE-' . date('Ymd') . '-' . $baseUid . '-' . $deptIndex;
+            }
+            
+            // Build services JSON (only this department's items)
+            $deptServicesJson = json_encode($items);
+            
+            // Store overall totals for multi-department sales
+            // Use actual item sum (not form values) for subtotal/total to ensure math checks out
+            $totalItemSumAll = $totalItemSum ?? $deptItemTotal;
+            $deptOverallSubtotal = $isMultiDept ? $totalItemSumAll : null;
+            $deptOverallTotal = $isMultiDept ? $totalItemSumAll : null;
+            $deptOverallDeposit = $isMultiDept ? $overallDeposit : null;
+            $deptOverallTax = $isMultiDept ? $overallTax : null;
+            
+            // Create sale record
+            $saleId = \DB::table('prototype_sales')->insertGetId([
+                'sales_number' => $salesNumber,
+                'customer_id' => $customer->id,
+                'customer_name' => $request->customer_name,
+                'customer_email' => $request->customer_email,
+                'customer_phone' => $request->customer_phone,
+                'customer_address' => $request->customer_address,
+                'sales_agent_id' => auth()->id(),
+                'sales_agent_name' => auth()->user()->name,
+                'department_id' => $department->id,
+                'department_name' => $department->name,
+                'services' => $deptServicesJson,
+                'subtotal' => $deptSubtotal,
+                'tax' => $deptTax,
+                'total_amount' => $deptTotal,
+                'deposit_paid' => $deptDeposit,
+                'balance_due' => $balanceDue,
+                'payment_method' => $request->payment_method ?: 'cash',
+                'payment_owner' => $request->payment_owner ?: ($request->payment_account_id ? \App\Models\PaymentAccount::find($request->payment_account_id)?->name : 'company'),
+                'payment_account_id' => $request->payment_account_id ?: null,
+                'payment_date' => $request->payment_date ?: null,
+                'reference_number' => $request->reference_number ?: null,
+                'payment_status' => 'pending',
+                'payment_screenshot_path' => $paymentScreenshotPath,
+                'customer_notes' => $request->customer_notes,
+                'internal_notes' => $request->internal_notes,
+                'estimated_completion_date' => $request->estimated_completion_date,
+                'kanban_status' => 'new',
+                'status' => 'pending',
+                'group_id' => $group_id,
+                'overall_subtotal' => $deptOverallSubtotal,
+                'overall_total_amount' => $deptOverallTotal,
+                'overall_deposit_paid' => $deptOverallDeposit,
+                'overall_tax' => $deptOverallTax,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            
+            if ($firstSaleId === null) $firstSaleId = $saleId;
+            $saleIds[] = $saleId;
+            
+            // Track sold items for this department
+            try {
+                $trackedItems = [];
+                foreach ($items as $soldItem) {
+                    $masterItemId = null;
+                    $sku = null;
+                    $itemName = $soldItem['name'] ?? 'Unknown';
+                    
+                    if (isset($soldItem['productId'])) {
+                        $priceRecord = \DB::table('printing_prices')->find($soldItem['productId']);
+                        if ($priceRecord && $priceRecord->master_item_id) {
+                            $masterItemId = $priceRecord->master_item_id;
+                            $masterItem = \DB::table('master_items')->find($masterItemId);
+                            if ($masterItem) {
+                                $sku = $masterItem->sku;
+                            }
+                        }
+                    }
+                    
+                    if (!$masterItemId) {
+                        $matched = \App\Models\MasterItem::where('name', 'LIKE', '%' . substr($itemName, 0, 30) . '%')
+                            ->whereNull('deleted_at')
+                            ->first();
+                        if ($matched) {
+                            $masterItemId = $matched->id;
+                            $sku = $matched->sku;
+                        }
+                    }
+                    
+                    $trackedItems[] = [
+                        'sale_id' => $saleId,
+                        'master_item_id' => $masterItemId,
+                        'item_name' => $itemName,
+                        'sku' => $sku,
+                        'quantity' => $soldItem['quantity'] ?? 1,
+                        'unit_price' => $soldItem['unitPrice'] ?? $soldItem['totalPrice'] ?? 0,
+                        'department_id' => $department->id,
+                        'department_name' => $department->name,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                
+                if (!empty($trackedItems)) {
+                    \DB::table('sale_tracked_items')->insert($trackedItems);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Failed to track sale items: ' . $e->getMessage());
+            }
+            
+            // Create KANBAN item
+            $itemsCount = count($items);
+            \DB::table('sales_kanban_items')->insert([
+                'sale_id' => $saleId,
+                'department_id' => $department->id,
+                'title' => 'New Sale: ' . $request->customer_name,
+                'description' => 'Services: ' . $itemsCount . ' items | Total: ₱' . number_format($deptTotal, 2),
+                'status' => 'todo',
+                'assigned_to' => null,
+                'position' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            
+            // Save mockup image from sublimation form
+            foreach ($items as $item) {
+                if (isset($item['sublimationForm']['mockup']) && !empty($item['sublimationForm']['mockup'])) {
+                    $mockupImages = [[
+                        'name' => ($item['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
+                        'url' => $item['sublimationForm']['mockup'],
+                        'type' => 'sublimation'
+                    ]];
+                    \DB::table('prototype_sales')->where('id', $saleId)->update(['mockup_images' => json_encode($mockupImages)]);
+                    break;
+                }
+            }
         }
         
-        // Update customer LTV stats
+        // Update customer LTV stats (once per transaction)
         $customer->total_orders += 1;
-        $customer->total_spent += $request->subtotal ?: 0;
+        $customer->total_spent += $overallSubtotal;
         $customer->notes = $request->customer_notes ?: $customer->notes;
         $customer->average_order_value = $customer->total_spent / $customer->total_orders;
         
@@ -245,45 +353,22 @@ class PrototypeSalesController extends Controller
         $customer->updateTier();
         $customer->save();
         
-        // Create KANBAN item
-        \DB::table('sales_kanban_items')->insert([
-            'sale_id' => $saleId,
-            'department_id' => $department->id,
-            'title' => 'New Sale: ' . $request->customer_name,
-            'description' => 'Services: ' . $itemsCount . ' items | Total: ₱' . number_format($request->total_amount ?: 0, 2),
-            'status' => 'todo',
-            'assigned_to' => null,
-            'position' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Build success message
+        $deptNames = [];
+        foreach ($deptGroups as $dc => $di) {
+            $deptNames[] = ucfirst($dc);
+        }
         
-        // Save mockup image from sublimation form
-        if ($request->items_json) {
-            $items = json_decode($request->items_json, true);
-            if (is_array($items)) {
-                foreach ($items as $item) {
-                    if (isset($item['sublimationForm']['mockup']) && !empty($item['sublimationForm']['mockup'])) {
-                        $mockupImages = [[
-                            'name' => ($item['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
-                            'url' => $item['sublimationForm']['mockup'],
-                            'type' => 'sublimation'
-                        ]];
-                        \DB::table('prototype_sales')->where('id', $saleId)->update(['mockup_images' => json_encode($mockupImages)]);
-                        break;
-                    }
-                }
-            }
+        if ($isMultiDept) {
+            $successMsg = count($deptGroups) . ' sales created (' . implode(', ', $deptNames) . ') — each added to their respective department Kanban board.';
+        } else {
+            $successMsg = 'Sale saved! It has been added to the Kanban board.';
         }
 
         return redirect()->route('sales.prototype.create')
-            ->with('success', 'Sale saved! It has been added to the Kanban board.');
+            ->with('success', $successMsg);
     }
-
-    /**
-     * Display the specified resource.
-     */
-    public function details(Request $request, string $id)
+public function details(Request $request, string $id)
     {
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
@@ -414,11 +499,11 @@ class PrototypeSalesController extends Controller
         // --- Payment Info ---
         $html .= '<div class="sale-detail-section">';
         $html .= '<h6><i class="fas fa-credit-card me-2"></i>Payment & Totals</h6>';
-        $html .= '<div class="total-row"><span>Total Amount</span><span>₱' . number_format($sale->subtotal ?? 0, 2) . '</span></div>';
+        $html .= '<div class="total-row"><span>Total Amount</span><span>₱' . number_format($sale->total_amount ?? 0, 2) . '</span></div>';
         if (($sale->deposit_paid ?? 0) > 0) {
             $html .= '<div class="subtotal-row text-success"><span>Deposit Paid</span><span>-₱' . number_format($sale->deposit_paid, 2) . '</span></div>';
         }
-        $balance = ($sale->subtotal ?? 0) - ($sale->deposit_paid ?? 0);
+        $balance = ($sale->total_amount ?? 0) - ($sale->deposit_paid ?? 0);
         if ($balance > 0) {
             $html .= '<div class="subtotal-row text-danger fw-bold"><span>Balance Due</span><span>₱' . number_format($balance, 2) . '</span></div>';
         }
@@ -483,7 +568,7 @@ class PrototypeSalesController extends Controller
         ]);
     }
 
-    public function show(string $id)
+                public function show(string $id)
     {
         $sale = \DB::table('prototype_sales')->leftJoin('sales_departments', 'prototype_sales.department_id', '=', 'sales_departments.id')
             ->select('prototype_sales.*', 'sales_departments.name as department_name', 'sales_departments.code as department_code')
@@ -496,13 +581,45 @@ class PrototypeSalesController extends Controller
         $services = json_decode($sale->services, true);
         $kanbanItem = \DB::table('sales_kanban_items')->where('sale_id', $id)->first();
         
-        return view('sales.prototype.show', compact('sale', 'services', 'kanbanItem'));
+        // Check if this sale is part of a group (multi-department transaction)
+        $relatedSales = collect();
+        $overallGroupTotal = null;
+        $overallGroupSubtotal = null;
+        $overallGroupDeposit = null;
+        $overallGroupBalance = null;
+        
+        if ($sale->group_id) {
+            $relatedSales = \DB::table('prototype_sales')
+                ->leftJoin('sales_departments', 'prototype_sales.department_id', '=', 'sales_departments.id')
+                ->select('prototype_sales.*', 'sales_departments.name as department_name', 'sales_departments.code as department_code')
+                ->where('prototype_sales.group_id', $sale->group_id)
+                ->where('prototype_sales.id', '!=', $id)
+                ->get();
+            
+            // Calculate overall group totals from sale's stored values
+            $overallGroupSubtotal = $sale->overall_subtotal;
+            $overallGroupTotal = $sale->overall_total_amount;
+            $overallGroupDeposit = $sale->overall_deposit_paid;
+            
+            // Fallback: calculate from group if stored values are null
+            if (is_null($overallGroupTotal)) {
+                $allInGroup = \DB::table('prototype_sales')
+                    ->where('group_id', $sale->group_id)
+                    ->get();
+                $overallGroupSubtotal = $allInGroup->sum('subtotal');
+                $overallGroupTotal = $allInGroup->sum('total_amount');
+                $overallGroupDeposit = $allInGroup->sum('deposit_paid');
+            }
+            
+            $overallGroupBalance = $overallGroupTotal - $overallGroupDeposit;
+        }
+        
+        return view('sales.prototype.show', compact(
+            'sale', 'services', 'kanbanItem', 'relatedSales',
+            'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance'
+        ));
     }
-
-    /**
-     * Print slip for a saved sale.
-     */
-    public function printSlip(string $id)
+public function printSlip(string $id)
     {
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
@@ -966,6 +1083,12 @@ class PrototypeSalesController extends Controller
             $query->where('department_id', $deptId);
         }
         
+        // Non-admin users only see their own sales
+        $user = auth()->user();
+        if (!$user->isAdmin()) {
+            $query->where('sales_agent_id', $user->id);
+        }
+        
         $sales = $query->orderBy('created_at', 'desc')->paginate(100);
         
         // Initialize columns with proper order
@@ -1027,13 +1150,23 @@ class PrototypeSalesController extends Controller
             6 => "#6c757d",
         ];
 
-        $sales = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
-            ->orderBy("created_at", "desc")
+        $query = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"]);
+        
+        // Non-admin users only see their own sales
+        $user = auth()->user();
+        if (!$user->isAdmin()) {
+            $query->where('sales_agent_id', $user->id);
+        }
+        
+        $sales = $query->orderBy("created_at", "desc")
             ->paginate(50);
+        
+        // Determine if current user is an agent-type user
+        $isAgent = !$user->isAdmin() && ($user->isSalesAgent() || $user->isSalesRepresentative());
         
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels",
-            "departmentLabels", "departmentColors"
+            "departmentLabels", "departmentColors", "isAgent"
         ));
     }
 
@@ -1398,5 +1531,263 @@ class PrototypeSalesController extends Controller
             ->get();
 
         return response()->json($logs);
+    }
+
+    // ================================================================
+    // AGENT METHODS — Simplified Sales for Sales Agents & Reps
+    // ================================================================
+
+    /**
+     * Show simplified "Add Sale" form for agents.
+     */
+    /**
+     * Show dedicated Sales Team dashboard — "My Sales" for agents/reps.
+     */
+    public function agentDashboard(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $query = \DB::table('prototype_sales')
+            ->where('sales_agent_id', $user->id);
+
+        // Date range filter
+        if ($request->filled('date_from')) {
+            $query->where('created_at', '>=', $request->date_from . ' 00:00:00');
+        }
+        if ($request->filled('date_to')) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        // Payment status filter
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+
+        // Kanban/order status filter
+        if ($request->filled('kanban_status')) {
+            $query->where('kanban_status', $request->kanban_status);
+        }
+
+        // Department/shop filter
+        if ($request->filled('department')) {
+            $query->where('department_name', $request->department);
+        }
+
+        $sales = $query->orderBy('created_at', 'desc')->get();
+
+        $statuses = ['new', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $statusLabels = [
+            'new'                => 'New',
+            'design'            => 'Design',
+            'production'        => 'Production',
+            'quality_check'      => 'Quality Check',
+            'ready_for_delivery' => 'Ready for Delivery',
+            'delivered'         => 'Delivered',
+            'completed'         => 'Completed',
+        ];
+
+        // Get unique departments for filter dropdown
+        $departments = \DB::table('prototype_sales')
+            ->select('department_name')
+            ->distinct()
+            ->where('sales_agent_id', $user->id)
+            ->whereNotNull('department_name')
+            ->orderBy('department_name')
+            ->pluck('department_name')
+            ->toArray();
+
+        // Preserve filter state for the view
+        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department']);
+
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters'));
+    }
+
+    public function agentCreate()
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+        
+        $departments = \DB::table('sales_departments')->where('is_active', true)->get()->toArray();
+        return view('sales.prototype.agent-create', compact('departments'));
+    }
+
+    /**
+     * Store a simplified sale created by an agent.
+     */
+    public function agentStore(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'customer_phone' => 'nullable|string|max:20',
+            'services' => 'required|string',
+            'total_amount' => 'required|numeric|min:0',
+            'deposit_paid' => 'nullable|numeric|min:0',
+            'department_id' => 'required|exists:sales_departments,id',
+            'payment_method' => 'nullable|string',
+            'payment_screenshot' => 'nullable|image|max:5120',
+            'notes' => 'nullable|string',
+        ]);
+
+        // Get department
+        $department = \DB::table('sales_departments')->find($request->department_id);
+        if (!$department) {
+            return back()->withErrors(['department_id' => 'Invalid department'])->withInput();
+        }
+
+        // Generate sales number
+        $salesNumber = 'SALE-' . date('Ymd') . '-' . strtoupper(uniqid());
+
+        // Handle payment screenshot upload
+        $paymentScreenshotPath = null;
+        if ($request->hasFile('payment_screenshot')) {
+            $file = $request->file('payment_screenshot');
+            $filename = 'payment_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs('uploads/payments', $filename, 'public');
+            $paymentScreenshotPath = '/storage/' . $filePath;
+        }
+
+        $depositPaid = $request->deposit_paid ?? 0;
+
+        \DB::table('prototype_sales')->insert([
+            'sales_number' => $salesNumber,
+            'customer_id' => null,
+            'customer_name' => $request->customer_name,
+            'customer_email' => null,
+            'customer_phone' => $request->customer_phone,
+            'customer_address' => null,
+            'sales_agent_id' => $user->id,
+            'sales_agent_name' => $user->name,
+            'department_id' => $department->id,
+            'department_name' => $department->name,
+            'services' => json_encode([['name' => $request->services, 'qty' => 1]]),
+            'subtotal' => $request->total_amount,
+            'tax' => 0,
+            'total_amount' => $request->total_amount,
+            'deposit_paid' => $depositPaid,
+            'balance_due' => $request->total_amount - $depositPaid,
+            'payment_method' => $request->payment_method ?? 'cash',
+            'payment_owner' => 'company',
+            'payment_account_id' => null,
+            'payment_date' => $depositPaid > 0 ? now() : null,
+            'reference_number' => null,
+            'payment_status' => $depositPaid > 0 ? 'pending' : 'unpaid',
+            'payment_screenshot_path' => $paymentScreenshotPath,
+            'customer_notes' => $request->notes,
+            'internal_notes' => null,
+            'estimated_completion_date' => null,
+            'kanban_status' => 'new',
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('sales.prototype.list')
+            ->with('success', 'Sale submitted successfully!');
+    }
+
+    /**
+     * Show "Add Payment" form for a sale (agent-facing).
+     */
+    public function agentAddPayment($id)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            abort(404, 'Sale not found.');
+        }
+
+        // Non-admin can only add payments to their own sales
+        if (!$user->isAdmin() && $sale->sales_agent_id != $user->id) {
+            abort(403, 'You can only add payments to your own sales.');
+        }
+
+        return view('sales.prototype.agent-add-payment', compact('sale'));
+    }
+
+    /**
+     * Process adding a payment to an existing sale (agent-facing).
+     */
+    public function agentPaymentStore(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            abort(404, 'Sale not found.');
+        }
+
+        // Non-admin can only add payments to their own sales
+        if (!$user->isAdmin() && $sale->sales_agent_id != $user->id) {
+            abort(403, 'You can only add payments to your own sales.');
+        }
+
+        $request->validate([
+            'payment_amount' => 'required|numeric|min:0.01',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|string',
+            'payment_account_id' => 'nullable|integer|exists:payment_accounts,id',
+            'reference_number' => 'nullable|string|max:255',
+            'payment_screenshot' => 'nullable|image|max:5120',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        // Handle payment screenshot
+        $paymentScreenshotPath = null;
+        if ($request->hasFile('payment_screenshot')) {
+            $file = $request->file('payment_screenshot');
+            $filename = 'payment_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $filePath = $file->storeAs('uploads/payments', $filename, 'public');
+            $paymentScreenshotPath = '/storage/' . $filePath;
+        }
+
+        $newDepositPaid = ($sale->deposit_paid ?? 0) + $request->payment_amount;
+        $newBalanceDue = $sale->total_amount - $newDepositPaid;
+
+        // Update the sale with additional deposit
+        \DB::table('prototype_sales')->where('id', $id)->update([
+            'deposit_paid' => $newDepositPaid,
+            'balance_due' => max($newBalanceDue, 0),
+            'payment_method' => $request->payment_method,
+            'payment_account_id' => $request->payment_account_id ?? $sale->payment_account_id,
+            'payment_date' => $request->payment_date,
+            'payment_owner' => $user->name,
+            'reference_number' => $request->reference_number,
+            'payment_screenshot_path' => $paymentScreenshotPath ?: $sale->payment_screenshot_path,
+            'payment_status' => $request->payment_method === 'cash' ? 'verified' : 'pending',
+            'updated_at' => now(),
+        ]);
+
+        // Log payment addition
+        try {
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $request->payment_account_id,
+                'user_id' => $user->id,
+                'action' => 'additional_payment',
+                'remarks' => 'Additional payment of ₱' . number_format($request->payment_amount, 2) . ' via ' . $request->payment_method . ($request->notes ? ' — ' . $request->notes : ''),
+            ]);
+        } catch (\Exception $e) {
+            // Non-critical — don't break the flow
+        }
+
+        return redirect()->route('sales.prototype.show', $id)
+            ->with('success', 'Payment added successfully!');
     }
 }

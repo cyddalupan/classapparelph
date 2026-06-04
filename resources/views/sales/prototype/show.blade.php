@@ -48,6 +48,34 @@
         </div>
     </div>
 
+@if(isset($relatedSales) && $relatedSales->count() > 0)
+    <div class="alert alert-info mb-3">
+        <div class="d-flex align-items-start">
+            <i class="fas fa-layer-group me-3 fa-lg mt-1"></i>
+            <div class="flex-grow-1">
+                <strong>Multi-Department Transaction</strong><br>
+                <small>This sale is part of a group with {{ $relatedSales->count() }} other department sale(s):
+                @foreach($relatedSales as $rs)
+                    <a href="{{ route('sales.prototype.show', $rs->id) }}" class="alert-link me-2">
+                        <span class="badge bg-{{ $rs->department_code ?? 'secondary' }}">{{ $rs->department_name }} ({{ $rs->sales_number }})</span>
+                    </a>
+                @endforeach
+                </small>
+                <div class="mt-2 p-2 bg-white bg-opacity-25 rounded small">
+                    <strong>Overall Transaction Total:</strong>
+                    <span class="ms-2">₱{{ number_format($overallGroupTotal, 2) }}</span>
+                    <span class="mx-2 text-muted">|</span>
+                    <strong>Deposit:</strong>
+                    <span class="ms-2">₱{{ number_format($overallGroupDeposit, 2) }}</span>
+                    <span class="mx-2 text-muted">|</span>
+                    <strong>Balance Due:</strong>
+                    <span class="ms-2">₱{{ number_format($overallGroupBalance, 2) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+
     <div class="row g-3">
         <div class="col-lg-8">
             <!-- Customer Info -->
@@ -231,7 +259,7 @@
                 <h5 class="detail-title"><i class="fas fa-credit-card me-2"></i>Payment</h5>
                 <div class="mb-2">
                     <div class="info-label">Total Amount</div>
-                    <div class="info-value fw-bold fs-5">₱{{ number_format($sale->subtotal ?? 0, 2) }}</div>
+                    <div class="info-value fw-bold fs-5">₱{{ number_format($sale->total_amount ?? 0, 2) }}</div>
                 </div>
                 @if(($sale->deposit_paid ?? 0) > 0)
                 <div class="mb-2">
@@ -239,11 +267,19 @@
                     <div class="info-value text-success">₱{{ number_format($sale->deposit_paid, 2) }}</div>
                 </div>
                 @endif
-                @php $bal = ($sale->subtotal ?? 0) - ($sale->deposit_paid ?? 0); @endphp
+                @php $bal = ($sale->total_amount ?? 0) - ($sale->deposit_paid ?? 0); @endphp
                 @if($bal > 0)
                 <div class="mb-2">
                     <div class="info-label">Balance Due</div>
                     <div class="info-value text-danger fw-bold">₱{{ number_format($bal, 2) }}</div>
+                </div>
+                @endif
+
+                @if($bal > 0)
+                <div class="mt-3 mb-3">
+                    <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#payBalanceModal">
+                        <i class="fas fa-credit-card me-2"></i>Pay Balance
+                    </button>
                 </div>
                 @endif
 
@@ -342,6 +378,8 @@
                                     <span class="badge bg-info">Edited</span>
                                 @elseif($log->action === 'requested_verify')
                                     <span class="badge bg-primary">Requested Verify</span>
+                                @elseif($log->action === 'additional_payment')
+                                    <span class="badge bg-info">Additional Payment</span>
                                 @endif
                                 <strong>{{ $log->user?->name ?? 'System' }}</strong>
                             </div>
@@ -376,10 +414,141 @@
         </div>
     </div>
 </div>
+<!-- Pay Balance Modal -->
+<div class="modal fade" id="payBalanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{{ route('sales.prototype.agent.payment.store', $sale->id) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-credit-card me-2"></i>Pay Balance</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    @php $remaining = ($sale->total_amount ?? 0) - ($sale->deposit_paid ?? 0); @endphp
+                @if(isset($relatedSales) && $relatedSales->count() > 0)
+    <div class="alert alert-info mb-3">
+        <div class="d-flex align-items-start">
+            <i class="fas fa-layer-group me-3 fa-lg mt-1"></i>
+            <div class="flex-grow-1">
+                <strong>Multi-Department Transaction</strong><br>
+                <small>This sale is part of a group with {{ $relatedSales->count() }} other department sale(s):
+                @foreach($relatedSales as $rs)
+                    <a href="{{ route('sales.prototype.show', $rs->id) }}" class="alert-link me-2">
+                        <span class="badge bg-{{ $rs->department_code ?? 'secondary' }}">{{ $rs->department_name }} ({{ $rs->sales_number }})</span>
+                    </a>
+                @endforeach
+                </small>
+                <div class="mt-2 p-2 bg-white bg-opacity-25 rounded small">
+                    <strong>Overall Transaction Total:</strong>
+                    <span class="ms-2">₱{{ number_format($overallGroupTotal, 2) }}</span>
+                    <span class="mx-2 text-muted">|</span>
+                    <strong>Deposit:</strong>
+                    <span class="ms-2">₱{{ number_format($overallGroupDeposit, 2) }}</span>
+                    <span class="mx-2 text-muted">|</span>
+                    <strong>Balance Due:</strong>
+                    <span class="ms-2">₱{{ number_format($overallGroupBalance, 2) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+
+    <div class="row g-3">
+                        <!-- Summary -->
+                        <div class="col-12">
+                            <div class="bg-light p-3 rounded d-flex justify-content-around text-center">
+                                <div>
+                                    <small class="text-muted d-block">Total</small>
+                                    <strong>₱{{ number_format($sale->total_amount ?? 0, 2) }}</strong>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block">Paid</small>
+                                    <strong class="text-success">₱{{ number_format($sale->deposit_paid ?? 0, 2) }}</strong>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block">Balance</small>
+                                    <strong class="text-danger">₱{{ number_format($remaining, 2) }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Amount <span class="text-danger">*</span></label>
+                            <input type="number" name="payment_amount" class="form-control" step="0.01" min="0.01" max="{{ $remaining }}" value="{{ $remaining }}" required>
+                        </div>
+
+                        <!-- Date -->
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Date <span class="text-danger">*</span></label>
+                            <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                        </div>
+
+                        <!-- Method -->
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                            <select name="payment_method" class="form-select" required onchange="toggleBalanceRefFields()">
+                                <option value="">Select...</option>
+                                <option value="cash">Cash</option>
+                                <option value="gcash">GCash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="check">Check</option>
+                            </select>
+                        </div>
+
+                        <!-- Account -->
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Account <span class="text-danger">*</span></label>
+                            <select name="payment_account_id" class="form-select" required>
+                                <option value="">Select account...</option>
+                                @foreach(\App\Models\PaymentAccount::where('is_active', true)->get() as $acct)
+                                    <option value="{{ $acct->id }}">{{ $acct->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <!-- Reference (shown for non-cash) -->
+                        <div class="col-md-6" id="balanceRefGroup" style="display:none;">
+                            <label class="form-label">Reference Number</label>
+                            <input type="text" name="reference_number" class="form-control" placeholder="Transaction ref number">
+                        </div>
+
+                        <!-- Screenshot (shown for non-cash) -->
+                        <div class="col-12" id="balanceScreenshotGroup" style="display:none;">
+                            <label class="form-label">Payment Screenshot / Proof</label>
+                            <input type="file" name="payment_screenshot" class="form-control" accept="image/*">
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="col-12">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-check me-1"></i>Submit Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
+    window.toggleBalanceRefFields = function() {
+        var method = document.querySelector('[name="payment_method"]').value;
+        var show = method !== '' && method !== 'cash';
+        document.getElementById('balanceRefGroup').style.display = show ? 'block' : 'none';
+        document.getElementById('balanceScreenshotGroup').style.display = show ? 'block' : 'none';
+    };
+
     window.openLightbox = function(src) {
         var old = document.getElementById('imageLightbox');
         if (old) old.remove();

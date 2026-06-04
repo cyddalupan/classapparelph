@@ -712,7 +712,7 @@
             
             <!-- Hidden fields -->
             <input type="hidden" name="payment_type" id="payment_type_hidden" value="">
-            <input type="hidden" name="payment_amount" id="payment_amount_hidden" value="0">
+            <input type="hidden" name="deposit_paid" id="deposit_paid_hidden" value="0">
             <input type="hidden" name="payment_owner" id="payment_owner_hidden" value="">
         </div>
         
@@ -2389,8 +2389,7 @@ window.__updateOrderSummaryCore = function() {
         subtotal += itemTotal;
     });
     
-    const tax = subtotal * 0.12;
-    const total = subtotal + tax;
+    const total = subtotal;
     
     // Update hidden inputs
     const subtotalInput = document.getElementById('subtotal');
@@ -2398,7 +2397,7 @@ window.__updateOrderSummaryCore = function() {
     const totalInput = document.getElementById('total_amount');
     
     if (subtotalInput) subtotalInput.value = subtotal.toFixed(2);
-    if (taxInput) taxInput.value = tax.toFixed(2);
+    if (taxInput) taxInput.value = '0.00';
     if (totalInput) totalInput.value = total.toFixed(2);
     
     // Update department breakdown
@@ -2532,7 +2531,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var poSection = document.getElementById('poSection');
             var poRef = document.getElementById('po_reference');
             var hiddenType = document.getElementById('payment_type_hidden');
-            var hiddenAmt = document.getElementById('payment_amount_hidden');
+            var hiddenAmt = document.getElementById('deposit_paid_hidden');
             
             if (this.value === 'downpayment') {
                 amtInput.disabled = false;
@@ -2567,7 +2566,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var amtInput = document.getElementById('payment_amount');
     if (amtInput) {
         amtInput.addEventListener('input', function() {
-            var hiddenAmt = document.getElementById('payment_amount_hidden');
+            var hiddenAmt = document.getElementById('deposit_paid_hidden');
             if (hiddenAmt) hiddenAmt.value = this.value || 0;
         });
     }

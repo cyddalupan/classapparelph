@@ -356,7 +356,12 @@
                                      onerror="this.style.display='none'">
                             @endif
                             
-                            <div class="card-title">{{ $sale->customer_name ?: '#' . $sale->sales_number }}</div>
+                            <div class="card-title">
+                                {{ $sale->customer_name ?: '#' . $sale->sales_number }}
+                                @if($sale->group_id)
+                                    <span class="badge bg-secondary ms-1" style="font-size:9px;cursor:help;" title="Part of a multi-department transaction">🔄</span>
+                                @endif
+                            </div>
                             
                             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
                                 @if($showAll && isset($departmentLabels[$sale->department_id]))

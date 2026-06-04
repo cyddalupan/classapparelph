@@ -2,7 +2,7 @@
 
 @section('title', 'Payment Verification')
 
-@section('styles')
+@push('styles')
 <style>
     .payment-card { transition: all 0.2s; border-left: 4px solid #dee2e6; }
     .payment-card.pending { border-left-color: #ffc107; }
@@ -16,11 +16,19 @@
     .modal-xl-custom { max-width: 900px; }
     .verification-sidebar { position: sticky; top: 80px; }
     .section-title { font-weight: 600; color: #333; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e9ecef; }
+    /* Amount highlight */
+    .amount-display { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.5rem 0.75rem; margin-top: 0.5rem; display: inline-block; }
+    .amount-display .amount-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #166534; }
+    .amount-display .amount-value { font-size: 1.1rem; font-weight: 700; color: #15803d; }
+    /* Screenshot thumbnail */
+
+    .payment-amount-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 </style>
-@endsection
+@endpush
 
 @section('content')
 <div class="container-fluid py-4">
+<div id="toastContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-1">Payment Verification</h1>
@@ -66,12 +74,12 @@
                                                     <span class="badge bg-info status-badge"><i class="fas fa-exclamation-circle"></i> Verify Requested</span>
                                                 @endif
                                             </div>
-                                            <div class="small text-muted">
-                                                <strong>{{ $sale->customer_name }}</strong> &middot;
-                                                ₱{{ number_format($sale->total_amount, 2) }}
-                                                @if($sale->deposit_paid > 0)
-                                                    &middot; Paid: ₱{{ number_format($sale->deposit_paid, 2) }}
-                                                @endif
+                                            <div class="small fw-bold mb-1">
+                                                {{ $sale->customer_name }}
+                                            </div>
+                                            <div class="amount-display mt-1">
+                                                <div class="amount-label">Amount Paid</div>
+                                                <div class="amount-value">₱{{ number_format($sale->deposit_paid, 2) }}</div>
                                             </div>
                                             <div class="small mt-1">
                                                 @if($sale->account_name)
@@ -115,11 +123,9 @@
                                         </div>
                                     </div>
                                     @if($sale->payment_screenshot_path)
-                                        <div class="mt-2">
-                                            <a href="{{ $sale->payment_screenshot_path }}" target="_blank" class="small text-primary">
-                                                <i class="fas fa-image"></i> View Screenshot
-                                            </a>
-                                        </div>
+                                        <a href="#" onclick="window.openScreenshot('{{ $sale->payment_screenshot_path }}');return false;" class="text-primary text-decoration-none" title="View Payment Screenshot">
+                                            <i class="fas fa-image me-1"></i> View Screenshot
+                                        </a>
                                     @endif
                                 </div>
                             @endforeach
@@ -152,7 +158,11 @@
                                                 <span class="badge bg-success status-badge">Verified</span>
                                             </div>
                                             <div class="small text-muted">
-                                                {{ $sale->customer_name }} &middot; ₱{{ number_format($sale->total_amount, 2) }}
+                                                {{ $sale->customer_name }} &middot; Total: ₱{{ number_format($sale->total_amount, 2) }}
+                                            </div>
+                                            <div class="amount-display mt-1">
+                                                <div class="amount-label">Verified Amount</div>
+                                                <div class="amount-value">₱{{ number_format($sale->deposit_paid, 2) }}</div>
                                             </div>
                                             <div class="small text-muted mt-1">
                                                 @if($sale->account_name)
@@ -325,6 +335,7 @@
     </div>
 </div>
 
+<!-- Screenshot Preview Modal -->
 <!-- Audit Log Modal -->
 <div class="modal fade" id="auditModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -344,10 +355,30 @@
 </div>
 @endsection
 
-@section('scripts')
+@push('scripts')
 <script>
 let currentSaleId = null;
 let currentAction = null;
+
+function showToast(msg, type) {
+    var container = document.getElementById('toastContainer');
+    var toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-bg-' + (type || 'danger') + ' border-0 mb-2';
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = '<div class="d-flex"><div class="toast-body"><i class="fas fa-' + (type === 'success' ? 'check-circle' : 'exclamation-circle') + ' me-2"></i>' + msg + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    container.appendChild(toast);
+    var bsToast = new bootstrap.Toast(toast, { autohide: true, delay: 4000 });
+    bsToast.show();
+    toast.addEventListener('hidden.bs.toast', function () { toast.remove(); });
+}
+
+function closeModal(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        var modal = bootstrap.Modal.getInstance(el);
+        if (modal) modal.hide();
+    }
+}
 
 function verifySale(saleId, action) {
     currentSaleId = saleId;
@@ -364,20 +395,39 @@ function verifySale(saleId, action) {
 
 function confirmVerify() {
     var remark = document.getElementById('verifyRemark').value;
+    var btn = document.getElementById('confirmVerifyBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
     fetch('{{ url("sales/prototype") }}/' + currentSaleId + '/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
         body: JSON.stringify({ action: currentAction, remark: remark })
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            return r.text().then(text => {
+                if (text.startsWith('<')) {
+                    throw new Error('Session expired or page outdated. Please refresh.');
+                }
+                var json = JSON.parse(text);
+                throw new Error(json.error || 'Request failed');
+            });
+        }
+        return r.json();
+    })
     .then(data => {
         if (data.success) {
             location.reload();
         } else {
-            alert('Error: ' + (data.error || 'Unknown error'));
+            showToast(data.error || 'Unknown error', 'danger');
+            closeModal('verifyModal');
         }
     })
-    .catch(e => { alert('Request failed: ' + e); });
+    .catch(e => {
+        showToast(e.message || 'Connection error', 'warning');
+        closeModal('verifyModal');
+    });
 }
 
 function showTagModal(saleId, currentAccountId) {
@@ -393,17 +443,34 @@ function confirmTag() {
     var remark = document.getElementById('tagRemark').value;
     if (!newAccountId) { alert('Please select a new account.'); return; }
 
+    var btn = document.querySelector('#tagModal .btn-primary');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...'; }
+
     fetch('{{ url("sales/prototype") }}/' + currentSaleId + '/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
         body: JSON.stringify({ action: 're_tag', new_account_id: newAccountId, remark: remark })
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            return r.text().then(text => {
+                if (text.startsWith('<')) {
+                    throw new Error('Session expired or page outdated. Please refresh.');
+                }
+                var json = JSON.parse(text);
+                throw new Error(json.error || 'Request failed');
+            });
+        }
+        return r.json();
+    })
     .then(data => {
         if (data.success) { location.reload(); }
-        else { alert('Error: ' + (data.error || 'Unknown error')); }
+        else { showToast(data.error || 'Unknown error', 'danger'); closeModal('tagModal'); }
     })
-    .catch(e => { alert('Request failed: ' + e); });
+    .catch(e => {
+        showToast(e.message || 'Connection error', 'warning');
+        closeModal('tagModal');
+    });
 }
 
 function showEditModal(saleId) {
@@ -421,17 +488,34 @@ function confirmEdit() {
     var remark = document.getElementById('editRemark').value;
     if (!newRef && !newDate) { alert('Please enter a new reference number or payment date.'); return; }
 
+    var btn = document.querySelector('#editModal .btn-primary');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...'; }
+
     fetch('{{ url("sales/prototype") }}/' + currentSaleId + '/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
         body: JSON.stringify({ action: 'edit_ref', new_reference_number: newRef, new_payment_date: newDate, remark: remark })
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            return r.text().then(text => {
+                if (text.startsWith('<')) {
+                    throw new Error('Session expired or page outdated. Please refresh.');
+                }
+                var json = JSON.parse(text);
+                throw new Error(json.error || 'Request failed');
+            });
+        }
+        return r.json();
+    })
     .then(data => {
         if (data.success) { location.reload(); }
-        else { alert('Error: ' + (data.error || 'Unknown error')); }
+        else { showToast(data.error || 'Unknown error', 'danger'); closeModal('editModal'); }
     })
-    .catch(e => { alert('Request failed: ' + e); });
+    .catch(e => {
+        showToast(e.message || 'Connection error', 'warning');
+        closeModal('editModal');
+    });
 }
 
 function showAuditLogs(saleId) {
@@ -481,5 +565,72 @@ function showAuditLogs(saleId) {
         document.getElementById('auditLogBody').innerHTML = '<div class="text-center py-4 text-danger">Failed to load audit logs.</div>';
     });
 }
+
+// === IMAGE LIGHTBOX (clickable link, same page) ===
+window.openScreenshot = function(src) {
+    var old = document.getElementById('imageLightbox');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'imageLightbox';
+    overlay.style.cssText = 'display:flex!important;align-items:center;justify-content:center;position:fixed;top:0;left:0;width:100%;height:100%;z-index:100000;background:rgba(0,0,0,0.85);cursor:zoom-out;';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'position:absolute;top:15px;right:25px;font-size:32px;color:white;background:none;border:none;cursor:pointer;z-index:100001;';
+    closeBtn.onclick = function(ev) {
+        ev.stopPropagation();
+        var ol = document.getElementById('imageLightbox');
+        if (ol) { ol.remove(); document.body.style.overflow = ''; }
+    };
+
+    var imgContainer = document.createElement('div');
+    imgContainer.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;padding:40px;';
+
+    var img = document.createElement('img');
+    img.id = 'lightboxImage';
+    img.style.cssText = 'max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px;';
+    img.alt = '';
+
+    imgContainer.appendChild(img);
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(imgContainer);
+
+    overlay.onclick = function(ev) {
+        if (ev.target === overlay) {
+            var ol = document.getElementById('imageLightbox');
+            if (ol) { ol.remove(); document.body.style.overflow = ''; }
+        }
+    };
+
+    img.src = src;
+    if (img.complete) {
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+    } else {
+        img.onload = function() {
+            document.body.appendChild(overlay);
+            document.body.style.overflow = 'hidden';
+        };
+        img.onerror = function() {
+            document.body.appendChild(overlay);
+            document.body.style.overflow = 'hidden';
+        };
+        setTimeout(function() {
+            if (!overlay.parentNode) {
+                document.body.appendChild(overlay);
+                document.body.style.overflow = 'hidden';
+            }
+        }, 5000);
+    }
+};
+
+// ESC key to close
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        var ol = document.getElementById('imageLightbox');
+        if (ol) { ol.remove(); document.body.style.overflow = ''; }
+    }
+});
 </script>
-@endsection
+@endpush
