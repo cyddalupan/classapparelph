@@ -639,13 +639,7 @@
                 </div>
             </div>
             
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <label for="date_needed" class="form-label">Date Needed <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" id="date_needed" name="date_needed" required>
-                    <small class="text-muted">Target completion / delivery date</small>
-                </div>
-            </div>
+
             
             <!-- Hidden fields -->
             <input type="hidden" name="payment_type" id="payment_type_hidden" value="">
