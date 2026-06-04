@@ -2778,14 +2778,84 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('prototypeSaleForm');
     if (form) {
         form.addEventListener('submit', function(e) {
-            // Validate items
-            if (selectedItems.length === 0) {
+            // Validate Step 1: Customer Information (all fields except notes)
+            var cName = document.getElementById('customer_name').value.trim();
+            var cPhone = document.getElementById('customer_phone').value.trim();
+            var cEmail = document.getElementById('customer_email').value.trim();
+            var cMarketplace = document.getElementById('marketplace').value;
+            var cAddress = document.getElementById('customer_address').value.trim();
+            var cCompany = document.getElementById('customer_company').value.trim();
+            var missingCustomer = [];
+            if (!cName) missingCustomer.push('Customer Name');
+            if (!cPhone) missingCustomer.push('Phone Number');
+            if (!cEmail) missingCustomer.push('Email Address');
+            if (!cMarketplace) missingCustomer.push('Marketplace / Source');
+            if (!cAddress) missingCustomer.push('Location / Address');
+            if (!cCompany) missingCustomer.push('Company');
+            if (missingCustomer.length > 0) {
                 e.preventDefault();
-                alert('Please add at least one item to the cart');
+                alert('Step 1 - Customer Information:\nPlease fill in: ' + missingCustomer.join(', '));
+                document.querySelector('.form-section:nth-child(1)')?.scrollIntoView({behavior: 'smooth', block: 'start'});
                 return;
             }
             
-            // Validate payment screenshot
+            // Validate Step 2: Items
+            if (selectedItems.length === 0) {
+                e.preventDefault();
+                alert('Please add at least one item to the cart (Step 2)');
+                return;
+            }
+            
+            // Validate Step 3: Payment & Verification
+            var paymentType = document.querySelector('input[name="payment_type"]:checked');
+            var paymentTypeVal = paymentType ? paymentType.value : '';
+            
+            // Payment Received By must be selected
+            var paymentAccount = document.getElementById('payment_account_id').value;
+            if (!paymentAccount) {
+                e.preventDefault();
+                alert('Please select who received the payment (Payment Received By).');
+                document.getElementById('paymentOwnerSection')?.scrollIntoView({behavior: 'smooth', block: 'center'});
+                return;
+            }
+            
+            // Payment Date required
+            var paymentDate = document.getElementById('payment_date').value.trim();
+            if (!paymentDate) {
+                e.preventDefault();
+                alert('Please enter a Payment Date.');
+                return;
+            }
+            
+            // Reference Number required
+            var refNum = document.getElementById('reference_number').value.trim();
+            if (!refNum) {
+                e.preventDefault();
+                alert('Please enter a Reference Number (GCash ref / Bank ref / OR #).');
+                return;
+            }
+            
+            // Payment Amount required (unless PO / No payment now)
+            if (paymentTypeVal !== 'po') {
+                var payAmt = parseFloat(document.getElementById('payment_amount').value) || 0;
+                if (payAmt <= 0) {
+                    e.preventDefault();
+                    alert('Please enter a valid Payment Amount (greater than 0).');
+                    return;
+                }
+            }
+            
+            // P.O. Reference required if PO selected
+            if (paymentTypeVal === 'po') {
+                var poRef = document.getElementById('po_reference').value.trim();
+                if (!poRef) {
+                    e.preventDefault();
+                    alert('Please enter a P.O. Reference #.');
+                    return;
+                }
+            }
+            
+            // Validate payment screenshot (always required)
             var psInput = document.getElementById('payment_screenshot');
             if (!psInput || !psInput.files || psInput.files.length === 0) {
                 e.preventDefault();
@@ -3012,9 +3082,16 @@ document.addEventListener('DOMContentLoaded', function() {
             _token: '{{ csrf_token() }}'
         };
         
-        // Validation
-        if (!customerData.name || !customerData.phone) {
-            alert('Please fill in at least Customer Name and Phone Number');
+        // Validation — all fields required except notes
+        var missing = [];
+        if (!customerData.name) missing.push('Customer Name');
+        if (!customerData.phone) missing.push('Phone Number');
+        if (!customerData.marketplace) missing.push('Marketplace / Source');
+        if (!customerData.email) missing.push('Email Address');
+        if (!customerData.location) missing.push('Location / Address');
+        if (!customerData.company) missing.push('Company');
+        if (missing.length > 0) {
+            alert('Please fill in all required fields:\n- ' + missing.join('\n- '));
             return;
         }
         
