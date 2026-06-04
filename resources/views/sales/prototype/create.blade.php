@@ -1395,7 +1395,7 @@
                                     <button type="button" class="btn btn-success w-100 mt-3" id="sublimation_addItemBtn">
                                         <i class="fas fa-check-circle me-2"></i> Confirm &amp; Add to Cart
                                     </button>
-                                    <button type="button" class="btn btn-outline-info w-100 mt-2" onclick="sublimation_printOrderSlip()">
+                                    <button type="button" class="btn btn-outline-info w-100 mt-2" id="sublimation_printOrderSlip" onclick="sublimation_printOrderSlip()">
                                         <i class="fas fa-print me-2"></i> Print Order Slip
                                     </button>
                                 </div>
@@ -4591,6 +4591,15 @@ window.sublimation_openModal = function() {
         tab.show();
     }
     
+    // Reset print order slip tracking
+    window.sublimation_orderSlipViewed = false;
+    var orderSlipBtn = document.getElementById('sublimation_printOrderSlip');
+    if (orderSlipBtn) {
+        orderSlipBtn.classList.remove('btn-success');
+        orderSlipBtn.classList.add('btn-outline-info');
+        orderSlipBtn.innerHTML = '<i class="fas fa-print me-2"></i> Print Order Slip';
+    }
+
     // Fetch SublimationPrice records
     fetch('/api/sublimation-prices')
         .then(function(response) { return response.json(); })
@@ -5144,6 +5153,41 @@ window.sublimation_addItemToCart = function() {
         alert('Please enter a Date Needed (Order Details tab).');
         var tab = document.querySelector('#sublimationTab .nav-link');
         if (tab && bootstrap && bootstrap.Tab) new bootstrap.Tab(tab).show();
+        return;
+    }
+    
+    // Validate mock-up image
+    var mockupImg = document.getElementById('mockupPreview');
+    if (!mockupImg || !mockupImg.src || mockupImg.style.display === 'none' || !mockupImg.src.trim()) {
+        alert('Please upload a mock-up design image.');
+        var tab = document.querySelector('#sublimationTab .nav-link');
+        if (tab && bootstrap && bootstrap.Tab) new bootstrap.Tab(tab).show();
+        return;
+    }
+    
+    // Validate ALL visible specification fields
+    var specContainer = document.getElementById('sublimation_specsFields');
+    if (specContainer) {
+        var specSelects = specContainer.querySelectorAll('select');
+        var specInputs = specContainer.querySelectorAll('input[type="text"]');
+        var hasEmptySpec = false;
+        specSelects.forEach(function(sel) {
+            if (sel.selectedIndex <= 0) hasEmptySpec = true;
+        });
+        specInputs.forEach(function(inp) {
+            if (!inp.value.trim()) hasEmptySpec = true;
+        });
+        if (hasEmptySpec) {
+            alert('Please fill in ALL specification fields (Specifications tab).');
+            var specsTab = document.querySelector('#specs-tab');
+            if (specsTab && bootstrap && bootstrap.Tab) new bootstrap.Tab(specsTab).show();
+            return;
+        }
+    }
+    
+    // Validate Print Order Slip was viewed
+    if (!window.sublimation_orderSlipViewed) {
+        alert('Please click "Print Order Slip" first before confirming the order.');
         return;
     }
     
@@ -5883,6 +5927,15 @@ window.sublimation_printOrderSlip = function() {
     slip.style.display = 'block';
     window.print();
     slip.style.display = 'none';
+    
+    // Mark order slip as viewed (required before Confirm & Add to Cart)
+    window.sublimation_orderSlipViewed = true;
+    var btn = document.getElementById('sublimation_printOrderSlip');
+    if (btn) {
+        btn.classList.remove('btn-outline-info');
+        btn.classList.add('btn-success');
+        btn.innerHTML = '<i class="fas fa-check me-2"></i> Order Slip Printed';
+    }
 };
 
 // Auto-build roster from ALL Excel columns (no manual mapping needed)
