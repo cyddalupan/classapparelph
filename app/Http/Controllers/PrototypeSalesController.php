@@ -208,6 +208,16 @@ class PrototypeSalesController extends Controller
                 $salesNumber = 'SALE-' . date('Ymd') . '-' . $baseUid . '-' . $deptIndex;
             }
             
+            // Get the earliest date_needed from this department's items, fall back to form date
+            $deptDateNeeded = $request->estimated_completion_date;
+            foreach ($items as $item) {
+                if (!empty($item['date_needed'])) {
+                    if (empty($deptDateNeeded) || $item['date_needed'] < $deptDateNeeded) {
+                        $deptDateNeeded = $item['date_needed'];
+                    }
+                }
+            }
+
             // Build services JSON (only this department's items)
             $deptServicesJson = json_encode($items);
             
@@ -246,7 +256,7 @@ class PrototypeSalesController extends Controller
                 'payment_screenshot_path' => $paymentScreenshotPath,
                 'customer_notes' => $request->customer_notes,
                 'internal_notes' => $request->internal_notes,
-                'estimated_completion_date' => $request->estimated_completion_date,
+                'estimated_completion_date' => $deptDateNeeded,
                 'kanban_status' => 'new',
                 'status' => 'pending',
                 'group_id' => $group_id,

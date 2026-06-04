@@ -916,6 +916,12 @@
                                     <!-- Department auto-assigned from product box selection (no manual pick) -->
                                     
                                     <div class="mb-3">
+                                        <label class="form-label">Date Needed <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control" id="garment_dateNeeded" required>
+                                        <small class="text-muted">Target completion / delivery date</small>
+                                    </div>
+
+                                    <div class="mb-3">
                                         <label class="form-label">Notes (Optional)</label>
                                         <textarea class="form-control" id="garment_productNotes" rows="3" placeholder="Add special instructions..."></textarea>
                                     </div>
@@ -4315,6 +4321,12 @@ window.garment_addItemToCart = function() {
     var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
     var subItems = [];
     var validationError = false;
+    var dateNeededEl = document.getElementById('garment_dateNeeded');
+    if (dateNeededEl && !dateNeededEl.value) {
+        alert('Please select a Date Needed for this garment order.');
+        dateNeededEl.focus();
+        return;
+    }
     var notes = document.getElementById('garment_productNotes');
     var printTypeEl = document.getElementById('garment_printTypeSelect');
     var qtyInputPrint = document.getElementById('garment_printQuantityInput');
@@ -4432,6 +4444,7 @@ window.garment_addItemToCart = function() {
         quantity: totalQty,
         unitPrice: totalProductPrice,
         totalPrice: totalProductPrice,
+        date_needed: document.getElementById('garment_dateNeeded')?.value || '',
         notes: notes ? notes.value.trim() : '',
         timestamp: new Date().toISOString(),
         subItems: subItems,
