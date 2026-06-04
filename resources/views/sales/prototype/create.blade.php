@@ -2794,7 +2794,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!cCompany) missingCustomer.push('Company');
             if (missingCustomer.length > 0) {
                 e.preventDefault();
-                alert('Step 1 - Customer Information:\nPlease fill in: ' + missingCustomer.join(', '));
+                showToast('<strong>Step 1 — Customer Info:</strong> Please fill in ' + missingCustomer.join(', '), 'error');
                 document.querySelector('.form-section:nth-child(1)')?.scrollIntoView({behavior: 'smooth', block: 'start'});
                 return;
             }
@@ -2802,7 +2802,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validate Step 2: Items
             if (selectedItems.length === 0) {
                 e.preventDefault();
-                alert('Please add at least one item to the cart (Step 2)');
+                showToast('<strong>Step 2 — Items:</strong> Add at least one item to the cart', 'error');
                 return;
             }
             
@@ -2814,7 +2814,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var paymentAccount = document.getElementById('payment_account_id').value;
             if (!paymentAccount) {
                 e.preventDefault();
-                alert('Please select who received the payment (Payment Received By).');
+                showToast('<strong>Step 3 — Payment:</strong> Select who received the payment', 'error');
                 document.getElementById('paymentOwnerSection')?.scrollIntoView({behavior: 'smooth', block: 'center'});
                 return;
             }
@@ -2823,7 +2823,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var paymentDate = document.getElementById('payment_date').value.trim();
             if (!paymentDate) {
                 e.preventDefault();
-                alert('Please enter a Payment Date.');
+                showToast('<strong>Step 3 — Payment:</strong> Enter a Payment Date', 'error');
                 return;
             }
             
@@ -2831,7 +2831,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var refNum = document.getElementById('reference_number').value.trim();
             if (!refNum) {
                 e.preventDefault();
-                alert('Please enter a Reference Number (GCash ref / Bank ref / OR #).');
+                showToast('<strong>Step 3 — Payment:</strong> Enter a Reference Number', 'error');
                 return;
             }
             
@@ -2840,7 +2840,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 var payAmt = parseFloat(document.getElementById('payment_amount').value) || 0;
                 if (payAmt <= 0) {
                     e.preventDefault();
-                    alert('Please enter a valid Payment Amount (greater than 0).');
+                    showToast('<strong>Step 3 — Payment:</strong> Enter a valid Payment Amount', 'error');
                     return;
                 }
             }
@@ -2850,7 +2850,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 var poRef = document.getElementById('po_reference').value.trim();
                 if (!poRef) {
                     e.preventDefault();
-                    alert('Please enter a P.O. Reference #.');
+                    showToast('<strong>Step 3 — Payment:</strong> Enter a P.O. Reference #', 'error');
                     return;
                 }
             }
@@ -3091,7 +3091,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!customerData.location) missing.push('Location / Address');
         if (!customerData.company) missing.push('Company');
         if (missing.length > 0) {
-            alert('Please fill in all required fields:\n- ' + missing.join('\n- '));
+            showToast('<strong>Customer Info:</strong> Please fill in all required fields: ' + missing.join(', '), 'error');
             return;
         }
         
@@ -3102,9 +3102,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show loading
         const saveBtn = document.getElementById('saveCustomerBtn');
-        const originalText = saveBtn.innerHTML;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving...';
-        saveBtn.disabled = true;
+        if (saveBtn) {
+            var originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Saving...';
+            saveBtn.disabled = true;
+        }
         
         // Send to server
         fetch('/api/customers/save', {
@@ -3123,7 +3125,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentCustomerId = data.customer.id;
                 
                 // Show success message
-                alert(`✅ Customer saved successfully!\nID: ${data.customer.id}\nYou can now continue to next steps.`);
+                showToast(`Customer saved ✅ — ID: ${data.customer.id}. You can now continue.`, 'success');
                 
                 // Enable next steps
                 enableNextSteps();
@@ -3133,17 +3135,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     showCustomerLTV(data.customer);
                 }
             } else {
-                alert('❌ Error saving customer: ' + (data.message || 'Unknown error'));
+                showToast('Customer save failed: ' + (data.message || 'Unknown error'), 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('❌ Network error saving customer');
+            showToast('Network error saving customer', 'error');
         })
         .finally(() => {
             // Restore button
-            saveBtn.innerHTML = originalText;
-            saveBtn.disabled = false;
+            if (saveBtn) {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
         });
     }
     
