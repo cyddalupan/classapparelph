@@ -5292,6 +5292,7 @@ window.sublimation_addItemToCart = function() {
         quantity: totalQty,
         unitPrice: baseUnitPrice,
         totalPrice: totalPrice,
+        date_needed: getVal('sublimation_dateNeeded'),
         notes: notes ? notes.value.trim() : '',
         timestamp: new Date().toISOString(),
         sublimationForm: {
