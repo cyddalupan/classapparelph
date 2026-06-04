@@ -2648,6 +2648,8 @@ window.showToast = function(message, type) {
         </div>
     `;
     
+    toast.classList.add('show');
+    
     container.appendChild(toast);
     setTimeout(() => {
         if (document.getElementById(toastId)) {
