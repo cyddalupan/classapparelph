@@ -1397,7 +1397,7 @@
                                                 <span id="pricingTab_grandTotal">₱0.00</span>
                                             </div>
                                             <div id="sublimation_specialPriceIndicator" class="alert alert-warning py-1 small mb-0 mt-2" style="display:none;">
-                                                <i class="fas fa-tag me-1"></i> <strong>Special Price:</strong> <span id="sublimation_specialPriceDisplay">₱0.00</span>
+                                                <i class="fas fa-tag me-1"></i> <strong>Special Price:</strong> <span id="sublimation_specialPriceDisplay">₱0.00</span>/piece
                                             </div>
                                         </div>
                                     </div>
@@ -1409,10 +1409,10 @@
                                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="sublimation_clearSpecialPrice()">✕ Clear</button>
                                         </div>
                                         <div class="mb-2">
-                                            <label class="small text-muted">Set Total Price:</label>
+                                            <label class="small text-muted">Set Price Per Piece:</label>
                                             <div class="input-group input-group-sm">
                                                 <span class="input-group-text">₱</span>
-                                                <input type="number" class="form-control" id="sublimation_specialPrintTotal" min="0" step="0.01" placeholder="0.00" oninput="sublimation_onSpecialPriceChange()">
+                                                <input type="number" class="form-control" id="sublimation_specialPrintTotal" min="0" step="0.01" placeholder="0.00/piece" oninput="sublimation_onSpecialPriceChange()">
                                             </div>
                                         </div>
                                         <div class="mb-2">
@@ -5027,15 +5027,28 @@ window.sublimation_calculateTotal = function() {
     set('pricingTab_unitPrice', '\u20B1' + baseUnitPrice.toFixed(2));
     set('pricingTab_totalQty', totalQty);
     
-    // If special price is active, override the grand total display
+    // If special price is active, recalculate with special per-piece price + size markup
     var spIndicator = document.getElementById('sublimation_specialPriceIndicator');
     var spTotalInput = document.getElementById('sublimation_specialPrintTotal');
     if (window.sublimation_hasSpecialPrice && spTotalInput && spTotalInput.value) {
-        var spVal = parseFloat(spTotalInput.value) || 0;
-        set('pricingTab_grandTotal', '\u20B1' + spVal.toFixed(2));
-        if (spIndicator) {
-            spIndicator.style.display = 'block';
-            document.getElementById('sublimation_specialPriceDisplay').textContent = '\u20B1' + spVal.toFixed(2);
+        var spPerPiece = parseFloat(spTotalInput.value) || 0;
+        if (spPerPiece > 0) {
+            // Recalculate grand total with special per-piece price + size markup
+            var spGrandTotal = 0;
+            sizePriceBreakdownItems.forEach(function(si) {
+                spGrandTotal += (spPerPiece + si.sizePrice) * si.qty;
+            });
+            set('pricingTab_grandTotal', '\u20B1' + spGrandTotal.toFixed(2));
+            // Also update the Per Unit display to show special per-piece price
+            set('pricingTab_unitPrice', '\u20B1' + spPerPiece.toFixed(2));
+            if (spIndicator) {
+                spIndicator.style.display = 'block';
+                document.getElementById('sublimation_specialPriceDisplay').textContent = '\u20B1' + spPerPiece.toFixed(2);
+            }
+        } else {
+            set('pricingTab_grandTotal', '\u20B1' + grandTotal.toFixed(2));
+            set('pricingTab_unitPrice', '\u20B1' + baseUnitPrice.toFixed(2));
+            if (spIndicator) spIndicator.style.display = 'none';
         }
     } else {
         set('pricingTab_grandTotal', '\u20B1' + grandTotal.toFixed(2));
@@ -5062,11 +5075,11 @@ window.sublimation_toggleSpecialPrice = function() {
         btn.textContent = '💰 Cancel Special Price';
         btn.classList.remove('btn-outline-warning');
         btn.classList.add('btn-warning');
-        // Pre-fill with current grand total
-        var totalEl = document.getElementById('pricingTab_grandTotal');
+        // Pre-fill with current base unit price (garment + fabric + parts)
+        var priceEl = document.getElementById('pricingTab_unitPrice');
         var spInput = document.getElementById('sublimation_specialPrintTotal');
-        if (totalEl && spInput) {
-            var current = parseFloat(totalEl.textContent.replace(/[₱,]/g, '')) || 0;
+        if (priceEl && spInput) {
+            var current = parseFloat(priceEl.textContent.replace(/[₱,]/g, '')) || 0;
             if (current > 0) spInput.value = current.toFixed(2);
         }
         window.sublimation_hasSpecialPrice = true;
@@ -5323,7 +5336,7 @@ window.sublimation_addItemToCart = function() {
     if (partsList.length > 0) itemName += ' +' + partsList.join('+');
     
     // Create cart item
-    // Special price override
+    // Special price override (per-piece price + size markup)
     var finalTotalPrice = totalPrice;
     var specialPriceActive = window.sublimation_hasSpecialPrice && document.getElementById('sublimation_specialPrintTotal') && document.getElementById('sublimation_specialPrintTotal').value;
     var specialPriceValue = 0;
@@ -5331,7 +5344,29 @@ window.sublimation_addItemToCart = function() {
     if (specialPriceActive) {
         specialPriceValue = parseFloat(document.getElementById('sublimation_specialPrintTotal').value) || 0;
         specialPriceReason = (document.getElementById('sublimation_specialPriceReason') || {}).value || '';
-        if (specialPriceValue > 0) finalTotalPrice = specialPriceValue;
+        if (specialPriceValue > 0) {
+            // Recalculate: special per-piece price + size markup per item
+            var finalTotal = 0;
+            sizeData.forEach(function(sd) {
+                finalTotal += (specialPriceValue + sd.price) * sd.quantity;
+            });
+            // Roster rows
+            var rosterRows2 = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
+            rosterRows2.forEach(function(row) {
+                var sizeSelect2 = row.querySelector('.roster-size');
+                var qtyInput2 = row.querySelector('.roster-number');
+                var rosterQty2 = parseInt(qtyInput2 ? qtyInput2.value : '') || 1;
+                if (rosterQty2 < 1) rosterQty2 = 1;
+                if (sizeSelect2) {
+                    var sizeName2 = (sizeSelect2.value || '').toUpperCase();
+                    var sizePrice2 = getSizeCartPrice(sizeName2);
+                    finalTotal += (specialPriceValue + sizePrice2) * rosterQty2;
+                } else {
+                    finalTotal += specialPriceValue * rosterQty2;
+                }
+            });
+            finalTotalPrice = finalTotal;
+        }
     }
     
     var sublimationItem = {
