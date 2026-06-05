@@ -1396,10 +1396,36 @@
                                                 <span>TOTAL:</span>
                                                 <span id="pricingTab_grandTotal">₱0.00</span>
                                             </div>
+                                            <div id="sublimation_specialPriceIndicator" class="alert alert-warning py-1 small mb-0 mt-2" style="display:none;">
+                                                <i class="fas fa-tag me-1"></i> <strong>Special Price:</strong> <span id="sublimation_specialPriceDisplay">₱0.00</span>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <button type="button" class="btn btn-success w-100 mt-3" id="sublimation_addItemBtn">
+                                    <!-- Special Price Section -->
+                                    <div class="mt-3 p-2 bg-light rounded" id="sublimation_specialPriceSection" style="display:none;">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="fw-bold small">💵 SPECIAL PRICE ACTIVE</span>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="sublimation_clearSpecialPrice()">✕ Clear</button>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="small text-muted">Set Total Price:</label>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text">₱</span>
+                                                <input type="number" class="form-control" id="sublimation_specialPrintTotal" min="0" step="0.01" placeholder="0.00" oninput="sublimation_onSpecialPriceChange()">
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="small text-muted">Reason *</label>
+                                            <input type="text" class="form-control form-control-sm" id="sublimation_specialPriceReason" placeholder="Why special price?" required>
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-outline-warning btn-sm w-100 mt-2" id="sublimation_specialPriceBtn" onclick="sublimation_toggleSpecialPrice()">
+                                        💰 Special Price
+                                    </button>
+
+                                    <button type="button" class="btn btn-success w-100 mt-2" id="sublimation_addItemBtn">
                                         <i class="fas fa-check-circle me-2"></i> Confirm &amp; Add to Cart
                                     </button>
                                     <button type="button" class="btn btn-outline-info w-100 mt-2" id="sublimation_printOrderSlip">
@@ -4462,6 +4488,21 @@ window.sublimation_openModal = function() {
     if (fabricSelect) fabricSelect.innerHTML = '<option value="">Loading...</option>';
     document.getElementById('sublimation_partsContainer').innerHTML = '<p class="text-muted small mb-0">Select Garment type first...</p>';
     
+    // Reset special price
+    var spSection = document.getElementById('sublimation_specialPriceSection');
+    var spBtn = document.getElementById('sublimation_specialPriceBtn');
+    var spInput = document.getElementById('sublimation_specialPrintTotal');
+    var spReason = document.getElementById('sublimation_specialPriceReason');
+    if (spSection) spSection.style.display = 'none';
+    if (spBtn) {
+        spBtn.textContent = '💰 Special Price';
+        spBtn.classList.remove('btn-warning');
+        spBtn.classList.add('btn-outline-warning');
+    }
+    if (spInput) spInput.value = '';
+    if (spReason) spReason.value = '';
+    window.sublimation_hasSpecialPrice = false;
+    
     // Reset summary
     sublimation_calculateTotal();
     
@@ -4985,7 +5026,73 @@ window.sublimation_calculateTotal = function() {
     // Individual parts already set via sublimation_partsBreakdown / pricingTab_partsBreakdown above
     set('pricingTab_unitPrice', '\u20B1' + baseUnitPrice.toFixed(2));
     set('pricingTab_totalQty', totalQty);
-    set('pricingTab_grandTotal', '\u20B1' + grandTotal.toFixed(2));
+    
+    // If special price is active, override the grand total display
+    var spIndicator = document.getElementById('sublimation_specialPriceIndicator');
+    var spTotalInput = document.getElementById('sublimation_specialPrintTotal');
+    if (window.sublimation_hasSpecialPrice && spTotalInput && spTotalInput.value) {
+        var spVal = parseFloat(spTotalInput.value) || 0;
+        set('pricingTab_grandTotal', '\u20B1' + spVal.toFixed(2));
+        if (spIndicator) {
+            spIndicator.style.display = 'block';
+            document.getElementById('sublimation_specialPriceDisplay').textContent = '\u20B1' + spVal.toFixed(2);
+        }
+    } else {
+        set('pricingTab_grandTotal', '\u20B1' + grandTotal.toFixed(2));
+        if (spIndicator) spIndicator.style.display = 'none';
+    }
+};
+
+window.sublimation_hasSpecialPrice = false;
+
+window.sublimation_toggleSpecialPrice = function() {
+    var section = document.getElementById('sublimation_specialPriceSection');
+    var btn = document.getElementById('sublimation_specialPriceBtn');
+    if (!section) return;
+    var showing = section.style.display !== 'none';
+    if (showing) {
+        section.style.display = 'none';
+        btn.textContent = '💰 Special Price';
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-outline-warning');
+        window.sublimation_hasSpecialPrice = false;
+        sublimation_calculateTotal();
+    } else {
+        section.style.display = 'block';
+        btn.textContent = '💰 Cancel Special Price';
+        btn.classList.remove('btn-outline-warning');
+        btn.classList.add('btn-warning');
+        // Pre-fill with current grand total
+        var totalEl = document.getElementById('pricingTab_grandTotal');
+        var spInput = document.getElementById('sublimation_specialPrintTotal');
+        if (totalEl && spInput) {
+            var current = parseFloat(totalEl.textContent.replace(/[₱,]/g, '')) || 0;
+            if (current > 0) spInput.value = current.toFixed(2);
+        }
+        window.sublimation_hasSpecialPrice = true;
+        sublimation_calculateTotal();
+    }
+};
+
+window.sublimation_clearSpecialPrice = function() {
+    var section = document.getElementById('sublimation_specialPriceSection');
+    var btn = document.getElementById('sublimation_specialPriceBtn');
+    var spInput = document.getElementById('sublimation_specialPrintTotal');
+    var reasonInput = document.getElementById('sublimation_specialPriceReason');
+    if (section) section.style.display = 'none';
+    if (btn) {
+        btn.textContent = '💰 Special Price';
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-outline-warning');
+    }
+    if (spInput) spInput.value = '';
+    if (reasonInput) reasonInput.value = '';
+    window.sublimation_hasSpecialPrice = false;
+    sublimation_calculateTotal();
+};
+
+window.sublimation_onSpecialPriceChange = function() {
+    sublimation_calculateTotal();
 };
 
 // Add to cart
@@ -5070,6 +5177,19 @@ window.sublimation_addItemToCart = function() {
     if (!window.sublimation_orderSlipViewed) {
         alert('Please click "Print Order Slip" first before confirming the order.');
         return;
+    }
+    
+    // Validate Special Price reason if special price is active
+    var spInput = document.getElementById('sublimation_specialPrintTotal');
+    var spReason = document.getElementById('sublimation_specialPriceReason');
+    if (window.sublimation_hasSpecialPrice && spInput && spInput.value) {
+        if (!spReason || !spReason.value.trim()) {
+            alert('Please enter a reason for the special price.');
+            var pricingTab = document.querySelector('#pricing-tab-sub');
+            if (pricingTab && bootstrap && bootstrap.Tab) new bootstrap.Tab(pricingTab).show();
+            if (spReason) spReason.focus();
+            return;
+        }
     }
     
     // Department auto-assigned; sublimation uses Class department
@@ -5203,6 +5323,17 @@ window.sublimation_addItemToCart = function() {
     if (partsList.length > 0) itemName += ' +' + partsList.join('+');
     
     // Create cart item
+    // Special price override
+    var finalTotalPrice = totalPrice;
+    var specialPriceActive = window.sublimation_hasSpecialPrice && document.getElementById('sublimation_specialPrintTotal') && document.getElementById('sublimation_specialPrintTotal').value;
+    var specialPriceValue = 0;
+    var specialPriceReason = '';
+    if (specialPriceActive) {
+        specialPriceValue = parseFloat(document.getElementById('sublimation_specialPrintTotal').value) || 0;
+        specialPriceReason = (document.getElementById('sublimation_specialPriceReason') || {}).value || '';
+        if (specialPriceValue > 0) finalTotalPrice = specialPriceValue;
+    }
+    
     var sublimationItem = {
         id: Date.now(),
         productType: 'cutting',
@@ -5210,7 +5341,10 @@ window.sublimation_addItemToCart = function() {
         name: itemName,
         quantity: totalQty,
         unitPrice: baseUnitPrice,
-        totalPrice: totalPrice,
+        totalPrice: finalTotalPrice,
+        hasSpecialPrice: specialPriceActive,
+        specialPrice: specialPriceValue,
+        specialPriceReason: specialPriceReason,
         date_needed: getVal('sublimation_dateNeeded'),
         notes: notes ? notes.value.trim() : '',
         timestamp: new Date().toISOString(),
@@ -5220,6 +5354,9 @@ window.sublimation_addItemToCart = function() {
             designer: getVal('sublimation_designer'),
             /* PIC field removed */
             dateNeeded: getVal('sublimation_dateNeeded'),
+            hasSpecialPrice: specialPriceActive,
+            specialPrice: specialPriceValue,
+            specialPriceReason: specialPriceReason,
             garment: { name: garmentName, price: garmentPrice, priceId: garmentSelect.value },
             fabric: { name: fabricName, price: fabricPrice, priceId: fabricSelect.value },
             parts: partsList.map(function(pn, idx) {
