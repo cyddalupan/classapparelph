@@ -398,18 +398,18 @@ window.sub_excelHeaders = null;
 // ======= OPEN =======
 window.openSubAddProductModal = function() {
     // Auto-fill Order Details from sale context
-    var sale = {!! json_encode($sale) !!};
-    var projectName = document.getElementById('sub_projectName');
-    
-    // Try to find a good project name from existing items
-    try {
-        var services = typeof sale.services === 'string' ? JSON.parse(sale.services) : sale.services;
-        if (Array.isArray(services) && services.length > 0) {
-            var first = services[0];
-            var name = first.name || first.projectName || first.project_name || '';
-            if (name) projectName.value = name;
+    <?php
+        $__saleServices = is_string($sale->services) ? json_decode($sale->services, true) : (array)$sale->services;
+        $__firstItemName = '';
+        if (is_array($__saleServices) && count($__saleServices) > 0) {
+            $__first = $__saleServices[0];
+            $__firstItemName = $__first['name'] ?? $__first['projectName'] ?? $__first['project_name'] ?? '';
         }
-    } catch(e) {}
+    ?>
+    var projectName = document.getElementById('sub_projectName');
+    if (<?php echo json_encode($__firstItemName); ?>) {
+        projectName.value = <?php echo json_encode($__firstItemName); ?>;
+    }
     
     // Auto-fill date needed with a reasonable default (2 weeks from now)
     var d = new Date();
@@ -906,7 +906,7 @@ window.sub_uploadExcel = function(event) {
                 return;
             }
             
-            var sizeMap = {xs:'XS',s:'S',m:'M',l:'L',xl:'XL',2xl:'2XL',3xl:'3XL',4xl:'4XL',5xl:'5XL',6xl:'6XL',7xl:'7XL',8xl:'8XL',sm:'SMALL',md:'MEDIUM',lg:'LARGE'};
+            var sizeMap = {xs:'XS',s:'S',m:'M',l:'L',xl:'XL','2xl':'2XL','3xl':'3XL','4xl':'4XL','5xl':'5XL','6xl':'6XL','7xl':'7XL','8xl':'8XL',sm:'SMALL',md:'MEDIUM',lg:'LARGE'};
             rows.forEach(function(row) {
                 var name = nameCol >= 0 ? (row[nameCol] || '') + '' : '';
                 var size = sizeCol >= 0 ? (row[sizeCol] || '') + '' : '';
@@ -938,7 +938,7 @@ window.sub_applyMapping = function() {
     var sizeCol = parseInt(document.getElementById('subMapCol_size').value);
     var rows = window.sub_excelData;
     var headers = window.sub_excelHeaders;
-    var sizeMap = {xs:'XS',s:'S',m:'M',l:'L',xl:'XL',2xl:'2XL',3xl:'3XL',4xl:'4XL',5xl:'5XL',6xl:'6XL',7xl:'7XL',8xl:'8XL',sm:'SMALL',md:'MEDIUM',lg:'LARGE'};
+    var sizeMap = {xs:'XS',s:'S',m:'M',l:'L',xl:'XL','2xl':'2XL','3xl':'3XL','4xl':'4XL','5xl':'5XL','6xl':'6XL','7xl':'7XL','8xl':'8XL',sm:'SMALL',md:'MEDIUM',lg:'LARGE'};
     
     if (isNaN(sizeCol) && isNaN(nameCol)) {
         alert('Please map at least Size column or Name column.');
