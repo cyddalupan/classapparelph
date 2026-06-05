@@ -1019,22 +1019,38 @@ public function details(Request $request, string $id)
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
         }
 
-        $validated = $request->validate([
-            'product_name' => 'required|string|max:255',
-            'sizes' => 'required|array',
-            'sizes.*.size' => 'required|string',
-            'sizes.*.qty' => 'required|integer|min:0',
-            'unit_price' => 'required|numeric|min:0',
-        ]);
+        // Support both old format (product_name/sizes/unit_price) and new fullsublimation format
+        $productName = $request->input('product_name', $request->input('name', ''));
+        $rawSizes = $request->input('sizes', []);
+        $unitPrice = $request->input('unit_price', $request->input('unitPrice', 0));
+        $sublimationForm = $request->input('sublimationForm', null);
+        $productType = $request->input('productType', 'cutting');
 
-        // Build the new item
-        $sizeDetails = array_filter($request->sizes, function($s) { return ($s['qty'] ?? 0) > 0; });
+        if (empty($productName)) {
+            return response()->json(['success' => false, 'message' => 'Product name is required.'], 400);
+        }
+
+        // Build size details from sizes array (supports {size, qty} and {name, size, qty})
+        $sizeDetails = [];
+        foreach ($rawSizes as $sd) {
+            $qty = intval($sd['qty'] ?? 1);
+            if ($qty <= 0) continue;
+            $entry = [
+                'size' => $sd['size'] ?? 'M',
+                'qty' => $qty,
+            ];
+            if (!empty($sd['name'])) {
+                $entry['name'] = $sd['name'];
+            }
+            $sizeDetails[] = $entry;
+        }
+
         if (empty($sizeDetails)) {
-            return response()->json(['success' => false, 'message' => 'At least one size must have quantity > 0.'], 400);
+            return response()->json(['success' => false, 'message' => 'At least one size/quantity is required.'], 400);
         }
 
         $totalQty = array_sum(array_column($sizeDetails, 'qty'));
-        $unitPrice = floatval($validated['unit_price']);
+        $unitPrice = floatval($unitPrice);
         $itemTotal = $totalQty * $unitPrice;
 
         // Parse current services
@@ -1051,22 +1067,39 @@ public function details(Request $request, string $id)
         // Build size display string
         $sizeLines = [];
         foreach ($sizeDetails as $sd) {
-            $sizeLines[] = $sd['size'] . ': ' . $sd['qty'];
+            $label = !empty($sd['name']) ? $sd['name'] . ' (' . $sd['size'] . ')' : $sd['size'] . ': ' . $sd['qty'];
+            $sizeLines[] = $label;
         }
 
+        // Build item with full sublimation data if provided
         $item = [
             'id' => $newId,
-            'name' => $validated['product_name'],
-            'productType' => 'cutting',
+            'name' => $productName,
+            'productType' => $productType === 'fullsublimation' ? 'fullsublimation' : 'cutting',
             'quantity' => $totalQty,
             'unitPrice' => $unitPrice,
             'totalPrice' => $itemTotal,
             'department' => $sale->department_code ?? 'class',
             'sizeDetails' => $sizeDetails,
-            'sublimationForm' => [
-                'sizes' => implode(', ', $sizeLines),
-            ],
         ];
+
+        if ($sublimationForm && is_array($sublimationForm)) {
+            // Store the full sublimation form data
+            $item['sublimationForm'] = $sublimationForm;
+            // Set sizes display string
+            if (empty($item['sublimationForm']['sizes'])) {
+                $item['sublimationForm']['sizes'] = implode(', ', $sizeLines);
+            }
+            // Handle special price
+            if (!empty($sublimationForm['specialPrice'])) {
+                $item['sublimationForm']['hasSpecialPrice'] = true;
+            }
+        } else {
+            // Fallback: minimal sublimation form for backward compat
+            $item['sublimationForm'] = [
+                'sizes' => implode(', ', $sizeLines),
+            ];
+        }
 
         $services[] = $item;
 
@@ -1083,7 +1116,7 @@ public function details(Request $request, string $id)
             'sale_id' => $id,
             'user_id' => auth()->id(),
             'action' => 'product_added',
-            'description' => 'Added: ' . $validated['product_name'] . ' x' . $totalQty . ' (₱' . number_format($itemTotal, 2) . ')',
+            'description' => 'Added: ' . $productName . ' x' . $totalQty . ' (₱' . number_format($itemTotal, 2) . ')',
             'created_at' => now(),
         ]);
 
