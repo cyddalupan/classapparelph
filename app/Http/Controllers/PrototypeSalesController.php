@@ -1011,6 +1011,88 @@ public function details(Request $request, string $id)
         
         return empty($parts) ? 'No changes detected' : implode('; ', $parts);
     }
+
+    public function addProduct(Request $request, string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'product_name' => 'required|string|max:255',
+            'sizes' => 'required|array',
+            'sizes.*.size' => 'required|string',
+            'sizes.*.qty' => 'required|integer|min:0',
+            'unit_price' => 'required|numeric|min:0',
+        ]);
+
+        // Build the new item
+        $sizeDetails = array_filter($request->sizes, function($s) { return ($s['qty'] ?? 0) > 0; });
+        if (empty($sizeDetails)) {
+            return response()->json(['success' => false, 'message' => 'At least one size must have quantity > 0.'], 400);
+        }
+
+        $totalQty = array_sum(array_column($sizeDetails, 'qty'));
+        $unitPrice = floatval($validated['unit_price']);
+        $itemTotal = $totalQty * $unitPrice;
+
+        // Parse current services
+        $services = json_decode($sale->services ?? '[]', true);
+        if (!is_array($services)) $services = [];
+
+        // Generate a unique item ID
+        $maxId = 0;
+        foreach ($services as $s) {
+            if (isset($s['id']) && is_numeric($s['id']) && $s['id'] > $maxId) $maxId = $s['id'];
+        }
+        $newId = $maxId + 1;
+
+        // Build size display string
+        $sizeLines = [];
+        foreach ($sizeDetails as $sd) {
+            $sizeLines[] = $sd['size'] . ': ' . $sd['qty'];
+        }
+
+        $item = [
+            'id' => $newId,
+            'name' => $validated['product_name'],
+            'productType' => 'cutting',
+            'quantity' => $totalQty,
+            'unitPrice' => $unitPrice,
+            'totalPrice' => $itemTotal,
+            'department' => $sale->department_code ?? 'class',
+            'sizeDetails' => $sizeDetails,
+            'sublimationForm' => [
+                'sizes' => implode(', ', $sizeLines),
+            ],
+        ];
+
+        $services[] = $item;
+
+        // Recompute total
+        $newTotal = array_sum(array_map(fn($svc) => floatval($svc['totalPrice'] ?? 0), $services));
+
+        \DB::table('prototype_sales')->where('id', $id)->update([
+            'services' => json_encode($services),
+            'total_amount' => $newTotal,
+        ]);
+
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $id,
+            'user_id' => auth()->id(),
+            'action' => 'product_added',
+            'description' => 'Added: ' . $validated['product_name'] . ' x' . $totalQty . ' (₱' . number_format($itemTotal, 2) . ')',
+            'created_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product added successfully.',
+        ]);
+    }
+
 public function printSlip(string $id)
     {
         $sale = \DB::table('prototype_sales')->find($id);

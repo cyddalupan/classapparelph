@@ -819,6 +819,7 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/change/{changeId}/reject', [App\Http\Controllers\PrototypeSalesController::class, 'rejectChange'])->name('sales.prototype.reject-change');
         Route::post('/sales/prototype/{id}/add-comment', [App\Http\Controllers\PrototypeSalesController::class, 'addComment'])->name('sales.prototype.add-comment');
         Route::get('/sales/prototype/{id}/audit-history', [App\Http\Controllers\PrototypeSalesController::class, 'auditHistory'])->name('sales.prototype.audit-history');
+        Route::post('/sales/prototype/{id}/add-product', [App\Http\Controllers\PrototypeSalesController::class, 'addProduct'])->name('sales.prototype.add-product');
 
         // Department Inventory Management (iPrint & others)
         Route::middleware(['auth'])->group(function () {

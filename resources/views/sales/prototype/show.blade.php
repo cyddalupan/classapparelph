@@ -22,6 +22,42 @@
         padding-bottom: 12px;
         border-bottom: 2px solid #667eea;
     }
+    /* Add Product sizes modal */
+    #addProductModal .size-input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    #addProductModal .size-input-group label {
+        min-width: 48px;
+        font-weight: 600;
+    }
+    #addProductModal .size-input-group input[type="number"] {
+        width: 80px;
+        text-align: center;
+    }
+    #addProductModal .roster-row td {
+        vertical-align: middle;
+    }
+    #addProductModal .roster-row select {
+        width: 100px;
+    }
+    #addProductExcelDropZone {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all .2s;
+    }
+    #addProductExcelDropZone:hover {
+        border-color: #0d6efd;
+        background: #f0f7ff;
+    }
+    #addProductExcelDropZone.has-file {
+        border-color: #198754;
+        background: #f0fff4;
+    }
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .info-label { color: #6c757d; font-size: 0.85rem; }
     .info-value { font-weight: 500; }
@@ -37,6 +73,9 @@
         </div>
         <div class="d-flex gap-2">
             @if($canEdit)
+            <button type="button" class="btn btn-success" onclick="openAddProductModal()">
+                <i class="fas fa-plus-circle"></i> Add Product
+            </button>
             <a href="{{ route('sales.prototype.edit-items', $sale->id) }}" class="btn btn-primary">
                 <i class="fas fa-edit"></i> Edit
             </a>
@@ -632,6 +671,342 @@
         <p class="text-muted text-center py-3">Loading...</p>
     </div>
 </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+<div class="modal-dialog modal-lg modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header">
+    <h5 class="modal-title fw-bold">➕ Add Fullsublimation Product</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+    <!-- Sale Context (read-only) -->
+    <div class="bg-light p-3 rounded mb-3">
+        <div class="row g-2 small">
+            <div class="col-md-4"><span class="text-muted">Order:</span> <strong>{{ $sale->sales_number }}</strong></div>
+            <div class="col-md-4"><span class="text-muted">Customer:</span> <strong>{{ $sale->customer_name }}</strong></div>
+            <div class="col-md-4"><span class="text-muted">Department:</span> <strong>{{ $sale->department_name ?? 'CLASS' }}</strong></div>
+        </div>
+    </div>
+
+    <!-- Product Name -->
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Product Name</label>
+        <input type="text" class="form-control" id="ap_productName" placeholder="e.g. CLASS A JERSEY SHORT" required>
+    </div>
+
+    <!-- Mode toggle: By Size / Per Person -->
+    <ul class="nav nav-tabs mb-3" id="apSizeTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="ap-by-size-tab" data-bs-toggle="tab" data-bs-target="#ap-by-size" type="button" role="tab">By Size</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ap-per-person-tab" data-bs-toggle="tab" data-bs-target="#ap-per-person" type="button" role="tab">Per Person (Roster)</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- By Size -->
+        <div class="tab-pane fade show active" id="ap-by-size" role="tabpanel">
+            <label class="form-label fw-semibold mb-2">Quantities by Size</label>
+            <div class="row g-2" id="apSizeGrid">
+                @php $apSizes = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL']; @endphp
+                @foreach($apSizes as $sz)
+                <div class="col-4 col-md-3 col-lg-2">
+                    <div class="size-input-group">
+                        <label>{{ $sz }}</label>
+                        <input type="number" class="form-control form-control-sm ap-size-qty" data-size="{{ $sz }}" min="0" value="0" onchange="ap_calcTotal()" oninput="ap_calcTotal()">
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+
+        <!-- Per Person (Roster) -->
+        <div class="tab-pane fade" id="ap-per-person" role="tabpanel">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Person Names &amp; Sizes</label>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="apRosterTable">
+                        <thead><tr><th>#</th><th>Person Name</th><th>Size</th><th></th></tr></thead>
+                        <tbody id="apRosterBody">
+                            <tr class="roster-row">
+                                <td class="text-center">1</td>
+                                <td><input type="text" class="form-control form-control-sm" name="person_name[]" placeholder="Name"></td>
+                                <td>
+                                    <select class="form-select form-select-sm ap-roster-size">
+                                        @foreach($apSizes as $sz)
+                                        <option value="{{ $sz }}">{{ $sz }}</option>
+                                        @endforeach
+                                    </select>
+                                </td>
+                                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove(); ap_calcTotal();">✕</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="ap_addRosterRow()">+ Add Person</button>
+                </div>
+            </div>
+
+            <!-- Excel Upload -->
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Upload Excel (optional)</label>
+                <div id="addProductExcelDropZone">
+                    <i class="fas fa-file-excel fa-2x text-success mb-2"></i>
+                    <p class="mb-1 small">Drag &amp; drop or click to upload an Excel file<br><span class="text-muted">Columns: Person Name, Size</span></p>
+                    <input type="file" id="apExcelFile" accept=".xlsx,.xls" style="display:none" onchange="ap_handleExcel(event)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unit Price & Total -->
+    <div class="row g-3 mt-2">
+        <div class="col-md-4">
+            <label class="form-label fw-semibold">Unit Price (₱)</label>
+            <input type="number" class="form-control" id="ap_unitPrice" min="0" step="0.01" value="0" onchange="ap_calcTotal()" oninput="ap_calcTotal()">
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div>
+                <div class="text-muted small">Total Qty</div>
+                <div class="fs-4 fw-bold" id="ap_totalQty">0</div>
+            </div>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div>
+                <div class="text-muted small">Total Price</div>
+                <div class="fs-4 fw-bold text-success" id="ap_totalPrice">₱0.00</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ap_errorMsg" class="text-danger small mt-2" style="display:none;"></div>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+    <button type="button" class="btn btn-success" id="ap_submitBtn" onclick="ap_submit()">
+        <i class="fas fa-check"></i> Add to Order
+    </button>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+// Add Product Modal - Sizes by default
+var apSizes = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL'];
+
+function openAddProductModal() {
+    // Reset
+    document.getElementById('ap_productName').value = '';
+    document.querySelectorAll('.ap-size-qty').forEach(function(el) { el.value = '0'; });
+    document.getElementById('ap_unitPrice').value = '0';
+    document.getElementById('ap_totalQty').textContent = '0';
+    document.getElementById('ap_totalPrice').textContent = '₱0.00';
+    document.getElementById('ap_errorMsg').style.display = 'none';
+    document.getElementById('ap_submitBtn').disabled = false;
+    document.getElementById('ap_submitBtn').innerHTML = '<i class="fas fa-check"></i> Add to Order';
+    
+    // Reset roster
+    var body = document.getElementById('apRosterBody');
+    body.innerHTML = '<tr class="roster-row"><td class="text-center">1</td><td><input type="text" class="form-control form-control-sm" name="person_name[]" placeholder="Name"></td><td><select class="form-select form-select-sm ap-roster-size">' + apSizes.map(function(s) { return '<option value="'+s+'">'+s+'</option>'; }).join('') + '</select></td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove(); ap_calcTotal();">✕</button></td></tr>';
+    
+    document.getElementById('apExcelFile').value = '';
+    document.getElementById('addProductExcelDropZone').classList.remove('has-file');
+    
+    // Reset tabs to By Size
+    document.querySelector('#ap-by-size-tab').click();
+    
+    var modal = new bootstrap.Modal(document.getElementById('addProductModal'));
+    modal.show();
+}
+
+function ap_calcTotal() {
+    // By Size qty
+    var totalQty = 0;
+    document.querySelectorAll('.ap-size-qty').forEach(function(el) {
+        totalQty += parseInt(el.value) || 0;
+    });
+    
+    // Roster qty
+    document.querySelectorAll('#apRosterBody tr.roster-row').forEach(function(row) {
+        var nameInput = row.querySelector('input[name=\'person_name[]\']');
+        if (nameInput && nameInput.value.trim()) totalQty++;
+    });
+    
+    var unitPrice = parseFloat(document.getElementById('ap_unitPrice').value) || 0;
+    var totalPrice = totalQty * unitPrice;
+    
+    document.getElementById('ap_totalQty').textContent = totalQty;
+    document.getElementById('ap_totalPrice').textContent = '₱' + totalPrice.toFixed(2);
+}
+
+function ap_addRosterRow() {
+    var body = document.getElementById('apRosterBody');
+    var idx = body.querySelectorAll('tr.roster-row').length + 1;
+    var tr = document.createElement('tr');
+    tr.className = 'roster-row';
+    tr.innerHTML = '<td class="text-center">'+idx+'</td>'
+        + '<td><input type="text" class="form-control form-control-sm" name="person_name[]" placeholder="Name" oninput="ap_calcTotal()"></td>'
+        + '<td><select class="form-select form-select-sm ap-roster-size">' + apSizes.map(function(s) { return '<option value="'+s+'">'+s+'</option>'; }).join('') + '</select></td>'
+        + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove(); ap_calcTotal();">✕</button></td>';
+    body.appendChild(tr);
+    ap_calcTotal();
+}
+
+function ap_handleExcel(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    
+    document.getElementById('addProductExcelDropZone').classList.add('has-file');
+    
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            var data = new Uint8Array(e.target.result);
+            var workbook = XLSX.read(data, {type: 'array'});
+            var sheet = workbook.Sheets[workbook.SheetNames[0]];
+            var json = XLSX.utils.sheet_to_json(sheet, {header: 1});
+            
+            if (json.length < 2) {
+                alert('Excel file has no data rows (header + at least 1 row).');
+                return;
+            }
+            
+            var body = document.getElementById('apRosterBody');
+            body.innerHTML = '';
+            var count = 0;
+            for (var i = 1; i < json.length; i++) {
+                var row = json[i];
+                if (!row[0] || !row[0].toString().trim()) continue;
+                count++;
+                var name = row[0].toString().trim();
+                var size = row[1] ? row[1].toString().trim() : 'M';
+                
+                var tr = document.createElement('tr');
+                tr.className = 'roster-row';
+                tr.innerHTML = '<td class="text-center">'+count+'</td>'
+                    + '<td><input type="text" class="form-control form-control-sm" name="person_name[]" value="'+name.replace(/'/g,'&#39;')+'" oninput="ap_calcTotal()"></td>'
+                    + '<td><select class="form-select form-select-sm ap-roster-size">' + apSizes.map(function(s) { return '<option value="'+s+'"'+(s===size?' selected':'')+'>'+s+'</option>'; }).join('') + '</select></td>'
+                    + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove(); ap_calcTotal();">✕</button></td>';
+                body.appendChild(tr);
+            }
+            ap_calcTotal();
+        } catch(err) {
+            alert('Error reading Excel: ' + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// Click drop zone to open file picker
+document.addEventListener('DOMContentLoaded', function() {
+    var dropZone = document.getElementById('addProductExcelDropZone');
+    if (dropZone) {
+        dropZone.addEventListener('click', function() {
+            document.getElementById('apExcelFile').click();
+        });
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.style.borderColor = '#0d6efd';
+        });
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.style.borderColor = '#ccc';
+        });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ccc';
+            var files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('apExcelFile').files = files;
+                ap_handleExcel({target: {files: files}});
+            }
+        });
+    }
+});
+
+function ap_submit() {
+    var productName = document.getElementById('ap_productName').value.trim();
+    if (!productName) {
+        document.getElementById('ap_errorMsg').textContent = 'Please enter a product name.';
+        document.getElementById('ap_errorMsg').style.display = 'block';
+        return;
+    }
+    
+    // Collect sizes from By Size tab
+    var sizes = [];
+    document.querySelectorAll('.ap-size-qty').forEach(function(el) {
+        var qty = parseInt(el.value) || 0;
+        if (qty > 0) {
+            sizes.push({size: el.dataset.size, qty: qty});
+        }
+    });
+    
+    // Collect from roster (Per Person mode)
+    document.querySelectorAll('#apRosterBody tr.roster-row').forEach(function(row) {
+        var nameInput = row.querySelector('input[name^=\'person_name\']');
+        var sizeSelect = row.querySelector('.ap-roster-size');
+        if (nameInput && nameInput.value.trim() && sizeSelect) {
+            sizes.push({size: sizeSelect.value, qty: 1});
+        }
+    });
+    
+    if (sizes.length === 0) {
+        document.getElementById('ap_errorMsg').textContent = 'Please enter at least one item quantity or a person name.';
+        document.getElementById('ap_errorMsg').style.display = 'block';
+        return;
+    }
+    
+    var unitPrice = parseFloat(document.getElementById('ap_unitPrice').value) || 0;
+    if (unitPrice <= 0) {
+        document.getElementById('ap_errorMsg').textContent = 'Please enter a unit price.';
+        document.getElementById('ap_errorMsg').style.display = 'block';
+        return;
+    }
+    
+    var btn = document.getElementById('ap_submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    
+    fetch('{{ route("sales.prototype.add-product", $sale->id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            product_name: productName,
+            sizes: sizes,
+            unit_price: unitPrice
+        })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var modal = bootstrap.Modal.getInstance(document.getElementById('addProductModal'));
+            modal.hide();
+            showToast('Product added! Reloading...', 'success');
+            setTimeout(function() { location.reload(); }, 1000);
+        } else {
+            document.getElementById('ap_errorMsg').textContent = data.message || 'Failed to add product.';
+            document.getElementById('ap_errorMsg').style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check"></i> Add to Order';
+        }
+    })
+    .catch(function(err) {
+        document.getElementById('ap_errorMsg').textContent = 'Error: ' + err.message;
+        document.getElementById('ap_errorMsg').style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Add to Order';
+    });
+}
+</script>
 
 @endsection
 
