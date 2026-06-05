@@ -27,7 +27,7 @@
             <div class="modal-header">
                 <h5 class="modal-title fw-bold">
                     <i class="fas fa-box"></i> ➕ Add Fullsublimation Product
-                    <span class="badge bg-info ms-2" style="font-size:0.7rem;">To Order #{{ $sale->order_number }}</span>
+                    <span class="badge bg-info ms-2" style="font-size:0.7rem;">To Order #{{ $sale->sales_number }}</span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -398,7 +398,7 @@ window.sub_excelHeaders = null;
 // ======= OPEN =======
 window.openSubAddProductModal = function() {
     // Auto-fill Order Details from sale context
-    var sale = {!! $sale->toJson() !!};
+    var sale = {!! json_encode($sale) !!};
     var projectName = document.getElementById('sub_projectName');
     
     // Try to find a good project name from existing items
@@ -1038,7 +1038,7 @@ window.sub_addItemToOrder = function() {
     var item = {
         name: projectName,
         productType: 'fullsublimation',
-        department: '{{ $sale->department }}',
+        department: '{{ $sale->department_code ?? $sale->department_name ?? 'class' }}',
         sublimationForm: {
             projectName: projectName,
             description: document.getElementById('sub_description').value,
@@ -1131,8 +1131,8 @@ window.sub_printOrderSlip = function() {
         });
     }
     
-    var orderNumber = '{{ $sale->order_number }}';
-    var customerName = '{{ $sale->customer ? $sale->customer->name : "N/A" }}';
+    var orderNumber = '{{ $sale->sales_number }}';
+    var customerName = '{{ $sale->customer_name ?? 'N/A' }}';
     var now = new Date();
     var dateStr = now.toLocaleDateString('en-PH', {year:'numeric',month:'long',day:'numeric'});
     
