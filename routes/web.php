@@ -811,7 +811,14 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/{id}/addon/request', [App\Http\Controllers\SaleAddonController::class, 'request'])->name('sales.prototype.addon.request');
         Route::post('/sales/prototype/addon/{requestId}/approve', [App\Http\Controllers\SaleAddonController::class, 'approve'])->name('sales.prototype.addon.approve');
         Route::post('/sales/prototype/addon/{requestId}/reject', [App\Http\Controllers\SaleAddonController::class, 'reject'])->name('sales.prototype.addon.reject');
-
+        
+        // Edit Transaction (Add/Remove/Change items during production)
+        Route::get('/sales/prototype/{id}/edit-items', [App\Http\Controllers\PrototypeSalesController::class, 'editItems'])->name('sales.prototype.edit-items');
+        Route::post('/sales/prototype/{id}/submit-change', [App\Http\Controllers\PrototypeSalesController::class, 'submitChange'])->name('sales.prototype.submit-change');
+        Route::post('/sales/prototype/change/{changeId}/approve', [App\Http\Controllers\PrototypeSalesController::class, 'approveChange'])->name('sales.prototype.approve-change');
+        Route::post('/sales/prototype/change/{changeId}/reject', [App\Http\Controllers\PrototypeSalesController::class, 'rejectChange'])->name('sales.prototype.reject-change');
+        Route::post('/sales/prototype/{id}/add-comment', [App\Http\Controllers\PrototypeSalesController::class, 'addComment'])->name('sales.prototype.add-comment');
+        Route::get('/sales/prototype/{id}/audit-history', [App\Http\Controllers\PrototypeSalesController::class, 'auditHistory'])->name('sales.prototype.audit-history');
 
         // Department Inventory Management (iPrint & others)
         Route::middleware(['auth'])->group(function () {

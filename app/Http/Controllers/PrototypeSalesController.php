@@ -636,11 +636,380 @@ public function details(Request $request, string $id)
         ];
         $progressPercent = $kanbanProgressMap[$sale->kanban_status] ?? 0;
         
+        // Fetch pending changes, audit logs, and comments for this sale
+        $pendingChanges = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $id)
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        $currentUser = auth()->user();
+        $isManager = $currentUser && in_array($currentUser->role, ['admin', 'manager']);
+        
+        // Determine if editing is allowed (not delivered/completed)
+        $canEdit = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
+        
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
-            'progressPercent'
+            'progressPercent', 'pendingChanges', 'isManager', 'canEdit'
         ));
+    }
+
+    /**
+     * Show the edit items page for adding/removing/changing items.
+     */
+    public function editItems(string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            abort(404);
+        }
+        
+        // Only allow editing if not delivered/completed/cancelled
+        if (in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled'])) {
+            return redirect()->route('sales.prototype.show', $id)
+                ->with('error', 'Cannot edit completed or cancelled orders.');
+        }
+        
+        // Check if there's already a pending change
+        $hasPending = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $id)
+            ->where('status', 'pending')
+            ->exists();
+        if ($hasPending) {
+            return redirect()->route('sales.prototype.show', $id)
+                ->with('error', 'There is already a pending change request awaiting approval.');
+        }
+        
+        // Decode services
+        $raw = $sale->services;
+        $services = json_decode($raw, true);
+        if (is_string($services)) {
+            $services = json_decode($services, true);
+        }
+        if (!is_array($services)) {
+            $services = [];
+        }
+        
+        $products = \DB::table('products')->orderBy('name')->get();
+        
+        return view('sales.prototype.edit-items', compact('sale', 'services', 'products'));
+    }
+
+    /**
+     * Submit a change request (pending manager approval).
+     */
+    public function submitChange(Request $request, string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+        
+        if (in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled'])) {
+            return response()->json(['success' => false, 'message' => 'Cannot modify a completed or cancelled order.']);
+        }
+        
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.']);
+        }
+        
+        $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.name' => 'required|string|max:255',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.unitPrice' => 'required|numeric|min:0',
+        ]);
+        
+        // Decode current services as baseline
+        $servicesBefore = json_decode($sale->services, true);
+        if (is_string($servicesBefore)) {
+            $servicesBefore = json_decode($servicesBefore, true);
+        }
+        if (!is_array($servicesBefore)) {
+            $servicesBefore = [];
+        }
+        
+        // Build the new services array from request
+        $servicesAfter = [];
+        foreach ($request->items as $item) {
+            $servicesAfter[] = [
+                'id' => $item['id'] ?? (round(microtime(true) * 1000)),
+                'name' => $item['name'],
+                'quantity' => (int) $item['quantity'],
+                'unitPrice' => (float) $item['unitPrice'],
+                'totalPrice' => (int) $item['quantity'] * (float) $item['unitPrice'],
+                'department' => $item['department'] ?? $sale->department_name,
+                'notes' => $item['notes'] ?? '',
+                'productType' => $item['productType'] ?? 'cutting',
+            ];
+        }
+        
+        // Calculate totals
+        $totalBefore = $sale->total_amount;
+        $totalAfter = array_sum(array_column($servicesAfter, 'totalPrice'));
+        
+        // Generate summary of changes
+        $summary = $this->generateChangeSummary($servicesBefore, $servicesAfter);
+        
+        // Save the pending change
+        $changeId = \DB::table('prototype_sale_changes')->insertGetId([
+            'sale_id' => $id,
+            'services_before' => json_encode($servicesBefore),
+            'services_after' => json_encode($servicesAfter),
+            'total_before' => $totalBefore,
+            'total_after' => $totalAfter,
+            'deposit_before' => $sale->deposit_paid,
+            'deposit_after' => $sale->deposit_paid, // deposit doesn't change until refund/additional payment
+            'change_summary' => $summary,
+            'status' => 'pending',
+            'submitted_by' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        
+        // Log the audit trail
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $id,
+            'user_id' => $user->id,
+            'action' => 'change_submitted',
+            'description' => $summary,
+            'details' => json_encode([
+                'change_id' => $changeId,
+                'total_before' => $totalBefore,
+                'total_after' => $totalAfter,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Change request submitted for approval.',
+            'change_id' => $changeId,
+        ]);
+    }
+
+    /**
+     * Approve a pending change request.
+     */
+    public function approveChange(Request $request, string $changeId)
+    {
+        $change = \DB::table('prototype_sale_changes')->find($changeId);
+        if (!$change) {
+            return response()->json(['success' => false, 'message' => 'Change request not found.'], 404);
+        }
+        
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            return response()->json(['success' => false, 'message' => 'Only managers can approve changes.']);
+        }
+        
+        if ($change->status !== 'pending') {
+            return response()->json(['success' => false, 'message' => 'This change request has already been ' . $change->status . '.']);
+        }
+        
+        $servicesAfter = json_decode($change->services_after, true);
+        
+        // Calculate new totals
+        $subtotal = $servicesAfter ? array_sum(array_column($servicesAfter, 'totalPrice')) : 0;
+        $totalAmount = $subtotal; // no 12% tax per Andrew's rule
+        $balanceDue = $totalAmount - $change->deposit_after;
+        
+        // Update the sale's services and recalculate prices
+        \DB::table('prototype_sales')
+            ->where('id', $change->sale_id)
+            ->update([
+                'services' => json_encode($servicesAfter),
+                'subtotal' => $subtotal,
+                'total_amount' => $totalAmount,
+                'balance_due' => $balanceDue,
+                'updated_at' => now(),
+            ]);
+        
+        // Mark change as approved
+        \DB::table('prototype_sale_changes')
+            ->where('id', $changeId)
+            ->update([
+                'status' => 'approved',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'updated_at' => now(),
+            ]);
+        
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $change->sale_id,
+            'user_id' => $user->id,
+            'action' => 'change_approved',
+            'description' => 'Change request approved. New total: ₱' . number_format($totalAmount, 2),
+            'details' => json_encode([
+                'change_id' => $changeId,
+                'total_before' => $change->total_before,
+                'total_after' => $totalAmount,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        
+        return response()->json(['success' => true, 'message' => 'Change request approved.']);
+    }
+
+    /**
+     * Reject a pending change request.
+     */
+    public function rejectChange(Request $request, string $changeId)
+    {
+        $change = \DB::table('prototype_sale_changes')->find($changeId);
+        if (!$change) {
+            return response()->json(['success' => false, 'message' => 'Change request not found.'], 404);
+        }
+        
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            return response()->json(['success' => false, 'message' => 'Only managers can reject changes.']);
+        }
+        
+        if ($change->status !== 'pending') {
+            return response()->json(['success' => false, 'message' => 'This change request has already been ' . $change->status . '.']);
+        }
+        
+        $request->validate([
+            'reason' => 'required|string|min:5|max:500',
+        ]);
+        
+        \DB::table('prototype_sale_changes')
+            ->where('id', $changeId)
+            ->update([
+                'status' => 'rejected',
+                'approved_by' => $user->id,
+                'rejected_at' => now(),
+                'rejection_reason' => $request->reason,
+                'updated_at' => now(),
+            ]);
+        
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $change->sale_id,
+            'user_id' => $user->id,
+            'action' => 'change_rejected',
+            'description' => 'Change rejected. Reason: ' . $request->reason,
+            'details' => json_encode([
+                'change_id' => $changeId,
+                'reason' => $request->reason,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        
+        return response()->json(['success' => true, 'message' => 'Change request rejected.']);
+    }
+
+    /**
+     * Add a manager comment to a sale.
+     */
+    public function addComment(Request $request, string $id)
+    {
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            return response()->json(['success' => false, 'message' => 'Only managers can add comments.']);
+        }
+        
+        $request->validate([
+            'comment' => 'required|string|max:1000',
+        ]);
+        
+        $commentId = \DB::table('prototype_sale_comments')->insertGetId([
+            'sale_id' => $id,
+            'user_id' => $user->id,
+            'comment' => $request->comment,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $id,
+            'user_id' => $user->id,
+            'action' => 'comment_added',
+            'description' => 'Manager added a comment: ' . substr($request->comment, 0, 100) . (strlen($request->comment) > 100 ? '...' : ''),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'comment_id' => $commentId]);
+        }
+        
+        return redirect()->back()->with('success', 'Comment added.');
+    }
+
+    /**
+     * Get audit history for a sale (AJAX).
+     */
+    public function auditHistory(string $id)
+    {
+        $logs = \DB::table('prototype_sale_audit_logs')
+            ->where('sale_id', $id)
+            ->join('users', 'prototype_sale_audit_logs.user_id', '=', 'users.id')
+            ->select(
+                'prototype_sale_audit_logs.*',
+                'users.name as user_name'
+            )
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        return response()->json(['logs' => $logs]);
+    }
+
+    /**
+     * Generate a human-readable summary of changes between two service arrays.
+     */
+    private function generateChangeSummary(array $before, array $after): string
+    {
+        $parts = [];
+        
+        // Find items that were removed
+        $beforeIds = array_column($before, 'id');
+        $afterIds = array_column($after, 'id');
+        
+        foreach ($before as $bItem) {
+            if (!in_array($bItem['id'] ?? null, $afterIds)) {
+                $parts[] = 'Removed: ' . ($bItem['name'] ?? 'Unknown item');
+            }
+        }
+        
+        foreach ($after as $aItem) {
+            $bid = $aItem['id'] ?? null;
+            if ($bid && in_array($bid, $beforeIds)) {
+                // Find the before item
+                $bItem = null;
+                foreach ($before as $bi) {
+                    if (($bi['id'] ?? null) === $bid) {
+                        $bItem = $bi;
+                        break;
+                    }
+                }
+                if ($bItem) {
+                    $changes = [];
+                    if (($bItem['quantity'] ?? 0) !== ($aItem['quantity'] ?? 0)) {
+                        $changes[] = 'qty ' . ($bItem['quantity'] ?? 0) . '→' . ($aItem['quantity'] ?? 0);
+                    }
+                    if (($bItem['unitPrice'] ?? 0) !== ($aItem['unitPrice'] ?? 0)) {
+                        $changes[] = 'price ₱' . number_format($bItem['unitPrice'] ?? 0, 2) . '→₱' . number_format($aItem['unitPrice'] ?? 0, 2);
+                    }
+                    if (!empty($changes)) {
+                        $parts[] = 'Modified ' . ($aItem['name'] ?? 'Unknown') . ': ' . implode(', ', $changes);
+                    }
+                }
+            } else {
+                // New item
+                $parts[] = 'Added: ' . ($aItem['name'] ?? 'Unknown item') . ' x' . ($aItem['quantity'] ?? 1) . ' (₱' . number_format($aItem['totalPrice'] ?? 0, 2) . ')';
+            }
+        }
+        
+        return empty($parts) ? 'No changes detected' : implode('; ', $parts);
     }
 public function printSlip(string $id)
     {

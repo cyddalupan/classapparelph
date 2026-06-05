@@ -250,7 +250,65 @@
                     <div>{{ \Carbon\Carbon::parse($sale->date_needed)->format('M d, Y') }}</div>
                 </div>
                 @endif
+                
+                @if($canEdit)
+                <div class="mt-3">
+                    <a href="{{ route('sales.prototype.edit-items', $sale->id) }}" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-edit me-1"></i> Edit Transaction
+                    </a>
+                </div>
+                @endif
             </div>
+
+            <!-- Pending Changes -->
+            @if(isset($pendingChanges) && $pendingChanges->count() > 0)
+            <div class="detail-section border-start border-4 border-warning">
+                <h5 class="detail-title">
+                    <i class="fas fa-clock text-warning me-2"></i>Pending Changes
+                </h5>
+                @foreach($pendingChanges as $change)
+                <div class="mb-3 p-3 bg-light rounded">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge bg-warning text-dark">Awaiting Approval</span>
+                            <small class="text-muted ms-2">{{ \Carbon\Carbon::parse($change->created_at)->diffForHumans() }}</small>
+                        </div>
+                        <small class="text-muted">by {{ \App\Models\User::find($change->submitted_by)?->name ?? 'Unknown' }}</small>
+                    </div>
+                    
+                    <p class="mb-2">{{ $change->change_summary }}</p>
+                    
+                    <div class="row text-center g-2 mb-2">
+                        <div class="col-4">
+                            <small class="text-muted d-block">Current Total</small>
+                            <strong>₱{{ number_format($change->total_before, 2) }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">New Total</small>
+                            <strong>₱{{ number_format($change->total_after, 2) }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Difference</small>
+                            <strong class="{{ $change->total_after >= $change->total_before ? 'text-success' : 'text-danger' }}">
+                                {{ $change->total_after >= $change->total_before ? '+' : '-' }}₱{{ number_format(abs($change->total_after - $change->total_before), 2) }}
+                            </strong>
+                        </div>
+                    </div>
+                    
+                    @if($isManager)
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success btn-sm" onclick="approveChange({{ $change->id }})">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="showRejectModal({{ $change->id }})">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                    </div>
+                    @endif
+                </div>
+                @endforeach
+            </div>
+            @endif
 
             <!-- Payment Info -->
             <div class="detail-section">
@@ -536,10 +594,89 @@
     </div>
 </div>
 
+<!-- Comment Section -->
+<div class="detail-section mt-4">
+    <h5 class="detail-title"><i class="fas fa-comments me-2"></i>Comments</h5>
+    
+    <div id="commentsContainer">
+        <div class="text-center text-muted py-3" id="commentsLoading">
+            <i class="fas fa-spinner fa-spin"></i> Loading comments...
+        </div>
+    </div>
+    
+    @if($isManager)
+    <div class="mt-3">
+        <form id="commentForm" method="POST" action="{{ route('sales.prototype.add-comment', $sale->id) }}">
+            @csrf
+            <div class="mb-2">
+                <textarea name="comment" class="form-control" rows="2" placeholder="Add a comment... (visible to everyone)" required maxlength="1000"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-paper-plane"></i> Post Comment
+            </button>
+        </form>
+    </div>
+    @else
+    <div class="alert alert-info mt-3 mb-0 py-2">
+        <small><i class="fas fa-info-circle"></i> Only managers can add comments here.</small>
+    </div>
+    @endif
+</div>
+
+<!-- Audit History -->
+<div class="detail-section mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h5 class="detail-title mb-0" style="border-bottom: none; padding-bottom: 0;">
+            <i class="fas fa-history me-2"></i>Audit History
+        </h5>
+        <button class="btn btn-outline-info btn-sm" onclick="toggleAuditLog()">
+            <i class="fas fa-chevron-down"></i> View History
+        </button>
+    </div>
+    <div id="auditLogContainer" style="display: none;">
+        <p class="text-muted text-center py-3">Loading...</p>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
+    function toggleAuditLog() {
+        var container = document.getElementById('auditLogContainer');
+        if (container.style.display !== 'none') {
+            container.style.display = 'none';
+            return;
+        }
+        container.style.display = 'block';
+        
+        fetch('{{ route("sales.prototype.audit-history", $sale->id) }}')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var html = '';
+                if (data.logs && data.logs.length > 0) {
+                    data.logs.forEach(function(log) {
+                        var date = new Date(log.created_at);
+                        html += '<div class="d-flex gap-3 mb-3 pb-2 border-bottom">';
+                        html += '<div class="text-center" style="min-width: 60px;">';
+                        html += '<div class="small fw-bold">' + ('0' + date.getDate()).slice(-2) + '/' + ('0' + (date.getMonth()+1)).slice(-2) + '</div>';
+                        html += '<div class="small text-muted">' + ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2) + '</div>';
+                        html += '</div>';
+                        html += '<div class="flex-grow-1">';
+                        html += '<div><strong>' + (log.user_name || 'System') + '</strong> <span class="badge bg-secondary text-uppercase" style="font-size: 0.65rem;">' + log.action.replace(/_/g, ' ') + '</span></div>';
+                        html += '<div class="text-muted small">' + log.description + '</div>';
+                        html += '</div></div>';
+                    });
+                } else {
+                    html = '<p class="text-muted text-center py-3">No audit history yet.</p>';
+                }
+                container.innerHTML = html;
+            })
+            .catch(function() {
+                container.innerHTML = '<p class="text-danger text-center py-3">Failed to load history.</p>';
+            });
+    }
+    
     window.toggleBalanceRefFields = function() {
         var method = document.querySelector('[name="payment_method"]').value;
         var show = method !== '' && method !== 'cash';
@@ -547,6 +684,153 @@
         document.getElementById('balanceScreenshotGroup').style.display = show ? 'block' : 'none';
     };
 
+    function showToast(msg, type) {
+        type = type || 'info';
+        var existing = document.querySelector('.toast-notification-' + type);
+        if (existing) existing.remove();
+        
+        var toast = document.createElement('div');
+        toast.className = 'toast-notification-' + type;
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;padding:12px 20px;border-radius:8px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-width:400px;';
+        
+        var colors = { success: '#d4edda,#155724', danger: '#f8d7da,#721c24', warning: '#fff3cd,#856404', info: '#d1ecf1,#0c5460' };
+        var c = colors[type] || colors.info;
+        toast.style.background = c.split(',')[0];
+        toast.style.color = c.split(',')[1];
+        toast.innerHTML = msg;
+        
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(function() { toast.remove(); }, 300); }, 4000);
+    }
+    
+    // ---------- Comment Form Handler ----------
+    document.addEventListener('DOMContentLoaded', function() {
+        var commentForm = document.getElementById('commentForm');
+        if (commentForm) {
+            commentForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var btn = this.querySelector('button[type="submit"]');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting...';
+                
+                fetch(this.action, {
+                    method: 'POST',
+                    body: new FormData(this),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        loadComments();
+                        commentForm.querySelector('textarea').value = '';
+                        showToast('Comment posted.', 'success');
+                    } else {
+                        showToast(data.message || 'Failed to post.', 'danger');
+                    }
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Post Comment';
+                })
+                .catch(function() {
+                    showToast('Error posting comment.', 'danger');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Post Comment';
+                });
+            });
+        }
+        
+        loadComments();
+        
+        // Check for change_submitted success
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('change_submitted') === '1') {
+            showToast('Change request submitted for manager approval.', 'success');
+        }
+    });
+    
+    // ---------- Load Comments ----------
+    function loadComments() {
+        fetch('{{ route("sales.prototype.audit-history", $sale->id) }}')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var html = '';
+                if (data.logs && data.logs.length > 0) {
+                    var commentLogs = data.logs.filter(function(l) { return l.action === 'comment_added'; });
+                    if (commentLogs.length > 0) {
+                        commentLogs.forEach(function(log) {
+                            var date = new Date(log.created_at);
+                            var dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+                            html += '<div class="d-flex gap-3 mb-3 pb-2 border-start border-primary ps-3">';
+                            html += '<div class="flex-grow-1">';
+                            html += '<div class="d-flex justify-content-between"><strong>' + (log.user_name || 'Manager') + '</strong> <small class="text-muted">' + dateStr + '</small></div>';
+                            html += '<div class="mt-1">' + log.description.replace('Manager added a comment: ', '') + '</div>';
+                            html += '</div></div>';
+                        });
+                    } else {
+                        html = '<p class="text-muted text-center py-2">No comments yet.</p>';
+                    }
+                } else {
+                    html = '<p class="text-muted text-center py-2">No comments yet.</p>';
+                }
+                document.getElementById('commentsContainer').innerHTML = html;
+            })
+            .catch(function() {
+                document.getElementById('commentsContainer').innerHTML = '<p class="text-muted text-center py-2">Could not load comments.</p>';
+            });
+    }
+    
+    // ---------- Approve / Reject Change ----------
+    function approveChange(changeId) {
+        if (!confirm('Approve this change request?')) return;
+        
+        fetch('/sales/prototype/change/' + changeId + '/approve', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content
+            }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showToast('Change approved! Reloading...', 'success');
+                setTimeout(function() { location.reload(); }, 1500);
+            } else {
+                showToast(data.message || 'Failed to approve.', 'danger');
+            }
+        })
+        .catch(function() { showToast('Error approving change.', 'danger'); });
+    }
+    
+    function showRejectModal(changeId) {
+        var reason = prompt('Enter reason for rejection:');
+        if (!reason || reason.length < 5) {
+            alert('Please enter a reason (at least 5 characters).');
+            return;
+        }
+        
+        fetch('/sales/prototype/change/' + changeId + '/reject', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showToast('Change rejected. Reloading...', 'warning');
+                setTimeout(function() { location.reload(); }, 1500);
+            } else {
+                showToast(data.message || 'Failed to reject.', 'danger');
+            }
+        })
+        .catch(function() { showToast('Error rejecting change.', 'danger'); });
+    }
+    
     window.openLightbox = function(src) {
         var old = document.getElementById('imageLightbox');
         if (old) old.remove();
