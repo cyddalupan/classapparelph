@@ -36,9 +36,11 @@
             <p class="text-muted mb-0">{{ $sale->customer_name }}</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ route('sales.prototype.edit', $sale->id) }}" class="btn btn-primary">
+            @if($canEdit)
+            <a href="{{ route('sales.prototype.edit-items', $sale->id) }}" class="btn btn-primary">
                 <i class="fas fa-edit"></i> Edit
             </a>
+            @endif
             <a href="{{ route('sales.prototype.print-slip', $sale->id) }}" target="_blank" class="btn btn-success">
                 <i class="fas fa-print"></i> Print Slip
             </a>
@@ -251,13 +253,6 @@
                 </div>
                 @endif
                 
-                @if($canEdit)
-                <div class="mt-3">
-                    <a href="{{ route('sales.prototype.edit-items', $sale->id) }}" class="btn btn-outline-primary w-100">
-                        <i class="fas fa-edit me-1"></i> Edit Transaction
-                    </a>
-                </div>
-                @endif
             </div>
 
             <!-- Pending Changes -->

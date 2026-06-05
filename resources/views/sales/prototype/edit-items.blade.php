@@ -412,16 +412,26 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('editItemsForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
-        // Collect only checked items
-        const formData = new FormData(this);
-        const checkedIds = new Set();
-        document.querySelectorAll('.item-toggle:checked').forEach(cb => {
-            checkedIds.add(cb.value);
+        // Disable inputs for unchecked items so they're excluded from FormData
+        document.querySelectorAll('.item-card .item-toggle').forEach(cb => {
+            const card = cb.closest('.item-card');
+            if (!cb.checked) {
+                // Disable all inputs/buttons inside this card
+                card.querySelectorAll('input, button, select, textarea').forEach(el => {
+                    el.disabled = true;
+                });
+            }
         });
-
-        // Filter out unchecked items and newly added ones
-        // The hidden inputs handle submission via standard form POST
-        // But newly added items don't have toggles — they're always included
+        
+        const formData = new FormData(this);
+        
+        // Re-enable everything after collecting form data
+        document.querySelectorAll('.item-card .item-toggle').forEach(cb => {
+            const card = cb.closest('.item-card');
+            card.querySelectorAll('input, button, select, textarea').forEach(el => {
+                el.disabled = false;
+            });
+        });
 
         const submitBtn = document.getElementById('submitBtn');
         submitBtn.disabled = true;
