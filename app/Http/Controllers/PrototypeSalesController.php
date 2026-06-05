@@ -624,9 +624,22 @@ public function details(Request $request, string $id)
             $overallGroupBalance = $overallGroupTotal - $overallGroupDeposit;
         }
         
+        // Compute progress percentage from kanban_status
+        $kanbanProgressMap = [
+            'new' => 0,
+            'design' => 15,
+            'production' => 50,
+            'quality_check' => 70,
+            'ready_for_delivery' => 85,
+            'delivered' => 95,
+            'completed' => 100,
+        ];
+        $progressPercent = $kanbanProgressMap[$sale->kanban_status] ?? 0;
+        
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
-            'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance'
+            'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
+            'progressPercent'
         ));
     }
 public function printSlip(string $id)

@@ -234,14 +234,12 @@
                         </span>
                     </div>
                 </div>
-                @if($kanbanItem)
                 <div class="mb-3">
                     <div class="progress" style="height: 8px;">
-                        <div class="progress-bar" role="progressbar" style="width: {{ $kanbanItem->progress ?? 0 }}%;"></div>
+                        <div class="progress-bar" role="progressbar" style="width: {{ $progressPercent }}%;"></div>
                     </div>
-                    <small class="text-muted">{{ $kanbanItem->progress ?? 0 }}% complete</small>
+                    <small class="text-muted">{{ $progressPercent }}% complete</small>
                 </div>
-                @endif
                 <div>
                     <div class="info-label">Created</div>
                     <div>{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y g:i A') }}</div>
