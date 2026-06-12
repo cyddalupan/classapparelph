@@ -4387,10 +4387,10 @@ window.sublimation_getTotalQty = function() {
     sizeInputs.forEach(function(inp) {
         total += parseInt(inp.value) || 0;
     });
-    // Sum roster rows (read roster-number value per row)
+    // Sum roster rows (read roster-qty value per row, fallback to roster-number)
     var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
     rosterRows.forEach(function(row) {
-        var qtyInput = row.querySelector('.roster-number');
+        var qtyInput = row.querySelector('.roster-qty') || row.querySelector('.roster-number');
         total += parseInt(qtyInput ? qtyInput.value : '') || 1;
     });
     return total;
@@ -4935,8 +4935,8 @@ window.sublimation_calculateTotal = function() {
         if (sizeSelect) {
             var sizeName = (sizeSelect.value || '').toUpperCase();
             var sizePrice = getSizePrice(sizeName);
-            // Read QTY from roster-number hidden input if available
-            var qtyInput = row.querySelector('.roster-number');
+            // Read QTY from roster-qty hidden input if available (fallback to roster-number)
+            var qtyInput = row.querySelector('.roster-qty') || row.querySelector('.roster-number');
             var rosterQty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
             if (rosterQty < 1) rosterQty = 1;
             grandTotal += (baseUnitPrice + sizePrice) * rosterQty;
@@ -5266,11 +5266,11 @@ window.sublimation_addItemToCart = function() {
         }
     });
     
-    // Roster rows: use roster-number value (not just 1 per row)
+    // Roster rows: use roster-qty value (not just 1 per row), fallback to roster-number
     var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
     rosterRows.forEach(function(row) {
         var sizeSelect = row.querySelector('.roster-size');
-        var qtyInput = row.querySelector('.roster-number');
+        var qtyInput = row.querySelector('.roster-qty') || row.querySelector('.roster-number');
         var rosterQty = parseInt(qtyInput ? qtyInput.value : '') || 1;
         if (rosterQty < 1) rosterQty = 1;
         if (sizeSelect) {
@@ -5287,9 +5287,9 @@ window.sublimation_addItemToCart = function() {
     var rosterData = [];
     var rosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
     rosterRows.forEach(function(row) {
-        var numCell = row.querySelector('td:first-child');
         var nameInput = row.querySelector('.roster-name');
         var numInput = row.querySelector('.roster-number');
+        var qtyInput = row.querySelector('.roster-qty');
         var sizeInput = row.querySelector('.roster-size');
         
         // Collect ALL hidden inputs with their header names (for Excel import)
@@ -5303,7 +5303,8 @@ window.sublimation_addItemToCart = function() {
         });
         
         rosterData.push({
-            number: numInput ? numInput.value : (numCell ? numCell.textContent.trim() : ''),
+            number: numInput ? numInput.value : '',
+            qty: qtyInput ? qtyInput.value : (numInput ? numInput.value : '1'),
             name: nameInput ? nameInput.value : '',
             size: sizeInput ? sizeInput.value : '',
             columns: columns
@@ -5354,7 +5355,7 @@ window.sublimation_addItemToCart = function() {
             var rosterRows2 = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
             rosterRows2.forEach(function(row) {
                 var sizeSelect2 = row.querySelector('.roster-size');
-                var qtyInput2 = row.querySelector('.roster-number');
+                var qtyInput2 = row.querySelector('.roster-qty') || row.querySelector('.roster-number');
                 var rosterQty2 = parseInt(qtyInput2 ? qtyInput2.value : '') || 1;
                 if (rosterQty2 < 1) rosterQty2 = 1;
                 if (sizeSelect2) {
@@ -5509,7 +5510,9 @@ window.sublimation_addRosterRow = function() {
         }
         cellsHtml += '</td>';
     });
-    cellsHtml += '<td class="text-center align-middle">1</td>'
+    cellsHtml += '<td class="text-center align-middle">1'
+        + '<input type="hidden" class="roster-qty" value="1">'
+        + '</td>'
         + '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="sublimation_removeRosterRow(this)" title="Remove"><i class="fas fa-times"></i></button></td>';
     
     row.innerHTML = cellsHtml;
@@ -5797,7 +5800,7 @@ window.sublimation_printOrderSlip = function() {
     totalSizeInputs.forEach(function(inp) { totalQty += parseInt(inp.value) || 0; });
     var totalRosterRows = document.querySelectorAll('#sublimation_rosterBody tr.roster-row');
     totalRosterRows.forEach(function(row) {
-        var qtyInput = row.querySelector('.roster-number');
+        var qtyInput = row.querySelector('.roster-qty') || row.querySelector('.roster-number');
         totalQty += qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
     });
     document.getElementById('ps_qty').textContent = totalQty + ' PCS';
@@ -6003,9 +6006,10 @@ function sublimation_autoBuildFromExcel(headers, rows) {
     // Auto-detect column roles from header text
     var nameCols = [];
     var sizeCol = -1;
-    var numCol = -1;
+    var numCol = -1;   // jersey number column
+    var qtyCol = -1;   // quantity column
     
-    // Two-pass column detection: first find name + size, then qty (priority over #/number)
+    // First pass: find name + size
     headers.forEach(function(h, idx) {
         var hl = (h || '').toLowerCase().trim();
         if (hl.indexOf('name') >= 0 || hl === 'person' || hl === 'player' || hl === 'employee') {
@@ -6014,21 +6018,22 @@ function sublimation_autoBuildFromExcel(headers, rows) {
             sizeCol = idx;
         }
     });
-    // Second pass: QTY/QUANTITY/COUNT first, then #/NO/NUMBER/# as fallback
+    // Second pass: find NUMBER/#/NO/JERSEY columns (jersey numbers) — use contains check for "NUMBER - FRONT AND BACK"
     headers.forEach(function(h, idx) {
         var hl = (h || '').toLowerCase().trim();
-        if ((hl === 'qty' || hl === 'quantity' || hl === 'count') && numCol < 0) {
+        if (nameCols.indexOf(idx) >= 0 || idx === sizeCol) return; // skip already mapped
+        if ((hl.indexOf('number') >= 0 || hl === 'no' || hl === 'no.' || hl === '#' || hl === 'jersey') && numCol < 0) {
             numCol = idx;
         }
     });
-    if (numCol < 0) {
-        headers.forEach(function(h, idx) {
-            var hl = (h || '').toLowerCase().trim();
-            if ((hl === 'number' || hl === 'no' || hl === 'no.' || hl === '#' || hl === 'jersey') && numCol < 0) {
-                numCol = idx;
-            }
-        });
-    }
+    // Third pass: find QTY/QUANTITY/COUNT columns (quantity) — separate from jersey number
+    headers.forEach(function(h, idx) {
+        var hl = (h || '').toLowerCase().trim();
+        if (nameCols.indexOf(idx) >= 0 || idx === sizeCol || idx === numCol) return; // skip already mapped
+        if ((hl === 'qty' || hl === 'quantity' || hl === 'count') && qtyCol < 0) {
+            qtyCol = idx;
+        }
+    });
     
     // Build displayCols — ALL columns preserved, with cssClass for auto-detected roles
     var displayCols = [];
@@ -6037,6 +6042,7 @@ function sublimation_autoBuildFromExcel(headers, rows) {
         if (nameCols.indexOf(idx) >= 0) cssClass = 'roster-name';
         else if (idx === sizeCol) cssClass = 'roster-size';
         else if (idx === numCol) cssClass = 'roster-number';
+        else if (idx === qtyCol) cssClass = 'roster-qty';
         displayCols.push({header: h || '(Col ' + (idx + 1) + ')', colIdx: idx, cssClass: cssClass});
     });
     
@@ -6077,7 +6083,7 @@ function sublimation_autoBuildFromExcel(headers, rows) {
                 var displayVal = rawVal;
                 if (col.cssClass === 'roster-size') {
                     displayVal = normalizeSize(displayVal.toUpperCase());
-                } else if (col.cssClass === 'roster-number') {
+                } else if (col.cssClass === 'roster-number' || col.cssClass === 'roster-qty') {
                     // Clean up number display: strip trailing .0
                     var numParsed = parseFloat(displayVal);
                     if (!isNaN(numParsed) && String(numParsed) === displayVal) {

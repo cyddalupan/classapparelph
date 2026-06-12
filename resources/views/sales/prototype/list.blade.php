@@ -126,6 +126,157 @@
         font-size: 13px;
     }
     .filter-bar input { min-width: 200px; }
+
+    /* Pending notification styles */
+    .pending-count-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #dc3545;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        min-width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 5px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    tr.has-pending {
+        border-left: 4px solid #ffc107 !important;
+        background: #fffef5 !important;
+    }
+    tr.has-pending:hover td {
+        background: #fff8e1 !important;
+    }
+    .pending-row-badge {
+        margin-left: 6px;
+        font-size: 12px;
+        animation: pulse-notif 2s infinite;
+        cursor: pointer;
+    }
+    @keyframes pulse-notif {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    #pendingToggleBtn.active {
+        background: #ffca2a;
+        box-shadow: 0 0 0 3px rgba(255,193,7,0.4);
+    }
+
+    /* Pending Modal */
+    .pending-modal-overlay {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(3px);
+        animation: fadeIn 0.2s;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .pending-modal-content {
+        background: #fff;
+        margin: 60px auto;
+        max-width: 640px;
+        width: 90%;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        overflow: hidden;
+        animation: slideUp 0.25s ease-out;
+    }
+    @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .pending-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 24px;
+        border-bottom: 1px solid #eee;
+        background: #fffdf0;
+    }
+    .pending-modal-header h4 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+    }
+    .pending-modal-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        color: #999;
+        line-height: 1;
+        padding: 0 4px;
+    }
+    .pending-modal-close:hover {
+        color: #333;
+    }
+    .pending-modal-body {
+        padding: 8px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    .pending-modal-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: 10px;
+        margin: 4px 0;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.15s;
+        cursor: pointer;
+    }
+    .pending-modal-item:hover {
+        background: #fff8e1;
+    }
+    .pending-item-left {
+        min-width: 130px;
+    }
+    .pending-item-sale {
+        display: block;
+        font-weight: 700;
+        font-size: 13px;
+        color: #0d6efd;
+    }
+    .pending-item-customer {
+        display: block;
+        font-size: 11px;
+        color: #6c757d;
+    }
+    .pending-item-summary {
+        flex: 1;
+        font-size: 12px;
+        color: #555;
+        line-height: 1.3;
+    }
+    .pending-item-total {
+        text-align: right;
+        font-size: 12px;
+        white-space: nowrap;
+        min-width: 100px;
+    }
+    .pending-item-arrow {
+        color: #ccc;
+        font-size: 18px;
+        font-weight: 300;
+    }
+    .pending-modal-item:hover .pending-item-arrow {
+        color: #0d6efd;
+    }
 </style>
 @endpush
 
@@ -138,6 +289,11 @@
         <div class="list-actions">
             <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-outline-primary btn-sm">📊 Kanban Board</a>
             <a href="{{ route('sales.prototype.create') }}" class="btn btn-primary btn-sm">➕ New Order</a>
+            @if(isset($totalPending) && $totalPending > 0)
+                <button class="btn btn-warning btn-sm" id="pendingToggleBtn" onclick="showPendingModal()" style="position:relative;">
+                    🔔 Additional Order <span class="pending-count-badge">{{ $totalPending }}</span>
+                </button>
+            @endif
         </div>
     </div>
 
@@ -166,6 +322,34 @@
         <span class="text-muted" style="font-size:13px;">{{ $sales->total() }} orders</span>
     </div>
 
+    <!-- Pending Changes Modal -->
+    @if(isset($pendingChangesList) && $pendingChangesList->count() > 0)
+    <div id="pendingModal" class="pending-modal-overlay" onclick="if(event.target===this)closePendingModal()">
+        <div class="pending-modal-content">
+            <div class="pending-modal-header">
+                <h4><i class="fas fa-clock text-warning me-2"></i>Additional Orders Awaiting Approval</h4>
+                <button onclick="closePendingModal()" class="pending-modal-close">&times;</button>
+            </div>
+            <div class="pending-modal-body">
+                @foreach($pendingChangesList as $pc)
+                <a href="{{ route('sales.prototype.show', $pc->sale_id) }}" class="pending-modal-item">
+                    <div class="pending-item-left">
+                        <span class="pending-item-sale">{{ $pc->sales_number }}</span>
+                        <span class="pending-item-customer">{{ $pc->customer_name ?: '—' }}</span>
+                    </div>
+                    <div class="pending-item-summary">{{ $pc->change_summary }}</div>
+                    <div class="pending-item-total">
+                        <span class="text-muted">₱{{ number_format($pc->total_before, 2) }} → </span>
+                        <strong>₱{{ number_format($pc->total_after, 2) }}</strong>
+                    </div>
+                    <div class="pending-item-arrow">→</div>
+                </a>
+                @endforeach
+            </div>
+        </div>
+    </div>
+    @endif
+
     <!-- Table -->
     <div style="overflow-x:auto;">
         <table class="pipeline-table" id="orderTable">
@@ -189,8 +373,13 @@
                         if ($statusIndex === false) $statusIndex = 0;
                         $isActive = false;
                     @endphp
-                    <tr onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'">
-                        <td><strong>{{ $sale->sales_number }}</strong></td>
+                    <tr onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                        <td>
+                            <strong>{{ $sale->sales_number }}</strong>
+                            @if(!empty($pendingCounts[$sale->id]))
+                                <span class="badge bg-warning text-dark pending-row-badge" title="Has pending changes for approval">🔔</span>
+                            @endif
+                        </td>
                         <td>{{ $sale->customer_name ?: '—' }}</td>
                         <td>
                             <span class="dept-badge" style="background:{{ $departmentColors[$sale->department_id] ?? '#6c757d' }};">
@@ -256,6 +445,35 @@
 
 @push('scripts')
 <script>
+function showPendingModal() {
+    document.getElementById('pendingModal').style.display = 'block';
+}
+function closePendingModal() {
+    document.getElementById('pendingModal').style.display = 'none';
+}
+
+function togglePendingRows() {
+    var btn = document.getElementById('pendingToggleBtn');
+    var rows = document.querySelectorAll('#orderTable tbody tr.has-pending');
+    var allHidden = true;
+    rows.forEach(function(row) { if (row.style.display !== 'none') allHidden = false; });
+    
+    if (allHidden) {
+        // Show only pending rows
+        var allRows = document.querySelectorAll('#orderTable tbody tr');
+        allRows.forEach(function(r) {
+            if (r.querySelector('td[colspan]')) return;
+            r.style.display = r.classList.contains('has-pending') ? '' : 'none';
+        });
+        btn.classList.add('active');
+    } else {
+        // Show all rows
+        var allRows = document.querySelectorAll('#orderTable tbody tr');
+        allRows.forEach(function(r) { r.style.display = ''; });
+        btn.classList.remove('active');
+    }
+}
+
 function filterTable() {
     var search = document.getElementById('searchInput').value.toLowerCase();
     var dept = document.getElementById('deptFilter').value;

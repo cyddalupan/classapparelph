@@ -41,13 +41,22 @@
             <button type="button" class="btn btn-success" onclick="openSubAddProductModal()">
                 <i class="fas fa-plus-circle"></i> Add Product
             </button>
-            <a href="{{ route('sales.prototype.edit-items', $sale->id) }}" class="btn btn-primary">
-                <i class="fas fa-edit"></i> Edit
-            </a>
+            
+            @php
+                $canReprocess = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
+            @endphp
+            @if($canEdit && $canReprocess)
+            <button type="button" class="btn btn-warning" onclick="openSubReprocessModal()">
+                <i class="fas fa-sync-alt"></i> Reprocess Order
+            </button>
+            @endif
             @endif
             <a href="{{ route('sales.prototype.print-slip', $sale->id) }}" target="_blank" class="btn btn-success">
                 <i class="fas fa-print"></i> Print Slip
             </a>
+            <button type="button" class="btn btn-primary" onclick="openPdfSelector()">
+                <i class="fas fa-file-pdf"></i> Print Order Slip (PDF)
+            </button>
             <a href="{{ url('/sales/prototype/kanban/' . ($sale->department_code ?? '')) }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Back
             </a>
@@ -304,6 +313,77 @@
                         </button>
                     </div>
                     @endif
+
+                    @php
+                        $servicesAfter = is_string($change->services_after) ? json_decode($change->services_after, true) : $change->services_after;
+                        $servicesBefore = is_string($change->services_before) ? json_decode($change->services_before, true) : $change->services_before;
+                        $servicesAfter = is_array($servicesAfter) ? $servicesAfter : [];
+                        $servicesBefore = is_array($servicesBefore) ? $servicesBefore : [];
+                    @endphp
+                    @if(count($servicesAfter) > 0)
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-info" type="button" onclick="togglePendingDetails({{ $change->id }})">
+                            <i class="fas fa-eye"></i> <span id="pendingDetailsLabel-{{ $change->id }}">View Details</span>
+                        </button>
+                    </div>
+                    <div id="pendingDetails-{{ $change->id }}" style="display:none;" class="mt-2 p-2 border rounded bg-white small">
+                        @php
+                            // Find added items (in services_after but not in services_before by ID)
+                            $beforeIds = [];
+                            foreach ($servicesBefore as $sb) { $beforeIds[] = $sb['id'] ?? $sb['itemId'] ?? null; }
+                            $afterItems = [];
+                            foreach ($servicesAfter as $sa) {
+                                $saId = $sa['id'] ?? $sa['itemId'] ?? null;
+                                if ($saId && in_array($saId, $beforeIds)) continue;
+                                $afterItems[] = $sa;
+                            }
+                            // If no clear diff, show all
+                            if (count($afterItems) === 0) $afterItems = $servicesAfter;
+                        @endphp
+                        @foreach($afterItems as $item)
+                            @php $sf = $item['sublimationForm'] ?? $item; @endphp
+                            <div class="mb-2 p-2 {{ !$loop->last ? 'border-bottom' : '' }}">
+                                <div class="fw-bold">{{ $item['name'] ?? $sf['projectName'] ?? 'Product' }}</div>
+                                <div class="row g-1 mt-1">
+                                    <div class="col-6"><span class="text-muted">Fabric:</span> {{ $sf['fabric']['name'] ?? (is_string($sf['fabric'] ?? null) ? $sf['fabric'] : 'N/A') }}</div>
+                                    <div class="col-6"><span class="text-muted">Garment:</span> {{ $sf['garment']['name'] ?? $sf['garmentType'] ?? 'N/A' }}</div>
+                                    <div class="col-6"><span class="text-muted">Designer:</span> {{ $sf['designer'] ?? 'N/A' }}</div>
+                                    <div class="col-6"><span class="text-muted">Qty:</span> {{ $item['quantity'] ?? $sf['totalQty'] ?? '0' }}</div>
+                                    @if(!empty($sf['sizes']) && count($sf['sizes']) > 0)
+                                    <div class="col-12">
+                                        <span class="text-muted">Sizes:</span>
+                                        @foreach($sf['sizes'] as $sz)
+                                            {{ $sz['size'] ?? $sz['name'] ?? '?' }}{{ isset($sz['qty']) ? ' x'.$sz['qty'] : '' }}{{ !$loop->last ? ',' : '' }}
+                                        @endforeach
+                                    </div>
+                                    @endif
+                                    @if(!empty($sf['roster']))
+                                    <div class="col-12">
+                                        <span class="text-muted">Roster:</span>
+                                        @foreach($sf['roster'] as $ro)
+                                            {{ $ro['name'] ?? '' }}{{ !$loop->last ? ',' : '' }}
+                                        @endforeach
+                                    </div>
+                                    @endif
+                                    @if(!empty($sf['parts']) && count($sf['parts']) > 0)
+                                    <div class="col-12">
+                                        <span class="text-muted">Parts:</span>
+                                        @foreach($sf['parts'] as $pt)
+                                            {{ is_array($pt) ? ($pt['name'] ?? $pt['label'] ?? $pt['value']) : $pt }}{{ !$loop->last ? ',' : '' }}
+                                        @endforeach
+                                    </div>
+                                    @endif
+                                    @if(!empty($sf['mockupUrl']) || !empty($sf['mockup']))
+                                    <div class="col-12 mt-1">
+                                        <img src="{{ $sf['mockupUrl'] ?? $sf['mockup'] }}" style="max-height:120px;max-width:100%;object-fit:contain;border:1px solid #ddd;border-radius:4px;" alt="Mockup">
+                                    </div>
+                                    @endif
+                                </div>
+                                <div class="mt-1 text-end fw-bold">₱{{ number_format($item['totalPrice'] ?? $item['price'] ?? 0, 2) }}</div>
+                            </div>
+                        @endforeach
+                    </div>
+                    @endif
                 </div>
                 @endforeach
             </div>
@@ -316,6 +396,21 @@
                     <div class="info-label">Total Amount</div>
                     <div class="info-value fw-bold fs-5">₱{{ number_format($sale->total_amount ?? 0, 2) }}</div>
                 </div>
+                @if(isset($pendingChanges) && $pendingChanges->count() > 0)
+                    @php
+                        $projectedTotal = $sale->total_amount;
+                        foreach ($pendingChanges as $change) {
+                            $diff = $change->total_after - $change->total_before;
+                            $projectedTotal += $diff;
+                        }
+                    @endphp
+                    @if($projectedTotal > $sale->total_amount)
+                    <div class="mb-2 p-2 bg-warning bg-opacity-10 rounded border border-warning">
+                        <div class="info-label small text-warning"><i class="fas fa-clock me-1"></i>Projected Total (after pending)</div>
+                        <div class="fw-bold" style="color:#856404;">₱{{ number_format($projectedTotal, 2) }}</div>
+                    </div>
+                    @endif
+                @endif
                 @if(($sale->deposit_paid ?? 0) > 0)
                 <div class="mb-2">
                     <div class="info-label">Deposit Paid</div>
@@ -781,8 +876,31 @@
     }
     
     // ---------- Approve / Reject Change ----------
+    /* ── Professional Approve Modal ── */
+    function togglePendingDetails(changeId) {
+        var details = document.getElementById('pendingDetails-' + changeId);
+        var label = document.getElementById('pendingDetailsLabel-' + changeId);
+        if (details.style.display === 'none') {
+            details.style.display = 'block';
+            label.textContent = 'Hide Details';
+        } else {
+            details.style.display = 'none';
+            label.textContent = 'View Details';
+        }
+    }
+
     function approveChange(changeId) {
-        if (!confirm('Approve this change request?')) return;
+        var modal = document.getElementById('approveModal');
+        modal.querySelector('.cm-confirm-btn').dataset.changeId = changeId;
+        modal.style.display = 'flex';
+    }
+    function closeApproveModal() {
+        document.getElementById('approveModal').style.display = 'none';
+    }
+    function doApprove(btn) {
+        var changeId = btn.dataset.changeId;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="cm-spinner"></span> Approving...';
         
         fetch('/sales/prototype/change/' + changeId + '/approve', {
             method: 'POST',
@@ -799,17 +917,42 @@
                 setTimeout(function() { location.reload(); }, 1500);
             } else {
                 showToast(data.message || 'Failed to approve.', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = 'Yes, Approve';
             }
         })
-        .catch(function() { showToast('Error approving change.', 'danger'); });
+        .catch(function() {
+            showToast('Error approving change.', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = 'Yes, Approve';
+        });
     }
     
+    /* ── Professional Reject Modal ── */
     function showRejectModal(changeId) {
-        var reason = prompt('Enter reason for rejection:');
-        if (!reason || reason.length < 5) {
-            alert('Please enter a reason (at least 5 characters).');
+        var modal = document.getElementById('rejectModal');
+        modal.querySelector('.cm-confirm-btn').dataset.changeId = changeId;
+        modal.querySelector('.cm-reason-input').value = '';
+        modal.querySelector('.cm-char-count').textContent = '0';
+        modal.style.display = 'flex';
+    }
+    function closeRejectModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+    }
+    function updateRejectCount(el) {
+        el.closest('.cm-modal-body').querySelector('.cm-char-count').textContent = el.value.length;
+    }
+    function doReject(btn) {
+        var changeId = btn.dataset.changeId;
+        var reason = document.getElementById('rejectReasonInput').value.trim();
+        if (reason.length < 5) {
+            document.getElementById('rejectReasonInput').focus();
+            document.getElementById('rejectReasonInput').style.borderColor = '#dc3545';
             return;
         }
+        document.getElementById('rejectReasonInput').style.borderColor = '';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="cm-spinner"></span> Rejecting...';
         
         fetch('/sales/prototype/change/' + changeId + '/reject', {
             method: 'POST',
@@ -828,9 +971,15 @@
                 setTimeout(function() { location.reload(); }, 1500);
             } else {
                 showToast(data.message || 'Failed to reject.', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = 'Reject';
             }
         })
-        .catch(function() { showToast('Error rejecting change.', 'danger'); });
+        .catch(function() {
+            showToast('Error rejecting change.', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = 'Reject';
+        });
     }
     
     window.openLightbox = function(src) {
@@ -871,6 +1020,15 @@
         document.body.style.overflow = 'hidden';
         img.src = src;
     };
+    
+    /* ── Close modals on Escape key ── */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeApproveModal();
+            closeRejectModal();
+        }
+    });
+    
     window.closeLightbox = function() {
         var overlay = document.getElementById('imageLightbox');
         if (overlay) {
@@ -879,4 +1037,295 @@
         }
     };
 </script>
+
+<!-- Approve Confirmation Modal -->
+<div id="approveModal" class="cm-overlay" onclick="if(event.target===this)closeApproveModal()">
+    <div class="cm-modal">
+        <div class="cm-header">
+            <h4><i class="fas fa-check-circle text-success me-2"></i>Approve Change Request</h4>
+            <button onclick="closeApproveModal()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body">
+            <p class="cm-body-text">Are you sure you want to approve this change request?</p>
+            <div class="cm-info-box">
+                <i class="fas fa-info-circle text-primary me-2"></i>
+                The approved changes including additional products and price adjustments will be applied to this order immediately.
+            </div>
+        </div>
+        <div class="cm-footer">
+            <button onclick="closeApproveModal()" class="cm-cancel-btn">Cancel</button>
+            <button onclick="doApprove(this)" class="cm-confirm-btn cm-approve">Yes, Approve</button>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Reason Modal -->
+<div id="rejectModal" class="cm-overlay" onclick="if(event.target===this)closeRejectModal()">
+    <div class="cm-modal">
+        <div class="cm-header">
+            <h4><i class="fas fa-times-circle text-danger me-2"></i>Reject Change Request</h4>
+            <button onclick="closeRejectModal()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body">
+            <p class="cm-body-text">Please provide a reason for rejection:</p>
+            <div class="cm-reject-input-group">
+                <textarea id="rejectReasonInput" class="cm-reason-input" rows="3" placeholder="Enter reason for rejection..." oninput="updateRejectCount(this)"></textarea>
+                <div class="cm-char-hint"><span class="cm-char-count">0</span> / 500 characters (min 5)</div>
+            </div>
+        </div>
+        <div class="cm-footer">
+            <button onclick="closeRejectModal()" class="cm-cancel-btn">Cancel</button>
+            <button onclick="doReject(this)" class="cm-confirm-btn cm-reject">Reject</button>
+        </div>
+    </div>
+</div>
+
+<!-- PDF Item Selector Modal -->
+<div id="pdfSelectorModal" class="cm-overlay" onclick="if(event.target===this)closePdfSelector()">
+    <div class="cm-modal" style="max-width:500px;">
+        <div class="cm-header">
+            <h4><i class="fas fa-file-pdf text-primary me-2"></i>Select Print Slip Items</h4>
+            <button onclick="closePdfSelector()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body">
+            <p class="cm-body-text">Pumili kung aling item ang isasama sa PDF:</p>
+            <div id="pdfItemList" style="margin:12px 0;">
+            </div>
+        </div>
+        <div class="cm-footer">
+            <button onclick="closePdfSelector()" class="cm-cancel-btn">Cancel</button>
+            <button onclick="doDownloadPdf()" class="cm-confirm-btn cm-approve">
+                <i class="fas fa-download"></i> Download Selected
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openPdfSelector() {
+    var items = [];
+    @php
+        $pdfItems = [];
+        if (!empty($services)) {
+            foreach ($services as $si => $svc) {
+                $sf = $svc['sublimationForm'] ?? [];
+                if (!empty($sf)) {
+                    $g = $sf['garment']['name'] ?? $sf['garmentType'] ?? '';
+                    $f = $sf['fabric']['name'] ?? (is_string($sf['fabric'] ?? null) ? $sf['fabric'] : '');
+                    $n = $svc['name'] ?? '';
+                    $r = count($sf['roster'] ?? []);
+                    $pdfItems[] = ['idx' => $si, 'name' => $n, 'garment' => $g, 'fabric' => $f, 'rosterCount' => $r];
+                }
+            }
+        }
+    @endphp
+    items = @json($pdfItems);
+    
+    var container = document.getElementById('pdfItemList');
+    container.innerHTML = '';
+    
+    if (items.length === 0) {
+        container.innerHTML = '<p class="text-muted">No sublimation items found.</p>';
+        document.querySelector('#pdfSelectorModal .cm-confirm-btn').style.display = 'none';
+    } else {
+        document.querySelector('#pdfSelectorModal .cm-confirm-btn').style.display = '';
+        items.forEach(function(item, i) {
+            var label = item.garment ? (item.garment + (item.fabric ? ' — ' + item.fabric : '')) : (item.name || 'Item #' + (item.idx + 1));
+            var rosterInfo = item.rosterCount > 0 ? ' (' + item.rosterCount + ' entries)' : '';
+            var div = document.createElement('div');
+            div.style.cssText = 'padding:8px 12px;margin:4px 0;border:1px solid #ddd;border-radius:8px;display:flex;align-items:center;';
+            div.innerHTML = '<input type="checkbox" class="pdf-item-cb" data-idx="' + item.idx + '" checked style="width:18px;height:18px;margin-right:10px;">' +
+                '<span>' + label + rosterInfo + '</span>';
+            container.appendChild(div);
+        });
+    }
+    
+    document.getElementById('pdfSelectorModal').style.display = 'flex';
+}
+
+function closePdfSelector() {
+    document.getElementById('pdfSelectorModal').style.display = 'none';
+}
+
+function doDownloadPdf() {
+    var checkboxes = document.querySelectorAll('.pdf-item-cb:checked');
+    if (checkboxes.length === 0) {
+        alert('Please select at least one item.');
+        return;
+    }
+    var indices = [];
+    checkboxes.forEach(function(cb) {
+        indices.push(cb.dataset.idx);
+    });
+    closePdfSelector();
+    var url = "{{ route('sales.prototype.print-slip.pdf', $sale->id) }}?items=" + indices.join(',');
+    window.open(url, '_blank');
+}
+</script>
+
+<style>
+/* Confirmation Modal Styles */
+.cm-overlay {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(3px);
+    align-items: center;
+    justify-content: center;
+    animation: cmFadeIn 0.2s;
+}
+@keyframes cmFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.cm-modal {
+    background: #fff;
+    max-width: 480px;
+    width: 90%;
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+    animation: cmSlideUp 0.25s ease-out;
+}
+@keyframes cmSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.cm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid #eee;
+}
+.cm-header h4 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+}
+.cm-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+    padding: 0 4px;
+}
+.cm-close:hover { color: #333; }
+.cm-body {
+    padding: 24px;
+}
+.cm-body-text {
+    margin: 0 0 16px;
+    font-size: 15px;
+    color: #333;
+    line-height: 1.5;
+}
+.cm-info-box {
+    background: #f0f7ff;
+    border-left: 4px solid #0d6efd;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.4;
+}
+.cm-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #eee;
+    background: #fafafa;
+}
+.cm-cancel-btn {
+    padding: 8px 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    color: #555;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.cm-cancel-btn:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
+}
+.cm-confirm-btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #fff;
+    transition: all 0.15s;
+    min-width: 130px;
+}
+.cm-confirm-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+.cm-approve {
+    background: #198754;
+}
+.cm-approve:hover:not(:disabled) {
+    background: #157347;
+}
+.cm-reject {
+    background: #dc3545;
+}
+.cm-reject:hover:not(:disabled) {
+    background: #bb2d3b;
+}
+.cm-reject-input-group {
+    margin-top: 8px;
+}
+.cm-reason-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    font-size: 14px;
+    resize: vertical;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.cm-reason-input:focus {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
+}
+.cm-char-hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 6px;
+    text-align: right;
+}
+.cm-char-count {
+    font-weight: 600;
+}
+.cm-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: cmSpin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+@keyframes cmSpin {
+    to { transform: rotate(360deg); }
+}
+</style>
 @endpush

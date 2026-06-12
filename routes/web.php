@@ -784,8 +784,10 @@ Route::get('/inventorylist', function() {
 
         Route::get('/sales/prototype/{id}/details', [App\Http\Controllers\PrototypeSalesController::class, 'details'])->name('sales.prototype.details');
         Route::get('/sales/prototype/{id}/print-slip', [App\Http\Controllers\PrototypeSalesController::class, 'printSlip'])->name('sales.prototype.print-slip');
+        Route::get('/sales/prototype/{id}/print-slip/pdf', [App\Http\Controllers\PrototypeSalesController::class, 'printSlipPdf'])->name('sales.prototype.print-slip.pdf');
         Route::get('/api/production/checklist/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'getProductionChecklist'])->name('api.production.checklist.get');
         Route::post('/api/production/checklist/{id}/save', [App\Http\Controllers\PrototypeSalesController::class, 'saveProductionChecklist'])->name('api.production.checklist.save');
+        Route::get('/api/production/additional/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'getAdditionalProductionChecklist'])->name('api.production.additional.get');
         Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
         Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');
         Route::put('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'update'])->name('sales.prototype.update');
@@ -820,6 +822,7 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/{id}/add-comment', [App\Http\Controllers\PrototypeSalesController::class, 'addComment'])->name('sales.prototype.add-comment');
         Route::get('/sales/prototype/{id}/audit-history', [App\Http\Controllers\PrototypeSalesController::class, 'auditHistory'])->name('sales.prototype.audit-history');
         Route::post('/sales/prototype/{id}/add-product', [App\Http\Controllers\PrototypeSalesController::class, 'addProduct'])->name('sales.prototype.add-product');
+        Route::post('/sales/prototype/{id}/reprocess-order', [App\Http\Controllers\PrototypeSalesController::class, 'reprocessOrder'])->name('sales.prototype.reprocess-order');
 
         // Department Inventory Management (iPrint & others)
         Route::middleware(['auth'])->group(function () {

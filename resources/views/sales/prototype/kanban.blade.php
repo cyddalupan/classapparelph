@@ -278,6 +278,7 @@
     .ps-comment-input button { padding:6px 12px; font-size:12px; background:#0d6efd; color:white; border:none; border-radius:4px; cursor:pointer; }
 
     #modalProdSlipBody { max-height:70vh; overflow-y:auto; }
+    #modalAddProdSlipBody { max-height:70vh; overflow-y:auto; }
 </style>
 @endpush
 
@@ -426,6 +427,9 @@
                 <button class="prod-tab" data-tab="prodSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
                     <i class="fas fa-clipboard-list me-1"></i>Production Slip
                 </button>
+                <button class="prod-tab" data-tab="addProdSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-plus-circle me-1"></i>Additional Production Slip
+                </button>
             </div>
             <div class="modal-body" id="modalSaleBody">
                 <div class="text-center text-muted py-4">
@@ -434,13 +438,12 @@
                 </div>
             </div>
             <div class="modal-body" id="modalProdSlipBody" style="display:none;"></div>
+            <div class="modal-body" id="modalAddProdSlipBody" style="display:none;"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-success" id="addonOpenBtn" style="display:none;" onclick="addonOpenProductModal('garment')">
                     <i class="fas fa-plus me-1"></i>+ Add Items
                 </button>
-                <a href="#" id="modalEditBtn" class="btn btn-primary" target="_blank" style="display:none;">
-                    <i class="fas fa-edit"></i> Edit
-                </a>
+                <!-- Edit button removed — will be repurposed for manager approval -->
                 <a href="#" id="modalPrintSlipBtn" class="btn btn-success" target="_blank" style="display:none;">
                     <i class="fas fa-print"></i> View Printable
                 </a>
@@ -477,245 +480,26 @@
                 </ul>
                 
                 <div class="tab-content" id="addonProductTabContent">
+                                    </div>
                     <div class="tab-pane fade show active" id="addonGarmentBody" role="tabpanel">
-                                                    <div class="row">
-                                <!-- LEFT COLUMN: Product Selection -->
-                                <div class="col-md-5">
-                                    <!-- MULTIPLE PRODUCT ROWS SECTION -->
-                                    <!-- GARMENT FILTER SECTION -->
-                                    <div class="card mb-3">
-                                        <div class="card-header bg-light py-2">
-                                            <h6 class="mb-0"><i class="fas fa-filter me-1"></i> Filter Products</h6>
-                                        </div>
-                                        <div class="card-body p-3">
-                                            <div class="row g-2">
-                                                <div class="col-md-4">
-                                                    <label class="form-label small mb-1">Brand</label>
-                                                    <input type="text" class="form-control form-control-sm" id="addonGarment_filterBrand" list="addonGarment_brandOptions" placeholder="Type or select brand...">
-                                                    <datalist id="addonGarment_brandOptions"></datalist>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <label class="form-label small mb-1">Size</label>
-                                                    <input type="text" class="form-control form-control-sm" id="addonGarment_filterType" list="addonGarment_typeOptions" placeholder="Type or select size...">
-                                                    <datalist id="addonGarment_typeOptions"></datalist>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <label class="form-label small mb-1">Color</label>
-                                                    <input type="text" class="form-control form-control-sm" id="addonGarment_filterColor" list="addonGarment_colorOptions" placeholder="Type or select color...">
-                                                    <datalist id="addonGarment_colorOptions"></datalist>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 text-end">
-                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addonGarment_applyFilters()">
-                                                    <i class="fas fa-filter me-1"></i> Apply Filters
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addonGarment_resetFilters()">
-                                                    <i class="fas fa-redo me-1"></i> Reset
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label">Products *</label>
-                                        <div id="addonGarment_productRowsContainer">
-                                            <!-- Product Row Template (Hidden) -->
-                                            <div class="product-row-template d-none">
-                                                <div class="row g-2 mb-2 align-items-center">
-                                                    <div class="col-md-6">
-                                                        <select class="form-control product-select" required>
-                                                            <option value="">Select a product</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- First Product Row -->
-                                            <div class="product-row">
-                                                <div class="row g-2 mb-2 align-items-center">
-                                                    <div class="col-md-6">
-                                                        <select class="form-control product-select" required>
-                                                            <option value="">Select a product</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mt-2">
-                                            <button type="button" class="btn btn-sm btn-outline-success" id="addonGarment_addProductRowBtn">
-                                                <i class="fas fa-plus-circle me-1"></i> Add Another Product
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">Assign to Department *</label>
-                                        <select class="form-control" id="addonGarment_departmentSelect" name="department_id" required>
-                                            <option value="">-- Select Department --</option>
-                                            <option value="iprint">iPrint Department</option>
-                                            <option value="consol">Consol Department</option>
-                                            <option value="cinco">Cinco Department</option>
-                                            <option value="class">Class Department</option>
-                                            <option value="mto">Made to Order Department</option>
-                                            <option value="other">Other Department</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">Notes (Optional)</label>
-                                        <textarea class="form-control" id="addonGarment_productNotes" rows="3" placeholder="Add special instructions..."></textarea>
-                                    </div>
-                                    
-                                    <!-- Reference Images Section -->
-                                    <div class="mb-3">
-                                        <label class="form-label">Reference Images (Optional)</label>
-                                        <p class="small text-muted mb-2">Upload design reference images for the printer.</p>
-                                        <div id="referenceDropZone" style="border: 2px dashed #ccc; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s;"
-                                             onclick="addonGarment_triggerReferenceFilePicker()"
-                                             ondrop="addonGarment_onReferenceDrop(event)"
-                                             ondragover="addonGarment_onReferenceDragOver(event)"
-                                             ondragleave="addonGarment_onReferenceDragLeave(event)"
-                                             onpaste="addonGarment_onReferencePaste(event)">
-                                            <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
-                                            <p class="mb-1 small">Drag & drop images here, click to browse, or paste (Ctrl+V)</p>
-                                            <p class="mb-0 small text-muted">Supports: JPG, PNG, GIF</p>
-                                        </div>
-                                        <input type="file" id="addonReferenceFilePicker" accept="image/*" multiple style="display:none" onchange="addonGarment_onReferenceFilePickerChange(event)">
-                                        <div id="referencePreviewsGallery" class="d-flex flex-wrap gap-2 mt-2"></div>
-                                    </div>
-                                </div>
-                                
-                                <!-- MIDDLE COLUMN: Printing Options -->
-                                <div class="col-md-3">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6 class="card-title"><i class="fas fa-print me-2"></i>Printing Options</h6>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Print Type *</label>
-                                                <select class="form-control" id="addonGarment_printTypeSelect" onchange="addonGarment_loadPrintSizes(this.value)">
-                                                    <option value="">-- Select Print Type --</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Print Sizes</label>
-                                                <div id="addonGarment_printSizesContainer" class="small" style="display:none;">
-                                                    <div id="addonGarment_printSizesList"></div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mb-3" id="addonGarment_printQuantitySection" style="display:none;">
-                                                <label class="form-label">Print Quantity</label>
-                                                <input type="number" class="form-control" id="addonGarment_printQuantityInput" min="1" value="1" onchange="addonGarment_updatePrintSummary()">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- RIGHT COLUMN: Order Summary -->
-                                <div class="col-md-4">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6 class="card-title"><i class="fas fa-shopping-cart me-2"></i>Order Summary</h6>
-                                            
-                                            <!-- Products Breakdown -->
-                                            <div id="addonGarment_productsBreakdown" class="mb-3">
-                                                <div class="text-muted small mb-2">No products selected yet</div>
-                                            </div>
-                                            
-                                            <hr>
-                                            
-                                            <div class="d-flex justify-content-between mb-2">
-                                                <span>Total Quantity:</span>
-                                                <span id="addonGarment_totalQtyDisplay">0</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between fw-bold mb-2">
-                                                <span>Total Amount:</span>
-                                                <span id="addonGarment_totalAmountDisplay">₱0.00</span>
-                                            </div>
-                                            
-                                            <!-- Print Summary Sidebar -->
-                                            <div id="addonGarment_printSummarySidebar" style="display:none;">
-                                                <hr>
-                                                <div id="addonGarment_printSizesBreakdown" class="small mb-2"></div>
-                                                <div class="d-flex justify-content-between small">
-                                                    <span>Print Cost/ea:</span>
-                                                    <span id="addonGarment_printCostPerItemDisplay">₱0.00</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small">
-                                                    <span>Qty:</span>
-                                                    <span id="addonGarment_printQtyDisplay">0</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small">
-                                                    <span>Print Subtotal:</span>
-                                                    <span id="addonGarment_printSubtotalDisplay">₱0.00</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small text-danger" id="addonGarment_comboDiscountRow" style="display:none;">
-                                                    <span>Combo Discount:</span>
-                                                    <span id="addonGarment_comboDiscountDisplay">-₱0.00</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small text-danger" id="addonGarment_bulkDiscountRow" style="display:none;">
-                                                    <span>Bulk Discount:</span>
-                                                    <span id="addonGarment_bulkDiscountDisplay">-₱0.00</span>
-                                                </div>
-                                                <hr class="my-1">
-                                                <div class="d-flex justify-content-between fw-bold small">
-                                                    <span>Print Total:</span>
-                                                    <span id="addonGarment_printTotalDisplay">₱0.00</span>
-                                                </div>
-                                                <hr>
-                                                <div class="d-flex justify-content-between fw-bold">
-                                                    <span>Grand Total:</span>
-                                                    <span id="addonGarment_grandTotalDisplay">₱0.00</span>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Special Price Section -->
-                                            <div class="mt-3 p-2 bg-light rounded" id="addonGarment_specialPriceSection" style="display:none;">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <span class="fw-bold small">💵 SPECIAL PRICE ACTIVE</span>
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addonGarment_clearSpecialPrice()">✕ Clear</button>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label class="small text-muted">Set Print Total:</label>
-                                                    <div class="input-group input-group-sm">
-                                                        <span class="input-group-text">₱</span>
-                                                        <input type="number" class="form-control" id="addonGarment_specialPrintTotal" min="0" step="0.01" placeholder="0.00" oninput="addonGarment_onSpecialPriceChange()">
-                                                    </div>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label class="small text-muted">Reason *</label>
-                                                    <input type="text" class="form-control form-control-sm" id="addonGarment_specialPriceReason" placeholder="Why special price?" required>
-                                                </div>
-                                            </div>
-                                            
-                                            <button type="button" class="btn btn-outline-warning btn-sm w-100 mt-2" id="addonGarment_specialPriceBtn" onclick="addonGarment_toggleSpecialPrice()">
-                                                💰 Special Price
-                                            </button>
-                                            
-                                            <button type="button" class="btn btn-primary w-100 mt-2" id="addonGarment_addItemBtn">
-                                                <i class="fas fa-cart-plus me-2"></i> Add to Add-on Request
-                                            </button>
-                                        </div>
-                                    </div>
+                        <div class="text-center py-5">
+                            <i class="fas fa-tshirt fa-4x text-primary mb-3" style="opacity:0.6;"></i>
+                            <h5 class="fw-bold">Full Garment Printing Form</h5>
+                            <p class="text-muted mb-1">Complete garment printing with all features:</p>
+                            <div class="d-flex justify-content-center gap-3 mb-3 flex-wrap small">
+                                <span class="badge bg-light text-dark p-2"><i class="fas fa-image text-info me-1"></i> Mockup Upload</span>
+                                <span class="badge bg-light text-dark p-2"><i class="fas fa-palette text-info me-1"></i> Fabric Selection</span>
+                                <span class="badge bg-light text-dark p-2"><i class="fas fa-cogs text-info me-1"></i> Specs (Inner, Pocket, Cuffs, etc.)</span>
+                                <span class="badge bg-light text-dark p-2"><i class="fas fa-ruler text-info me-1"></i> Sizes (Qty Mode / Roster / Excel Import)</span>
+                                <span class="badge bg-light text-dark p-2"><i class="fas fa-puzzle-piece text-info me-1"></i> Additional Parts</span>
+                                <span class="badge bg-light text-dark p-2"><i class="fas fa-tag text-info me-1"></i> Special Pricing</span>
+                            </div>
+                            <button type="button" class="btn btn-lg btn-primary px-4" onclick="kanbanOpenSubAddProductModal()">
+                                <i class="fas fa-external-link-alt me-2"></i> Open Garment Printing Form
+                            </button>
+                            <p class="text-muted small mt-2 mb-0">Opens the full garment printing form with mockup, specifications, sizes, and pricing.</p>
+                        </div>
+                    </div>
                                 </div>
                     </div>
                     <div class="tab-pane fade" id="addonGenericBody" role="tabpanel">
@@ -942,10 +726,15 @@
 
 <!-- LIGHTBOX overlay is created dynamically by JS (avoids Bootstrap modal repaint issues) -->
 
+@include('partials.sublimation-show-modal')
+
 @endsection
 
 @push('scripts')
 <script>
+// Sales with approved additional products (from change requests)
+var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
+
 (function() {
     'use strict';
     
@@ -1067,9 +856,21 @@
         title.dataset.saleId = saleId;
         body.dataset.saleId = saleId;
         
-        // Clear production slip cache so it reloads when switching tabs
+        // Toggle Additional Production Slip tab based on approved additions
+        var addProdTab = document.querySelector('.prod-tab[data-tab="addProdSlip"]');
+        if (addProdTab) {
+            if (approvedAdditions && approvedAdditions.indexOf(parseInt(saleId)) !== -1) {
+                addProdTab.style.display = '';
+            } else {
+                addProdTab.style.display = 'none';
+            }
+        }
+        
+        // Clear production slip caches so they reload when switching tabs
         var prodBody = document.getElementById('modalProdSlipBody');
+        var addProdBody = document.getElementById('modalAddProdSlipBody');
         if (prodBody) prodBody.dataset.loaded = '';
+        if (addProdBody) addProdBody.dataset.loaded = '';
         
         // Reset to Details tab on open
         var allTabs = document.querySelectorAll('.prod-tab');
@@ -1085,6 +886,7 @@
             detailsTab.style.fontWeight = '600';
         }
         if (prodBody) prodBody.style.display = 'none';
+        if (addProdBody) addProdBody.style.display = 'none';
         body.style.display = '';
         
         // Fetch sale data
@@ -1111,12 +913,14 @@
             } else {
                 document.getElementById('addonOpenBtn').style.display = 'none';
             }
-            // Update Edit and Print Slip button links
+            // Store first service name for addon modal
+            addon_currentFirstServiceName = data.firstServiceName || '';
+            
+            // Update Print Slip button link
             var editBtn = document.getElementById('modalEditBtn');
             var printBtn = document.getElementById('modalPrintSlipBtn');
             if (editBtn) {
-                editBtn.href = '/sales/prototype/' + saleId + '/edit';
-                editBtn.style.display = '';
+                editBtn.style.display = 'none';
             }
             if (printBtn) {
                 printBtn.href = '/sales/prototype/' + saleId + '/print-slip';
@@ -1266,6 +1070,7 @@ var addon_garment_uploadedReferenceImages = [];
 var addon_garment_referenceImageCounter = 0;
 var addon_garment_hasSpecialPrice = false;
 var addon_currentSaleId = '';
+var addon_currentFirstServiceName = '';
 
 window.addonOpenProductModal = function(productType) {
     addon_currentProductType = productType;
@@ -1320,6 +1125,50 @@ window.addonGarment_openModal = function(pt) {
     addonGarment_initializeProductRows();
     addonGarment_loadFilterOptions(pt);
     addonGarment_populatePrintTypes();
+};
+
+// Full Garment Printing Form (opens sublimation modal from show page, adapted for kanban)
+window.kanbanOpenSubAddProductModal = function() {
+    var saleId = addon_currentSaleId;
+    if (!saleId) {
+        alert('No sale selected. Please open a sale first.');
+        return;
+    }
+    
+    // Fetch sale data for modal pre-fill
+    fetch('/sales/prototype/' + saleId + '/details' + window.location.search, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        // Set up modal data attributes for the shared sublimation modal
+        var modalEl = document.getElementById('subAddProductModal');
+        if (!modalEl) return;
+        
+        // Construct the add-product URL for this sale
+        modalEl.dataset.addProductUrl = '/sales/prototype/' + saleId + '/add-product';
+        modalEl.dataset.orderNumber = data.title ? data.title.replace(/.*\(#/, '').replace(/\)$/, '') : '';
+        modalEl.dataset.customerName = data.title ? data.title.replace(/Sale: /, '').replace(/ \(#.*/, '') : '';
+        
+        // Show sale badge
+        var badge = document.getElementById('subSaleBadge');
+        if (badge) {
+            badge.textContent = 'To Order #' + (data.title ? data.title.replace(/.*\(#/, '').replace(/\)$/, '') : saleId);
+            badge.style.display = '';
+        }
+        
+        // Open the modal with sale data
+        var saleData = {
+            services: [],
+            firstServiceName: data.firstServiceName || ''
+        };
+        window.openSubAddProductModal(saleData);
+    })
+    .catch(function(err) {
+        // Fallback: open modal without pre-fill
+        var saleData = { services: [], firstServiceName: '' };
+        window.openSubAddProductModal(saleData);
+    });
 };
 
 window.addonGarment_initializeProductRows = function() {
@@ -1907,13 +1756,30 @@ document.addEventListener("DOMContentLoaded", function() {
 
         var detailsBody = document.getElementById('modalSaleBody');
         var prodBody = document.getElementById('modalProdSlipBody');
+        var addProdBody = document.getElementById('modalAddProdSlipBody');
 
         if (tabName === 'details') {
             detailsBody.style.display = '';
             prodBody.style.display = 'none';
+            addProdBody.style.display = 'none';
+        } else if (tabName === 'addProdSlip') {
+            detailsBody.style.display = 'none';
+            prodBody.style.display = 'none';
+            addProdBody.style.display = '';
+            // Reload if different sale or not loaded yet
+            var needReload = !addProdBody.dataset.loaded || addProdBody.dataset.saleId !== detailsBody.dataset.saleId;
+            if (needReload) {
+                var saleId = detailsBody.dataset.saleId;
+                if (saleId) {
+                    addProdBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading additional production slip...</p></div>';
+                    addProdBody.dataset.loaded = '';
+                    loadAdditionalProductionSlip(saleId);
+                }
+            }
         } else {
             detailsBody.style.display = 'none';
             prodBody.style.display = '';
+            addProdBody.style.display = 'none';
             // Reload if different sale or not loaded yet
             var needReload = !prodBody.dataset.loaded || prodBody.dataset.saleId !== detailsBody.dataset.saleId;
             if (needReload) {
@@ -2116,9 +1982,9 @@ function renderProductionSlip(data) {
                     html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
                 });
             } else {
-                html += '<td>' + escHtml(rosterItem.name || '') + '</td>';
+                html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
                 html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
-                html += '<td>' + (rosterItem.number || 1) + '</td>';
+                html += '<td>' + (rosterItem.qty || 1) + '</td>';
             }
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
@@ -2178,6 +2044,386 @@ function renderProductionSlip(data) {
     prodBody.innerHTML = html;
     prodBody.dataset.loaded = '1';
     prodBody.dataset.saleId = saleId;
+}
+
+function loadAdditionalProductionSlip(saleId) {
+    var addProdBody = document.getElementById('modalAddProdSlipBody');
+    if (!saleId || !addProdBody) return;
+
+    fetch('/api/production/additional/' + saleId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                addProdBody.innerHTML = '<div class="alert alert-danger">' + escHtml(data.error) + '</div>';
+                return;
+            }
+            renderAdditionalProductionSlip(saleId, data);
+        })
+        .catch(function(err) {
+            addProdBody.innerHTML = '<div class="alert alert-danger">Failed to load additional production slip</div>';
+        });
+}
+
+function renderAdditionalProductionSlip(saleId, data) {
+    var html = '';
+    
+    // Header banner
+    html += '<div style="margin-bottom:16px;padding:12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;">'
+        + '<strong><i class="fas fa-plus-circle me-1"></i> Additional Production Slip</strong><br>'
+        + '<span style="font-size:12px;color:#856404;">Products added after the original order via change requests.</span>'
+        + '</div>';
+    
+    if (data.has_additional && data.products && data.products.length > 0) {
+        data.products.forEach(function(prod, idx) {
+            var partRows = prod.partRows || [];
+            var roster = prod.roster || [];
+            var sizes = prod.sizes || [];
+            var nameList = roster.length > 0 ? roster : sizes;
+            var hasRoster = roster.length > 0;
+            
+            // Card header
+            html += '<div class="pslip" style="margin-bottom:16px;">';
+            html += '<h1 style="font-size:16pt;">CUSTOMER FORM SPECIFICATIONS</h1>';
+            if (data.sales_number) {
+                html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(data.sales_number) + '</div>';
+            }
+            html += '<div class="divider"></div>';
+            
+            // Info + Parts table
+            html += '<table><tr>';
+            html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+            function fmtDate(d) {
+                if (!d) return '';
+                var parts = d.split('-');
+                if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+                return d;
+            }
+            var infoFields = [
+                ['PROJECT:', prod.name],
+                ['DESCRIPTION:', prod.description],
+                ['FABRIC:', prod.fabric],
+                ['DESIGNER:', prod.designer],
+                ['QTY:', (prod.quantity || 0) + ' PCS'],
+                ['DATE NEEDED:', fmtDate(prod.dateNeeded)],
+                ['AGENT:', data.agent || ''],
+                ['CUSTOMER:', data.customer_name || '']
+            ];
+            infoFields.forEach(function(f) {
+                if (f[1]) {
+                    html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + escHtml(f[0]) + '</td><td>' + escHtml(f[1]) + '</td></tr></table>';
+                }
+            });
+            html += '</td>';
+            html += '<td style="width:67%;vertical-align:top;">';
+            html += '<div style="width:100%;">';
+            // Parts table (dynamic from partRows)
+            html += '<table style="width:100%;"><tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+            partRows.forEach(function(row) {
+                html += '<tr><td>' + escHtml(row.part || row[0]) + '</td><td>' + escHtml(row.detail || row[1]) + '</td></tr>';
+            });
+            html += '</table>';
+            html += '<div style="clear:both;"></div></div></td></tr></table>';
+            
+            html += '<div class="divider"></div>';
+            
+            // Mockup + Name list
+            html += '<table><tr>';
+            html += '<td style="width:30%;vertical-align:top" class="no-border">';
+            html += '<div class="section-title">MOCK UP</div>';
+            html += '<div class="mockup-box">';
+            if (prod.hasMockup && prod.mockupUrl) {
+                html += '<img src="' + escHtml(prod.mockupUrl) + '" alt="mockup" style="cursor:pointer;max-width:100%;max-height:100%;object-fit:contain;" onclick="window.openLightbox(\'' + escHtml(prod.mockupUrl) + '\')">';
+            } else {
+                html += '<span style="color:#999;">No mockup</span>';
+            }
+            html += '</div></td>';
+            
+            // Name list
+            html += '<td style="width:70%;vertical-align:top" class="no-border">';
+            html += '<div class="section-title">NAME LIST</div>';
+            
+            if (hasRoster) {
+                // Check for Excel columns in roster
+                var hasExcelCols = false;
+                var allColHeaders = [];
+                var isArrFormat = false;
+                var rosterData = roster;
+                for (var ri = 0; ri < rosterData.length; ri++) {
+                    if (rosterData[ri].columns) {
+                        hasExcelCols = true;
+                        if (!isArrFormat && Array.isArray(rosterData[ri].columns[0])) {
+                            isArrFormat = true;
+                        }
+                        if (isArrFormat) {
+                            for (var cj = 0; cj < rosterData[ri].columns.length; cj++) {
+                                if (allColHeaders.indexOf(rosterData[ri].columns[cj][0]) === -1) allColHeaders.push(rosterData[ri].columns[cj][0]);
+                            }
+                        } else {
+                            for (var key in rosterData[ri].columns) {
+                                if (allColHeaders.indexOf(key) === -1) allColHeaders.push(key);
+                            }
+                        }
+                    }
+                }
+                function getColValAddon(item, hdr) {
+                    if (!item.columns) return '';
+                    if (isArrFormat && Array.isArray(item.columns)) {
+                        for (var ci = 0; ci < item.columns.length; ci++) {
+                            if (item.columns[ci][0] === hdr) return item.columns[ci][1];
+                        }
+                        return '';
+                    }
+                    return item.columns[hdr] || '';
+                }
+                html += '<table style="width:100%;font-size:9pt;border-collapse:collapse;">';
+                html += '<thead><tr><th>#</th>';
+                if (hasExcelCols) {
+                    allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+                } else {
+                    html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+                }
+                html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+                html += '<tbody>';
+                rosterData.forEach(function(r, ri) {
+                    html += '<tr>';
+                    html += '<td style="text-align:center;">' + (ri + 1) + '</td>';
+                    if (hasExcelCols) {
+                        allColHeaders.forEach(function(h) {
+                            html += '<td>' + escHtml(getColValAddon(r, h)) + '</td>';
+                        });
+                    } else {
+                        html += '<td>' + escHtml(r.name || '') + (r.number ? ' - ' + r.number : '') + '</td>';
+                        html += '<td>' + escHtml(r.size || '') + '</td>';
+                        html += '<td style="text-align:center;">' + (r.qty || 1) + '</td>';
+                    }
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'ga_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'qa1_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'qa2_done\', this.checked)"></td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+            } else if (sizes.length > 0) {
+                html += '<table style="width:100%;font-size:9pt;border-collapse:collapse;">';
+                html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+                html += '<tbody>';
+                sizes.forEach(function(s, si) {
+                    html += '<tr>';
+                    html += '<td>' + escHtml(s.size || '') + '</td>';
+                    html += '<td style="text-align:center;">' + (s.qty || s.quantity || 0) + '</td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'ga_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'qa1_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'qa2_done\', this.checked)"></td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+            }
+            html += '</td></tr></table>';
+            html += '</div>'; // end .pslip
+        });
+    } else {
+        html += '<div class="text-center text-muted py-5">';
+        html += '<i class="fas fa-inbox fa-3x mb-3" style="display:block;color:#ccc;"></i>';
+        html += '<p>No additional products found for this sale.</p>';
+        html += '<p style="font-size:12px;">Additional products appear here after a change request with new items is approved.</p>';
+        html += '</div>';
+    }
+    
+    var addProdBody = document.getElementById('modalAddProdSlipBody');
+    addProdBody.innerHTML = html;
+    addProdBody.dataset.loaded = '1';
+    addProdBody.dataset.saleId = saleId;
+}
+
+function renderProductionSlipHtml(data, showProductLabel) {
+    // Reuse the same rendering as renderProductionSlip but return HTML
+    var chk = data.checklist || {};
+    var slip = data.slip || {};
+    var saleId = chk.sale_id || 0;
+    var items = chk.items || [];
+    var partRows = slip.partRows || [];
+    var allRosters = slip.allRosters || [];
+    var sizes = slip.sizes || [];
+    var hasRoster = slip.hasRoster || false;
+    var mockupImages = slip.mockupImages || [];
+    var firstMockup = mockupImages.length > 0 ? mockupImages[0] : null;
+    var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
+
+    var splitMid = Math.ceil(partRows.length / 2);
+    var leftParts = partRows.slice(0, splitMid);
+    var rightParts = partRows.slice(splitMid);
+
+    function findNthItemIdx(type, n) {
+        var count = 0;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type === type) {
+                if (count === n) return i;
+                count++;
+            }
+        }
+        return -1;
+    }
+
+    function getColVal(item, hdr) {
+        if (!item.columns) return '';
+        if (Array.isArray(item.columns) && Array.isArray(item.columns[0])) {
+            for (var j = 0; j < item.columns.length; j++) {
+                if (item.columns[j][0] === hdr) return item.columns[j][1];
+            }
+            return '';
+        }
+        return item.columns[hdr] || '';
+    }
+
+    var html = '';
+    html += '<div class="pslip" id="pslipContent">';
+
+    html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
+    if (slip.salesNumber) {
+        html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
+    }
+    html += '<div class="divider"></div>';
+
+    html += '<table><tr>';
+    html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+    var infoFields = [
+        ['PROJECT:', slip.projectName],
+        ['DESCRIPTION:', slip.description],
+        ['FABRIC:', slip.fabric],
+        ['DESIGNER:', slip.designer],
+        ['QTY:', slip.totalQty + ' PCS'],
+        ['DATE NEEDED:', slip.dateNeeded],
+        ['AGENT:', slip.agent],
+        ['CUSTOMER:', slip.customer]
+    ];
+    infoFields.forEach(function(f) {
+        if (f[1]) {
+            html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + escHtml(f[0]) + '</td><td>' + escHtml(f[1]) + '</td></tr></table>';
+        }
+    });
+    html += '</td>';
+    html += '<td style="width:67%;vertical-align:top;">';
+    html += '<div style="width:100%;">';
+    html += '<table style="width:49%;float:left;"><tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+    leftParts.forEach(function(row) {
+        html += '<tr><td>' + escHtml(row.part || row[0]) + '</td><td>' + escHtml(row.detail || row[1]) + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<table style="width:49%;float:right;"><tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+    rightParts.forEach(function(row) {
+        html += '<tr><td>' + escHtml(row.part || row[0]) + '</td><td>' + escHtml(row.detail || row[1]) + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<div style="clear:both;"></div></div></td></tr></table>';
+
+    html += '<div class="divider"></div>';
+
+    html += '<table><tr>';
+    html += '<td style="width:30%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">MOCK UP</div>';
+    html += '<div class="mockup-box">';
+    if (firstMockupUrl) {
+        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;max-width:100%;max-height:100%;object-fit:contain;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')">';
+    } else {
+        html += '<span>MOCK UP HERE</span>';
+    }
+    html += '</div></td>';
+
+    html += '<td style="width:70%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">NAME LIST</div>';
+
+    if (allRosters.length > 0) {
+        var hasExcelCols = false;
+        var allColHeaders = [];
+        var isArrFormat = false;
+        for (var ri = 0; ri < allRosters.length; ri++) {
+            var r = allRosters[ri];
+            if (r.columns) {
+                hasExcelCols = true;
+                if (!isArrFormat && Array.isArray(r.columns[0])) {
+                    isArrFormat = true;
+                }
+                if (isArrFormat) {
+                    for (var cj = 0; cj < r.columns.length; cj++) {
+                        if (allColHeaders.indexOf(r.columns[cj][0]) === -1) allColHeaders.push(r.columns[cj][0]);
+                    }
+                } else {
+                    for (var key in r.columns) {
+                        if (allColHeaders.indexOf(key) === -1) allColHeaders.push(key);
+                    }
+                }
+            }
+        }
+        html += '<table class="roster-table"><thead><tr><th>#</th>';
+        if (hasExcelCols) {
+            allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+        } else {
+            html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+        }
+        html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead><tbody>';
+        allRosters.forEach(function(rosterItem, idx) {
+            var itemIdx = findNthItemIdx('roster', idx);
+            var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + (idx + 1) + '</td>';
+            if (hasExcelCols) {
+                allColHeaders.forEach(function(h) {
+                    html += '<td>' + escHtml(getColVal(rosterItem, h)) + '</td>';
+                });
+            } else {
+                html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
+                html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
+                html += '<td>' + (rosterItem.qty || 1) + '</td>';
+            }
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else if (sizes.length > 0) {
+        html += '<table class="roster-table"><thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead><tbody>';
+        sizes.forEach(function(s, idx) {
+            var itemIdx = findNthItemIdx('size', idx);
+            var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + escHtml(s.size || '') + '</td>';
+            html += '<td>' + (s.quantity || 0) + '</td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else {
+        html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+    }
+    html += '</td></tr></table>';
+
+    if (slip.notes) {
+        html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
+    }
+
+    html += '<div class="divider"></div>';
+    html += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
+    html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
+    var comments = (chk.ga_notes || '').trim();
+    if (comments) {
+        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
+        if (Array.isArray(comments)) {
+            comments.forEach(function(c) {
+                html += '<div class="ps-comment-entry">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></div>';
+            });
+        }
+    }
+    html += '</div>';
+    html += '<div class="ps-comment-input">';
+    html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
+    html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    html += '</div>';
+
+    return html;
 }
 
 })();

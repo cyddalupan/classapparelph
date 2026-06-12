@@ -25,9 +25,10 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold">
-                    <i class="fas fa-box"></i> ➕ Add Fullsublimation Product
-                    <span class="badge bg-info ms-2" style="font-size:0.7rem;">To Order #{{ $sale->sales_number }}</span>
+                <h5 class="modal-title fw-bold" id="subModalTitle">
+                    <i class="fas fa-box" id="subModalTitleIcon"></i> <span id="subModalTitleText">Add Fullsublimation Product</span>
+                    @if(isset($sale))<span class="badge bg-info ms-2" style="font-size:0.7rem;">To Order #{{ $sale->sales_number }}</span>@endif
+                    <span id="subSaleBadge" class="badge bg-info ms-2" style="font-size:0.7rem;display:none;"></span>
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -100,6 +101,16 @@
 
                     <!-- TAB 2: SPECIFICATIONS -->
                     <div class="tab-pane fade" id="sub-specs" role="tabpanel">
+                        <div class="alert alert-info py-2 small mb-3">
+                            <i class="fas fa-info-circle me-1"></i> <strong>How to fill this out:</strong>
+                            <ul class="mb-0 mt-1 ps-3">
+                                <li>Pumili ng <strong>Garment Type</strong> — lalabas ang specification fields (collar type, sleeves, cuffs, etc.)</li>
+                                <li>Check ang <strong>Additional Parts</strong> kung may extra parts ang order (printing front/back, patches, etc.)</li>
+                                <li>Pumili ng <strong>Fabric</strong> at <strong>Designer</strong> sa <strong>Order Details tab</strong> bago pumunta dito</li>
+                                <li>Kung may gusto si client na idagdag o baguhin sa specs, ilagay sa <strong>Notes</strong> sa Order Details tab</li>
+                                <li class="text-warning fw-semibold">⚠ Lahat ng field na may * ay required</li>
+                            </ul>
+                        </div>
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Garment Type *</label>
@@ -248,7 +259,7 @@
                             <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
                                 <table class="table table-sm table-bordered mb-0" id="subRosterTable">
                                     <thead class="table-light">
-                                        <tr>
+                                        <tr id="subRosterHeader">
                                             <th style="width:50px">#</th>
                                             <th>Name</th>
                                             <th style="width:80px">Size</th>
@@ -273,6 +284,10 @@
 
                     <!-- TAB 4: PRICING -->
                     <div class="tab-pane fade" id="sub-pricing-body" role="tabpanel">
+                        <div class="alert alert-success py-2 small mb-2">
+                            <i class="fas fa-calculator me-1"></i> <strong>Auto-computed:</strong> Pumili ng Garment, Fabric, Parts, at Sizes — kusa na lang nag-cocompute ang pricing dito.
+                            <span class="d-block mt-1 text-muted">💡 Kung may <strong>Special Price</strong>, click <u>Set Special Price</u> button sa baba para mag-override ng unit price.</span>
+                        </div>
                         <div class="card border-success mt-3">
                             <div class="card-header bg-success text-white small py-2">
                                 <i class="fas fa-file-invoice me-1"></i> Full Price Breakdown
@@ -394,27 +409,121 @@ window.sub_sizesData = {};
 window.sub_hasSpecialPrice = false;
 window.sub_excelData = null;
 window.sub_excelHeaders = null;
+window.sub_partsData = [];
+window.sub_garmentsData = [];
+
+// Garment spec field definitions (same as create page)
+var sub_garmentSpecMap = {
+    tshirt: {
+        nameKeywords: ['TSHIRT'],
+        fields: [
+            { id: 'sub_spec_neckRibbingColor', label: 'Neck Ribbings Color', type: 'select', options: ['BLACK', 'WHITE', 'SUBILI PRINT'] },
+            { id: 'sub_spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'sub_spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'sub_spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'sub_spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'sub_spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'sub_spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'sub_spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
+    polo: {
+        nameKeywords: ['POLO'],
+        fields: [
+            { id: 'sub_spec_collar', label: 'Collar', type: 'select', options: ['SUBILI PRINT', 'KNITTED COLLAR'], autoAddon: { 'KNITTED COLLAR': 35 } },
+            { id: 'sub_spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'sub_spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'sub_spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'sub_spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'sub_spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'sub_spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'sub_spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
+    jersey: {
+        nameKeywords: ['JERSEY UP', 'JERSEY UP AND DOWN'],
+        fields: [
+            { id: 'sub_spec_neckRibbingColor', label: 'Neck Ribbings Color', type: 'select', options: ['BLACK', 'WHITE', 'SUBILI PRINT'] },
+            { id: 'sub_spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'sub_spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'sub_spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'sub_spec_neckShape', label: 'Neck Shape', type: 'select', options: ['VNECK', 'ROUNDNECK'] },
+            { id: 'sub_spec_cutType', label: 'Type of Cut', type: 'select', options: ['NBA CUT', 'REGULAR'], autoAddon: { 'NBA CUT': 32 } }
+        ]
+    },
+    'jersey-short': {
+        nameKeywords: ['JERSEY SHORT'],
+        fields: [
+            { id: 'sub_spec_inner', label: 'Inner', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 38 } },
+            { id: 'sub_spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } }
+        ]
+    },
+    hoodie: {
+        nameKeywords: ['HOODIE'],
+        fields: [
+            { id: 'sub_spec_neckRibbingColor', label: 'Neck Ribbings Color', type: 'select', options: ['BLACK', 'WHITE', 'SUBILI PRINT'] },
+            { id: 'sub_spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'sub_spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'sub_spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'sub_spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'sub_spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'sub_spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'sub_spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    }
+};
+
+window.sub_handleSpecAddon = function (field, selectedValue) {
+    for (var val in field.autoAddon) {
+        if (!field.autoAddon.hasOwnProperty(val)) continue;
+        var partId = field.autoAddon[val];
+        var cb = document.querySelector('.part-checkbox[value="' + partId + '"]');
+        if (cb) {
+            cb.checked = false;
+            cb.disabled = false;
+        }
+    }
+    if (selectedValue && field.autoAddon[selectedValue] !== undefined) {
+        var targetPartId = field.autoAddon[selectedValue];
+        var targetCb = document.querySelector('.part-checkbox[value="' + targetPartId + '"]');
+        if (targetCb) {
+            targetCb.checked = true;
+            targetCb.disabled = true;
+        }
+    }
+    sub_calculateTotal();
+    sub_autoGenerateDescription();
+};
 
 // ======= OPEN =======
-window.openSubAddProductModal = function() {
-    // Auto-fill Order Details from sale context
+window.openSubAddProductModal = function(saleData) {
+    // Accept saleData from kanban context (object with services, etc.)
+    // or use $sale PHP variable when available
+    <?php if (isset($sale)): ?>
     <?php
         $__saleServices = is_string($sale->services) ? json_decode($sale->services, true) : (array)$sale->services;
-        $__firstItemName = '';
-        if (is_array($__saleServices) && count($__saleServices) > 0) {
-            $__first = $__saleServices[0];
-            $__firstItemName = $__first['name'] ?? $__first['projectName'] ?? $__first['project_name'] ?? '';
-        }
+        $__customerName = $sale->customer_name ?? '';
     ?>
-    var projectName = document.getElementById('sub_projectName');
-    if (<?php echo json_encode($__firstItemName); ?>) {
-        projectName.value = <?php echo json_encode($__firstItemName); ?>;
-    }
+    // On show page — use PHP data
+    var services = <?php echo json_encode($__saleServices); ?> || [];
+    var customerName = <?php echo json_encode($__customerName); ?>;
+    <?php else: ?>
+        // On kanban — use passed saleData + modal dataset
+        var services = (saleData && saleData.services) || [];
+        var customerName = document.getElementById('subAddProductModal').dataset.customerName || '';
+    <?php endif; ?>
     
-    // Auto-fill date needed with a reasonable default (2 weeks from now)
-    var d = new Date();
-    d.setDate(d.getDate() + 14);
-    document.getElementById('sub_dateNeeded').value = d.toISOString().split('T')[0];
+    // Reset modal title to default
+    var titleIcon = document.getElementById('subModalTitleIcon');
+    if (titleIcon) { titleIcon.className = 'fas fa-box'; }
+    var titleText = document.getElementById('subModalTitleText');
+    if (titleText) { titleText.textContent = 'Add Fullsublimation Product'; }
+    
+    var projectName = document.getElementById('sub_projectName');
+    projectName.value = customerName ? 'Additional Order - ' + customerName : 'Additional Order';
+    
+    // Auto-fill date needed with today's date (customer can adjust)
+    document.getElementById('sub_dateNeeded').value = new Date().toISOString().split('T')[0];
 
     // Disable project name (redundant on existing order)
     projectName.disabled = true;
@@ -469,6 +578,8 @@ window.openSubAddProductModal = function() {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             window.sub_sizesData = {};
+            window.sub_partsData = data.parts || [];
+            window.sub_garmentsData = data.garments || [];
             if (data.sizes && data.sizes.length) {
                 data.sizes.forEach(function(item) {
                     window.sub_sizesData[item.name.toUpperCase()] = parseFloat(item.price) || 0;
@@ -510,6 +621,145 @@ window.openSubAddProductModal = function() {
         tab.show();
     }
     
+    // Set mode and reset button text
+    window.sub_reprocessMode = false;
+    var addBtn = document.getElementById('subAddItemBtn');
+    restoreAddBtnUI(addBtn, false);
+    
+    // Show modal
+    var modal = new bootstrap.Modal(document.getElementById('subAddProductModal'));
+    modal.show();
+};
+
+/**
+ * Open the sublimation modal in Reprocess mode.
+ * Starts with a blank form (same as add product) but uses the reprocess endpoint.
+ */
+window.openSubReprocessModal = function() {
+    window.sub_reprocessMode = true;
+    
+    // Same blank reset as add product
+    <?php if (isset($sale)): ?>
+    <?php
+        $__customerName = $sale->customer_name ?? '';
+    ?>
+    var customerName = <?php echo json_encode($__customerName); ?>;
+    <?php else: ?>
+        var customerName = document.getElementById('subAddProductModal').dataset.customerName || '';
+    <?php endif; ?>
+    
+    var projectName = document.getElementById('sub_projectName');
+    projectName.value = customerName ? 'Reprocess Order - ' + customerName : 'Reprocess Order';
+    
+    // Auto-fill date needed with today's date
+    document.getElementById('sub_dateNeeded').value = new Date().toISOString().split('T')[0];
+
+    // Update modal title
+    document.getElementById('subModalTitleIcon').className = 'fas fa-sync-alt';
+    document.getElementById('subModalTitleText').textContent = 'Reprocess Order';
+    
+    // Disable project name
+    projectName.disabled = true;
+    projectName.readOnly = true;
+    projectName.classList.add('sub-quick-disabled');
+    
+    // Reset everything else
+    document.getElementById('sub_description').value = '';
+    document.getElementById('sub_designer').value = '';
+    document.getElementById('sub_notes').value = '';
+    
+    var partsCont = document.getElementById('sub_partsContainer');
+    partsCont.innerHTML = '<p class="text-muted small mb-0">Select Garment type first...</p>';
+    
+    document.querySelectorAll('.sub-size-qty').forEach(function(el) { el.value = '0'; });
+    
+    var rosterBody = document.getElementById('subRosterBody');
+    var rows = rosterBody.querySelectorAll('tr.roster-row');
+    rows.forEach(function(r) { r.remove(); });
+    var empty = document.getElementById('subRosterEmpty');
+    if (empty) empty.style.display = '';
+    document.getElementById('subRosterCount').textContent = '0';
+    
+    document.getElementById('subSizeModeByQty').checked = true;
+    sub_toggleSizeMode();
+    
+    sub_removeMockup();
+    
+    var spSec = document.getElementById('subSpecialPriceSection');
+    var spBtn = document.getElementById('subSpecialPriceBtn');
+    if (spSec) spSec.style.display = 'none';
+    if (spBtn) { spBtn.textContent = '💰 Special Price'; spBtn.classList.remove('btn-warning'); spBtn.classList.add('btn-outline-warning'); }
+    document.getElementById('subSpecialPrintTotal').value = '';
+    document.getElementById('subSpecialPriceReason').value = '';
+    window.sub_hasSpecialPrice = false;
+    
+    // Reset garment/fabric & specs
+    var garmentSel = document.getElementById('sub_garmentSelect');
+    var fabricSel = document.getElementById('sub_fabricSelect');
+    if (garmentSel) garmentSel.innerHTML = '<option value="">Loading...</option>';
+    if (fabricSel) fabricSel.innerHTML = '<option value="">Loading...</option>';
+    document.getElementById('sub_specsFields').innerHTML = '<p class="text-muted small mb-0">Select a garment type to see specifications.</p>';
+    
+    // Change save button text
+    var addBtn = document.getElementById('subAddItemBtn');
+    if (addBtn) {
+        addBtn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Submit Reprocess';
+        addBtn.classList.remove('btn-success');
+        addBtn.classList.add('btn-warning');
+    }
+    
+    // Fetch sublimation prices (same as add product)
+    fetch('/api/sublimation-prices')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            window.sub_sizesData = {};
+            window.sub_partsData = data.parts || [];
+            window.sub_garmentsData = data.garments || [];
+            if (data.sizes && data.sizes.length) {
+                data.sizes.forEach(function(item) {
+                    window.sub_sizesData[item.name.toUpperCase()] = parseFloat(item.price) || 0;
+                });
+            }
+            if (garmentSel) {
+                garmentSel.innerHTML = '<option value="">-- Select Garment --</option>';
+                data.garments.forEach(function(item) {
+                    var opt = document.createElement('option');
+                    opt.value = item.id || item.name;
+                    opt.textContent = item.name;
+                    opt.dataset.price = item.price || 0;
+                    garmentSel.appendChild(opt);
+                });
+            }
+            if (fabricSel) {
+                fabricSel.innerHTML = '<option value="">-- Select Fabric --</option>';
+                if (data.fabrics && data.fabrics.length) {
+                    data.fabrics.forEach(function(item) {
+                        var opt = document.createElement('option');
+                        opt.value = item.id || item.name;
+                        opt.textContent = item.name;
+                        opt.dataset.price = item.price || 0;
+                        fabricSel.appendChild(opt);
+                    });
+                }
+            }
+            // Reset pricing
+            document.getElementById('subPricing_totalQty').textContent = '0';
+            document.getElementById('subPricing_unitPrice').textContent = '₱0.00';
+            document.getElementById('subPricing_grandTotal').textContent = '₱0.00';
+            var szSec = document.getElementById('subPricing_sizesSection');
+            if (szSec) szSec.style.display = 'none';
+            var szGrid = document.getElementById('sub_sizeQtyGrid');
+            if (szGrid) szGrid.style.display = 'none';
+            window.sub_selectedGarment = null;
+            // Select a size-eligible (non-'sizing') garment by default so sizes show (add product only)
+            if (!window.sub_reprocessMode) {
+                sub_initDefaultGarment();
+            }
+        })
+        .catch(function(err) {
+            console.error('Failed to load sublimation prices:', err);
+        });
+    
     // Show modal
     var modal = new bootstrap.Modal(document.getElementById('subAddProductModal'));
     modal.show();
@@ -542,9 +792,12 @@ window.sub_removeMockup = function() {
 window.sub_autoGenerateDescription = function() {
     var garment = document.getElementById('sub_garmentSelect');
     var fabric = document.getElementById('sub_fabricSelect');
+    var partsData = window.sub_partsData || [];
     var parts = [];
     document.querySelectorAll('#sub_partsContainer .part-checkbox:checked').forEach(function(cb) {
-        parts.push(cb.value);
+        var partId = parseInt(cb.value) || cb.value;
+        var found = partsData.find(function(p) { return parseInt(p.id) === parseInt(partId); });
+        parts.push(found ? found.name : partId);
     });
     var garmentText = garment.options[garment.selectedIndex] ? garment.options[garment.selectedIndex].text : '';
     var fabricText = fabric.options[fabric.selectedIndex] ? fabric.options[fabric.selectedIndex].text : '';
@@ -553,6 +806,19 @@ window.sub_autoGenerateDescription = function() {
     if (fabricText) desc += (desc ? ' - ' : '') + fabricText;
     if (parts.length) desc += (desc ? ' | ' : '') + parts.join('+');
     document.getElementById('sub_description').value = desc;
+};
+
+/**
+ * Select the first 'sized' garment (not a 'sizing' variant) so sizes section shows.
+ */
+window.sub_initDefaultGarment = function() {
+    var sel = document.getElementById('sub_garmentSelect');
+    if (!sel || sel.options.length <= 1) return;
+    // Skip the first placeholder option, pick the first real garment
+    sel.selectedIndex = 1;
+    sub_renderSpecs();
+    sub_calculateTotal();
+    sub_autoGenerateDescription();
 };
 
 // ======= SPECS RENDER =======
@@ -568,49 +834,92 @@ window.sub_renderSpecs = function() {
         return;
     }
     
-    var selectedOpt = select.options[select.selectedIndex];
-    container.innerHTML = '<p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Loading specifications...</p>';
-    partsCont.innerHTML = '<p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Loading parts...</p>';
+    var garmentName = select.options[select.selectedIndex].textContent;
+    var upperName = garmentName.toUpperCase();
     
-    fetch('/api/sublimation-prices')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            // Garment specs
-            var garment = data.garments.find(function(g) { return (g.id == garmentId || g.name == garmentId); });
-            if (garment && garment.specifications) {
-                var html = '<div class="row g-2">';
-                Object.keys(garment.specifications).forEach(function(key) {
-                    var val = garment.specifications[key];
-                    html += '<div class="col-md-6"><div class="border p-2 rounded bg-light"><strong class="small">' + key + ':</strong> <span class="small">' + val + '</span></div></div>';
-                });
-                html += '</div>';
-                container.innerHTML = html;
-            } else {
-                container.innerHTML = '<p class="text-muted small mb-0">No specifications available for this garment.</p>';
+    // Find matching spec group
+    var matchingGroup = null;
+    for (var key in sub_garmentSpecMap) {
+        if (!sub_garmentSpecMap.hasOwnProperty(key)) continue;
+        var group = sub_garmentSpecMap[key];
+        for (var kwIdx = 0; kwIdx < group.nameKeywords.length; kwIdx++) {
+            if (upperName.indexOf(group.nameKeywords[kwIdx].toUpperCase()) !== -1) {
+                matchingGroup = group;
+                break;
             }
-            
-            // Parts (addons)
-            if (garment && garment.addons && garment.addons.length) {
-                var partsHtml = '';
-                garment.addons.forEach(function(addon, idx) {
-                    var aName = addon.name || addon.addon_name || '';
-                    var aPrice = parseFloat(addon.price || addon.addon_price || 0);
-                    partsHtml += '<div class="form-check form-check-inline">';
-                    partsHtml += '<input class="form-check-input part-checkbox" type="checkbox" id="sub_part_' + idx + '" value="' + aName + '" data-price="' + aPrice + '" onchange="sub_calculateTotal(); sub_autoGenerateDescription()">';
-                    partsHtml += '<label class="form-check-label small" for="sub_part_' + idx + '">' + aName + ' (₱' + aPrice.toFixed(2) + ')</label>';
-                    partsHtml += '</div>';
-                });
-                partsCont.innerHTML = partsHtml;
-            } else {
-                partsCont.innerHTML = '<p class="text-muted small mb-0">No additional parts available.</p>';
+        }
+        if (matchingGroup) break;
+    }
+    
+    // Render spec fields
+    if (matchingGroup) {
+        var html = '<div class="spec-fields-container">';
+        matchingGroup.fields.forEach(function(f) {
+            html += '<div class="d-flex align-items-center mb-2 p-2 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;">';
+            html += '<label class="form-label small fw-semibold mb-0 me-2" style="min-width:110px;white-space:nowrap;">' + f.label + '</label>';
+            html += '<div class="flex-grow-1">';
+            if (f.type === 'select') {
+                html += '<select class="form-control form-control-sm sub-spec-select" data-fid="' + f.id + '">';
+                html += '<option value="">-- Select --</option>';
+                for (var oo = 0; oo < f.options.length; oo++) {
+                    html += '<option value="' + f.options[oo] + '">' + f.options[oo] + '</option>';
+                }
+                html += '</select>';
             }
-        })
-        .catch(function() {
-            container.innerHTML = '<p class="text-muted small mb-0">Error loading specifications.</p>';
+            html += '</div></div>';
         });
+        html += '</div>';
+        container.innerHTML = html;
+        
+        // Wire up auto-addon change handlers
+        matchingGroup.fields.forEach(function(f) {
+            if (!f.autoAddon) return;
+            var sel = container.querySelector('.sub-spec-select[data-fid="' + f.id + '"]');
+            if (!sel) return;
+            (function(field) {
+                sel.onchange = function() {
+                    sub_handleSpecAddon(field, this.value);
+                };
+            })(f);
+        });
+    } else {
+        container.innerHTML = '<p class="text-muted small mb-0">No specific fields for this garment type.</p>';
+    }
+    
+    // Render parts checkboxes from cached parts data
+    var parts = window.sub_partsData || [];
+    if (parts.length) {
+        var partsHtml = '';
+        parts.forEach(function(part, idx) {
+            var pName = part.name || '';
+            var pPrice = parseFloat(part.price || 0);
+            var pId = part.id || idx;
+            partsHtml += '<div class="form-check form-check-inline">';
+            partsHtml += '<input class="form-check-input part-checkbox" type="checkbox" id="sub_part_' + idx + '" value="' + pId + '" data-price="' + pPrice + '" onchange="sub_calculateTotal(); sub_autoGenerateDescription()">';
+            partsHtml += '<label class="form-check-label small" for="sub_part_' + idx + '">' + pName + ' (₱' + pPrice.toFixed(2) + ')</label>';
+            partsHtml += '</div>';
+        });
+        partsCont.innerHTML = partsHtml;
+    } else {
+        partsCont.innerHTML = '<p class="text-muted small mb-0">No additional parts available.</p>';
+    }
 };
 
 // ======= PRICE CALC =======
+// Helper: flexible size name match (form uses 5XLARGE, pricing may use 5XL)
+function sub_getSizePrice(name) {
+    if (window.sub_sizesData[name] !== undefined) return window.sub_sizesData[name];
+    if (name.endsWith('ARGE')) {
+        var alt = name.slice(0, -4);
+        if (window.sub_sizesData[alt] !== undefined) return window.sub_sizesData[alt];
+    }
+    if (name.endsWith('LARGE')) {
+        var alt2 = name.slice(0, -5);
+        if (window.sub_sizesData[alt2] !== undefined) return window.sub_sizesData[alt2];
+    }
+    return 0;
+}
+
 window.sub_calculateTotal = function() {
     var garmentSelect = document.getElementById('sub_garmentSelect');
     var fabricSelect = document.getElementById('sub_fabricSelect');
@@ -642,18 +951,44 @@ window.sub_calculateTotal = function() {
     var isRoster = document.getElementById('subSizeModeRoster') && document.getElementById('subSizeModeRoster').checked;
     
     if (isRoster) {
-        // Count roster rows
+        // Sum roster rows + generate size breakdown
+        var rosterSizeCounts = {};
         rosterRows.forEach(function(row) {
-            var qtyCell = row.querySelector('td:nth-child(4)');
-            var qty = parseInt(qtyCell ? qtyCell.textContent : 1) || 1;
+            var qtyInput = row.querySelector('.roster-number');
+            var qty = parseInt(qtyInput ? qtyInput.value : '') || 1;
             totalQty += qty;
+            
+            var sizeInput = row.querySelector('.roster-size');
+            if (sizeInput) {
+                var sizeName = (sizeInput.value || sizeInput.textContent || '').trim().toUpperCase();
+                var szPrice = sub_getSizePrice(sizeName);
+                if (szPrice > 0) {
+                    if (!rosterSizeCounts[sizeName]) rosterSizeCounts[sizeName] = {qty:0, price:szPrice};
+                    rosterSizeCounts[sizeName].qty += qty;
+                }
+            }
         });
+        
+        var hasSizeDiff = false;
+        Object.keys(rosterSizeCounts).sort(function(a,b) {
+            var order = {XS:0,SMALL:1,MEDIUM:2,LARGE:3,XLARGE:4,'2XLARGE':5,'3XLARGE':6,'4XLARGE':7,'5XLARGE':8,'6XLARGE':9,'7XLARGE':10,'8XLARGE':11,'5XL':8,'6XL':9,'7XL':10,'8XL':11};
+            return (order[a] || 99) - (order[b] || 99);
+        }).forEach(function(size) {
+            var info = rosterSizeCounts[size];
+            if (info.price > 0) {
+                hasSizeDiff = true;
+                sizeBreakdownHtml += '<div class="d-flex justify-content-between small text-muted"><span>' + size + ' x' + info.qty + '</span><span>+₱' + (info.price * info.qty).toFixed(2) + '</span></div>';
+            }
+        });
+        if (hasSizeDiff) {
+            sizeBreakdownHtml = '<hr class="my-1"><div class="small fw-bold text-muted">Size Add-ons:</div>' + sizeBreakdownHtml;
+        }
     } else {
         sizeInputs.forEach(function(input) {
             var val = parseInt(input.value) || 0;
             if (val > 0) {
                 var size = input.dataset.size;
-                var sizePrice = window.sub_sizesData[size] || 0;
+                var sizePrice = sub_getSizePrice(size);
                 sizeAddon += sizePrice * val;
                 totalQty += val;
             }
@@ -665,7 +1000,7 @@ window.sub_calculateTotal = function() {
             var val = parseInt(input.value) || 0;
             if (val > 0) {
                 var size = input.dataset.size;
-                var sizePrice = window.sub_sizesData[size] || 0;
+                var sizePrice = sub_getSizePrice(size);
                 if (sizePrice > 0) {
                     hasSizeDiff = true;
                     sizeBreakdownHtml += '<div class="d-flex justify-content-between small text-muted"><span>' + size + ' x' + val + '</span><span>+₱' + (sizePrice * val).toFixed(2) + '</span></div>';
@@ -679,10 +1014,20 @@ window.sub_calculateTotal = function() {
     
     var baseUnit = garmentPrice + fabricPrice + partsPrice;
     var maxSizeAddon = 0;
-    if (!isRoster) {
+    // Calculate maxSizeAddon from size mode inputs or roster row sizes
+    if (isRoster) {
+        rosterRows.forEach(function(row) {
+            var sizeInput = row.querySelector('.roster-size');
+            if (sizeInput) {
+                var sizeName = (sizeInput.value || sizeInput.textContent || '').trim().toUpperCase();
+                var szPrice = sub_getSizePrice(sizeName);
+                if (szPrice > maxSizeAddon) maxSizeAddon = szPrice;
+            }
+        });
+    } else {
         sizeInputs.forEach(function(input) {
             var size = input.dataset.size;
-            var sizePrice = window.sub_sizesData[size] || 0;
+            var sizePrice = sub_getSizePrice(size);
             if (sizePrice > maxSizeAddon) maxSizeAddon = sizePrice;
         });
     }
@@ -848,126 +1193,217 @@ window.sub_bulkPaste = function() {
 };
 
 // ======= EXCEL =======
+function _escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function _normalizeSize(s) {
+    var map = {xs:'XS',s:'S',m:'M',l:'L',xl:'XL','2xl':'2XL','3xl':'3XL','4xl':'4XL','5xl':'5XL','6xl':'6XL','7xl':'7XL','8xl':'8XL',sm:'SMALL',md:'MEDIUM',lg:'LARGE'};
+    return map[s.toLowerCase()] || s.toUpperCase();
+}
+
+window.sub_autoBuildFromExcel = function(headers, rows) {
+    // Store for mapping reference
+    window.sub_excelHeaders = headers;
+    window.sub_excelData = {headers: headers, rows: rows};
+    
+    var tbody = document.getElementById('subRosterBody');
+    var theadRow = document.getElementById('subRosterHeader');
+    
+    // Auto-detect column roles
+    var nameCols = [];
+    var sizeCol = -1;
+    var numCol = -1;
+    
+    headers.forEach(function(h, idx) {
+        var hl = (h || '').toLowerCase().trim();
+        if (hl.indexOf('name') >= 0 || hl === 'person' || hl === 'player' || hl === 'employee') {
+            nameCols.push(idx);
+        } else if (hl === 'size' || hl === 'sizes') {
+            sizeCol = idx;
+        }
+    });
+    headers.forEach(function(h, idx) {
+        var hl = (h || '').toLowerCase().trim();
+        if ((hl === 'qty' || hl === 'quantity' || hl === 'count') && numCol < 0) {
+            numCol = idx;
+        }
+    });
+    if (numCol < 0) {
+        headers.forEach(function(h, idx) {
+            var hl = (h || '').toLowerCase().trim();
+            if ((hl === 'number' || hl === 'no' || hl === 'no.' || hl === '#' || hl === 'jersey') && numCol < 0) {
+                numCol = idx;
+            }
+        });
+    }
+    
+    // Build displayCols — ALL columns preserved, with cssClass for auto-detected roles
+    var displayCols = [];
+    headers.forEach(function(h, idx) {
+        var cssClass = '';
+        if (nameCols.indexOf(idx) >= 0) cssClass = 'roster-name';
+        else if (idx === sizeCol) cssClass = 'roster-size';
+        else if (idx === numCol) cssClass = 'roster-number';
+        displayCols.push({header: _escHtml(h || ('(Col ' + (idx + 1) + ')')), colIdx: idx, cssClass: cssClass});
+    });
+    
+    // Clear existing rows
+    tbody.innerHTML = '';
+    var empty = document.getElementById('subRosterEmpty');
+    if (empty) empty.style.display = 'none';
+    
+    // Rebuild header with ALL Excel columns + fixed #, Qty, Remove
+    var headerHtml = '<th style="width:50px">#</th>';
+    displayCols.forEach(function(col) {
+        headerHtml += '<th>' + col.header + '</th>';
+    });
+    headerHtml += '<th style="width:40px"></th>';
+    theadRow.innerHTML = headerHtml;
+    
+    var added = 0;
+    rows.forEach(function(row) {
+        // Skip empty rows
+        var hasData = false;
+        for (var ci = 0; ci < row.length; ci++) {
+            if (row[ci] !== undefined && row[ci] !== null && String(row[ci]).trim() !== '') {
+                hasData = true;
+                break;
+            }
+        }
+        if (!hasData) return;
+        
+        var tr = document.createElement('tr');
+        tr.className = 'roster-row';
+        
+        var cellsHtml = '<td class="text-center align-middle">' + (added + 1) + '</td>';
+        
+        displayCols.forEach(function(col) {
+            var rawVal = (col.colIdx >= 0 && row[col.colIdx] !== undefined && row[col.colIdx] !== null)
+                ? String(row[col.colIdx]).trim() : '';
+            
+            var displayVal = rawVal;
+            if (col.cssClass === 'roster-size') {
+                displayVal = _normalizeSize(displayVal);
+            } else if (col.cssClass === 'roster-number') {
+                var numParsed = parseFloat(displayVal);
+                if (!isNaN(numParsed) && String(numParsed) === displayVal) {
+                    displayVal = String(numParsed);
+                } else {
+                    displayVal = displayVal.replace(/\.0+$/, '');
+                }
+            }
+            
+            cellsHtml += '<td class="align-middle">' + _escHtml(displayVal);
+            cellsHtml += '<input type="hidden" class="' + col.cssClass + '" data-header="' + col.header + '" value="' + _escHtml(displayVal) + '">';
+            cellsHtml += '</td>';
+        });
+        
+        cellsHtml += '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="sub_removeRosterRow(this)" title="Remove"><i class="fas fa-times"></i></button></td>';
+        
+        tr.innerHTML = cellsHtml;
+        tbody.appendChild(tr);
+        added++;
+    });
+    
+    if (added === 0 && empty) {
+        tbody.appendChild(empty);
+        empty.style.display = '';
+        empty.querySelector('td').colSpan = displayCols.length + 2;
+    }
+    
+    sub_updateRosterCount();
+    sub_calculateTotal();
+    
+    // Switch to roster mode
+    document.getElementById('subSizeModeRoster').checked = true;
+    sub_toggleSizeMode();
+    
+    // Reset file input
+    var input = document.getElementById('subExcelInput');
+    if (input) input.value = '';
+};
+
 window.sub_uploadExcel = function(event) {
     var file = event.target.files[0];
     if (!file) return;
     
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            var data = new Uint8Array(e.target.result);
-            var workbook = XLSX.read(data, {type: 'array'});
-            var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            var jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
-            
-            if (jsonData.length < 2) {
-                alert('Excel file must have at least a header row and one data row.');
-                return;
-            }
-            
-            var headers = jsonData[0];
-            var rows = jsonData.slice(1);
-            
-            // Auto-detect columns
-            var nameCol = -1, numberCol = -1, sizeCol = -1;
-            var namePatterns = ['name', 'player', 'person', 'employee', 'staff', 'first', 'last', 'full'];
-            var numberPatterns = ['number', 'no', '#', 'jersey', 'id', 'code'];
-            var sizePatterns = ['size', 'sizes', 'shirt', 'uniform'];
-            
-            headers.forEach(function(h, idx) {
-                var hl = (h + '').toLowerCase().trim();
-                namePatterns.forEach(function(p) { if (hl.includes(p)) nameCol = idx; });
-                numberPatterns.forEach(function(p) { if (hl.includes(p)) numberCol = idx; });
-                sizePatterns.forEach(function(p) { if (hl.includes(p)) sizeCol = idx; });
-            });
-            
-            if (nameCol === -1 && sizeCol === -1) {
-                // Show column mapping modal
-                var nameSel = document.getElementById('subMapCol_name');
-                var numberSel = document.getElementById('subMapCol_number');
-                var sizeSel = document.getElementById('subMapCol_size');
-                nameSel.innerHTML = '<option value="">-- skip --</option>';
-                numberSel.innerHTML = '<option value="">-- skip --</option>';
-                sizeSel.innerHTML = '<option value="">-- skip --</option>';
-                headers.forEach(function(h, idx) {
-                    var nameOpt = document.createElement('option');
-                    nameOpt.value = idx;
-                    nameOpt.textContent = h + ' (col ' + (idx+1) + ')';
-                    nameSel.appendChild(nameOpt);
-                    var optClone1 = nameOpt.cloneNode(true);
-                    numberSel.appendChild(optClone1);
-                    var optClone2 = nameOpt.cloneNode(true);
-                    sizeSel.appendChild(optClone2);
-                });
-                window.sub_excelData = rows;
-                window.sub_excelHeaders = headers;
-                document.getElementById('subMapPreview').textContent = rows.length + ' rows loaded. Please map columns.';
-                new bootstrap.Modal(document.getElementById('subColumnMapModal')).show();
-                return;
-            }
-            
-            var sizeMap = {xs:'XS',s:'S',m:'M',l:'L',xl:'XL','2xl':'2XL','3xl':'3XL','4xl':'4XL','5xl':'5XL','6xl':'6XL','7xl':'7XL','8xl':'8XL',sm:'SMALL',md:'MEDIUM',lg:'LARGE'};
-            rows.forEach(function(row) {
-                var name = nameCol >= 0 ? (row[nameCol] || '') + '' : '';
-                var size = sizeCol >= 0 ? (row[sizeCol] || '') + '' : '';
-                if (!name || !size) return;
+    function loadAndParse() {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var data = new Uint8Array(e.target.result);
+                var workbook = XLSX.read(data, {type: 'array'});
+                var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                var json = XLSX.utils.sheet_to_json(firstSheet, {header: 1, defval: ''});
                 
-                size = size.trim().toLowerCase();
-                size = sizeMap[size] || size.toUpperCase();
-                
-                document.getElementById('subRosterNewName').value = name.trim();
-                var sizeSelect = document.getElementById('subRosterNewSize');
-                for (var i = 0; i < sizeSelect.options.length; i++) {
-                    if (sizeSelect.options[i].value === size) {
-                        sizeSelect.selectedIndex = i;
-                        break;
-                    }
+                if (json.length < 1) {
+                    alert('Excel file is empty.');
+                    return;
                 }
-                sub_addRosterRow();
-            });
-        } catch(err) {
-            alert('Error reading Excel file: ' + err.message);
-        }
-    };
-    reader.readAsArrayBuffer(file);
+                
+                var headers = json[0].map(function(h) { return String(h).trim(); });
+                var rows = json.slice(1).filter(function(r) {
+                    return r.some(function(cell) { return String(cell).trim() !== ''; });
+                });
+                
+                if (rows.length < 1) {
+                    alert('No data rows found (header only).');
+                    return;
+                }
+                
+                sub_autoBuildFromExcel(headers, rows);
+                
+            } catch(err) {
+                alert('Error reading file: ' + err.message);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    
+    // Load SheetJS if needed
+    if (typeof XLSX === 'undefined') {
+        var script = document.createElement('script');
+        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
+        script.onload = loadAndParse;
+        script.onerror = function() {
+            var script2 = document.createElement('script');
+            script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+            script2.onload = loadAndParse;
+            script2.onerror = function() {
+                alert('Failed to load Excel parser. Check internet connection.');
+            };
+            document.head.appendChild(script2);
+        };
+        document.head.appendChild(script);
+    } else {
+        loadAndParse();
+    }
 };
 
 window.sub_applyMapping = function() {
-    var nameCol = parseInt(document.getElementById('subMapCol_name').value);
-    var numberCol = parseInt(document.getElementById('subMapCol_number').value);
-    var sizeCol = parseInt(document.getElementById('subMapCol_size').value);
     var rows = window.sub_excelData;
     var headers = window.sub_excelHeaders;
-    var sizeMap = {xs:'XS',s:'S',m:'M',l:'L',xl:'XL','2xl':'2XL','3xl':'3XL','4xl':'4XL','5xl':'5XL','6xl':'6XL','7xl':'7XL','8xl':'8XL',sm:'SMALL',md:'MEDIUM',lg:'LARGE'};
-    
-    if (isNaN(sizeCol) && isNaN(nameCol)) {
-        alert('Please map at least Size column or Name column.');
-        return;
-    }
-    
-    rows.forEach(function(row) {
-        var name = !isNaN(nameCol) && nameCol >= 0 ? (row[nameCol] || '') + '' : '';
-        var size = !isNaN(sizeCol) && sizeCol >= 0 ? (row[sizeCol] || '') + '' : '';
-        if (!name || !size) return;
-        
-        size = size.trim().toLowerCase();
-        size = sizeMap[size] || size.toUpperCase();
-        
-        document.getElementById('subRosterNewName').value = name.trim();
-        var sizeSelect = document.getElementById('subRosterNewSize');
-        for (var i = 0; i < sizeSelect.options.length; i++) {
-            if (sizeSelect.options[i].value === size) {
-                sizeSelect.selectedIndex = i;
-                break;
-            }
-        }
-        sub_addRosterRow();
-    });
-    
+    if (!rows || !rows.length) { alert('No data. Please upload an Excel file first.'); return; }
+    if (!headers || !headers.length) { alert('No headers found.'); return; }
+    sub_autoBuildFromExcel(headers, rows);
     bootstrap.Modal.getInstance(document.getElementById('subColumnMapModal')).hide();
 };
 
 // ======= ADD TO ORDER =======
+// Helper to restore button UI after error
+function restoreAddBtnUI(btn, isReprocess) {
+    if (!btn) return;
+    if (isReprocess) {
+        btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Submit Reprocess';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-warning');
+    } else {
+        btn.innerHTML = '<i class="fas fa-check-circle me-2"></i> Add to Order';
+        btn.classList.remove('btn-warning');
+        btn.classList.add('btn-success');
+    }
+}
+
 window.sub_addItemToOrder = function() {
     var projectName = document.getElementById('sub_projectName').value.trim();
     var designer = document.getElementById('sub_designer').value.trim();
@@ -988,8 +1424,23 @@ window.sub_addItemToOrder = function() {
         document.querySelectorAll('#subRosterBody tr.roster-row').forEach(function(row) {
             var name = row.querySelector('.roster-name');
             var size = row.querySelector('.roster-size');
+            var number = row.querySelector('.roster-number');
             if (name && size) {
-                sizes.push({name: name.value, size: size.value, qty: 1});
+                // Use qty=1 for manual additions; for Excel imports, use number column value
+                var qty = number ? (parseInt(number.value) || 1) : 1;
+                // Extract ALL Excel columns from the roster row (preserves headers for print-slip)
+                var columns = [];
+                row.querySelectorAll('input[type="hidden"]').forEach(function(input) {
+                    var header = input.getAttribute('data-header');
+                    if (header) {
+                        columns.push([header, input.value]);
+                    }
+                });
+                var entry = {name: name.value, size: size.value, number: number ? number.value : '', qty: qty};
+                if (columns.length > 0) {
+                    entry.columns = columns;
+                }
+                sizes.push(entry);
             }
         });
     } else {
@@ -1004,19 +1455,27 @@ window.sub_addItemToOrder = function() {
     if (sizes.length === 0) { alert('Please enter at least one size/quantity.'); return; }
     
     // Get specs from fields
+    // Get specs from fields — spec fields are wrapped in .d-flex (not .col-md-6)
     var specs = {};
     document.querySelectorAll('#sub_specsFields input, #sub_specsFields select').forEach(function(el) {
-        var label = el.closest('.col-md-6');
+        var label = el.closest('.d-flex');
         if (label) {
-            var lbl = label.querySelector('strong') || label.querySelector('.form-label');
-            if (lbl) specs[lbl.textContent.replace(':', '').trim()] = el.value;
+            var lbl = label.querySelector('.form-label');
+            // Normalize spec keys to lowercase for consistent DB storage
+            if (lbl) specs[lbl.textContent.replace(':', '').trim().toLowerCase()] = el.value;
         }
     });
     
-    // Get parts
+    // Get parts — use actual part name from partsData instead of numeric ID
     var parts = [];
+    var partsData = window.sub_partsData || [];
     document.querySelectorAll('#sub_partsContainer .part-checkbox:checked').forEach(function(cb) {
-        parts.push({name: cb.value, price: parseFloat(cb.dataset.price) || 0});
+        var partId = parseInt(cb.value) || cb.value;
+        var found = partsData.find(function(p) { return parseInt(p.id) === parseInt(partId); });
+        parts.push({
+            name: found ? found.name : cb.value,
+            price: parseFloat(cb.dataset.price) || 0
+        });
     });
     
     var garmentName = garment.options[garment.selectedIndex].textContent;
@@ -1027,18 +1486,20 @@ window.sub_addItemToOrder = function() {
     var totalQty = parseInt(document.getElementById('subPricing_totalQty').textContent) || 0;
     var grandTotal = parseFloat(document.getElementById('subPricing_grandTotal').textContent.replace('₱', '').replace(',', '')) || 0;
     
-    // Mockup (convert to base64 if uploaded)
+    // Mockup (convert to base64 if uploaded) — also set at item top level for print slip
     var mockupData = '';
     var mockupImg = document.getElementById('subMockupPreview');
     if (mockupImg.style.display !== 'none' && mockupImg.src) {
         mockupData = mockupImg.src;
     }
     
-    // Build item data
+    // Build item data — mockup set at item level too for print slip compatibility
     var item = {
         name: projectName,
         productType: 'fullsublimation',
-        department: '{{ $sale->department_code ?? $sale->department_name ?? 'class' }}',
+        department: '{{ isset($sale) ? ($sale->department_code ?? $sale->department_name ?? 'class') : '' }}',
+        mockup: mockupData,
+        mockupUrl: mockupData,
         sublimationForm: {
             projectName: projectName,
             description: document.getElementById('sub_description').value,
@@ -1056,7 +1517,8 @@ window.sub_addItemToOrder = function() {
             totalQty: totalQty,
             totalPrice: grandTotal,
             rosterMode: isRoster,
-            mockupData: mockupData
+            mockup: mockupData,
+            mockupUrl: mockupData
         },
         quantity: totalQty,
         unitPrice: unitPrice,
@@ -1077,9 +1539,19 @@ window.sub_addItemToOrder = function() {
     // Submit
     var btn = document.getElementById('subAddItemBtn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Adding...';
     
-    fetch('{{ route("sales.prototype.add-product", $sale->id) }}', {
+    var isReprocess = window.sub_reprocessMode === true;
+    var submitText = isReprocess ? 'Submitting Reprocess...' : 'Adding...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> ' + submitText;
+    
+    var addProductUrl = '{{ isset($sale) ? route("sales.prototype.add-product", $sale->id) : "" }}';
+    var reprocessUrl = '{{ isset($sale) ? route("sales.prototype.reprocess-order", $sale->id) : "" }}';
+    var submitUrl = isReprocess ? reprocessUrl : addProductUrl;
+    // Fallback for kanban: use data attribute set by JS
+    if (!submitUrl) {
+        submitUrl = document.getElementById('subAddProductModal').dataset.addProductUrl || '';
+    }
+    fetch(submitUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -1090,70 +1562,298 @@ window.sub_addItemToOrder = function() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {
-            location.reload();
+            // Close modal
+            var modalEl = document.getElementById('subAddProductModal');
+            var bsModal = bootstrap.Modal.getInstance(modalEl);
+            if (bsModal) bsModal.hide();
+            btn.disabled = false;
+            if (isReprocess) {
+                btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i> Submit Reprocess';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-warning');
+            } else {
+                btn.innerHTML = '<i class="fas fa-check-circle me-2"></i> Add to Order';
+            }
+            // Show success toast + reload to show pending changes
+            var successMsg = isReprocess ? (data.message || 'Reprocess submitted! Waiting for Manager approval.') : 'Product submitted! Waiting for Manager approval.';
+            if (typeof showToast === 'function') {
+                showToast(successMsg, 'success');
+            } else {
+                alert(successMsg);
+            }
+            setTimeout(function() { location.reload(); }, 1500);
         } else {
             alert('Error: ' + (data.message || 'Unknown error'));
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-check-circle me-2"></i> Add to Order';
+            restoreAddBtnUI(btn, isReprocess);
         }
     })
     .catch(function(err) {
         alert('Network error: ' + err.message);
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check-circle me-2"></i> Add to Order';
+        restoreAddBtnUI(btn, isReprocess);
     });
 };
 
-// ======= PRINT ORDER SLIP =======
+</script>
+<!-- ======= PRINT ORDER SLIP (hidden, CUSTOMER FORM SPECIFICATIONS format) ======= -->
+<div id="subPrintSlip" style="display:none;">
+    <style>
+        @media print {
+            @page { size: A4 landscape; margin: 12mm 15mm; }
+            body * { visibility: hidden; }
+            #subPrintSlip, #subPrintSlip * { visibility: visible; }
+            #subPrintSlip { position: absolute; left: 0; top: 0; width: 100%; max-width: 277mm; display: block !important; }
+            .no-print { display: none !important; }
+        }
+        .sub-print-slip { font-family: 'Courier New', monospace; font-size: 10pt; color: #000; width: 100%; }
+        .sub-print-slip h1 { font-size: 16pt; margin: 0; text-align: center; }
+        .sub-print-slip table { width: 100%; border-collapse: collapse; }
+        .sub-print-slip td, .sub-print-slip th { border: 1px solid #000; padding: 3px 5px; text-align: left; font-size: 9pt; vertical-align: top; }
+        .sub-print-slip .no-border td, .sub-print-slip .no-border { border: none; }
+        .sub-print-slip .field-label { font-weight: bold; background: #f0f0f0; width: 1%; white-space: nowrap; }
+        .sub-print-slip .mockup-box { border: 2px dashed #999; display: flex; align-items: center; justify-content: center; text-align: center; color: #999; font-size: 9pt; overflow: hidden; width:100%; aspect-ratio: 4 / 3; max-height:300px; }
+        .sub-print-slip .mockup-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .sub-print-slip .roster-table th { background: #e0e0e0; font-weight: bold; text-align: center; }
+        .sub-print-slip .roster-table td { text-align: center; }
+        .sub-print-slip .section-title { font-weight: bold; font-size: 11pt; margin-top: 4px; margin-bottom: 2px; }
+        .sub-print-slip .divider { border-top: 2px solid #000; margin: 1px 0; }
+        #subPrintSlip > tbody > tr > td { padding: 1px 3px !important; }
+        #subPrintSlip table td, #subPrintSlip table th { padding: 1px 3px !important; font-size: 9pt; }
+        #subPrintSlip .section-title { margin-top: 1px; margin-bottom: 1px; font-size: 11pt; }
+        #subPrintSlip .field-label { padding: 1px 3px !important; }
+    </style>
+    <div id="subPrintSlipContent" class="sub-print-slip">
+        <h1>CUSTOMER FORM SPECIFICATIONS</h1>
+        <div class="divider"></div>
+        <table id="subPs_upperInfo"><tr>
+            <td style="width:33%;vertical-align:top;" class="no-border">
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">PROJECT:</td><td id="subPs_projectName"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DESCRIPTION:</td><td id="subPs_description"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">FABRIC:</td><td id="subPs_fabric"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DESIGNER:</td><td id="subPs_designer"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">QTY:</td><td id="subPs_qty"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DATE NEEDED:</td><td id="subPs_dateNeeded"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">AGENT:</td><td id="subPs_agent"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">CUSTOMER:</td><td id="subPs_customer"></td></tr></table>
+            </td>
+            <td style="width:67%;vertical-align:top;">
+                <div style="width:100%;">
+                    <table id="subPs_leftPartsCol" style="width:49%;float:left;">
+                        <tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>
+                    </table>
+                    <table id="subPs_rightPartsCol" style="width:49%;float:right;">
+                        <tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>
+                    </table>
+                    <div style="clear:both;"></div>
+                </div>
+                <div style="display:none;">
+                <table id="subPs_specsParts">
+                    <tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>
+                </table>
+                <table id="subPs_specsOthers">
+                    <tr><th style="width:100px;">Item</th><th>Details</th></tr>
+                </table>
+                </div>
+            </td>
+        </tr></table>
+        <div class="divider"></div>
+        <table><tr>
+            <td style="width:30%;vertical-align:top" class="no-border">
+                <div class="section-title">MOCK UP</div>
+                <div id="subPs_mockupBox" class="mockup-box" style="margin:0 auto;">
+                    <span id="subPs_mockupPlaceholder">MOCK UP HERE</span>
+                    <img id="subPs_mockupImg" src="" style="display:none;">
+                </div>
+            </td>
+            <td style="width:70%;vertical-align:top" class="no-border">
+                <div class="section-title">NAME LIST</div>
+                <table class="roster-table" id="subPs_rosterTable">
+                    <thead></thead>
+                    <tbody id="subPs_rosterBody"></tbody>
+                </table>
+            </td>
+        </tr></table>
+        <div style="margin-top:4px;font-size:9pt;text-align:right;border-top:1px solid #000;padding-top:2px;" id="subPs_note"></div>
+    </div>
+</div>
+
+<script>
+// ======= PRINT ORDER SLIP (CUSTOMER FORM SPECIFICATIONS format) =======
 window.sub_printOrderSlip = function() {
-    var projectName = document.getElementById('sub_projectName').value.trim() || 'New Product';
-    var garmentSelect = document.getElementById('sub_garmentSelect');
-    var garmentName = garmentSelect.selectedIndex > 0 ? garmentSelect.options[garmentSelect.selectedIndex].textContent : 'N/A';
-    var fabricSelect = document.getElementById('sub_fabricSelect');
-    var fabricName = fabricSelect.selectedIndex > 0 ? fabricSelect.options[fabricSelect.selectedIndex].textContent : 'N/A';
+    // Helper
+    function getVal(id) { var el = document.getElementById(id); return el ? el.value || '' : ''; }
+    function formatDateDDMMYYYY(dateStr) {
+        if (!dateStr) return '';
+        var parts = dateStr.split('-');
+        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+        return dateStr;
+    }
     
-    // Collect sizes
-    var sizesHtml = '';
-    document.querySelectorAll('.sub-size-qty').forEach(function(input) {
-        var val = parseInt(input.value) || 0;
-        if (val > 0) {
-            sizesHtml += '<tr><td>' + input.dataset.size + '</td><td>' + val + '</td></tr>';
+    // Header info fields
+    document.getElementById('subPs_projectName').textContent = getVal('sub_projectName');
+    document.getElementById('subPs_description').textContent = getVal('sub_description');
+    
+    var fabricEl = document.getElementById('sub_fabricSelect');
+    var fabricText = '';
+    if (fabricEl) {
+        var selOpt = fabricEl.options[fabricEl.selectedIndex];
+        if (selOpt && selOpt.value && selOpt.textContent.trim() !== '-- Select Fabric --') {
+            fabricText = selOpt.textContent;
+        }
+    }
+    document.getElementById('subPs_fabric').textContent = fabricText;
+    document.getElementById('subPs_designer').textContent = getVal('sub_designer');
+    document.getElementById('subPs_dateNeeded').textContent = formatDateDDMMYYYY(getVal('sub_dateNeeded'));
+    
+    // Agent and Customer
+    var agentName = '{{ isset($sale) ? ($sale->sales_agent_name ?? 'N/A') : '' }}';
+    var customerName = '{{ isset($sale) ? ($sale->customer_name ?? 'N/A') : '' }}';
+    // Fallback for kanban
+    if (!customerName) {
+        customerName = document.getElementById('subAddProductModal').dataset.customerName || '';
+    }
+    document.getElementById('subPs_agent').textContent = agentName || '';
+    document.getElementById('subPs_customer').textContent = customerName || '';
+    
+    // Total QTY
+    var totalQty = 0;
+    document.querySelectorAll('.sub-size-qty').forEach(function(inp) { totalQty += parseInt(inp.value) || 0; });
+    document.querySelectorAll('#subRosterBody tr.roster-row').forEach(function(row) {
+        var qtyInput = row.querySelector('.roster-number');
+        totalQty += qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+    });
+    document.getElementById('subPs_qty').textContent = totalQty + ' PCS';
+    
+    // Mock-up image
+    var mockupPreview = document.getElementById('subMockupPreview');
+    var mockupImg = document.getElementById('subPs_mockupImg');
+    var mockupPlaceholder = document.getElementById('subPs_mockupPlaceholder');
+    if (mockupPreview && mockupPreview.src && mockupPreview.style.display !== 'none') {
+        mockupImg.src = mockupPreview.src;
+        mockupImg.style.display = '';
+        mockupPlaceholder.style.display = 'none';
+    } else {
+        mockupImg.style.display = 'none';
+        mockupPlaceholder.style.display = '';
+    }
+    
+    // Garment name
+    var garmentEl = document.getElementById('sub_garmentSelect');
+    var garmentName = garmentEl && garmentEl.selectedIndex > 0 ? garmentEl.options[garmentEl.selectedIndex].textContent : '';
+    
+    // Parts / Colors table (dynamic — reads whatever spec fields are rendered for current garment type)
+    var partsTbody = document.querySelector('#subPs_specsParts tbody');
+    if (!partsTbody) partsTbody = document.querySelector('#subPs_specsParts');
+    partsTbody.innerHTML = '<tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+    partsTbody.innerHTML += '<tr><td>Garment</td><td>' + garmentName + '</td></tr>';
+    
+    // Collect spec field data — dynamically read ALL rendered spec fields
+    document.querySelectorAll('#sub_specsFields select.sub-spec-select').forEach(function(el) {
+        var labelEl = el.closest('.d-flex').querySelector('.form-label');
+        var label = labelEl ? labelEl.textContent.trim() : el.getAttribute('data-fid') || 'Spec';
+        var val = (el.value || '').trim();
+        if (val) {
+            partsTbody.innerHTML += '<tr><td>' + label + '</td><td>' + val + '</td></tr>';
         }
     });
+    // Also read any text input spec fields
+    document.querySelectorAll('#sub_specsFields input.sub-spec-input').forEach(function(el) {
+        var labelEl = el.closest('.d-flex').querySelector('.form-label');
+        var label = labelEl ? labelEl.textContent.trim() : el.getAttribute('data-fid') || 'Spec';
+        var val = (el.value || '').trim();
+        if (val) {
+            partsTbody.innerHTML += '<tr><td>' + label + '</td><td>' + val + '</td></tr>';
+        }
+    })
     
-    if (!sizesHtml) {
-        document.querySelectorAll('#subRosterBody tr.roster-row').forEach(function(row) {
-            var name = row.querySelector('.roster-name');
-            var size = row.querySelector('.roster-size');
-            if (name && size) {
-                sizesHtml += '<tr><td>' + name.value + '</td><td>' + size.value + '</td><td>1</td></tr>';
+    // Split parts rows into two columns
+    var allPartsTrs = partsTbody.querySelectorAll('tr');
+    var dataPartsRows = Array.from(allPartsTrs).slice(1);
+    var splitMid = Math.ceil(dataPartsRows.length / 2);
+    var splitHeader = '<tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+    document.getElementById('subPs_leftPartsCol').innerHTML = splitHeader + dataPartsRows.slice(0, splitMid).map(function(r) { return r.outerHTML; }).join('');
+    document.getElementById('subPs_rightPartsCol').innerHTML = splitHeader + dataPartsRows.slice(splitMid).map(function(r) { return r.outerHTML; }).join('');
+    
+    // Parts Added (from checkboxes)
+    var othersTbody = document.querySelector('#subPs_specsOthers tbody');
+    if (!othersTbody) othersTbody = document.querySelector('#subPs_specsOthers');
+    othersTbody.innerHTML = '<tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+    var checkboxes = document.querySelectorAll('#sub_partsContainer .part-checkbox:checked');
+    if (checkboxes.length > 0) {
+        othersTbody.innerHTML += '<tr><td>Parts Added</td><td>' + Array.from(checkboxes).map(function(cb) {
+            var lbl = cb.nextElementSibling;
+            return lbl ? lbl.textContent.split(' (+')[0] : '';
+        }).filter(Boolean).join(', ') + '</td></tr>';
+    }
+    
+    // Notes
+    var notesVal = getVal('sub_notes');
+    document.getElementById('subPs_note').textContent = notesVal ? 'Note: ' + notesVal : '';
+    
+    // Roster table — dynamic columns from Excel import
+    var rosterBody = document.getElementById('subPs_rosterBody');
+    rosterBody.innerHTML = '';
+    var rosterTable = document.getElementById('subPs_rosterTable');
+    var rosterRows = document.querySelectorAll('#subRosterBody tr.roster-row');
+    if (rosterRows.length > 0) {
+        // Read ALL headers from roster
+        var headerRow = document.getElementById('subRosterHeader');
+        var colHeaders = ['#'];
+        if (headerRow) {
+            var ths = headerRow.querySelectorAll('th');
+            for (var ci = 1; ci < ths.length - 1; ci++) {
+                colHeaders.push((ths[ci].textContent || '').trim());
+            }
+        } else {
+            colHeaders = ['#', 'NAME', 'SIZE', 'QTY'];
+        }
+        // Build dynamic thead
+        var thead = rosterTable.querySelector('thead');
+        if (!thead) { thead = document.createElement('thead'); rosterTable.insertBefore(thead, rosterBody); }
+        var hdrHtml = '<tr>';
+        colHeaders.forEach(function(h) { hdrHtml += '<th>' + h + '</th>'; });
+        hdrHtml += '</tr>';
+        thead.innerHTML = hdrHtml;
+        
+        // Build data rows
+        var idx = 1;
+        rosterRows.forEach(function(row) {
+            var tds = row.querySelectorAll('td');
+            if (tds.length < 2) return;
+            var dataCells = [];
+            for (var i = 1; i < tds.length - 1; i++) {
+                dataCells.push(tds[i]);
+            }
+            var hasData = dataCells.some(function(td) {
+                return (td.textContent || '').trim() !== '';
+            });
+            if (!hasData) return;
+            var rowHtml = '<tr><td>' + (idx++) + '</td>';
+            for (var dc = 0; dc < dataCells.length; dc++) {
+                var val = (dataCells[dc].textContent || '').trim();
+                rowHtml += '<td style="text-align:left;">' + val + '</td>';
+            }
+            rowHtml += '</tr>';
+            rosterBody.innerHTML += rowHtml;
+        });
+    } else {
+        // Fallback: show sizes from by-qty inputs
+        var thead = rosterTable.querySelector('thead');
+        if (thead) thead.innerHTML = '<tr><th>Size</th><th>Qty</th></tr>';
+        document.querySelectorAll('.sub-size-qty').forEach(function(inp) {
+            var qty = parseInt(inp.value) || 0;
+            if (qty > 0) {
+                rosterBody.innerHTML += '<tr><td>' + inp.dataset.size + '</td><td>' + qty + '</td></tr>';
             }
         });
     }
     
-    var orderNumber = '{{ $sale->sales_number }}';
-    var customerName = '{{ $sale->customer_name ?? 'N/A' }}';
-    var now = new Date();
-    var dateStr = now.toLocaleDateString('en-PH', {year:'numeric',month:'long',day:'numeric'});
-    
-    var printWin = window.open('', '_blank', 'width=800,height=600');
-    printWin.document.write('<!DOCTYPE html><html><head><title>Order Slip - ' + projectName + '</title>');
-    printWin.document.write('<style>body{font-family:Arial,sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;margin:10px 0;}td,th{border:1px solid #000;padding:5px;text-align:left;}.header{text-align:center;margin-bottom:20px;}.header h1{margin:0;font-size:18pt;}.header h2{margin:0;font-size:14pt;color:#666;}</style></head><body>');
-    printWin.document.write('<div class="header"><h1>CLASS APPAREL PH</h1><h2>Order Slip</h2></div>');
-    printWin.document.write('<p><strong>Order #:</strong> ' + orderNumber + ' | <strong>Customer:</strong> ' + customerName + ' | <strong>Date:</strong> ' + dateStr + '</p>');
-    printWin.document.write('<h3>' + projectName + '</h3>');
-    printWin.document.write('<p><strong>Garment:</strong> ' + garmentName + ' | <strong>Fabric:</strong> ' + fabricName + '</p>');
-    printWin.document.write('<table><thead><tr><th>Size/Name</th><th>Size</th><th>Qty</th></tr></thead><tbody>' + sizesHtml + '</tbody></table>');
-    
-    var partsNames = [];
-    document.querySelectorAll('#sub_partsContainer .part-checkbox:checked').forEach(function(cb) {
-        partsNames.push(cb.value);
-    });
-    if (partsNames.length) printWin.document.write('<p><strong>Parts:</strong> ' + partsNames.join(', ') + '</p>');
-    
-    printWin.document.write('<p><strong>Unit Price:</strong> ' + document.getElementById('subPricing_unitPrice').textContent + ' | <strong>Total:</strong> ' + document.getElementById('subPricing_grandTotal').textContent + '</p>');
-    printWin.document.write('</body></html>');
-    printWin.document.close();
-    printWin.print();
+    // Show and print
+    var slip = document.getElementById('subPrintSlip');
+    slip.style.display = 'block';
+    window.print();
+    slip.style.display = 'none';
 };
+
 </script>

@@ -571,10 +571,18 @@ public function details(Request $request, string $id)
             $html .= '</div>';
         }
         
+        // Extract first service name for addon modals
+        $firstServiceName = '';
+        if (is_array($services) && count($services) > 0) {
+            $first = $services[0];
+            $firstServiceName = $first['name'] ?? $first['projectName'] ?? $first['project_name'] ?? '';
+        }
+        
         return response()->json([
             'html' => $html,
             'title' => 'Sale: ' . $sale->customer_name . ' (#' . $sale->sales_number . ')',
-            'can_addon' => !in_array($sale->kanban_status, ['delivered', 'completed'])
+            'can_addon' => !in_array($sale->kanban_status, ['delivered', 'completed']),
+            'firstServiceName' => $firstServiceName
         ]);
     }
 
@@ -817,17 +825,44 @@ public function details(Request $request, string $id)
         $totalAmount = $subtotal; // no 12% tax per Andrew's rule
         $balanceDue = $totalAmount - $change->deposit_after;
         
+        // Detect overpayment for reprocess
+        $isReprocess = ($change->type ?? 'addition') === 'reprocess';
+        $rawBalance = $balanceDue;
+        $hasOverpayment = $rawBalance < 0;
+        $balanceDue = max($rawBalance, 0); // Don't show negative balance
+        $overpaymentAmount = $hasOverpayment ? abs($rawBalance) : 0;
+        
         // Update the sale's services and recalculate prices
+        $updateData = [
+            'services' => json_encode($servicesAfter),
+            'subtotal' => $subtotal,
+            'total_amount' => $totalAmount,
+            'balance_due' => $balanceDue,
+            'updated_at' => now(),
+        ];
+        if ($hasOverpayment) {
+            $updateData['balance_due'] = 0; // zero out balance, overpayment tracked separately
+            $updateData['overpayment'] = $overpaymentAmount;
+        }
         \DB::table('prototype_sales')
             ->where('id', $change->sale_id)
-            ->update([
-                'services' => json_encode($servicesAfter),
-                'subtotal' => $subtotal,
-                'total_amount' => $totalAmount,
-                'balance_due' => $balanceDue,
-                'updated_at' => now(),
-            ]);
+            ->update($updateData);
         
+        // Update mockup_images when reprocess is approved
+        if ($isReprocess && !empty($servicesAfter)) {
+            $firstItem = $servicesAfter[0];
+            if (isset($firstItem['sublimationForm']['mockup']) && !empty($firstItem['sublimationForm']['mockup'])) {
+                $mockupImages = [[
+                    'name' => ($firstItem['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
+                    'url' => $firstItem['sublimationForm']['mockup'],
+                    'type' => 'sublimation'
+                ]];
+                \DB::table('prototype_sales')
+                    ->where('id', $change->sale_id)
+                    ->update(['mockup_images' => json_encode($mockupImages)]);
+            }
+        }
+
         // Mark change as approved
         \DB::table('prototype_sale_changes')
             ->where('id', $changeId)
@@ -838,22 +873,33 @@ public function details(Request $request, string $id)
                 'updated_at' => now(),
             ]);
         
+        // Build audit description
+        $desc = 'Change request approved. New total: ₱' . number_format($totalAmount, 2);
+        if ($isReprocess) {
+            $desc = 'Reprocess approved. New total: ₱' . number_format($totalAmount, 2);
+            if ($hasOverpayment) {
+                $desc .= ' — Overpayment of ₱' . number_format($overpaymentAmount, 2) . ' detected. Manager may request refund.';
+            }
+        }
+        
         // Audit log
         \DB::table('prototype_sale_audit_logs')->insert([
             'sale_id' => $change->sale_id,
             'user_id' => $user->id,
-            'action' => 'change_approved',
-            'description' => 'Change request approved. New total: ₱' . number_format($totalAmount, 2),
+            'action' => $isReprocess ? 'reprocess_approved' : 'change_approved',
+            'description' => $desc,
             'details' => json_encode([
                 'change_id' => $changeId,
+                'type' => $change->type ?? 'addition',
                 'total_before' => $change->total_before,
                 'total_after' => $totalAmount,
+                'overpayment' => $hasOverpayment ? $overpaymentAmount : 0,
             ]),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
         
-        return response()->json(['success' => true, 'message' => 'Change request approved.']);
+        return response()->json(['success' => true, 'message' => $desc]);
     }
 
     /**
@@ -1019,9 +1065,17 @@ public function details(Request $request, string $id)
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
         }
 
+        // Check if already in completed/delivered
+        if (in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled'])) {
+            return response()->json(['success' => false, 'message' => 'Cannot add product to a completed or cancelled order.']);
+        }
+
         // Support both old format (product_name/sizes/unit_price) and new fullsublimation format
         $productName = $request->input('product_name', $request->input('name', ''));
         $rawSizes = $request->input('sizes', []);
+        if (empty($rawSizes) && $request->has('sublimationForm.sizes')) {
+            $rawSizes = $request->input('sublimationForm.sizes', []);
+        }
         $unitPrice = $request->input('unit_price', $request->input('unitPrice', 0));
         $sublimationForm = $request->input('sublimationForm', null);
         $productType = $request->input('productType', 'cutting');
@@ -1054,12 +1108,12 @@ public function details(Request $request, string $id)
         $itemTotal = $totalQty * $unitPrice;
 
         // Parse current services
-        $services = json_decode($sale->services ?? '[]', true);
-        if (!is_array($services)) $services = [];
+        $servicesBefore = json_decode($sale->services ?? '[]', true);
+        if (!is_array($servicesBefore)) $servicesBefore = [];
 
         // Generate a unique item ID
         $maxId = 0;
-        foreach ($services as $s) {
+        foreach ($servicesBefore as $s) {
             if (isset($s['id']) && is_numeric($s['id']) && $s['id'] > $maxId) $maxId = $s['id'];
         }
         $newId = $maxId + 1;
@@ -1084,8 +1138,70 @@ public function details(Request $request, string $id)
         ];
 
         if ($sublimationForm && is_array($sublimationForm)) {
-            // Store the full sublimation form data
-            $item['sublimationForm'] = $sublimationForm;
+            // NORMALIZE: Convert JS key names to view-expected key names
+            $normalized = $sublimationForm;
+
+            // garmentType + garmentId → garment: {name, id}
+            if (!isset($normalized['garment']) && !empty($normalized['garmentType'])) {
+                $normalized['garment'] = [
+                    'name' => $normalized['garmentType'],
+                    'id' => $normalized['garmentId'] ?? '',
+                ];
+            }
+            unset($normalized['garmentType'], $normalized['garmentId']);
+
+            // specs → specifications
+            if (!isset($normalized['specifications']) && isset($normalized['specs'])) {
+                $normalized['specifications'] = $normalized['specs'];
+            }
+            unset($normalized['specs']);
+
+            // fabric (string) + fabricId → fabric: {name, id}
+            if (!isset($normalized['fabric']) || is_string($normalized['fabric'])) {
+                $fabricStr = (isset($normalized['fabric']) && is_string($normalized['fabric'])) ? $normalized['fabric'] : '';
+                $normalized['fabric'] = [
+                    'name' => $fabricStr,
+                    'id' => $normalized['fabricId'] ?? '',
+                ];
+            }
+            unset($normalized['fabricId']);
+
+            // Convert roster-mode sizes into dedicated roster array
+            $hasNamedSizes = false;
+            if (!empty($normalized['sizes'])) {
+                foreach ($normalized['sizes'] as $s) {
+                    if (!empty($s['name'])) { $hasNamedSizes = true; break; }
+                }
+            }
+            if ($hasNamedSizes && empty($normalized['roster'])) {
+                $normalized['roster'] = [];
+                foreach ($normalized['sizes'] as $s) {
+                    $entry = [
+                        'name' => $s['name'] ?? '',
+                        'size' => $s['size'] ?? '',
+                        'number' => $s['number'] ?? 1,
+                        'qty' => $s['qty'] ?? 1,
+                    ];
+                    // Preserve Excel columns for print slip / name list rendering
+                    if (!empty($s['columns'])) {
+                        $entry['columns'] = $s['columns'];
+                    }
+                    $normalized['roster'][] = $entry;
+                }
+                // Keep sizes but also set roster for view
+            }
+
+            // Ensure mockupUrl is also accessible as 'mockup'
+            if (!empty($normalized['mockupUrl'])) {
+                $normalized['mockup'] = $normalized['mockupUrl'];
+            }
+
+            // Strip helper/extra keys that are not part of the expected format
+            unset($normalized['unitPrice'], $normalized['totalQty'], $normalized['totalPrice']);
+            unset($normalized['rosterMode'], $normalized['mockupData'], $normalized['mockupDataStripped']);
+
+            // Store the normalized sublimation form data
+            $item['sublimationForm'] = $normalized;
             // Set sizes display string
             if (empty($item['sublimationForm']['sizes'])) {
                 $item['sublimationForm']['sizes'] = implode(', ', $sizeLines);
@@ -1101,28 +1217,271 @@ public function details(Request $request, string $id)
             ];
         }
 
-        $services[] = $item;
+        // Handle mockup image: convert base64 data URL to file and store URL
+        // (base64 can be 40MB+ which breaks JSON storage)
+        if (!empty($item['sublimationForm']['mockupData'])) {
+            $mockupData = $item['sublimationForm']['mockupData'];
+            // Check if it's a base64 data URL
+            if (is_string($mockupData) && preg_match('/^data:image\/(\w+);base64,/', $mockupData, $matches)) {
+                $ext = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+                $base64 = substr($mockupData, strpos($mockupData, ',') + 1);
+                $decoded = base64_decode($base64);
+                if ($decoded !== false) {
+                    $filename = 'mockup_' . $id . '_' . $newId . '_' . time() . '.' . $ext;
+                    $subdir = 'uploads/mockups';
+                    $dir = public_path($subdir);
+                    if (!is_dir($dir)) {
+                        @mkdir($dir, 0755, true);
+                    }
+                    $filepath = $dir . '/' . $filename;
+                    file_put_contents($filepath, $decoded);
+                    // Store URL instead of base64 data
+                    $item['sublimationForm']['mockupUrl'] = asset($subdir . '/' . $filename);
+                    $item['sublimationForm']['mockupDataStripped'] = true;
+                    unset($item['sublimationForm']['mockupData']);
+                } else {
+                    // Could not decode; strip to avoid large JSON
+                    $item['sublimationForm']['mockupDataStripped'] = true;
+                    unset($item['sublimationForm']['mockupData']);
+                }
+            } else {
+                // Not base64 (already a URL or other format) — keep as-is
+                $item['sublimationForm']['mockupUrl'] = $mockupData;
+                unset($item['sublimationForm']['mockupData']);
+            }
+        }
 
-        // Recompute total
-        $newTotal = array_sum(array_map(fn($svc) => floatval($svc['totalPrice'] ?? 0), $services));
+        // Build services_after: current services + the new item
+        $servicesAfter = $servicesBefore;
+        $servicesAfter[] = $item;
 
-        \DB::table('prototype_sales')->where('id', $id)->update([
-            'services' => json_encode($services),
-            'total_amount' => $newTotal,
+        // Calculate totals
+        $totalBefore = $sale->total_amount;
+        $totalAfter = array_sum(array_map(fn($svc) => floatval($svc['totalPrice'] ?? 0), $servicesAfter));
+        $totalBefore = max($totalBefore, array_sum(array_map(fn($svc) => floatval($svc['totalPrice'] ?? 0), $servicesBefore)));
+
+        // Generate summary
+        $summary = 'Added: ' . $productName . ' x' . $totalQty . ' (₱' . number_format($itemTotal, 2) . ')';
+
+        // Save as pending change request (like submitChange)
+        $user = auth()->user();
+        $changeId = \DB::table('prototype_sale_changes')->insertGetId([
+            'sale_id' => $id,
+            'services_before' => json_encode($servicesBefore),
+            'services_after' => json_encode($servicesAfter),
+            'total_before' => $totalBefore,
+            'total_after' => $totalAfter,
+            'deposit_before' => $sale->deposit_paid ?? 0,
+            'deposit_after' => $sale->deposit_paid ?? 0,
+            'change_summary' => $summary,
+            'status' => 'pending',
+            'submitted_by' => $user ? $user->id : 0,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         // Audit log
         \DB::table('prototype_sale_audit_logs')->insert([
             'sale_id' => $id,
-            'user_id' => auth()->id(),
-            'action' => 'product_added',
-            'description' => 'Added: ' . $productName . ' x' . $totalQty . ' (₱' . number_format($itemTotal, 2) . ')',
+            'user_id' => $user ? $user->id : 0,
+            'action' => 'add_product_pending',
+            'description' => $summary . ' — awaiting manager approval',
+            'details' => json_encode([
+                'change_id' => $changeId,
+                'total_before' => $totalBefore,
+                'total_after' => $totalAfter,
+            ]),
             'created_at' => now(),
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Product added successfully.',
+            'message' => 'Product added! Waiting for Manager approval.',
+            'change_id' => $changeId,
+        ]);
+    }
+
+    /**
+     * Reprocess Order: Replace all services with new item(s).
+     * Creates a pending change request (type=reprocess) for manager approval.
+     */
+    public function reprocessOrder(Request $request, string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        if (in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled'])) {
+            return response()->json(['success' => false, 'message' => 'Cannot reprocess a completed or cancelled order.']);
+        }
+
+        $pendingReprocess = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $id)
+            ->where('type', 'reprocess')
+            ->where('status', 'pending')
+            ->count();
+        if ($pendingReprocess > 0) {
+            return response()->json(['success' => false, 'message' => 'There is already a pending reprocess request. Please wait for the current one to be resolved.']);
+        }
+
+        $servicesBefore = json_decode($sale->services ?? '[]', true);
+        if (!is_array($servicesBefore)) $servicesBefore = [];
+
+        $productName = $request->input('product_name', $request->input('name', ''));
+        $rawSizes = $request->input('sizes', []);
+        if (empty($rawSizes) && $request->has('sublimationForm.sizes')) {
+            $rawSizes = $request->input('sublimationForm.sizes', []);
+        }
+        $unitPrice = $request->input('unit_price', $request->input('unitPrice', 0));
+        $sublimationForm = $request->input('sublimationForm', null);
+        $productType = $request->input('productType', 'cutting');
+
+        if (empty($productName)) {
+            return response()->json(['success' => false, 'message' => 'Product name is required.'], 400);
+        }
+
+        $sizeDetails = [];
+        foreach ($rawSizes as $sd) {
+            $qty = intval($sd['qty'] ?? 1);
+            if ($qty <= 0) continue;
+            $entry = ['size' => $sd['size'] ?? 'M', 'qty' => $qty];
+            if (!empty($sd['name'])) $entry['name'] = $sd['name'];
+            $sizeDetails[] = $entry;
+        }
+
+        if (empty($sizeDetails)) {
+            return response()->json(['success' => false, 'message' => 'At least one size/quantity is required.'], 400);
+        }
+
+        $totalQty = array_sum(array_column($sizeDetails, 'qty'));
+        $unitPrice = floatval($unitPrice);
+        $itemTotal = $totalQty * $unitPrice;
+
+        $maxId = 0;
+        foreach ($servicesBefore as $s) {
+            if (isset($s['id']) && is_numeric($s['id']) && $s['id'] > $maxId) $maxId = $s['id'];
+        }
+        $newId = $maxId + 1;
+
+        $sizeLines = [];
+        foreach ($sizeDetails as $sd) {
+            $label = !empty($sd['name']) ? $sd['name'] . ' (' . $sd['size'] . ')' : $sd['size'] . ': ' . $sd['qty'];
+            $sizeLines[] = $label;
+        }
+
+        $item = [
+            'id' => $newId,
+            'name' => $productName,
+            'productType' => $productType === 'fullsublimation' ? 'fullsublimation' : 'cutting',
+            'quantity' => $totalQty,
+            'unitPrice' => $unitPrice,
+            'totalPrice' => $itemTotal,
+            'department' => $sale->department_code ?? 'class',
+            'sizeDetails' => $sizeDetails,
+        ];
+
+        if ($sublimationForm && is_array($sublimationForm)) {
+            $normalized = $sublimationForm;
+            if (!isset($normalized['garment']) && !empty($normalized['garmentType'])) {
+                $normalized['garment'] = ['name' => $normalized['garmentType'], 'id' => $normalized['garmentId'] ?? ''];
+            }
+            unset($normalized['garmentType'], $normalized['garmentId']);
+            if (!isset($normalized['specifications']) && isset($normalized['specs'])) $normalized['specifications'] = $normalized['specs'];
+            unset($normalized['specs']);
+            if (!isset($normalized['fabric']) || is_string($normalized['fabric'])) {
+                $fabricStr = (isset($normalized['fabric']) && is_string($normalized['fabric'])) ? $normalized['fabric'] : '';
+                $normalized['fabric'] = ['name' => $fabricStr, 'id' => $normalized['fabricId'] ?? ''];
+            }
+            unset($normalized['fabricId']);
+
+            $hasNamedSizes = false;
+            if (!empty($normalized['sizes'])) {
+                foreach ($normalized['sizes'] as $s) { if (!empty($s['name'])) { $hasNamedSizes = true; break; } }
+            }
+            if ($hasNamedSizes && empty($normalized['roster'])) {
+                $normalized['roster'] = [];
+                foreach ($normalized['sizes'] as $s) {
+                    $entry = ['name' => $s['name'] ?? '', 'size' => $s['size'] ?? '', 'number' => $s['number'] ?? 1, 'qty' => $s['qty'] ?? 1];
+                    if (!empty($s['columns'])) $entry['columns'] = $s['columns'];
+                    $normalized['roster'][] = $entry;
+                }
+            }
+            if (!empty($normalized['mockupUrl'])) $normalized['mockup'] = $normalized['mockupUrl'];
+            unset($normalized['unitPrice'], $normalized['totalQty'], $normalized['totalPrice']);
+            unset($normalized['rosterMode'], $normalized['mockupData'], $normalized['mockupDataStripped']);
+
+            $item['sublimationForm'] = $normalized;
+            if (empty($item['sublimationForm']['sizes'])) $item['sublimationForm']['sizes'] = implode(', ', $sizeLines);
+            if (!empty($sublimationForm['specialPrice'])) $item['sublimationForm']['hasSpecialPrice'] = true;
+
+            // Handle mockup image
+            if (!empty($item['sublimationForm']['mockupData'])) {
+                $mockupData = $item['sublimationForm']['mockupData'];
+                if (is_string($mockupData) && preg_match('/^data:image\/(\w+);base64,/', $mockupData, $matches)) {
+                    $ext = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+                    $base64 = substr($mockupData, strpos($mockupData, ',') + 1);
+                    $decoded = base64_decode($base64);
+                    if ($decoded !== false) {
+                        $filename = 'mockup_' . $id . '_' . $newId . '_' . time() . '.' . $ext;
+                        $subdir = 'uploads/mockups';
+                        $dir = public_path($subdir);
+                        if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+                        file_put_contents($dir . '/' . $filename, $decoded);
+                        $item['sublimationForm']['mockupUrl'] = asset($subdir . '/' . $filename);
+                        $item['sublimationForm']['mockupDataStripped'] = true;
+                        unset($item['sublimationForm']['mockupData']);
+                    } else {
+                        $item['sublimationForm']['mockupDataStripped'] = true;
+                        unset($item['sublimationForm']['mockupData']);
+                    }
+                } else {
+                    $item['sublimationForm']['mockupUrl'] = $mockupData;
+                    unset($item['sublimationForm']['mockupData']);
+                }
+            }
+        } else {
+            $item['sublimationForm'] = ['sizes' => implode(', ', $sizeLines)];
+        }
+
+        // services_after = just the new item (replaces old services completely)
+        $servicesAfter = [$item];
+
+        $totalBefore = $sale->total_amount;
+        $totalAfter = array_sum(array_map(fn($svc) => floatval($svc['totalPrice'] ?? 0), $servicesAfter));
+
+        $summary = 'Reprocess: ' . $productName . ' x' . $totalQty . ' (₱' . number_format($itemTotal, 2) . ') — old total: ₱' . number_format($totalBefore, 2);
+
+        $user = auth()->user();
+        $changeId = \DB::table('prototype_sale_changes')->insertGetId([
+            'sale_id' => $id,
+            'services_before' => json_encode($servicesBefore),
+            'services_after' => json_encode($servicesAfter),
+            'total_before' => $totalBefore,
+            'total_after' => $totalAfter,
+            'deposit_before' => $sale->deposit_paid ?? 0,
+            'deposit_after' => $sale->deposit_paid ?? 0,
+            'change_summary' => $summary,
+            'status' => 'pending',
+            'type' => 'reprocess',
+            'submitted_by' => $user ? $user->id : 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $id,
+            'user_id' => $user ? $user->id : 0,
+            'action' => 'reprocess_pending',
+            'description' => $summary . ' — awaiting manager approval',
+            'details' => json_encode(['change_id' => $changeId, 'total_before' => $totalBefore, 'total_after' => $totalAfter]),
+            'created_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Reprocess submitted! Waiting for Manager approval. Old services will be replaced upon approval.',
+            'change_id' => $changeId,
         ]);
     }
 
@@ -1139,6 +1498,121 @@ public function printSlip(string $id)
         }
         
         return view('sales.prototype.print-slip', compact('sale', 'services'));
+    }
+
+    /**
+     * Generate and download print slip as PDF.
+     */
+    /**
+     * Compress a base64-encoded image for PDF embedding.
+     * Rescales to max 800px and saves as JPEG 70% quality.
+     */
+    private function compressMockupImage(string $dataUrl): string
+    {
+        if (!str_starts_with($dataUrl, 'data:image/')) {
+            return $dataUrl; // not a data URL, keep as-is
+        }
+        
+        // Extract base64 data
+        if (!preg_match('#^data:image/(\w+);base64,(.+)$#', $dataUrl, $m)) {
+            return $dataUrl;
+        }
+        $ext = strtolower($m[1]);
+        $base64 = $m[2];
+        $rawData = base64_decode($base64, true);
+        if ($rawData === false || strlen($rawData) < 50000) {
+            return $dataUrl; // small image or invalid, skip
+        }
+        
+        // Only compress images larger than 500KB
+        if (strlen($rawData) < 512000) {
+            return $dataUrl;
+        }
+        
+        // Create GD image from source
+        $img = @imagecreatefromstring($rawData);
+        if (!$img) {
+            return $dataUrl;
+        }
+        
+        $origW = imagesx($img);
+        $origH = imagesy($img);
+        $maxDim = 800;
+        
+        // Resize only if larger than maxDim
+        if ($origW <= $maxDim && $origH <= $maxDim) {
+            imagedestroy($img);
+            return $dataUrl;
+        }
+        
+        $ratio = min($maxDim / $origW, $maxDim / $origH);
+        $newW = (int)round($origW * $ratio);
+        $newH = (int)round($origH * $ratio);
+        
+        $resized = imagecreatetruecolor($newW, $newH);
+        // Preserve transparency for PNG
+        if ($ext === 'png') {
+            imagealphablending($resized, false);
+            imagesavealpha($resized, true);
+        }
+        imagecopyresampled($resized, $img, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+        imagedestroy($img);
+        
+        ob_start();
+        imagejpeg($resized, null, 70);
+        $compressed = ob_get_clean();
+        imagedestroy($resized);
+        
+        return 'data:image/jpeg;base64,' . base64_encode($compressed);
+    }
+
+    public function printSlipPdf(string $id, Request $request)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            abort(404);
+        }
+        
+        $services = json_decode($sale->services, true);
+        if (!is_array($services)) {
+            $services = [];
+        }
+        
+        // Filter by selected item indices (comma-separated, e.g. ?items=0,1)
+        $selectedItems = $request->query('items');
+        if ($selectedItems !== null) {
+            $indices = array_map('intval', explode(',', $selectedItems));
+            $filtered = [];
+            foreach ($indices as $idx) {
+                if (isset($services[$idx])) {
+                    $filtered[] = $services[$idx];
+                }
+            }
+            if (!empty($filtered)) {
+                $services = $filtered;
+            }
+        }
+        
+        // Compress large mockup images before generating PDF
+        foreach ($services as &$svc) {
+            $sf = &$svc['sublimationForm'];
+            if (!empty($sf)) {
+                if (!empty($sf['mockupUrl'])) {
+                    $sf['mockupUrl'] = $this->compressMockupImage($sf['mockupUrl']);
+                }
+                if (!empty($sf['mockup'])) {
+                    $sf['mockup'] = $this->compressMockupImage($sf['mockup']);
+                }
+            }
+        }
+        unset($svc, $sf);
+        
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.prototype.print-slip', compact('sale', 'services'));
+        $pdf->setPaper('A4', 'landscape');
+        
+        $itemLabel = count($services) === 1 ? \Illuminate\Support\Str::slug(end($services)['name'] ?? 'item') : '';
+        $filename = $sale->sales_number . ($itemLabel ? '-' . $itemLabel : '') . '-print-slip.pdf';
+        return $pdf->download($filename);
     }
 
     /**
@@ -1192,27 +1666,22 @@ public function printSlip(string $id)
             }
         }
 
-        // Roster data
-        $allRosters = [];
-        foreach ($services as $item) {
-            if (isset($item['sublimationForm']['roster'])) {
-                foreach ($item['sublimationForm']['roster'] as $r) {
-                    $allRosters[] = $r;
-                }
-            }
-        }
+        // Roster data — only from the primary/first service (not additional services)
+        $allRosters = $main['roster'] ?? [];
 
         // Sizes (from sublimation or fallback)
         $sizes = $main['sizes'] ?? [];
 
-        // Total QTY
+        // Total QTY — sum across ALL services (not just first one)
         $totalQty = 0;
-        if ($main) {
-            foreach ($main['sizes'] ?? [] as $s) {
+        foreach ($services as $svc) {
+            $sf = $svc['sublimationForm'] ?? [];
+            if (!$sf) continue;
+            foreach ($sf['sizes'] ?? [] as $s) {
                 $totalQty += intval($s['quantity'] ?? 0);
             }
-            foreach ($main['roster'] ?? [] as $r) {
-                $totalQty += intval($r['number'] ?? 1);
+            foreach ($sf['roster'] ?? [] as $r) {
+                $totalQty += intval($r['qty'] ?? $r['number'] ?? 1);
             }
         }
 
@@ -1318,6 +1787,209 @@ public function printSlip(string $id)
     /**
      * Save production checklist status updates.
      */
+    /**
+     * Get production checklist showing ALL products (not just first one).
+     * Used by the "Additional Production Slip" tab on kanban.
+     */
+    public function getAdditionalProductionChecklist(string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+        
+        // Get all approved changes for this sale that added products
+        $approvedChanges = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $id)
+            ->where('status', 'approved')
+            ->whereRaw('JSON_LENGTH(services_after) > JSON_LENGTH(services_before)')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Collect all ADDITIONAL items (items in services_after but NOT in services_before)
+        $additionalItems = [];
+        foreach ($approvedChanges as $change) {
+            $before = json_decode($change->services_before, true) ?: [];
+            $after = json_decode($change->services_after, true) ?: [];
+            $beforeIds = array_column($before, 'id');
+            foreach ($after as $item) {
+                if (!in_array($item['id'] ?? null, $beforeIds)) {
+                    $additionalItems[] = $item;
+                }
+            }
+        }
+        
+        // Also check current services for items that didn't exist at sale creation (id > max original)
+        // This handles approved changes that were merged into sale.services
+        $services = json_decode($sale->services, true) ?: [];
+        
+        // Get all submission IDs from change histories to know original items
+        $allChanges = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+        
+        $originalItemIds = [];
+        $additionalFromServices = [];
+        if ($allChanges->isNotEmpty()) {
+            // Item IDs from the very first services_before = original items
+            $firstChange = $allChanges->first();
+            $firstBefore = json_decode($firstChange->services_before, true) ?: [];
+            $originalItemIds = array_column($firstBefore, 'id');
+            
+            // Collect all item IDs introduced by reprocess changes (these are replacements, not additions)
+            $reprocessedItemIds = [];
+            foreach ($allChanges as $c) {
+                if (($c->type ?? '') === 'reprocess' && $c->status === 'approved') {
+                    $after = json_decode($c->services_after, true) ?: [];
+                    foreach ($after as $a) {
+                        if (!empty($a['id'])) $reprocessedItemIds[] = $a['id'];
+                    }
+                }
+            }
+
+            foreach ($services as $item) {
+                $itemId = $item['id'] ?? null;
+                // An item is additional only if: (a) its ID wasn't original, AND (b) it didn't come from a reprocess change
+                if ($itemId && !in_array($itemId, $originalItemIds) && !in_array($itemId, $reprocessedItemIds)) {
+                    // This item was added via a change request
+                    $additionalFromServices[] = $item;
+                }
+            }
+        }
+        
+        // Filter: only include items that still exist in current services (reprocess removes old items)
+        $currentServiceIds = array_column($services, 'id');
+
+        // Merge: items in current services take precedence (they have the latest data)
+        // Over change request data (which can become stale)
+        $allAdditional = [];
+        $seenIds = [];
+        foreach (array_merge($additionalFromServices, $additionalItems) as $item) {
+            $itemId = $item['id'] ?? 0;
+            // Skip items that were removed from services (e.g., by reprocess)
+            if ($itemId && !in_array($itemId, $currentServiceIds)) {
+                continue;
+            }
+            if (!isset($seenIds[$itemId])) {
+                $seenIds[$itemId] = true;
+                $allAdditional[] = $item;
+            }
+        }
+        
+        // Build enriched product response (full CUSTOMER FORM SPECIFICATIONS format)
+        $specPartsMap = [
+            'neckRibbingColor' => 'Neck Ribbing', 'neckTape' => 'Neck Tape', 'cuffs' => 'Cuffs',
+            'slit' => 'Slit', 'pocket' => 'Pocket', 'collar' => 'Collar', 'neckShape' => 'Neck Shape',
+            'cutType' => 'Cut Type', 'inner' => 'Inner', 'buttonColor' => 'Button',
+            'zipperColor' => 'Zipper', 'innerStr' => 'Inner String', 'jersey' => 'Jersey',
+            'defaultDesign' => 'Design', 'armsleeve' => 'Arm Sleeve', 'shoulder' => 'Shoulder',
+            'sizeLabel' => 'Size Label'
+        ];
+        
+        $productCards = [];
+        foreach ($allAdditional as $item) {
+            $name = $item['name'] ?? 'Unknown Product';
+            $qty = $item['quantity'] ?? 0;
+            $price = $item['totalPrice'] ?? 0;
+            $sf = $item['sublimationForm'] ?? [];
+            $mockup = $sf['mockup'] ?? $sf['mockupData'] ?? $sf['mockupUrl'] ?? null;
+            $rawFabric = $sf['fabric'] ?? '';
+            $fabric = is_string($rawFabric) ? $rawFabric : ($rawFabric['name'] ?? '');
+            $sizes = $sf['sizes'] ?? [];
+            
+            // Build partRows from specs — check both normalized and non-normalized keys
+            $partRows = [];
+            $garmentType = $sf['garmentType'] ?? '';
+            $garmentName = $sf['garment']['name'] ?? '';
+            $gName = $garmentType ?: $garmentName;
+            if ($gName) {
+                $partRows[] = ['part' => 'Garment', 'detail' => $gName];
+            }
+            // Check both 'specs' (js key) and 'specifications' (normalized key)
+            $specs = $sf['specs'] ?? $sf['specifications'] ?? [];
+            foreach ($specs as $label => $val) {
+                $v = is_string($val) ? trim($val) : '';
+                if ($v !== '') {
+                    $partRows[] = ['part' => $label, 'detail' => $v];
+                }
+            }
+            // Parts added
+            $partsAdded = $sf['parts'] ?? [];
+            if (!empty($partsAdded)) {
+                $partDetails = implode(', ', array_map(function($p) { return $p['name'] ?? ''; }, $partsAdded));
+                if ($partDetails) {
+                    $partRows[] = ['part' => 'Parts Added', 'detail' => $partDetails];
+                }
+            }
+            
+            // Use sublimateForm.roster if available (has full Excel columns), otherwise rebuild from sizes
+            $rawRoster = $sf['roster'] ?? [];
+            $roster = [];
+            $cleanSizes = [];
+            if (!empty($rawRoster)) {
+                // Preserve full roster data including Excel columns
+                foreach ($rawRoster as $r) {
+                    $entry = [
+                        'name' => $r['name'] ?? '',
+                        'backNumber' => $r['backNumber'] ?? $r['number'] ?? '',
+                        'size' => $r['size'] ?? '',
+                        'number' => $r['number'] ?? 1,
+                        'qty' => $r['qty'] ?? 1,
+                    ];
+                    // Preserve Excel columns for print slip / name list rendering
+                    if (!empty($r['columns'])) {
+                        $entry['columns'] = $r['columns'];
+                    }
+                    $roster[] = $entry;
+                }
+            } else {
+                // Fallback: rebuild from sizes (backward compat for older data)
+                foreach ($sizes as $s) {
+                    if (!empty($s['name'])) {
+                        $roster[] = [
+                            'name' => $s['name'] ?? '',
+                            'backNumber' => $s['backNumber'] ?? $s['bckNumber'] ?? $s['number'] ?? '',
+                            'size' => $s['size'] ?? '',
+                            'number' => $s['number'] ?? 1,
+                            'qty' => $s['qty'] ?? 1,
+                        ];
+                    } else {
+                        $cleanSizes[] = $s;
+                    }
+                }
+            }
+            
+            $productCards[] = [
+                'name' => $name,
+                'quantity' => $qty,
+                'totalPrice' => $price,
+                'fabric' => $fabric,
+                'sizes' => $cleanSizes,
+                'roster' => $roster,
+                'partRows' => $partRows,
+                'hasMockup' => !empty($mockup),
+                'mockupUrl' => $mockup ? (is_string($mockup) ? $mockup : (is_array($mockup) && !empty($mockup[0]['url']) ? $mockup[0]['url'] : null)) : null,
+                'description' => $sf['description'] ?? '',
+                'designer' => $sf['designer'] ?? '',
+                'dateNeeded' => $sf['dateNeeded'] ?? '',
+                'rosterMode' => $sf['rosterMode'] ?? false,
+            ];
+        }
+        
+        $salesNumber = $sale->sales_number ?? '';
+        $customerName = $sale->customer_name ?? '';
+        $agentName = $sale->sales_agent_name ?? '';
+        
+        return response()->json([
+            'has_additional' => count($productCards) > 0,
+            'products' => $productCards,
+            'sales_number' => $salesNumber,
+            'customer_name' => $customerName,
+            'agent' => $agentName,
+        ]);
+    }
+    
     public function saveProductionChecklist(string $id)
     {
         $sale = \DB::table('prototype_sales')->find($id);
@@ -1592,8 +2264,8 @@ public function printSlip(string $id)
         
         // Non-admin users only see their own sales
         $user = auth()->user();
-        if (!$user->isAdmin()) {
-            $query->where('sales_agent_id', $user->id);
+        if (!$user || !$user->isAdmin()) {
+            $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
         $sales = $query->orderBy('created_at', 'desc')->paginate(100);
@@ -1611,9 +2283,26 @@ public function printSlip(string $id)
             }
         }
         
+        // Determine which sales have approved additional products (via change requests)
+        $approvedAdditions = [];
+        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+            $approvedChanges = \DB::table('prototype_sale_changes')
+                ->where('status', 'approved')
+                ->whereRaw('JSON_LENGTH(services_after) > JSON_LENGTH(services_before)')
+                ->select('sale_id', 'services_before', 'services_after')
+                ->get();
+            foreach ($approvedChanges as $ac) {
+                $before = json_decode($ac->services_before, true) ?: [];
+                $after = json_decode($ac->services_after, true) ?: [];
+                if (count($after) > count($before)) {
+                    $approvedAdditions[$ac->sale_id] = true;
+                }
+            }
+        }
+        
         return view('sales.prototype.kanban', compact(
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
-            'showAll', 'departmentLabels', 'departmentColors'
+            'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions'
         ));
     }
 
@@ -1661,19 +2350,55 @@ public function printSlip(string $id)
         
         // Non-admin users only see their own sales
         $user = auth()->user();
-        if (!$user->isAdmin()) {
-            $query->where('sales_agent_id', $user->id);
+        if (!$user || !$user->isAdmin()) {
+            $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
         $sales = $query->orderBy("created_at", "desc")
             ->paginate(50);
         
         // Determine if current user is an agent-type user
-        $isAgent = !$user->isAdmin() && ($user->isSalesAgent() || $user->isSalesRepresentative());
+        $isAgent = $user && !$user->isAdmin() && ($user->isSalesAgent() || $user->isSalesRepresentative());
+        
+        // Count pending changes per sale for manager notification badges
+        $pendingCounts = [];
+        $totalPending = 0;
+        $pendingChangesList = collect();
+        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+            $saleIds = $sales->pluck('id');
+            $pendingRows = \DB::table('prototype_sale_changes')
+                ->where('status', 'pending')
+                ->whereIn('sale_id', $saleIds)
+                ->groupBy('sale_id')
+                ->selectRaw('sale_id, COUNT(*) as pending_count')
+                ->pluck('pending_count', 'sale_id');
+            $pendingCounts = $pendingRows->toArray();
+            $totalPending = array_sum($pendingCounts);
+            
+            // Get full pending changes data for the notification modal
+            $pendingChangesList = \DB::table('prototype_sale_changes')
+                ->join('prototype_sales', 'prototype_sale_changes.sale_id', '=', 'prototype_sales.id')
+                ->where('prototype_sale_changes.status', 'pending')
+                ->whereIn('prototype_sale_changes.sale_id', $saleIds)
+                ->orderBy('prototype_sale_changes.created_at', 'desc')
+                ->select([
+                    'prototype_sale_changes.id as change_id',
+                    'prototype_sale_changes.sale_id',
+                    'prototype_sale_changes.change_summary',
+                    'prototype_sale_changes.total_before',
+                    'prototype_sale_changes.total_after',
+                    'prototype_sale_changes.created_at as change_created_at',
+                    'prototype_sales.sales_number',
+                    'prototype_sales.customer_name',
+                ])
+                ->limit(50)
+                ->get();
+        }
         
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels",
-            "departmentLabels", "departmentColors", "isAgent"
+            "departmentLabels", "departmentColors", "isAgent",
+            "pendingCounts", "totalPending", "pendingChangesList"
         ));
     }
 
