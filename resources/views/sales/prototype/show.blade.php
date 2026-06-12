@@ -474,7 +474,7 @@
                             </div>
                         @endif
                         @if($isManager && $activeRefund->refund_status === 'approved')
-                            <button type="button" class="btn btn-sm btn-success mt-1" onclick="openCompleteRefundShow({{ $activeRefund->id }})">
+                            <button type="button" class="btn btn-sm btn-success mt-1" onclick="openCompleteRefundShow({{ $activeRefund->id }}, {{ $activeRefund->refund_amount }})">
                                 <i class="fas fa-check-circle me-1"></i>Mark Completed
                             </button>
                         @endif
@@ -851,7 +851,14 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted small mb-3">Enter the reference number and upload proof of disbursement to confirm the refund.</p>
+                    <p class="text-muted small mb-3">Enter the refund details and upload proof of disbursement to confirm the refund.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Refund Amount <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="number" step="0.01" name="refund_amount" class="form-control" id="completeShowRefundAmount" required>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Reference Number <span class="text-danger">*</span></label>
                         <input type="text" name="refund_reference" class="form-control" required placeholder="e.g. GCash Ref #, Bank Transaction ID">
@@ -1388,9 +1395,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function openCompleteRefundShow(refundId) {
+function openCompleteRefundShow(refundId, amount) {
     var form = document.getElementById('completeRefundShowForm');
     form.action = '{{ url("sales/prototype/refund") }}/' + refundId + '/process';
+    document.getElementById('completeShowRefundAmount').value = amount;
     var modal = new bootstrap.Modal(document.getElementById('completeRefundShowModal'));
     modal.show();
 }

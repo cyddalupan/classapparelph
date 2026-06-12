@@ -3119,6 +3119,7 @@ public function printSlip(string $id)
             'admin_notes' => 'nullable|string|max:1000',
             'refund_reference' => 'nullable|string|max:255',
             'refund_proof' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'refund_amount' => 'nullable|numeric|min:0',
         ]);
 
         $action = $request->action;
@@ -3146,8 +3147,13 @@ public function printSlip(string $id)
                 $updateData['completed_by'] = $user->id;
                 $updateData['completed_at'] = $now;
                 $updateData['refund_reference'] = $request->refund_reference;
+                $actualAmount = $refund->refund_amount;
+                if ($request->filled('refund_amount')) {
+                    $updateData['refund_amount'] = $request->refund_amount;
+                    $actualAmount = $request->refund_amount;
+                }
                 $auditAction = 'refund_completed';
-                $auditDesc = 'Refund of ₱' . number_format($refund->refund_amount, 2) . ' completed.';
+                $auditDesc = 'Refund of ₱' . number_format($actualAmount, 2) . ' completed.';
 
                 // Handle proof screenshot upload
                 if ($request->hasFile('refund_proof')) {
