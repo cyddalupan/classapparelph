@@ -656,10 +656,18 @@ public function details(Request $request, string $id)
         // Determine if editing is allowed (not delivered/completed)
         $canEdit = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
         
+        // Fetch refund data for this sale
+        $refunds = \DB::table('prototype_refunds')
+            ->where('prototype_sale_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        $activeRefund = $refunds->whereIn('refund_status', ['pending', 'approved'])->first();
+        
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
-            'progressPercent', 'pendingChanges', 'isManager', 'canEdit'
+            'progressPercent', 'pendingChanges', 'isManager', 'canEdit',
+            'refunds', 'activeRefund'
         ));
     }
 
@@ -3021,5 +3029,218 @@ public function printSlip(string $id)
 
         return redirect()->route('sales.prototype.show', $id)
             ->with('success', 'Payment added successfully!');
+    }
+
+    /**
+     * Submit a refund request for a prototype sale.
+     * Auto-detected from reprocess overpayment or manual cancellation.
+     */
+    public function submitRefund(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            return response()->json(['success' => false, 'message' => 'Only managers can request refunds.']);
+        }
+
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        // Check if refund already exists for this sale
+        $existingRefund = \DB::table('prototype_refunds')
+            ->where('prototype_sale_id', $id)
+            ->whereIn('refund_status', ['pending', 'approved'])
+            ->first();
+        if ($existingRefund) {
+            return response()->json(['success' => false, 'message' => 'There is already a pending or approved refund for this sale.']);
+        }
+
+        $request->validate([
+            'refund_amount' => 'required|numeric|min:0.01',
+            'refund_reason' => 'required|in:reprocess_overpayment,cancellation,other',
+            'reason_details' => 'nullable|string|max:1000',
+            'refund_method' => 'required|in:cash,bank_transfer,gcash,paymaya,credit_card,other',
+            'refund_account_id' => 'nullable|integer|exists:payment_accounts,id',
+            'refund_account_name' => 'nullable|string|max:255',
+            'refund_account_number' => 'nullable|string|max:255',
+        ]);
+
+        $refundId = \DB::table('prototype_refunds')->insertGetId([
+            'prototype_sale_id' => $id,
+            'refund_amount' => $request->refund_amount,
+            'refund_reason' => $request->refund_reason,
+            'reason_details' => $request->reason_details,
+            'refund_method' => $request->refund_method,
+            'refund_account_id' => $request->refund_account_id,
+            'refund_account_name' => $request->refund_account_name,
+            'refund_account_number' => $request->refund_account_number,
+            'refund_status' => 'pending',
+            'requested_by' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $id,
+            'user_id' => $user->id,
+            'action' => 'refund_requested',
+            'description' => 'Refund of ₱' . number_format($request->refund_amount, 2) . ' requested (' . $request->refund_reason . ').',
+            'details' => json_encode([
+                'refund_id' => $refundId,
+                'refund_amount' => $request->refund_amount,
+                'refund_reason' => $request->refund_reason,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Refund request submitted successfully.', 'refund_id' => $refundId]);
+    }
+
+    /**
+     * Process a refund (approve, complete, or reject).
+     */
+    public function processRefund(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            return response()->json(['success' => false, 'message' => 'Only managers can process refunds.']);
+        }
+
+        $refund = \DB::table('prototype_refunds')->find($id);
+        if (!$refund) {
+            return response()->json(['success' => false, 'message' => 'Refund not found.'], 404);
+        }
+
+        $request->validate([
+            'action' => 'required|in:approve,complete,reject',
+            'admin_notes' => 'nullable|string|max:1000',
+            'refund_reference' => 'nullable|string|max:255',
+            'refund_proof' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        ]);
+
+        $action = $request->action;
+        $now = now();
+        $updateData = ['updated_at' => $now];
+        $auditAction = '';
+        $auditDesc = '';
+
+        switch ($action) {
+            case 'approve':
+                if ($refund->refund_status !== 'pending') {
+                    return response()->json(['success' => false, 'message' => 'Only pending refunds can be approved.']);
+                }
+                $updateData['refund_status'] = 'approved';
+                $updateData['approved_by'] = $user->id;
+                $updateData['approved_at'] = $now;
+                $auditAction = 'refund_approved';
+                $auditDesc = 'Refund of ₱' . number_format($refund->refund_amount, 2) . ' approved.';
+                break;
+            case 'complete':
+                if ($refund->refund_status !== 'approved') {
+                    return response()->json(['success' => false, 'message' => 'Only approved refunds can be marked as completed.']);
+                }
+                $updateData['refund_status'] = 'completed';
+                $updateData['completed_by'] = $user->id;
+                $updateData['completed_at'] = $now;
+                $updateData['refund_reference'] = $request->refund_reference;
+                $auditAction = 'refund_completed';
+                $auditDesc = 'Refund of ₱' . number_format($refund->refund_amount, 2) . ' completed.';
+
+                // Handle proof screenshot upload
+                if ($request->hasFile('refund_proof')) {
+                    $proofPath = $request->file('refund_proof')->store('refund-proofs', 'public');
+                    $updateData['refund_proof_path'] = $proofPath;
+                    $auditDesc .= ' Proof attached.';
+                }
+
+                if ($request->refund_reference) {
+                    $auditDesc .= ' Reference: ' . $request->refund_reference;
+                }
+
+                // Clear overpayment if completed
+                \DB::table('prototype_sales')
+                    ->where('id', $refund->prototype_sale_id)
+                    ->update(['overpayment' => 0, 'updated_at' => $now]);
+                break;
+            case 'reject':
+                if ($refund->refund_status !== 'pending') {
+                    return response()->json(['success' => false, 'message' => 'Only pending refunds can be rejected.']);
+                }
+                $updateData['refund_status'] = 'rejected';
+                $auditAction = 'refund_rejected';
+                $auditDesc = 'Refund of ₱' . number_format($refund->refund_amount, 2) . ' rejected.';
+                break;
+        }
+
+        if ($request->admin_notes) {
+            $updateData['admin_notes'] = $request->admin_notes;
+            $auditDesc .= ' Notes: ' . $request->admin_notes;
+        }
+
+        \DB::table('prototype_refunds')->where('id', $id)->update($updateData);
+
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $refund->prototype_sale_id,
+            'user_id' => $user->id,
+            'action' => $auditAction,
+            'description' => $auditDesc,
+            'details' => json_encode([
+                'refund_id' => $id,
+                'action' => $action,
+                'refund_amount' => $refund->refund_amount,
+            ]),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Refund ' . $action . 'd successfully.']);
+    }
+
+    /**
+     * Show refund list page for managers.
+     */
+    public function refundList(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $query = \DB::table('prototype_refunds')
+            ->join('prototype_sales', 'prototype_refunds.prototype_sale_id', '=', 'prototype_sales.id')
+            ->join('users', 'prototype_refunds.requested_by', '=', 'users.id')
+            ->select(
+                'prototype_refunds.*',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'users.name as requested_by_name'
+            );
+
+        // Filter by status
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('prototype_refunds.refund_status', $request->status);
+        }
+
+        // Filter by reason type
+        if ($request->filled('reason') && $request->reason !== 'all') {
+            $query->where('prototype_refunds.refund_reason', $request->reason);
+        }
+
+        $refunds = $query->orderBy('prototype_refunds.created_at', 'desc')->paginate(20);
+
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'refunds' => $refunds,
+            ]);
+        }
+
+        return view('sales.prototype.refunds', compact('refunds'));
     }
 }

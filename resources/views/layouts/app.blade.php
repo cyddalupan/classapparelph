@@ -262,6 +262,11 @@
                             <i class="fas fa-calendar-alt"></i>
                             <span class="nav-text">Calendar</span>
                         </a>
+                        <a href="{{ route('sales.prototype.refunds') }}" class="nav-item {{ request()->routeIs('sales.prototype.refunds') ? 'active' : '' }}">
+                            <i class="fas fa-undo-alt"></i>
+                            <span class="nav-text">Refunds</span>
+                            <span class="nav-badge new">NEW</span>
+                        </a>
                         <a href="{{ route('procurement.orders.create') }}" class="nav-item {{ request()->routeIs('procurement.orders.create') || request()->routeIs('procurement.orders.*') ? 'active' : '' }}">
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Create Order</span>

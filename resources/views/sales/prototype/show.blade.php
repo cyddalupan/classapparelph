@@ -434,6 +434,54 @@
                 @endif
 
                 <hr>
+                @if(($sale->overpayment ?? 0) > 0)
+                <div class="mb-2 p-2 bg-info bg-opacity-10 rounded border border-info">
+                    <div class="info-label small text-info"><i class="fas fa-exclamation-triangle me-1"></i>Overpayment</div>
+                    <div class="fw-bold" style="color:#0c5460;">₱{{ number_format($sale->overpayment, 2) }}</div>
+                    @if($isManager)
+                        <button type="button" class="btn btn-sm btn-outline-info mt-1" onclick="openRefundModal({{ $sale->id }}, {{ $sale->overpayment }})">
+                            <i class="fas fa-undo-alt me-1"></i>Request Refund
+                        </button>
+                    @endif
+                </div>
+                @endif
+
+                @if(isset($activeRefund))
+                <div class="mb-2 p-2 {{ $activeRefund->refund_status === 'approved' ? 'bg-success bg-opacity-10 border-success' : ($activeRefund->refund_status === 'completed' ? 'bg-primary bg-opacity-10 border-primary' : 'bg-warning bg-opacity-10 border-warning') }} rounded border">
+                    <div class="info-label small"><i class="fas fa-undo-alt me-1"></i>Refund Status</div>
+                    <div>
+                        @if($activeRefund->refund_status === 'pending')
+                            <span class="badge bg-warning text-dark fs-6">⏳ Pending</span>
+                        @elseif($activeRefund->refund_status === 'approved')
+                            <span class="badge bg-success fs-6">✅ Approved</span>
+                        @elseif($activeRefund->refund_status === 'completed')
+                            <span class="badge bg-primary fs-6">✅ Completed</span>
+                        @endif
+                        <div class="mt-1">
+                            <span class="fw-bold">₱{{ number_format($activeRefund->refund_amount, 2) }}</span>
+                            <small class="text-muted">via {{ ucfirst($activeRefund->refund_method ?? 'N/A') }}</small>
+                        </div>
+                        @if($activeRefund->refund_reference)
+                            <div class="mt-1 small text-muted">
+                                <i class="fas fa-hashtag me-1"></i>Ref. #: {{ $activeRefund->refund_reference }}
+                            </div>
+                        @endif
+                        @if($activeRefund->refund_proof_path)
+                            <div class="mt-1">
+                                <a href="{{ asset('storage/' . $activeRefund->refund_proof_path) }}" target="_blank" class="small">
+                                    <i class="fas fa-image me-1"></i>View Proof Screenshot
+                                </a>
+                            </div>
+                        @endif
+                        @if($isManager && $activeRefund->refund_status === 'approved')
+                            <button type="button" class="btn btn-sm btn-success mt-1" onclick="openCompleteRefundShow({{ $activeRefund->id }})">
+                                <i class="fas fa-check-circle me-1"></i>Mark Completed
+                            </button>
+                        @endif
+                    </div>
+                </div>
+                @endif
+
                 <div class="mb-2">
                     <div class="info-label">Payment Method</div>
                     <div>{{ ucfirst($sale->payment_method ?? 'N/A') }}</div>
@@ -688,6 +736,62 @@
     </div>
 </div>
 
+<!-- Refund Modal -->
+<div class="modal fade" id="refundModal" tabindex="-1">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <form id="refundForm" method="POST">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-undo-alt me-2"></i>Request Refund</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="refund_amount" id="refundAmount" value="">
+                    <input type="hidden" name="refund_reason" value="reprocess_overpayment">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Refund Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">₱</span>
+                            <input type="text" class="form-control" id="refundAmountDisplay" readonly>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason <span class="text-muted small">(Overpayment from reprocess)</span></label>
+                        <textarea name="reason_details" class="form-control" rows="2" placeholder="Optional details..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Refund Method *</label>
+                        <select name="refund_method" class="form-select" required>
+                            <option value="gcash">GCash</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="paymaya">PayMaya</option>
+                            <option value="cash">Cash</option>
+                            <option value="credit_card">Credit Card</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Account Name (refund destination)</label>
+                        <input type="text" name="refund_account_name" class="form-control" placeholder="e.g. Juan Dela Cruz">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Account Number / Reference</label>
+                        <input type="text" name="refund_account_number" class="form-control" placeholder="e.g. GCash #09171234567">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-paper-plane me-1"></i>Submit Refund Request
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Comment Section -->
 <div class="detail-section mt-4">
     <h5 class="detail-title"><i class="fas fa-comments me-2"></i>Comments</h5>
@@ -734,6 +838,44 @@
 </div>
 
 @include('partials.sublimation-show-modal')
+
+<!-- Complete Refund Modal (with proof) -->
+<div class="modal fade" id="completeRefundShowModal" tabindex="-1">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <form id="completeRefundShowForm" method="POST" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="action" value="complete">
+                <div class="modal-header">
+                    <h6 class="modal-title"><i class="fas fa-check-circle me-1 text-success"></i>Complete Refund</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Enter the reference number and upload proof of disbursement to confirm the refund.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Reference Number <span class="text-danger">*</span></label>
+                        <input type="text" name="refund_reference" class="form-control" required placeholder="e.g. GCash Ref #, Bank Transaction ID">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Proof Screenshot</label>
+                        <input type="file" name="refund_proof" class="form-control" accept="image/*">
+                        <div class="form-text">Upload screenshot of GCash transfer, bank transaction, etc. (max 5MB)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea name="admin_notes" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="fas fa-check-circle me-1"></i>Confirm Refund Completed
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 @endsection
 
@@ -1160,6 +1302,97 @@ function doDownloadPdf() {
     closePdfSelector();
     var url = "{{ route('sales.prototype.print-slip.pdf', $sale->id) }}?items=" + indices.join(',');
     window.open(url, '_blank');
+}
+
+/* Refund Modal */
+function openRefundModal(saleId, amount) {
+    document.getElementById('refundAmount').value = amount;
+    document.getElementById('refundAmountDisplay').value = Number(amount).toFixed(2);
+    var form = document.getElementById('refundForm');
+    form.action = '{{ url("sales/prototype/refund") }}/' + saleId;
+    var modal = new bootstrap.Modal(document.getElementById('refundModal'));
+    modal.show();
+}
+
+/* Refund form submission via AJAX */
+document.addEventListener('DOMContentLoaded', function() {
+    var refundForm = document.getElementById('refundForm');
+    if (refundForm) {
+        refundForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || 'Error submitting refund request.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Submit Refund Request';
+                }
+            })
+            .catch(function() {
+                alert('Network error. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Submit Refund Request';
+            });
+        });
+    }
+
+    /* Complete Refund Modal */
+    var completeShowForm = document.getElementById('completeRefundShowForm');
+    if (completeShowForm) {
+        completeShowForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = this.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modalEl = document.getElementById('completeRefundShowModal');
+                    var modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                    location.reload();
+                } else {
+                    alert(data.message || 'Error completing refund.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirm Refund Completed';
+                }
+            })
+            .catch(function() {
+                alert('Network error.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Confirm Refund Completed';
+            });
+        });
+    }
+});
+
+function openCompleteRefundShow(refundId) {
+    var form = document.getElementById('completeRefundShowForm');
+    form.action = '{{ url("sales/prototype/refund") }}/' + refundId + '/process';
+    var modal = new bootstrap.Modal(document.getElementById('completeRefundShowModal'));
+    modal.show();
 }
 </script>
 
