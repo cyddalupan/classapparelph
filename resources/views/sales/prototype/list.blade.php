@@ -411,6 +411,10 @@
                                 $hasFileShot = collect($designImgs)->contains('type', 'file_screenshot');
                                 $hasColorShot = collect($designImgs)->contains('type', 'sample_color');
                                 $allPhotos = $hasFileShot && $hasColorShot;
+                                $photoNotif = $lastNotifs[$sale->id]['photo_reminder'] ?? null;
+                                $photoLastAt = $photoNotif['last_at'] ?? null;
+                                $photoCount = $photoNotif['reminder_count'] ?? 0;
+                                $photoCooldown = $photoLastAt && $photoLastAt->diffInHours(now()) < 24;
                             @endphp
                             <span data-photos="{{ $allPhotos ? 'complete' : 'missing' }}">
                                 @if($allPhotos)
@@ -422,7 +426,12 @@
                                     @if(!$hasColorShot)
                                         <span class="badge bg-warning text-dark" title="Missing approved sample color">🎨 Missing</span>
                                     @endif
-                                    <button type="button" class="btn btn-sm btn-outline-warning notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" title="Notify agent to upload photos" onclick="event.stopPropagation();notifyAgent(this)">🔔</button>
+                                    @if($photoCooldown)
+                                        <span class="badge bg-secondary" title="Last notified {{ $photoLastAt->diffForHumans() }}">🔔 {{ $photoLastAt->diffInHours(now()) }}h ago</span>
+                                        <button type="button" class="btn btn-sm btn-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>
+                                    @else
+                                        <button type="button" class="btn btn-sm btn-outline-warning notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" title="Notify agent to upload photos{{ $photoCount > 1 ? ' (reminder #'.$photoCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $photoCount > 1 ? '×'.$photoCount : '' }}</button>
+                                    @endif
                                 @endif
                             </span>
                         </td>
@@ -433,9 +442,20 @@
                             @endif
                         </td>
                         <td>
+                            @php
+                                $payNotif = $lastNotifs[$sale->id]['payment_reminder'] ?? null;
+                                $payLastAt = $payNotif['last_at'] ?? null;
+                                $payCount = $payNotif['reminder_count'] ?? 0;
+                                $payCooldown = $payLastAt && $payLastAt->diffInHours(now()) < 24;
+                            @endphp
                             @if(($sale->balance_due_computed ?? 0) > 0)
                                 <span class="badge bg-danger">₱{{ number_format($sale->balance_due_computed, 2) }}</span>
-                                <button type="button" class="btn btn-sm btn-outline-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" title="Notify agent to collect payment" onclick="event.stopPropagation();notifyAgent(this)">🔔</button>
+                                @if($payCooldown)
+                                    <span class="badge bg-secondary" title="Last notified {{ $payLastAt->diffForHumans() }}">🔔 {{ $payLastAt->diffInHours(now()) }}h ago</span>
+                                    <button type="button" class="btn btn-sm btn-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>
+                                @else
+                                    <button type="button" class="btn btn-sm btn-outline-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" title="Notify agent to collect payment{{ $payCount > 1 ? ' (reminder #'.$payCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $payCount > 1 ? '×'.$payCount : '' }}</button>
+                                @endif
                             @elseif(($sale->net_paid ?? 0) > 0)
                                 <span class="badge bg-success">Paid</span>
                             @else
@@ -512,7 +532,7 @@ function notifyAgent(btn) {
     var saleId = btn.getAttribute('data-sale-id');
     var saleNumber = btn.getAttribute('data-sale-number');
     var type = btn.getAttribute('data-type');
-    var label = type === 'photo_reminder' ? 'upload the missing photos' : 'collect the payment / settle the balance';
+    var urgent = btn.getAttribute('data-urgent') === '1';
 
     btn.disabled = true;
     btn.innerHTML = '⏳';
@@ -524,25 +544,30 @@ function notifyAgent(btn) {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         },
-        body: JSON.stringify({ type: type })
+        body: JSON.stringify({ type: type, urgent: urgent })
     })
     .then(function(res) { return res.json(); })
     .then(function(data) {
         if (data.success) {
             showToast('✅ ' + data.message);
             btn.innerHTML = '✅';
-            btn.classList.remove('btn-outline-warning', 'btn-outline-danger');
+            btn.classList.remove('btn-outline-warning', 'btn-outline-danger', 'btn-danger');
             btn.classList.add('btn-success');
+            setTimeout(function() { location.reload(); }, 1200);
+        } else if (data.cooldown) {
+            showToast('⏳ ' + data.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = urgent ? '🚨' : '🔔';
         } else {
             showToast('⚠️ ' + (data.message || 'Failed to notify agent.'), 'error');
             btn.disabled = false;
-            btn.innerHTML = '🔔';
+            btn.innerHTML = urgent ? '🚨' : '🔔';
         }
     })
     .catch(function() {
         showToast('❌ Network error. Please try again.', 'error');
         btn.disabled = false;
-        btn.innerHTML = '🔔';
+        btn.innerHTML = urgent ? '🚨' : '🔔';
     });
 }
 

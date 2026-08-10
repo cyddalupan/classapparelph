@@ -11,6 +11,8 @@ class SaleNotification extends Model
         'from_user_id',
         'to_user_id',
         'type',
+        'is_urgent',
+        'reminder_count',
         'title',
         'message',
         'is_read',
@@ -19,6 +21,7 @@ class SaleNotification extends Model
 
     protected $casts = [
         'is_read' => 'boolean',
+        'is_urgent' => 'boolean',
         'read_at' => 'datetime',
     ];
 

@@ -136,10 +136,10 @@
                         @endif
                     </div>
                     @forelse($notifications as $notif)
-                    <a href="{{ route('sales.prototype.show', $notif->sale_id) }}" onclick="markNotifRead({{ $notif->id }})" style="display:block;padding:12px 16px;border-bottom:1px solid #f1f5f9;text-decoration:none;background:{{ $notif->is_read ? '#fff' : '#eff6ff' }};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='{{ $notif->is_read ? '#fff' : '#eff6ff' }}'">
-                        <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ $notif->title }}</div>
+                    <a href="{{ route('sales.prototype.show', $notif->sale_id) }}" onclick="markNotifRead({{ $notif->id }})" style="display:block;padding:12px 16px;border-bottom:1px solid #f1f5f9;text-decoration:none;background:{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }};border-left:{{ $notif->is_urgent ? '3px solid #dc2626' : '3px solid transparent' }};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }}'">
+                        <div style="font-size:13px;font-weight:600;color:{{ $notif->is_urgent ? '#dc2626' : '#1e293b' }};">{{ $notif->title }}</div>
                         <div style="font-size:12px;color:#64748b;margin-top:2px;">{{ $notif->message }}</div>
-                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">from {{ $notif->fromUser->name ?? 'Manager' }} • {{ $notif->created_at->diffForHumans() }}</div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">from {{ $notif->fromUser->name ?? 'Manager' }} • {{ $notif->created_at->diffForHumans() }}{{ $notif->reminder_count > 1 ? ' • Reminder #' . $notif->reminder_count : '' }}</div>
                     </a>
                     @empty
                     <div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">No notifications yet 🎉</div>

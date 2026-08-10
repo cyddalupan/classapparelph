@@ -2461,10 +2461,30 @@ public function printSlip(string $id)
                 ->get();
         }
         
+        // Get last notification info per sale+type for cooldown display
+        $lastNotifs = collect();
+        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+            $saleIds = $sales->pluck('id');
+            $lastNotifs = \App\Models\SaleNotification::whereIn('sale_id', $saleIds)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('sale_id')
+                ->map(function ($group) {
+                    return $group->groupBy('type')->map(function ($typeGroup) {
+                        $latest = $typeGroup->first();
+                        return [
+                            'last_at' => $latest->created_at,
+                            'reminder_count' => $typeGroup->max('reminder_count'),
+                        ];
+                    });
+                });
+        }
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels",
             "departmentLabels", "departmentColors", "isAgent",
-            "pendingCounts", "totalPending", "pendingChangesList"
+            "pendingCounts", "totalPending", "pendingChangesList",
+            "lastNotifs"
         ));
     }
 
@@ -4289,6 +4309,7 @@ public function printSlip(string $id)
     {
         $request->validate([
             'type' => 'required|in:photo_reminder,payment_reminder',
+            'urgent' => 'nullable|boolean',
         ]);
 
         $sale = \App\Models\PrototypeSale::find($id);
@@ -4303,13 +4324,44 @@ public function printSlip(string $id)
 
         $from = auth()->user();
         $type = $request->type;
+        $isUrgent = (bool) $request->boolean('urgent');
 
+        // Cooldown check: if last notification for this sale+type is within 24h and not urgent, block it
+        $lastNotif = \App\Models\SaleNotification::where('sale_id', $sale->id)
+            ->where('type', $type)
+            ->orderBy('created_at', 'desc')
+            ->first();
+        if ($lastNotif && !$isUrgent) {
+            $hoursSince = $lastNotif->created_at->diffInHours(now());
+            if ($hoursSince < 24) {
+                $remaining = 24 - $hoursSince;
+                return response()->json([
+                    'success' => false,
+                    'cooldown' => true,
+                    'message' => "Na-notify na ang agent {$hoursSince}h ago. Pwede ulit i-notify pagkatapos ng {$remaining}h, o gamitin ang urgent reminder.",
+                ]);
+            }
+        }
+
+        // Reminder count: how many times has this agent been notified for this sale+type
+        $reminderCount = \App\Models\SaleNotification::where('sale_id', $sale->id)
+            ->where('type', $type)
+            ->count() + 1;
+
+        $customer = $sale->customer_name ?: 'customer';
         if ($type === 'photo_reminder') {
-            $title = '📸 Photo upload needed: ' . $sale->sales_number;
-            $message = 'May kulang pang photos (File Screenshot / Approved Sample Color) para sa order ni ' . ($sale->customer_name ?: 'customer') . '. Pakiupload na lang po.';
+            $baseTitle = '📸 Photo upload needed: ' . $sale->sales_number;
+            $message = "May kulang pang photos (File Screenshot / Approved Sample Color) para sa order ni {$customer}. Pakiupload na lang po.";
         } else {
-            $title = '💰 Payment needed: ' . $sale->sales_number;
-            $message = 'May balance due na ₱' . number_format($sale->balance_due_computed, 2) . ' para sa order ni ' . ($sale->customer_name ?: 'customer') . '. Pakipag-ayos na lang po ang payment.';
+            $baseTitle = '💰 Payment needed: ' . $sale->sales_number;
+            $message = 'May balance due na ₱' . number_format($sale->balance_due_computed, 2) . " para sa order ni {$customer}. Pakipag-ayos na lang po ang payment.";
+        }
+
+        if ($isUrgent && $reminderCount > 1) {
+            $title = "🚨 URGENT ({$reminderCount}nd reminder): " . substr($baseTitle, strpos($baseTitle, ':') + 2);
+            $message = "⚠️ URGENT — {$message}";
+        } else {
+            $title = $baseTitle;
         }
 
         \App\Models\SaleNotification::create([
@@ -4317,6 +4369,8 @@ public function printSlip(string $id)
             'from_user_id' => $from ? $from->id : null,
             'to_user_id' => $agentId,
             'type' => $type,
+            'is_urgent' => $isUrgent,
+            'reminder_count' => $reminderCount,
             'title' => $title,
             'message' => $message,
         ]);
@@ -4325,6 +4379,7 @@ public function printSlip(string $id)
             'success' => true,
             'message' => 'Agent notified! ✅',
             'title' => $title,
+            'reminder_count' => $reminderCount,
         ]);
     }
 
