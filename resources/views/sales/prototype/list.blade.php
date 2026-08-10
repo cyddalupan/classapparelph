@@ -319,6 +319,18 @@
             <option value="delivered">Delivered</option>
             <option value="completed">Completed</option>
         </select>
+        <select id="paymentFilter" onchange="filterTable()">
+            <option value="">All Payments</option>
+            <option value="paid">✅ Paid</option>
+            <option value="refunded">↩ Refunded</option>
+            <option value="pending">⏳ Pending</option>
+            <option value="rejected">❌ Rejected</option>
+            <option value="balance">⚠️ With Balance Due</option>
+        </select>
+        <select id="agentFilter" onchange="filterTable()">
+            <option value="">All Agents</option>
+        </select>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetFilters()" title="Reset all filters">↺ Reset</button>
         <span class="text-muted" style="font-size:13px;">{{ $sales->total() }} orders</span>
     </div>
 
@@ -494,6 +506,8 @@ function filterTable() {
     var search = document.getElementById('searchInput').value.toLowerCase();
     var dept = document.getElementById('deptFilter').value;
     var status = document.getElementById('statusFilter').value;
+    var payment = document.getElementById('paymentFilter').value;
+    var agent = document.getElementById('agentFilter').value;
     var rows = document.querySelectorAll('#orderTable tbody tr');
     
     rows.forEach(function(row) {
@@ -507,10 +521,55 @@ function filterTable() {
         var activeDot = row.querySelector('.pipeline-dot.active');
         var statusMatch = !status || (activeDot && activeDot.closest('.pipeline-step').title === document.querySelector('#statusFilter option[value="' + status + '"]').textContent);
         
+        // Payment filter: match badge text in the Payment column (7th td)
+        var payBadge = '';
+        var payTd = row.querySelector('td:nth-child(7) .badge');
+        if (payTd) payBadge = payTd.textContent.trim();
+        var paymentMatch = true;
+        if (payment === 'paid') paymentMatch = payBadge.indexOf('Paid') !== -1;
+        else if (payment === 'refunded') paymentMatch = payBadge.indexOf('Refunded') !== -1;
+        else if (payment === 'pending') paymentMatch = payBadge.indexOf('Pending') !== -1;
+        else if (payment === 'rejected') paymentMatch = payBadge.indexOf('Rejected') !== -1;
+        else if (payment === 'balance') {
+            // With Balance Due: Balance Due column (6th td) has a red badge with amount
+            var balBadge = row.querySelector('td:nth-child(6) .badge.bg-danger');
+            paymentMatch = !!balBadge;
+        }
+        
+        // Agent filter: match agent cell (9th td)
+        var rowAgent = row.querySelector('td:nth-child(9)') ? row.querySelector('td:nth-child(9)').textContent.trim() : '';
+        var agentMatch = !agent || rowAgent === agent;
+        
         var searchMatch = !search || text.indexOf(search) !== -1;
         
-        row.style.display = (deptMatch && statusMatch && searchMatch) ? '' : 'none';
+        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && searchMatch) ? '' : 'none';
     });
 }
+
+// Populate agent filter options from table rows
+function populateAgentFilter() {
+    var agentSelect = document.getElementById('agentFilter');
+    var seen = {};
+    document.querySelectorAll('#orderTable tbody tr').forEach(function(row) {
+        if (row.querySelector('td[colspan]')) return;
+        var a = row.querySelector('td:nth-child(9)') ? row.querySelector('td:nth-child(9)').textContent.trim() : '';
+        if (a && !seen[a]) {
+            seen[a] = true;
+            var opt = document.createElement('option');
+            opt.value = a;
+            opt.textContent = a;
+            agentSelect.appendChild(opt);
+        }
+    });
+}
+
+function resetFilters() {
+    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter'].forEach(function(id) {
+        document.getElementById(id).value = '';
+    });
+    filterTable();
+}
+
+document.addEventListener('DOMContentLoaded', populateAgentFilter);
 </script>
 @endpush
