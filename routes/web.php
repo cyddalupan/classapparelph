@@ -804,7 +804,7 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/{id}/verify-payment', [App\Http\Controllers\PrototypeSalesController::class, 'verifyPayment'])->name('sales.prototype.verify-payment');
         Route::get('/sales/verification', [App\Http\Controllers\PrototypeSalesController::class, 'paymentVerification'])->name('sales.verification');
         Route::get('/sales/cash-flow', [App\Http\Controllers\PrototypeSalesController::class, 'cashFlow'])->name('sales.cash-flow');
-        Route::get('/sales/audit-logs/{saleId}', [App\Http\Controllers\PrototypeSalesController::class, 'getAuditLogs'])->name('sales.audit-logs');
+        Route::get('/sales/audit-logs/{saleId?}', [App\Http\Controllers\PrototypeSalesController::class, 'getAuditLogs'])->name('sales.audit-logs');
         Route::get('/sales/account-history/{accountId}', [App\Http\Controllers\PrototypeSalesController::class, 'getAccountHistory'])->name('sales.account-history');
         
         // Add-on request routes

@@ -8,6 +8,7 @@ class PaymentAuditLog extends Model
 {
     protected $fillable = [
         'prototype_sale_id',
+        'payment_id',
         'payment_account_id',
         'user_id',
         'action',

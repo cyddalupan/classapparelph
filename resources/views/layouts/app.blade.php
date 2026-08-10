@@ -265,7 +265,10 @@
                         <a href="{{ route('sales.prototype.refunds') }}" class="nav-item {{ request()->routeIs('sales.prototype.refunds') ? 'active' : '' }}">
                             <i class="fas fa-undo-alt"></i>
                             <span class="nav-text">Refunds</span>
-                            <span class="nav-badge new">NEW</span>
+                        </a>
+                        <a href="{{ route('sales.verification') }}" class="nav-item {{ request()->routeIs('sales.verification') ? 'active' : '' }}">
+                            <i class="fas fa-check-circle"></i>
+                            <span class="nav-text">Payment Verification</span>
                         </a>
                         <a href="{{ route('procurement.orders.create') }}" class="nav-item {{ request()->routeIs('procurement.orders.create') || request()->routeIs('procurement.orders.*') ? 'active' : '' }}">
                             <i class="fas fa-plus-circle"></i>

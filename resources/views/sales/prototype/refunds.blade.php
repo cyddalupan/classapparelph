@@ -6,7 +6,7 @@
 <style>
     .refund-card { transition: all 0.2s; border-left: 4px solid #dee2e6; }
     .refund-card.pending { border-left-color: #ffc107; }
-    .refund-card.approved { border-left-color: #0d6efd; }
+    .refund-card.accepted { border-left-color: #6f42c1; }
     .refund-card.completed { border-left-color: #198754; }
     .refund-card.rejected { border-left-color: #dc3545; }
     .refund-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); transform: translateX(2px); }
@@ -38,7 +38,7 @@
                     <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="all" {{ request('status') == 'all' || !request('status') ? 'selected' : '' }}>All Statuses</option>
                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>⏳ Pending</option>
-                        <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>✅ Approved</option>
+                        <option value="accepted" {{ request('status') == 'accepted' ? 'selected' : '' }}>✅ Accepted</option>
                         <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>✅ Completed</option>
                         <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>❌ Rejected</option>
                     </select>
@@ -70,8 +70,8 @@
                         <span class="badge bg-secondary">{{ $refund->customer_name }}</span>
                         @if($refund->refund_status === 'pending')
                             <span class="badge bg-warning text-dark">⏳ Pending</span>
-                        @elseif($refund->refund_status === 'approved')
-                            <span class="badge bg-primary">✅ Approved</span>
+                        @elseif($refund->refund_status === 'accepted')
+                            <span class="badge" style="background: #6f42c1;">✅ Accepted</span>
                         @elseif($refund->refund_status === 'completed')
                             <span class="badge bg-success">✅ Completed</span>
                         @elseif($refund->refund_status === 'rejected')
@@ -81,6 +81,9 @@
                     <div class="d-flex flex-wrap gap-3 small text-muted">
                         <span><i class="fas fa-tag me-1"></i>{{ ucfirst(str_replace('_', ' ', $refund->refund_reason)) }}</span>
                         <span><i class="fas fa-user me-1"></i>Requested by: {{ $refund->requested_by_name }}</span>
+                        @if($refund->accepted_by_name)
+                            <span><i class="fas fa-hand-paper me-1"></i>Accepted by: {{ $refund->accepted_by_name }}</span>
+                        @endif
                         <span><i class="fas fa-calendar me-1"></i>{{ \Carbon\Carbon::parse($refund->created_at)->format('M d, Y') }}</span>
                         @if($refund->refund_method)
                             <span><i class="fas fa-credit-card me-1"></i>{{ ucfirst($refund->refund_method) }}</span>
@@ -118,18 +121,24 @@
                         @if($refund->refund_status === 'pending')
                             <form method="POST" action="{{ route('sales.prototype.process-refund', $refund->id) }}" class="d-inline ajax-refund-form">
                                 @csrf
-                                <input type="hidden" name="action" value="approve">
+                                <input type="hidden" name="refund_action" value="accept">
                                 <button type="submit" class="btn btn-sm btn-primary me-1">
-                                    <i class="fas fa-check me-1"></i>Approve
+                                    <i class="fas fa-hand-paper me-1"></i>Accept
                                 </button>
                             </form>
                             <button type="button" class="btn btn-sm btn-outline-danger" onclick="openRejectRefund({{ $refund->id }})">
                                 <i class="fas fa-times me-1"></i>Reject
                             </button>
-                        @elseif($refund->refund_status === 'approved')
-                            <button type="button" class="btn btn-sm btn-success" onclick="openCompleteRefund({{ $refund->id }}, {{ $refund->refund_amount }})">
-                                <i class="fas fa-check-circle me-1"></i>Mark Completed
-                            </button>
+                        @elseif($refund->refund_status === 'accepted')
+                            @if($refund->accepted_by == auth()->id())
+                                <button type="button" class="btn btn-sm btn-success" onclick="openCompleteRefund({{ $refund->id }}, {{ $refund->refund_amount }})">
+                                    <i class="fas fa-check-circle me-1"></i>Mark Completed
+                                </button>
+                            @else
+                                <span class="text-muted small">
+                                    <i class="fas fa-lock me-1"></i>Accepted by {{ $refund->accepted_by_name ?? 'another manager' }}
+                                </span>
+                            @endif
                         @endif
                         <a href="{{ route('sales.prototype.show', $refund->prototype_sale_id) }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-external-link-alt me-1"></i>View Sale
@@ -160,32 +169,33 @@
         <div class="modal-content">
             <form id="completeRefundForm" method="POST" enctype="multipart/form-data">
                 @csrf
-                <input type="hidden" name="action" value="complete">
+                <input type="hidden" name="refund_action" value="complete">
                 <div class="modal-header">
                     <h6 class="modal-title"><i class="fas fa-check-circle me-1 text-success"></i>Complete Refund</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted small mb-3">Enter the refund details and upload proof of disbursement.</p>
+                    <p class="text-muted small mb-3">Upload the proof of disbursement to complete this refund. Hindi pwedeng i-complete kung walang screenshot.</p>
                     <div class="mb-3">
                         <label class="form-label">Refund Amount <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <span class="input-group-text">₱</span>
-                            <input type="number" step="0.01" name="refund_amount" class="form-control" id="completeRefundAmount" required>
+                            <input type="text" name="refund_amount" class="form-control" id="completeRefundAmount" readonly>
                         </div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Proof Screenshot <span class="text-danger">*</span></label>
+                        <input type="file" name="refund_proof" class="form-control" accept="image/*" required>
+                        <div class="form-text">Required. Upload screenshot ng GCash transfer, bank transaction, etc. (max 5MB)</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Reference Number <span class="text-danger">*</span></label>
-                        <input type="text" name="refund_reference" class="form-control" required placeholder="e.g. GCash Ref #, Bank Transaction ID">
+                        <input type="text" name="refund_reference" class="form-control" placeholder="e.g. GCash Ref #, Bank Transaction ID" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Proof Screenshot</label>
-                        <input type="file" name="refund_proof" class="form-control" accept="image/*">
-                        <div class="form-text">Upload screenshot of GCash transfer, bank transaction, etc. (max 5MB)</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Notes</label>
-                        <textarea name="admin_notes" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
+                        <label class="form-label">Notes <span class="text-danger">*</span></label>
+                        <textarea name="admin_notes" class="form-control" rows="2" placeholder="Enter notes about this refund" required></textarea>
+                        <div class="form-text">Required. Describe the refund details.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -205,7 +215,7 @@
         <div class="modal-content">
             <form id="rejectRefundForm" method="POST">
                 @csrf
-                <input type="hidden" name="action" value="reject">
+                <input type="hidden" name="refund_action" value="reject">
                 <div class="modal-header">
                     <h6 class="modal-title"><i class="fas fa-times-circle me-1 text-danger"></i>Reject Refund</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -245,7 +255,7 @@ function openRejectRefund(refundId) {
 
 /* Handle refund action forms via AJAX */
 document.addEventListener('DOMContentLoaded', function() {
-    /* Approve forms */
+    /* Accept forms */
     document.querySelectorAll('.ajax-refund-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -281,6 +291,14 @@ document.addEventListener('DOMContentLoaded', function() {
     if (completeForm) {
         completeForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            /* Check file validation */
+            var fileInput = this.querySelector('input[name="refund_proof"]');
+            if (!fileInput.files || !fileInput.files[0]) {
+                alert('Refund proof screenshot is required.');
+                return;
+            }
+
             var btn = this.querySelector('button[type="submit"]');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';

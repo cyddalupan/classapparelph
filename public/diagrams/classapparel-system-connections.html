@@ -1,0 +1,314 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CLASS Apparel System — Entity Connections</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f8fafc;
+    --fg: #172033;
+    --muted: #5b6475;
+    --line: #64748b;
+    --neutral: #e2e8f0;
+    --input: #bfdbfe;
+    --process: #c7d2fe;
+    --storage: #99f6e4;
+    --external: #fde68a;
+    --risk: #fecaca;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f172a;
+      --fg: #e5e7eb;
+      --muted: #a3adbd;
+      --line: #94a3b8;
+      --neutral: #334155;
+      --input: #1d4ed8;
+      --process: #4338ca;
+      --storage: #0f766e;
+      --external: #92400e;
+      --risk: #991b1b;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font:
+      14px/1.4 ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+  }
+  main {
+    max-width: 1100px;
+    margin: 32px auto;
+    padding: 0 20px;
+  }
+  svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .title {
+    font-size: 20px;
+    font-weight: 650;
+    fill: var(--fg);
+  }
+  .subtitle {
+    font-size: 13px;
+    fill: var(--muted);
+  }
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    fill: var(--fg);
+  }
+  .small {
+    font-size: 11px;
+    fill: var(--muted);
+  }
+  .node {
+    stroke: var(--line);
+    stroke-width: 1;
+    rx: 6;
+    ry: 6;
+  }
+  .neutral { fill: var(--neutral); }
+  .input { fill: var(--input); }
+  .process { fill: var(--process); }
+  .storage { fill: var(--storage); }
+  .external { fill: var(--external); }
+  .risk { fill: var(--risk); }
+  .edge {
+    stroke: var(--line);
+    stroke-width: 1.5;
+    fill: none;
+  }
+  .dashed {
+    stroke-dasharray: 6 4;
+  }
+  .zone {
+    fill: none;
+    stroke: var(--line);
+    stroke-width: 1;
+    stroke-dasharray: 6 5;
+    opacity: 0.8;
+  }
+</style>
+<main>
+  <svg viewBox="0 0 1060 1200" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line)" />
+      </marker>
+      <marker id="arrow-dashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)" />
+      </marker>
+    </defs>
+
+    <!-- Title -->
+    <text x="530" y="30" text-anchor="middle" class="title">CLASS Apparel PH — Entity Connections</text>
+    <text x="530" y="50" text-anchor="middle" class="subtitle">How pricing, products, customers, and sales connect</text>
+
+    <!-- ============ LEGEND ============ -->
+    <rect x="20" y="65" width="1020" height="40" class="zone" rx="4" />
+    <rect x="30" y="73" width="16" height="16" class="input" rx="2" stroke="var(--line)" stroke-width="1" />
+    <text x="52" y="86" class="small">Core Data</text>
+    <rect x="130" y="73" width="16" height="16" class="process" rx="2" stroke="var(--line)" stroke-width="1" />
+    <text x="152" y="86" class="small">Pricing</text>
+    <rect x="220" y="73" width="16" height="16" class="storage" rx="2" stroke="var(--line)" stroke-width="1" />
+    <text x="242" y="86" class="small">Discounts</text>
+    <rect x="330" y="73" width="16" height="16" class="external" rx="2" stroke="var(--line)" stroke-width="1" />
+    <text x="352" y="86" class="small">Transactions</text>
+    <path d="M 440 81 L 470 81" class="edge" marker-end="url(#arrow)" />
+    <text x="480" y="86" class="small">has many / belongs to</text>
+    <path d="M 600 81 L 630 81" class="edge dashed" marker-end="url(#arrow-dashed)" />
+    <text x="640" y="86" class="small">lookup / derived</text>
+
+    <!-- ==================== ZONES ==================== -->
+    <!-- Products Zone -->
+    <rect x="20" y="115" width="490" height="310" class="zone" rx="8" />
+    <text x="265" y="133" text-anchor="middle" class="small">📦 PRODUCTS &amp; PRICING</text>
+
+    <!-- Sales Zone -->
+    <rect x="540" y="115" width="500" height="310" class="zone" rx="8" />
+    <text x="790" y="133" text-anchor="middle" class="small">🛒 SALES &amp; CART</text>
+
+    <!-- Discounts Zone -->
+    <rect x="20" y="440" width="490" height="250" class="zone" rx="8" />
+    <text x="265" y="458" text-anchor="middle" class="small">🏷️ DISCOUNTS</text>
+
+    <!-- Payments Zone -->
+    <rect x="540" y="440" width="500" height="250" class="zone" rx="8" />
+    <text x="790" y="458" text-anchor="middle" class="small">💳 PAYMENTS &amp; VERIFICATION</text>
+
+    <!-- Customers Zone -->
+    <rect x="20" y="710" width="1020" height="180" class="zone" rx="8" />
+    <text x="530" y="728" text-anchor="middle" class="small">👤 CUSTOMERS &amp; TIERS</text>
+
+    <!-- ==================== ENTITY BOXES — Row 1 ==================== -->
+    <!-- Master Item -->
+    <rect x="60" y="160" width="180" height="60" class="node input" />
+    <text x="150" y="185" text-anchor="middle" class="label">Master Item</text>
+    <text x="150" y="205" text-anchor="middle" class="small">name · category · brand · color · size</text>
+
+    <!-- Product Pricing -->
+    <rect x="290" y="160" width="180" height="60" class="node process" />
+    <text x="380" y="180" text-anchor="middle" class="label">Product Pricing</text>
+    <text x="380" y="196" text-anchor="middle" class="small">price_tier · base_price</text>
+    <text x="380" y="212" text-anchor="middle" class="small">markup% · final_price</text>
+
+    <!-- Cart -->
+    <rect x="580" y="160" width="180" height="60" class="node external" />
+    <text x="670" y="185" text-anchor="middle" class="label">Cart</text>
+    <text x="670" y="205" text-anchor="middle" class="small">session_id · subtotal · total</text>
+
+    <!-- Prototype Sale -->
+    <rect x="820" y="160" width="180" height="60" class="node external" />
+    <text x="910" y="180" text-anchor="middle" class="label">Prototype Sale</text>
+    <text x="910" y="196" text-anchor="middle" class="small">sales_number · total_amount</text>
+    <text x="910" y="212" text-anchor="middle" class="small">deposit_paid · services</text>
+
+    <!-- ==================== Row 2 ==================== -->
+    <!-- Product Variant -->
+    <rect x="60" y="270" width="180" height="54" class="node input" />
+    <text x="150" y="293" text-anchor="middle" class="label">Product Variant</text>
+    <text x="150" y="310" text-anchor="middle" class="small">size · color · sku · unit_price</text>
+
+    <!-- Printing Price -->
+    <rect x="60" y="355" width="135" height="54" class="node process" />
+    <text x="127" y="378" text-anchor="middle" class="label">Printing Price</text>
+    <text x="127" y="395" text-anchor="middle" class="small">price · agent_price</text>
+
+    <!-- Sublimation Price -->
+    <rect x="220" y="355" width="135" height="54" class="node process" />
+    <text x="287" y="378" text-anchor="middle" class="label">Sublimation Price</text>
+    <text x="287" y="395" text-anchor="middle" class="small">price · agent_price</text>
+
+    <!-- Cart Item -->
+    <rect x="580" y="270" width="180" height="54" class="node external" />
+    <text x="670" y="293" text-anchor="middle" class="label">Cart Item</text>
+    <text x="670" y="310" text-anchor="middle" class="small">product_type · quantity · unit_price</text>
+
+    <!-- Prototype Order -->
+    <rect x="820" y="270" width="180" height="54" class="node external" />
+    <text x="910" y="293" text-anchor="middle" class="label">Prototype Order</text>
+    <text x="910" y="310" text-anchor="middle" class="small">product_id · quantity · total_price</text>
+
+    <!-- Customer (in bottom zone) -->
+    <rect x="60" y="750" width="180" height="60" class="node input" />
+    <text x="150" y="775" text-anchor="middle" class="label">Customer</text>
+    <text x="150" y="795" text-anchor="middle" class="small">total_spent · total_orders · tier</text>
+
+    <!-- ==================== Row 3 — Discounts ==================== -->
+    <rect x="60" y="485" width="160" height="54" class="node storage" />
+    <text x="140" y="508" text-anchor="middle" class="label">Volume Discount</text>
+    <text x="140" y="525" text-anchor="middle" class="small">min/max_qty · price_per_unit</text>
+
+    <rect x="250" y="485" width="160" height="54" class="node storage" />
+    <text x="330" y="508" text-anchor="middle" class="label">Printing Bulk Discount</text>
+    <text x="330" y="525" text-anchor="middle" class="small">garments · % · amount</text>
+
+    <rect x="60" y="570" width="160" height="54" class="node storage" />
+    <text x="140" y="593" text-anchor="middle" class="label">Printing Combo</text>
+    <text x="140" y="610" text-anchor="middle" class="small">size1 · size2 · % or fixed</text>
+
+    <rect x="250" y="570" width="160" height="54" class="node storage" />
+    <text x="330" y="593" text-anchor="middle" class="label">Size Upgrade</text>
+    <text x="330" y="610" text-anchor="middle" class="small">from_size · to_size · auto_apply</text>
+
+    <rect x="60" y="655" width="160" height="54" class="node storage" />
+    <text x="140" y="678" text-anchor="middle" class="label">Sublimation Bulk</text>
+    <text x="140" y="695" text-anchor="middle" class="small">min/max_qty · %</text>
+
+    <!-- ==================== Row 3 — Payments ==================== -->
+    <rect x="580" y="485" width="180" height="54" class="node risk" />
+    <text x="670" y="508" text-anchor="middle" class="label">Prototype Payment</text>
+    <text x="670" y="525" text-anchor="middle" class="small">amount · method · payment_type</text>
+
+    <rect x="820" y="485" width="180" height="54" class="node risk" />
+    <text x="910" y="508" text-anchor="middle" class="label">Payment Audit Log</text>
+    <text x="910" y="525" text-anchor="middle" class="small">action · user · timestamp</text>
+
+    <rect x="580" y="570" width="180" height="54" class="node risk" />
+    <text x="670" y="593" text-anchor="middle" class="label">Payment Account</text>
+    <text x="670" y="610" text-anchor="middle" class="small">bank · account_name · number</text>
+
+    <!-- ==================== EDGES ==================== -->
+
+    <!-- Master Item → Product Pricing (1 to many) -->
+    <path d="M 240 190 L 288 190" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Master Item → Product Variant -->
+    <path d="M 150 220 L 150 268" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Master Item → Printing Price -->
+    <path d="M 150 220 L 150 250 L 60 250 L 60 340 L 80 340 L 105 355" class="edge dashed" marker-end="url(#arrow-dashed)" />
+
+    <!-- Master Item → Sublimation Price -->
+    <path d="M 150 220 L 150 250 L 60 250 L 60 340 L 290 340 L 290 353" class="edge dashed" marker-end="url(#arrow-dashed)" />
+
+    <!-- Master Item → Volume Discount -->
+    <path d="M 150 220 L 150 250 L 60 250 L 60 460 L 120 460 L 140 483" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Printing Price → Bulk Discount (same print_type) -->
+    <path d="M 127 355 L 127 430 L 330 430 L 330 483" class="edge dashed" marker-end="url(#arrow-dashed)" />
+
+    <!-- Printing Price → Combo -->
+    <path d="M 60 370 L 40 370 L 40 597 L 58 597" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Printing Price → Size Upgrade -->
+    <path d="M 60 380 L 30 380 L 30 630 L 58 630" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Sublimation Price → Sublimation Bulk -->
+    <path d="M 287 355 L 287 440 L 140 440 L 140 653" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Cart → Cart Item -->
+    <path d="M 670 220 L 670 268" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Cart → Prototype Sale (checkout) -->
+    <path d="M 760 190 L 818 190" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Cart Item → Prototype Order Item -->
+    <path d="M 760 297 L 818 297" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Prototype Sale → Prototype Payment -->
+    <path d="M 910 220 L 910 250 L 670 250 L 670 483" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Prototype Sale → Audit Log -->
+    <path d="M 960 210 L 1000 210 L 1000 512 L 1000 512" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Prototype Payment → Payment Account -->
+    <path d="M 670 539 L 670 568" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Customer → Prototype Sale -->
+    <path d="M 240 780 L 540 780 L 540 270 L 580 270 L 710 270 L 715 250 L 818 190" class="edge" marker-end="url(#arrow)" />
+
+    <!-- ==================== Customer Tier Info ==================== -->
+    <rect x="300" y="750" width="320" height="60" class="node external" />
+    <text x="460" y="773" text-anchor="middle" class="label">Customer Tiers</text>
+    <text x="460" y="793" text-anchor="middle" class="small">Bronze (&lt;₱10K) · Silver (₱10-50K) · Gold (₱50-200K) · Platinum (&gt;₱200K)</text>
+
+    <!-- Customer → Tier -->
+    <path d="M 240 780 L 298 780" class="edge" marker-end="url(#arrow)" />
+
+    <!-- Price Tiers info -->
+    <rect x="700" y="750" width="300" height="60" class="node external" />
+    <text x="850" y="773" text-anchor="middle" class="label">Price Tiers (Product Pricing)</text>
+    <text x="850" y="793" text-anchor="middle" class="small">supplier_cost · agent_cost · sales_team · retail</text>
+
+    <!-- Product Pricing → Price Tiers info -->
+    <path d="M 380 220 L 380 240 L 540 240 L 540 800 L 698 800" class="edge dashed" marker-end="url(#arrow-dashed)" />
+
+    <!-- ==================== BOTTOM NOTES ==================== -->
+    <text x="530" y="920" text-anchor="middle" class="small">───</text>
+    <text x="530" y="938" text-anchor="middle" class="small">Each Master Item can have multiple Product Variants (size/color combinations)</text>
+    <text x="530" y="956" text-anchor="middle" class="small">Printing Price &amp; Sublimation Price both link to Master Item + Product Pricing tiers</text>
+    <text x="530" y="974" text-anchor="middle" class="small">Customer Tier auto-updates based on total_spent across all Prototype Sales</text>
+    <text x="530" y="992" text-anchor="middle" class="small">All balance payments require manual verification before status updates</text>
+  </svg>
+</main>
+</html>

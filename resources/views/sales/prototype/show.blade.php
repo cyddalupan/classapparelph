@@ -7,8 +7,8 @@
     .detail-section {
         background: white;
         border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 20px;
+        padding: 18px;
+        margin-bottom: 14px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
     .ref-image:hover, .payment-img:hover {
@@ -16,10 +16,10 @@
     }
     .detail-title {
         font-weight: 600;
-        font-size: 18px;
+        font-size: 16px;
         color: #333;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
         border-bottom: 2px solid #667eea;
     }
     /* Fullsublimation modal styles in partial */
@@ -235,6 +235,50 @@
                 <p>{{ $sale->reason }}</p>
             </div>
             @endif
+
+            <!-- Comment Section -->
+            <div class="detail-section mt-3">
+                <h5 class="detail-title"><i class="fas fa-comments me-2"></i>Comments</h5>
+                
+                <div id="commentsContainer">
+                    <div class="text-center text-muted py-3" id="commentsLoading">
+                        <i class="fas fa-spinner fa-spin"></i> Loading comments...
+                    </div>
+                </div>
+                
+                @if($isManager)
+                <div class="mt-3">
+                    <form id="commentForm" method="POST" action="{{ route('sales.prototype.add-comment', $sale->id) }}">
+                        @csrf
+                        <div class="mb-2">
+                            <textarea name="comment" class="form-control" rows="2" placeholder="Add a comment... (visible to everyone)" required maxlength="1000"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-paper-plane"></i> Post Comment
+                        </button>
+                    </form>
+                </div>
+                @else
+                <div class="alert alert-info mt-3 mb-0 py-2">
+                    <small><i class="fas fa-info-circle"></i> Only managers can add comments here.</small>
+                </div>
+                @endif
+            </div>
+
+            <!-- Audit History -->
+            <div class="detail-section mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="detail-title mb-0" style="border-bottom: none; padding-bottom: 0;">
+                        <i class="fas fa-history me-2"></i>Audit History
+                    </h5>
+                    <button class="btn btn-outline-info btn-sm" onclick="toggleAuditLog()">
+                        <i class="fas fa-chevron-down"></i> View History
+                    </button>
+                </div>
+                <div id="auditLogContainer" style="display: none;">
+                    <p class="text-muted text-center py-3">Loading...</p>
+                </div>
+            </div>
         </div>
 
         <div class="col-lg-4">
@@ -554,10 +598,10 @@
 
             <!-- Audit Log -->
             @php
-                $logs = $sale->payment_account_id ? \App\Models\PaymentAuditLog::with(['user', 'paymentAccount'])
+                $logs = \App\Models\PaymentAuditLog::with(['user', 'paymentAccount'])
                     ->where('prototype_sale_id', $sale->id)
                     ->orderBy('created_at', 'desc')
-                    ->get() : collect();
+                    ->get();
             @endphp
             @if($logs->count() > 0)
             <div class="detail-section">
@@ -683,17 +727,7 @@
                             <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
                         </div>
 
-                        <!-- Method -->
-                        <div class="col-md-6">
-                            <label class="form-label">Payment Method <span class="text-danger">*</span></label>
-                            <select name="payment_method" class="form-select" required onchange="toggleBalanceRefFields()">
-                                <option value="">Select...</option>
-                                <option value="cash">Cash</option>
-                                <option value="gcash">GCash</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="check">Check</option>
-                            </select>
-                        </div>
+                        <!-- Payment Method — removed; Payment Account already indicates the type -->
 
                         <!-- Account -->
                         <div class="col-md-6">
@@ -706,14 +740,14 @@
                             </select>
                         </div>
 
-                        <!-- Reference (shown for non-cash) -->
-                        <div class="col-md-6" id="balanceRefGroup" style="display:none;">
+                        <!-- Reference -->
+                        <div class="col-md-6">
                             <label class="form-label">Reference Number</label>
                             <input type="text" name="reference_number" class="form-control" placeholder="Transaction ref number">
                         </div>
 
-                        <!-- Screenshot (shown for non-cash) -->
-                        <div class="col-12" id="balanceScreenshotGroup" style="display:none;">
+                        <!-- Screenshot -->
+                        <div class="col-12">
                             <label class="form-label">Payment Screenshot / Proof</label>
                             <input type="file" name="payment_screenshot" class="form-control" accept="image/*">
                         </div>
@@ -790,51 +824,6 @@
             </form>
         </div>
     </div>
-</div>
-
-<!-- Comment Section -->
-<div class="detail-section mt-4">
-    <h5 class="detail-title"><i class="fas fa-comments me-2"></i>Comments</h5>
-    
-    <div id="commentsContainer">
-        <div class="text-center text-muted py-3" id="commentsLoading">
-            <i class="fas fa-spinner fa-spin"></i> Loading comments...
-        </div>
-    </div>
-    
-    @if($isManager)
-    <div class="mt-3">
-        <form id="commentForm" method="POST" action="{{ route('sales.prototype.add-comment', $sale->id) }}">
-            @csrf
-            <div class="mb-2">
-                <textarea name="comment" class="form-control" rows="2" placeholder="Add a comment... (visible to everyone)" required maxlength="1000"></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">
-                <i class="fas fa-paper-plane"></i> Post Comment
-            </button>
-        </form>
-    </div>
-    @else
-    <div class="alert alert-info mt-3 mb-0 py-2">
-        <small><i class="fas fa-info-circle"></i> Only managers can add comments here.</small>
-    </div>
-    @endif
-</div>
-
-<!-- Audit History -->
-<div class="detail-section mt-4">
-    <div class="d-flex justify-content-between align-items-center">
-        <h5 class="detail-title mb-0" style="border-bottom: none; padding-bottom: 0;">
-            <i class="fas fa-history me-2"></i>Audit History
-        </h5>
-        <button class="btn btn-outline-info btn-sm" onclick="toggleAuditLog()">
-            <i class="fas fa-chevron-down"></i> View History
-        </button>
-    </div>
-    <div id="auditLogContainer" style="display: none;">
-        <p class="text-muted text-center py-3">Loading...</p>
-    </div>
-</div>
 </div>
 
 @include('partials.sublimation-show-modal')

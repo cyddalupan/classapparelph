@@ -80,6 +80,16 @@ class PrototypeSale extends Model
         return $this->belongsTo(User::class, 'verified_by');
     }
 
+    public function payments()
+    {
+        return $this->hasMany(\App\Models\PrototypePayment::class, 'prototype_sale_id');
+    }
+
+    public function verifiedPayments()
+    {
+        return $this->hasMany(\App\Models\PrototypePayment::class, 'prototype_sale_id')->verified();
+    }
+
     public function auditLogs()
     {
         return $this->hasMany(PaymentAuditLog::class, 'prototype_sale_id');

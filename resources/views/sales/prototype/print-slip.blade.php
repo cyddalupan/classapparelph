@@ -307,7 +307,7 @@
                                 @foreach($sizes as $s)
                                 <tr>
                                     <td>{{ $s['size'] ?? '' }}</td>
-                                    <td>{{ $s['quantity'] ?? 0 }}</td>
+                                    <td>{{ $s['quantity'] ?? $s['qty'] ?? 0 }}</td>
                                     <td></td><td></td><td></td>
                                 </tr>
                                 @endforeach

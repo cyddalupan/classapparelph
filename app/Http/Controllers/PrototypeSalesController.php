@@ -661,13 +661,32 @@ public function details(Request $request, string $id)
             ->where('prototype_sale_id', $id)
             ->orderBy('created_at', 'desc')
             ->get();
-        $activeRefund = $refunds->whereIn('refund_status', ['pending', 'approved'])->first();
+        $activeRefund = $refunds->whereIn('refund_status', ['pending', 'accepted'])->first();
         
+        // Completed refunds for display (to show total refunded + proof)
+        $completedRefunds = $refunds->where('refund_status', 'completed');
+        $totalRefunded = $completedRefunds->sum('refund_amount');
+        
+        // Fetch refund audit logs for this sale
+        $refundLogs = \DB::table('prototype_sale_audit_logs')
+            ->where('sale_id', $id)
+            ->where('action', 'like', 'refund_%')
+            ->join('users', 'prototype_sale_audit_logs.user_id', '=', 'users.id')
+            ->select('prototype_sale_audit_logs.*', 'users.name as user_name')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Fetch individual payments for this sale
+        $payments = \App\Models\PrototypePayment::where('prototype_sale_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
             'progressPercent', 'pendingChanges', 'isManager', 'canEdit',
-            'refunds', 'activeRefund'
+            'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
+            'payments'
         ));
     }
 
@@ -1088,6 +1107,10 @@ public function details(Request $request, string $id)
         $sublimationForm = $request->input('sublimationForm', null);
         $productType = $request->input('productType', 'cutting');
 
+        if (!auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'You must be logged in to add products.'], 401);
+        }
+
         if (empty($productName)) {
             return response()->json(['success' => false, 'message' => 'Product name is required.'], 400);
         }
@@ -1283,7 +1306,7 @@ public function details(Request $request, string $id)
             'deposit_after' => $sale->deposit_paid ?? 0,
             'change_summary' => $summary,
             'status' => 'pending',
-            'submitted_by' => $user ? $user->id : 0,
+            'submitted_by' => $user->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -1291,7 +1314,7 @@ public function details(Request $request, string $id)
         // Audit log
         \DB::table('prototype_sale_audit_logs')->insert([
             'sale_id' => $id,
-            'user_id' => $user ? $user->id : 0,
+            'user_id' => $user->id,
             'action' => 'add_product_pending',
             'description' => $summary . ' — awaiting manager approval',
             'details' => json_encode([
@@ -1344,6 +1367,10 @@ public function details(Request $request, string $id)
         $unitPrice = $request->input('unit_price', $request->input('unitPrice', 0));
         $sublimationForm = $request->input('sublimationForm', null);
         $productType = $request->input('productType', 'cutting');
+
+        if (!auth()->check()) {
+            return response()->json(['success' => false, 'message' => 'You must be logged in to reprocess orders.'], 401);
+        }
 
         if (empty($productName)) {
             return response()->json(['success' => false, 'message' => 'Product name is required.'], 400);
@@ -1472,14 +1499,14 @@ public function details(Request $request, string $id)
             'change_summary' => $summary,
             'status' => 'pending',
             'type' => 'reprocess',
-            'submitted_by' => $user ? $user->id : 0,
+            'submitted_by' => $user->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         \DB::table('prototype_sale_audit_logs')->insert([
             'sale_id' => $id,
-            'user_id' => $user ? $user->id : 0,
+            'user_id' => $user->id,
             'action' => 'reprocess_pending',
             'description' => $summary . ' — awaiting manager approval',
             'details' => json_encode(['change_id' => $changeId, 'total_before' => $totalBefore, 'total_after' => $totalAfter]),
@@ -2526,20 +2553,36 @@ public function printSlip(string $id)
 
     public function verifyPayment(Request $request, $id)
     {
+        // If a payment_id is specified, verify that specific payment
+        $paymentId = $request->payment_id;
+
+        if ($paymentId) {
+            return $this->verifyIndividualPayment($request, $id, $paymentId);
+        }
+
+        // No payment_id = verify/reject the initial deposit on prototype_sales directly
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
             return response()->json(['error' => 'Sale not found'], 404);
         }
 
-        $action = $request->action; // 'verify', 'reject', 're_tag', 'edit_ref'
+        $action = $request->action;
         $remark = $request->remark;
-        $oldAccountId = $sale->payment_account_id;
-        $oldRef = $sale->reference_number;
-        $oldDate = $sale->payment_date;
 
         if ($action === 'verify') {
+            // Require a tagged account and positive deposit before verifying
+            if (!$sale->payment_account_id) {
+                return response()->json(['error' => 'Cannot verify — no payment account assigned. Please re-tag an account first.'], 400);
+            }
+            if ((float) $sale->deposit_paid <= 0) {
+                return response()->json(['error' => 'Cannot verify — no deposit amount recorded.'], 400);
+            }
+
+            // Determine if deposit equals full amount
+            $newStatus = ($sale->deposit_paid >= $sale->total_amount) ? 'full_payment_verified' : 'down_payment_verified';
+
             \DB::table('prototype_sales')->where('id', $id)->update([
-                'payment_status' => 'verified',
+                'payment_status' => $newStatus,
                 'verified_by' => auth()->id(),
                 'verified_at' => now(),
                 'updated_at' => now(),
@@ -2553,9 +2596,39 @@ public function printSlip(string $id)
                 'remarks' => $remark,
             ]);
 
-            $msg = 'Payment verified successfully!';
-
+            $msg = 'Payment verified!';
         } elseif ($action === 'reject') {
+            if (!$remark || !trim($remark)) {
+                return response()->json(['error' => 'Rejection reason is required.'], 400);
+            }
+            // Two-verifier approval: first verifier only requests rejection
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'payment_status' => 'reject_pending',
+                'reject_requested_by' => auth()->id(),
+                'reject_requested_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $sale->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'reject_requested',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Rejection requested — waiting for a second verifier to confirm.';
+        } elseif ($action === 'confirm_reject') {
+            if (!$remark || !trim($remark)) {
+                return response()->json(['error' => 'Confirmation reason is required.'], 400);
+            }
+            if ($sale->payment_status !== 'reject_pending') {
+                return response()->json(['error' => 'This rejection is not pending approval.'], 400);
+            }
+            if ($sale->reject_requested_by == auth()->id()) {
+                return response()->json(['error' => 'You cannot confirm your own rejection request — another verifier is required.'], 400);
+            }
+
             \DB::table('prototype_sales')->where('id', $id)->update([
                 'payment_status' => 'rejected',
                 'verified_by' => auth()->id(),
@@ -2571,64 +2644,31 @@ public function printSlip(string $id)
                 'remarks' => $remark,
             ]);
 
-            $msg = 'Payment rejected.';
-
-        } elseif ($action === 're_tag') {
-            $newAccountId = $request->new_account_id;
-            if (!$newAccountId) {
-                return response()->json(['error' => 'Please select a new account'], 400);
+            $msg = 'Rejection confirmed — payment is now rejected.';
+        } elseif ($action === 'cancel_reject') {
+            if ($sale->payment_status !== 'reject_pending') {
+                return response()->json(['error' => 'This rejection is not pending approval.'], 400);
+            }
+            if ($sale->reject_requested_by != auth()->id()) {
+                return response()->json(['error' => 'Only the verifier who requested the rejection can cancel it.'], 400);
             }
 
-            $oldAccount = \App\Models\PaymentAccount::find($oldAccountId);
-            $newAccount = \App\Models\PaymentAccount::find($newAccountId);
-
             \DB::table('prototype_sales')->where('id', $id)->update([
-                'payment_account_id' => $newAccountId,
-                'payment_owner' => $newAccount?->name ?? 're-tagged',
+                'payment_status' => 'pending',
+                'reject_requested_by' => null,
+                'reject_requested_at' => null,
                 'updated_at' => now(),
             ]);
 
             \App\Models\PaymentAuditLog::create([
                 'prototype_sale_id' => $id,
-                'payment_account_id' => $newAccountId,
+                'payment_account_id' => $sale->payment_account_id,
                 'user_id' => auth()->id(),
-                'action' => 're_tagged',
-                'old_value' => $oldAccount?->name,
-                'new_value' => $newAccount?->name,
+                'action' => 'reject_cancelled',
                 'remarks' => $remark,
             ]);
 
-            $msg = 'Payment re-tagged from ' . ($oldAccount?->name ?? 'Unknown') . ' to ' . ($newAccount?->name ?? 'Unknown') . '.';
-
-        } elseif ($action === 'edit_ref') {
-            $newRef = $request->new_reference_number;
-            $newDate = $request->new_payment_date;
-
-            $changes = [];
-            if ($newRef && $newRef !== $oldRef) {
-                $changes['reference_number'] = $newRef;
-            }
-            if ($newDate && $newDate !== $oldDate) {
-                $changes['payment_date'] = $newDate;
-            }
-
-            if (!empty($changes)) {
-                $changes['updated_at'] = now();
-                \DB::table('prototype_sales')->where('id', $id)->update($changes);
-
-                \App\Models\PaymentAuditLog::create([
-                    'prototype_sale_id' => $id,
-                    'payment_account_id' => $sale->payment_account_id,
-                    'user_id' => auth()->id(),
-                    'action' => 'edited_ref',
-                    'old_value' => $oldRef ?: $oldDate,
-                    'new_value' => $newRef ?: $newDate,
-                    'remarks' => $remark,
-                ]);
-            }
-
-            $msg = 'Payment details updated.';
-
+            $msg = 'Rejection request cancelled — back to pending.';
         } elseif ($action === 'request_verify') {
             \DB::table('prototype_sales')->where('id', $id)->update([
                 'verify_requested_at' => now(),
@@ -2645,7 +2685,165 @@ public function printSlip(string $id)
             ]);
 
             $msg = 'Verification request sent!';
+        } elseif ($action === 're_tag') {
+            $newAccountId = $request->new_account_id;
+            if (!$newAccountId) {
+                return response()->json(['error' => 'Please select a new account'], 400);
+            }
 
+            $oldAccount = \App\Models\PaymentAccount::find($sale->payment_account_id);
+            $newAccount = \App\Models\PaymentAccount::find($newAccountId);
+
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'payment_account_id' => $newAccountId,
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $newAccountId,
+                'user_id' => auth()->id(),
+                'action' => 're_tagged',
+                'old_value' => $oldAccount?->name,
+                'new_value' => $newAccount?->name,
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Payment re-tagged from ' . ($oldAccount?->name ?? 'Unknown') . ' to ' . ($newAccount?->name ?? 'Unknown') . '.';
+        } elseif ($action === 'edit_ref') {
+            $newRef = $request->new_reference_number;
+            $newDate = $request->new_payment_date;
+            $newAmount = $request->new_amount;
+
+            $changes = [];
+            $oldParts = [];
+            $newParts = [];
+
+            if ($newRef && $newRef !== $sale->reference_number) {
+                $changes['reference_number'] = $newRef;
+                $oldParts[] = 'Ref: ' . ($sale->reference_number ?: '—');
+                $newParts[] = 'Ref: ' . $newRef;
+            }
+            if ($newDate && $newDate !== optional($sale->payment_date)->format('Y-m-d')) {
+                $changes['payment_date'] = $newDate;
+                $oldParts[] = 'Date: ' . (optional($sale->payment_date)->format('Y-m-d') ?: '—');
+                $newParts[] = 'Date: ' . $newDate;
+            }
+            if ($newAmount !== null && $newAmount !== '' && (float) $newAmount != (float) $sale->deposit_paid) {
+                $changes['deposit_paid'] = $newAmount;
+                $changes['balance_due'] = max($sale->total_amount - (float) $newAmount, 0);
+                $oldParts[] = 'Amount: ₱' . number_format((float) $sale->deposit_paid, 2);
+                $newParts[] = 'Amount: ₱' . number_format((float) $newAmount, 2);
+            }
+
+            if (empty($changes)) {
+                return response()->json(['error' => 'No changes to save — please fill in Reference #, Payment Date, or Amount.'], 400);
+            }
+
+            // Two-verifier approval: store as pending edit, apply after a second verifier confirms
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'payment_status' => 'edit_pending',
+                'edit_requested_by' => auth()->id(),
+                'edit_requested_at' => now(),
+                'edit_original_status' => $sale->payment_status,
+                'pending_reference_number' => $changes['reference_number'] ?? null,
+                'pending_payment_date' => $changes['payment_date'] ?? null,
+                'pending_amount' => $changes['deposit_paid'] ?? null,
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $sale->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'edit_requested',
+                'old_value' => implode(', ', $oldParts),
+                'new_value' => implode(', ', $newParts),
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Edit requested — awaiting a second verifier to confirm.';
+        } elseif ($action === 'confirm_edit') {
+            if ($sale->payment_status !== 'edit_pending') {
+                return response()->json(['error' => 'This sale has no pending edit request.'], 400);
+            }
+            if (!$remark || !trim($remark)) {
+                return response()->json(['error' => 'Confirmation reason is required.'], 400);
+            }
+            if ($sale->edit_requested_by == auth()->id()) {
+                return response()->json(['error' => 'You cannot confirm your own edit request — another verifier is required.'], 400);
+            }
+
+            $changes = [];
+            $oldParts = [];
+            $newParts = [];
+
+            if ($sale->pending_reference_number) {
+                $changes['reference_number'] = $sale->pending_reference_number;
+                $oldParts[] = 'Ref: ' . ($sale->reference_number ?: '—');
+                $newParts[] = 'Ref: ' . $sale->pending_reference_number;
+            }
+            if ($sale->pending_payment_date) {
+                $changes['payment_date'] = $sale->pending_payment_date;
+                $oldParts[] = 'Date: ' . (optional($sale->payment_date)->format('Y-m-d') ?: '—');
+                $newParts[] = 'Date: ' . $sale->pending_payment_date;
+            }
+            if ($sale->pending_amount !== null) {
+                $changes['deposit_paid'] = $sale->pending_amount;
+                $changes['balance_due'] = max($sale->total_amount - (float) $sale->pending_amount, 0);
+                $oldParts[] = 'Amount: ₱' . number_format((float) $sale->deposit_paid, 2);
+                $newParts[] = 'Amount: ₱' . number_format((float) $sale->pending_amount, 2);
+            }
+
+            $changes['payment_status'] = $sale->edit_original_status ?: 'pending';
+            $changes['edit_requested_by'] = null;
+            $changes['edit_requested_at'] = null;
+            $changes['edit_original_status'] = null;
+            $changes['pending_reference_number'] = null;
+            $changes['pending_payment_date'] = null;
+            $changes['pending_amount'] = null;
+            $changes['updated_at'] = now();
+
+            \DB::table('prototype_sales')->where('id', $id)->update($changes);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $sale->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'edited_ref',
+                'old_value' => implode(', ', $oldParts),
+                'new_value' => implode(', ', $newParts),
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Edit confirmed and applied.';
+        } elseif ($action === 'cancel_edit') {
+            if ($sale->payment_status !== 'edit_pending') {
+                return response()->json(['error' => 'This sale has no pending edit request.'], 400);
+            }
+
+            \DB::table('prototype_sales')->where('id', $id)->update([
+                'payment_status' => $sale->edit_original_status ?: 'pending',
+                'edit_requested_by' => null,
+                'edit_requested_at' => null,
+                'edit_original_status' => null,
+                'pending_reference_number' => null,
+                'pending_payment_date' => null,
+                'pending_amount' => null,
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $id,
+                'payment_account_id' => $sale->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'edit_cancelled',
+                'old_value' => 'Pending edit',
+                'new_value' => 'Cancelled',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Edit request cancelled.';
         } else {
             return response()->json(['error' => 'Invalid action'], 400);
         }
@@ -2663,41 +2861,551 @@ public function printSlip(string $id)
     }
 
     /**
+     * Verify/reject an individual payment record.
+     */
+    protected function verifyIndividualPayment(Request $request, $saleId, $paymentId)
+    {
+        $payment = \App\Models\PrototypePayment::findOrFail($paymentId);
+        $sale = \DB::table('prototype_sales')->find($saleId);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        $action = $request->action;
+        $remark = $request->remark;
+
+        if ($action === 'verify') {
+            // Require account and amount before verifying
+            if (!$payment->payment_account_id) {
+                return response()->json(['error' => 'Cannot verify — no payment account assigned. Please re-tag an account first.'], 400);
+            }
+            if ((float) $payment->amount <= 0) {
+                return response()->json(['error' => 'Cannot verify — payment amount must be greater than 0.'], 400);
+            }
+
+            // Determine payment status based on what this payment achieves
+            $totalVerifiedBefore = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)
+                ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+                ->sum('amount');
+
+            $newTotal = $totalVerifiedBefore + $payment->amount;
+
+            if ($newTotal >= $sale->total_amount) {
+                $newStatus = 'full_payment_verified';
+            } elseif ($payment->payment_type === 'down_payment') {
+                $newStatus = 'down_payment_verified';
+            } else {
+                $newStatus = 'additional_payment_verified';
+            }
+
+            $payment->update([
+                'payment_status' => $newStatus,
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+            ]);
+
+            // Recompute sale-level deposit_paid from all verified payments
+            $totalVerified = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)
+                ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+                ->sum('amount');
+            $newBalanceDue = max($sale->total_amount - $totalVerified, 0);
+            \DB::table('prototype_sales')->where('id', $saleId)->update([
+                'deposit_paid' => $totalVerified,
+                'balance_due' => $newBalanceDue,
+                'updated_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $payment->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => $newStatus,
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Payment verified — ' . str_replace('_', ' ', $newStatus) . '!';
+
+        } elseif ($action === 'reject') {
+            if (!$remark || !trim($remark)) {
+                return response()->json(['error' => 'Rejection reason is required.'], 400);
+            }
+            // Two-verifier approval: first verifier only requests rejection
+            $payment->update([
+                'payment_status' => 'reject_pending',
+                'reject_requested_by' => auth()->id(),
+                'reject_requested_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $payment->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'reject_requested',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Rejection requested — waiting for a second verifier to confirm.';
+
+        } elseif ($action === 'confirm_reject') {
+            if (!$remark || !trim($remark)) {
+                return response()->json(['error' => 'Confirmation reason is required.'], 400);
+            }
+            if ($payment->payment_status !== 'reject_pending') {
+                return response()->json(['error' => 'This rejection is not pending approval.'], 400);
+            }
+            if ($payment->reject_requested_by == auth()->id()) {
+                return response()->json(['error' => 'You cannot confirm your own rejection request — another verifier is required.'], 400);
+            }
+
+            $payment->update([
+                'payment_status' => 'rejected',
+                'verified_by' => auth()->id(),
+                'verified_at' => now(),
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $payment->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'rejected',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Rejection confirmed — payment is now rejected.';
+
+        } elseif ($action === 'cancel_reject') {
+            if ($payment->payment_status !== 'reject_pending') {
+                return response()->json(['error' => 'This rejection is not pending approval.'], 400);
+            }
+            if ($payment->reject_requested_by != auth()->id()) {
+                return response()->json(['error' => 'Only the verifier who requested the rejection can cancel it.'], 400);
+            }
+
+            $payment->update([
+                'payment_status' => 'pending',
+                'reject_requested_by' => null,
+                'reject_requested_at' => null,
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $payment->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'reject_cancelled',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Rejection request cancelled — back to pending.';
+
+        } elseif ($action === 're_tag') {
+            $newAccountId = $request->new_account_id;
+            if (!$newAccountId) {
+                return response()->json(['error' => 'Please select a new account'], 400);
+            }
+
+            $oldAccount = \App\Models\PaymentAccount::find($payment->payment_account_id);
+            $newAccount = \App\Models\PaymentAccount::find($newAccountId);
+
+            $payment->update([
+                'payment_account_id' => $newAccountId,
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $newAccountId,
+                'user_id' => auth()->id(),
+                'action' => 're_tagged',
+                'old_value' => $oldAccount?->name,
+                'new_value' => $newAccount?->name,
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Payment re-tagged from ' . ($oldAccount?->name ?? 'Unknown') . ' to ' . ($newAccount?->name ?? 'Unknown') . '.';
+
+        } elseif ($action === 'edit_ref') {
+            $newRef = $request->new_reference_number;
+            $newDate = $request->new_payment_date;
+            $newAmount = $request->new_amount;
+
+            $changes = [];
+            $oldParts = [];
+            $newParts = [];
+
+            if ($newRef && $newRef !== $payment->reference_number) {
+                $changes['reference_number'] = $newRef;
+                $oldParts[] = 'Ref: ' . ($payment->reference_number ?: '—');
+                $newParts[] = 'Ref: ' . $newRef;
+            }
+            if ($newDate && $newDate !== optional($payment->payment_date)->format('Y-m-d')) {
+                $changes['payment_date'] = $newDate;
+                $oldParts[] = 'Date: ' . (optional($payment->payment_date)->format('Y-m-d') ?: '—');
+                $newParts[] = 'Date: ' . $newDate;
+            }
+            if ($newAmount !== null && $newAmount !== '' && (float) $newAmount != (float) $payment->amount) {
+                $changes['amount'] = $newAmount;
+                $oldParts[] = 'Amount: ₱' . number_format((float) $payment->amount, 2);
+                $newParts[] = 'Amount: ₱' . number_format((float) $newAmount, 2);
+            }
+
+            if (empty($changes)) {
+                return response()->json(['error' => 'No changes to save — please fill in Reference #, Payment Date, or Amount.'], 400);
+            }
+
+            // Two-verifier approval: store as pending edit, apply after a second verifier confirms
+            $payment->update([
+                'payment_status' => 'edit_pending',
+                'edit_requested_by' => auth()->id(),
+                'edit_requested_at' => now(),
+                'edit_original_status' => $payment->payment_status,
+                'pending_reference_number' => $changes['reference_number'] ?? null,
+                'pending_payment_date' => $changes['payment_date'] ?? null,
+                'pending_amount' => $changes['amount'] ?? null,
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $payment->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'edit_requested',
+                'old_value' => implode(', ', $oldParts),
+                'new_value' => implode(', ', $newParts),
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Edit requested — awaiting a second verifier to confirm.';
+        } elseif ($action === 'confirm_edit') {
+            if ($payment->payment_status !== 'edit_pending') {
+                return response()->json(['error' => 'This payment has no pending edit request.'], 400);
+            }
+            if (!$remark || !trim($remark)) {
+                return response()->json(['error' => 'Confirmation reason is required.'], 400);
+            }
+            if ($payment->edit_requested_by == auth()->id()) {
+                return response()->json(['error' => 'You cannot confirm your own edit request — another verifier is required.'], 400);
+            }
+
+            $changes = [];
+            $oldParts = [];
+            $newParts = [];
+
+            if ($payment->pending_reference_number) {
+                $changes['reference_number'] = $payment->pending_reference_number;
+                $oldParts[] = 'Ref: ' . ($payment->reference_number ?: '—');
+                $newParts[] = 'Ref: ' . $payment->pending_reference_number;
+            }
+            if ($payment->pending_payment_date) {
+                $changes['payment_date'] = $payment->pending_payment_date;
+                $oldParts[] = 'Date: ' . (optional($payment->payment_date)->format('Y-m-d') ?: '—');
+                $newParts[] = 'Date: ' . $payment->pending_payment_date;
+            }
+            if ($payment->pending_amount !== null) {
+                $changes['amount'] = $payment->pending_amount;
+                $oldParts[] = 'Amount: ₱' . number_format((float) $payment->amount, 2);
+                $newParts[] = 'Amount: ₱' . number_format((float) $payment->pending_amount, 2);
+            }
+
+            $changes['payment_status'] = $payment->edit_original_status ?: 'pending';
+            $changes['edit_requested_by'] = null;
+            $changes['edit_requested_at'] = null;
+            $changes['edit_original_status'] = null;
+            $changes['pending_reference_number'] = null;
+            $changes['pending_payment_date'] = null;
+            $changes['pending_amount'] = null;
+
+            $payment->update($changes);
+
+            // Recompute sale-level deposit_paid/balance_due if amount changed
+            if (array_key_exists('amount', $changes)) {
+                $totalVerified = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)
+                    ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+                    ->sum('amount');
+                $newBalanceDue = max($sale->total_amount - $totalVerified, 0);
+                \DB::table('prototype_sales')->where('id', $saleId)->update([
+                    'deposit_paid' => $totalVerified,
+                    'balance_due' => $newBalanceDue,
+                    'updated_at' => now(),
+                ]);
+            }
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $payment->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'edited_ref',
+                'old_value' => implode(', ', $oldParts),
+                'new_value' => implode(', ', $newParts),
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Edit confirmed and applied.';
+        } elseif ($action === 'cancel_edit') {
+            if ($payment->payment_status !== 'edit_pending') {
+                return response()->json(['error' => 'This payment has no pending edit request.'], 400);
+            }
+
+            $payment->update([
+                'payment_status' => $payment->edit_original_status ?: 'pending',
+                'edit_requested_by' => null,
+                'edit_requested_at' => null,
+                'edit_original_status' => null,
+                'pending_reference_number' => null,
+                'pending_payment_date' => null,
+                'pending_amount' => null,
+            ]);
+
+            \App\Models\PaymentAuditLog::create([
+                'prototype_sale_id' => $saleId,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $payment->payment_account_id,
+                'user_id' => auth()->id(),
+                'action' => 'edit_cancelled',
+                'old_value' => 'Pending edit',
+                'new_value' => 'Cancelled',
+                'remarks' => $remark,
+            ]);
+
+            $msg = 'Edit request cancelled.';
+        } else {
+            return response()->json(['error' => 'Invalid action'], 400);
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+            ]);
+        }
+
+        return redirect()->route('sales.prototype.verification')->with('success', $msg);
+    }
+
+    /**
      * Payment verification dashboard - shows all pending and recent payments.
      */
     public function paymentVerification()
     {
-        $pendingPayments = \DB::table('prototype_sales')
-            ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
-            ->leftJoin('users as verifier', 'prototype_sales.verified_by', '=', 'verifier.id')
-            ->leftJoin('users as requester', 'prototype_sales.verify_requested_by', '=', 'requester.id')
+        // Include initial deposits from prototype_sales that don't have matching prototype_payments yet
+        $pendingPayments = \DB::table('prototype_payments')
+            ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as verifier', 'prototype_payments.verified_by', '=', 'verifier.id')
             ->select([
-                'prototype_sales.*',
+                'prototype_payments.*',
+                'prototype_payments.id as payment_id',
+                'prototype_payments.screenshot_path as payment_screenshot_path',
+                'prototype_sales.id as sale_id',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'prototype_sales.sales_agent_id',
                 'payment_accounts.name as account_name',
                 'payment_accounts.user_id as account_user_id',
                 'verifier.name as verified_by_name',
-                'requester.name as requested_by_name',
-            ])
-            ->whereIn('prototype_sales.payment_status', ['pending', 'rejected'])
-            ->orderBy('prototype_sales.created_at', 'desc')
-            ->get();
+                \DB::raw("'prototype_payments' as payment_source"),
+            ]);
 
-        $verifiedPayments = \DB::table('prototype_sales')
+        // Get sales with pending initial deposits that don't have any prototype_payment yet
+        $initialDeposits = \DB::table('prototype_sales')
             ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as verifier', 'prototype_sales.verified_by', '=', 'verifier.id')
+            ->whereNotExists(function ($query) {
+                $query->select(\DB::raw(1))
+                    ->from('prototype_payments')
+                    ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id');
+            })
+            ->where('prototype_sales.deposit_paid', '>', 0)
+            ->whereNull('prototype_sales.deleted_at')
+            ->where(function ($q) {
+                $q->where('prototype_sales.payment_status', 'pending')
+                  ->orWhereNull('prototype_sales.payment_status');
+            })
             ->select([
-                'prototype_sales.*',
+                \DB::raw('NULL as id'),
+                \DB::raw('prototype_sales.id as prototype_sale_id'),
+                \DB::raw("'down_payment' as payment_type"),
+                \DB::raw('prototype_sales.deposit_paid as amount'),
+                \DB::raw('prototype_sales.payment_method as payment_method'),
+                \DB::raw('prototype_sales.payment_account_id as payment_account_id'),
+                \DB::raw('prototype_sales.reference_number as reference_number'),
+                \DB::raw('prototype_sales.payment_screenshot_path as screenshot_path'),
+                \DB::raw('prototype_sales.payment_status as payment_status'),
+                \DB::raw('NULL as verified_by'),
+                \DB::raw('NULL as verified_at'),
+                \DB::raw('NULL as reject_requested_by'),
+                \DB::raw('NULL as reject_requested_at'),
+                \DB::raw('NULL as edit_requested_by'),
+                \DB::raw('NULL as edit_requested_at'),
+                \DB::raw('NULL as edit_original_status'),
+                \DB::raw('NULL as pending_reference_number'),
+                \DB::raw('NULL as pending_payment_date'),
+                \DB::raw('NULL as pending_amount'),
+                \DB::raw('prototype_sales.payment_date as payment_date'),
+                \DB::raw('NULL as notes'),
+                \DB::raw('prototype_sales.created_at as created_at'),
+                \DB::raw('prototype_sales.updated_at as updated_at'),
+                \DB::raw('NULL as payment_id'),
+                \DB::raw('prototype_sales.payment_screenshot_path as payment_screenshot_path'),
+                \DB::raw('prototype_sales.id as sale_id'),
+                \DB::raw('prototype_sales.sales_number as sales_number'),
+                \DB::raw('prototype_sales.customer_name as customer_name'),
+                \DB::raw('prototype_sales.total_amount as total_amount'),
+                \DB::raw('prototype_sales.deposit_paid as deposit_paid'),
+                \DB::raw('prototype_sales.sales_agent_id as sales_agent_id'),
+                \DB::raw('payment_accounts.name as account_name'),
+                \DB::raw('payment_accounts.user_id as account_user_id'),
+                \DB::raw('NULL as verified_by_name'),
+                \DB::raw("'initial_deposit' as payment_source"),
+            ]);
+
+        // Merge: pending/additional deposits from prototype_payments + initial deposits from prototype_sales
+        $pendingPayments = $pendingPayments
+            ->whereIn('prototype_payments.payment_status', ['pending', 'rejected'])
+            ->union($initialDeposits)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Verified payments remain unchanged (querying only prototype_payments)
+        $verifiedPayments = \DB::table('prototype_payments')
+            ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as verifier', 'prototype_payments.verified_by', '=', 'verifier.id')
+            ->select([
+                'prototype_payments.*',
+                'prototype_payments.id as payment_id',
+                'prototype_payments.screenshot_path as payment_screenshot_path',
+                'prototype_sales.id as sale_id',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'prototype_sales.sales_agent_id',
                 'payment_accounts.name as account_name',
                 'verifier.name as verified_by_name',
             ])
-            ->where('prototype_sales.payment_status', 'verified')
-            ->orderBy('prototype_sales.verified_at', 'desc')
+            ->whereIn('prototype_payments.payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+            ->orderBy('prototype_payments.verified_at', 'desc')
             ->limit(50)
             ->get();
 
         $accounts = \App\Models\PaymentAccount::with('user')->where('is_active', true)->get();
 
-        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts'));
+        // Pending rejections awaiting a second verifier (two-verifier approval)
+        $pendingRejections = \DB::table('prototype_payments')
+            ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as requester', 'prototype_payments.reject_requested_by', '=', 'requester.id')
+            ->where('prototype_payments.payment_status', 'reject_pending')
+            ->select([
+                'prototype_sales.id as sale_id',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'prototype_payments.amount',
+                'prototype_payments.payment_method',
+                'prototype_payments.reference_number',
+                'prototype_payments.payment_date',
+                'prototype_payments.screenshot_path as payment_screenshot_path',
+                'prototype_payments.reject_requested_by',
+                'prototype_payments.reject_requested_at',
+                'payment_accounts.name as account_name',
+                'requester.name as requester_name',
+                \DB::raw("'additional_payment' as payment_source"),
+                'prototype_payments.id as payment_id',
+            ])
+            ->union(\DB::table('prototype_sales')
+                ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+                ->leftJoin('users as requester', 'prototype_sales.reject_requested_by', '=', 'requester.id')
+                ->where('prototype_sales.payment_status', 'reject_pending')
+                ->whereNull('prototype_sales.deleted_at')
+                ->select([
+                    'prototype_sales.id as sale_id',
+                    'prototype_sales.sales_number',
+                    'prototype_sales.customer_name',
+                    'prototype_sales.total_amount',
+                    'prototype_sales.deposit_paid',
+                    \DB::raw('prototype_sales.deposit_paid as amount'),
+                    'prototype_sales.payment_method',
+                    'prototype_sales.reference_number',
+                    'prototype_sales.payment_date',
+                    'prototype_sales.payment_screenshot_path',
+                    'prototype_sales.reject_requested_by',
+                    'prototype_sales.reject_requested_at',
+                    'payment_accounts.name as account_name',
+                    'requester.name as requester_name',
+                    \DB::raw("'initial_deposit' as payment_source"),
+                    \DB::raw('NULL as payment_id'),
+                ]))
+            ->orderBy('reject_requested_at', 'desc')
+            ->get();
+
+        // Pending edit requests (change ref/amount/date) awaiting a second verifier
+        $pendingEdits = \DB::table('prototype_payments')
+            ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as requester', 'prototype_payments.edit_requested_by', '=', 'requester.id')
+            ->where('prototype_payments.payment_status', 'edit_pending')
+            ->select([
+                'prototype_sales.id as sale_id',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'prototype_payments.amount',
+                'prototype_payments.payment_method',
+                'prototype_payments.reference_number',
+                'prototype_payments.payment_date',
+                'prototype_payments.screenshot_path as payment_screenshot_path',
+                'prototype_payments.edit_requested_by',
+                'prototype_payments.edit_requested_at',
+                'prototype_payments.edit_original_status',
+                'prototype_payments.pending_reference_number',
+                'prototype_payments.pending_payment_date',
+                'prototype_payments.pending_amount',
+                'payment_accounts.name as account_name',
+                'requester.name as requester_name',
+                \DB::raw("'additional_payment' as payment_source"),
+                'prototype_payments.id as payment_id',
+            ])
+            ->union(\DB::table('prototype_sales')
+                ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+                ->leftJoin('users as requester', 'prototype_sales.edit_requested_by', '=', 'requester.id')
+                ->where('prototype_sales.payment_status', 'edit_pending')
+                ->whereNull('prototype_sales.deleted_at')
+                ->select([
+                    'prototype_sales.id as sale_id',
+                    'prototype_sales.sales_number',
+                    'prototype_sales.customer_name',
+                    'prototype_sales.total_amount',
+                    'prototype_sales.deposit_paid',
+                    \DB::raw('prototype_sales.deposit_paid as amount'),
+                    'prototype_sales.payment_method',
+                    'prototype_sales.reference_number',
+                    'prototype_sales.payment_date',
+                    'prototype_sales.payment_screenshot_path',
+                    'prototype_sales.edit_requested_by',
+                    'prototype_sales.edit_requested_at',
+                    'prototype_sales.edit_original_status',
+                    'prototype_sales.pending_reference_number',
+                    'prototype_sales.pending_payment_date',
+                    'prototype_sales.pending_amount',
+                    'payment_accounts.name as account_name',
+                    'requester.name as requester_name',
+                    \DB::raw("'initial_deposit' as payment_source"),
+                    \DB::raw('NULL as payment_id'),
+                ]))
+            ->orderBy('edit_requested_at', 'desc')
+            ->get();
+
+        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts', 'pendingRejections', 'pendingEdits'));
     }
 
     /**
@@ -2709,31 +3417,37 @@ public function printSlip(string $id)
 
         $accounts = \App\Models\PaymentAccount::where('is_active', true)->get();
 
-        $query = \DB::table('prototype_sales')
-            ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
-            ->leftJoin('users as verifier', 'prototype_sales.verified_by', '=', 'verifier.id')
+        $query = \DB::table('prototype_payments')
+            ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as verifier', 'prototype_payments.verified_by', '=', 'verifier.id')
             ->select([
-                'prototype_sales.*',
+                'prototype_payments.*',
+                'prototype_sales.id as sale_id',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'prototype_sales.sales_agent_id',
                 'payment_accounts.name as account_name',
                 'verifier.name as verified_by_name',
             ])
-            ->where('prototype_sales.payment_status', 'verified');
+            ->whereIn('prototype_payments.payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified']);
 
         if ($accountId) {
-            $query->where('prototype_sales.payment_account_id', $accountId);
+            $query->where('prototype_payments.payment_account_id', $accountId);
         }
 
-        $payments = $query->orderBy('prototype_sales.verified_at', 'desc')->get();
+        $payments = $query->orderBy('prototype_payments.verified_at', 'desc')->get();
 
         // Calculate totals per account for the summary
-        $accountTotals = \DB::table('prototype_sales')
+        $accountTotals = \DB::table('prototype_payments')
             ->select([
                 'payment_account_id',
                 \DB::raw('COUNT(*) as total_count'),
-                \DB::raw('COALESCE(SUM(total_amount), 0) as total_amount'),
-                \DB::raw('COALESCE(SUM(deposit_paid), 0) as total_deposit'),
+                \DB::raw('COALESCE(SUM(amount), 0) as total_deposit'),
             ])
-            ->where('payment_status', 'verified')
+            ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
             ->groupBy('payment_account_id')
             ->get()
             ->keyBy('payment_account_id');
@@ -2744,18 +3458,136 @@ public function printSlip(string $id)
             ->limit(100)
             ->get();
 
-        return view('sales.prototype.cashflow', compact('accounts', 'payments', 'accountTotals', 'auditLogs', 'accountId'));
+        // Pending rejections awaiting a second verifier (two-verifier approval)
+        $pendingRejections = \DB::table('prototype_payments')
+            ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as requester', 'prototype_payments.reject_requested_by', '=', 'requester.id')
+            ->where('prototype_payments.payment_status', 'reject_pending')
+            ->select([
+                'prototype_sales.id as sale_id',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'prototype_payments.amount',
+                'prototype_payments.payment_method',
+                'prototype_payments.reference_number',
+                'prototype_payments.payment_date',
+                'prototype_payments.screenshot_path as payment_screenshot_path',
+                'prototype_payments.reject_requested_by',
+                'prototype_payments.reject_requested_at',
+                'payment_accounts.name as account_name',
+                'requester.name as requester_name',
+                \DB::raw("'additional_payment' as payment_source"),
+                'prototype_payments.id as payment_id',
+            ])
+            ->union(\DB::table('prototype_sales')
+                ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+                ->leftJoin('users as requester', 'prototype_sales.reject_requested_by', '=', 'requester.id')
+                ->where('prototype_sales.payment_status', 'reject_pending')
+                ->whereNull('prototype_sales.deleted_at')
+                ->select([
+                    'prototype_sales.id as sale_id',
+                    'prototype_sales.sales_number',
+                    'prototype_sales.customer_name',
+                    'prototype_sales.total_amount',
+                    'prototype_sales.deposit_paid',
+                    \DB::raw('prototype_sales.deposit_paid as amount'),
+                    'prototype_sales.payment_method',
+                    'prototype_sales.reference_number',
+                    'prototype_sales.payment_date',
+                    'prototype_sales.payment_screenshot_path',
+                    'prototype_sales.reject_requested_by',
+                    'prototype_sales.reject_requested_at',
+                    'payment_accounts.name as account_name',
+                    'requester.name as requester_name',
+                    \DB::raw("'initial_deposit' as payment_source"),
+                    \DB::raw('NULL as payment_id'),
+                ]))
+            ->orderBy('reject_requested_at', 'desc')
+            ->get();
+
+        // Pending edit requests (change ref/amount/date) awaiting a second verifier
+        $pendingEdits = \DB::table('prototype_payments')
+            ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as requester', 'prototype_payments.edit_requested_by', '=', 'requester.id')
+            ->where('prototype_payments.payment_status', 'edit_pending')
+            ->select([
+                'prototype_sales.id as sale_id',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.total_amount',
+                'prototype_sales.deposit_paid',
+                'prototype_payments.amount',
+                'prototype_payments.payment_method',
+                'prototype_payments.reference_number',
+                'prototype_payments.payment_date',
+                'prototype_payments.screenshot_path as payment_screenshot_path',
+                'prototype_payments.edit_requested_by',
+                'prototype_payments.edit_requested_at',
+                'prototype_payments.edit_original_status',
+                'prototype_payments.pending_reference_number',
+                'prototype_payments.pending_payment_date',
+                'prototype_payments.pending_amount',
+                'payment_accounts.name as account_name',
+                'requester.name as requester_name',
+                \DB::raw("'additional_payment' as payment_source"),
+                'prototype_payments.id as payment_id',
+            ])
+            ->union(\DB::table('prototype_sales')
+                ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+                ->leftJoin('users as requester', 'prototype_sales.edit_requested_by', '=', 'requester.id')
+                ->where('prototype_sales.payment_status', 'edit_pending')
+                ->whereNull('prototype_sales.deleted_at')
+                ->select([
+                    'prototype_sales.id as sale_id',
+                    'prototype_sales.sales_number',
+                    'prototype_sales.customer_name',
+                    'prototype_sales.total_amount',
+                    'prototype_sales.deposit_paid',
+                    \DB::raw('prototype_sales.deposit_paid as amount'),
+                    'prototype_sales.payment_method',
+                    'prototype_sales.reference_number',
+                    'prototype_sales.payment_date',
+                    'prototype_sales.payment_screenshot_path',
+                    'prototype_sales.edit_requested_by',
+                    'prototype_sales.edit_requested_at',
+                    'prototype_sales.edit_original_status',
+                    'prototype_sales.pending_reference_number',
+                    'prototype_sales.pending_payment_date',
+                    'prototype_sales.pending_amount',
+                    'payment_accounts.name as account_name',
+                    'requester.name as requester_name',
+                    \DB::raw("'initial_deposit' as payment_source"),
+                    \DB::raw('NULL as payment_id'),
+                ]))
+            ->orderBy('edit_requested_at', 'desc')
+            ->get();
+
+        return view('sales.prototype.cashflow', compact('accounts', 'payments', 'accountTotals', 'auditLogs', 'pendingRejections', 'pendingEdits', 'accountId'));
     }
 
     /**
      * Get audit logs for a specific sale (AJAX).
      */
-    public function getAuditLogs($saleId)
+    public function getAuditLogs($saleId = null)
     {
-        $logs = \App\Models\PaymentAuditLog::with(['user', 'paymentAccount'])
-            ->where('prototype_sale_id', $saleId)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = \App\Models\PaymentAuditLog::with(['user', 'paymentAccount']);
+
+        if ($saleId) {
+            $query->where('prototype_sale_id', $saleId);
+        }
+
+        // Apply payment_id filter if present (from new prototype_payments system)
+        $paymentId = request('payment_id');
+        if ($paymentId) {
+            $query->where('payment_id', $paymentId);
+        }
+
+        $limit = request('limit', 50);
+        $logs = $query->orderBy('created_at', 'desc')->limit($limit)->get();
 
         return response()->json($logs);
     }
@@ -2981,7 +3813,8 @@ public function printSlip(string $id)
         $request->validate([
             'payment_amount' => 'required|numeric|min:0.01',
             'payment_date' => 'required|date',
-            'payment_method' => 'required|string',
+            'payment_method' => 'nullable|string',
+            'payment_type' => 'required|string|in:additional,fullpayment',
             'payment_account_id' => 'nullable|integer|exists:payment_accounts,id',
             'reference_number' => 'nullable|string|max:255',
             'payment_screenshot' => 'nullable|image|max:5120',
@@ -2997,20 +3830,28 @@ public function printSlip(string $id)
             $paymentScreenshotPath = '/storage/' . $filePath;
         }
 
-        $newDepositPaid = ($sale->deposit_paid ?? 0) + $request->payment_amount;
-        $newBalanceDue = $sale->total_amount - $newDepositPaid;
+        // Save payment status: 'pending' always (requires verifier approval)
+        $paymentStatus = 'pending';
 
-        // Update the sale with additional deposit
-        \DB::table('prototype_sales')->where('id', $id)->update([
-            'deposit_paid' => $newDepositPaid,
-            'balance_due' => max($newBalanceDue, 0),
-            'payment_method' => $request->payment_method,
+        // Create a separate payment record
+        $payment = \App\Models\PrototypePayment::create([
+            'prototype_sale_id' => $id,
+            'payment_type' => $request->payment_type,
+            'amount' => $request->payment_amount,
+            'payment_method' => $request->payment_method ?? 'online',
             'payment_account_id' => $request->payment_account_id ?? $sale->payment_account_id,
-            'payment_date' => $request->payment_date,
-            'payment_owner' => $user->name,
             'reference_number' => $request->reference_number,
-            'payment_screenshot_path' => $paymentScreenshotPath ?: $sale->payment_screenshot_path,
-            'payment_status' => $request->payment_method === 'cash' ? 'verified' : 'pending',
+            'screenshot_path' => $paymentScreenshotPath,
+            'payment_status' => $paymentStatus,
+            'payment_date' => $request->payment_date,
+            'notes' => $request->notes,
+        ]);
+
+        // Mark sale as having a pending payment
+        \DB::table('prototype_sales')->where('id', $id)->update([
+            'payment_status' => 'pending',
+            'verify_requested_at' => now(),
+            'verify_requested_by' => $user->id,
             'updated_at' => now(),
         ]);
 
@@ -3018,10 +3859,11 @@ public function printSlip(string $id)
         try {
             \App\Models\PaymentAuditLog::create([
                 'prototype_sale_id' => $id,
-                'payment_account_id' => $request->payment_account_id,
+                'payment_id' => $payment->id,
+                'payment_account_id' => $request->payment_account_id ?? $sale->payment_account_id,
                 'user_id' => $user->id,
-                'action' => 'additional_payment',
-                'remarks' => 'Additional payment of ₱' . number_format($request->payment_amount, 2) . ' via ' . $request->payment_method . ($request->notes ? ' — ' . $request->notes : ''),
+                'action' => 'balance_payment_' . $request->payment_type,
+                'remarks' => ($request->payment_type === 'fullpayment' ? 'Full payment' : 'Additional payment') . ' of ₱' . number_format($request->payment_amount, 2) . ' via ' . $request->payment_method . ($request->notes ? ' — ' . $request->notes : ''),
             ]);
         } catch (\Exception $e) {
             // Non-critical — don't break the flow
@@ -3050,20 +3892,20 @@ public function printSlip(string $id)
         // Check if refund already exists for this sale
         $existingRefund = \DB::table('prototype_refunds')
             ->where('prototype_sale_id', $id)
-            ->whereIn('refund_status', ['pending', 'approved'])
+            ->whereIn('refund_status', ['pending', 'accepted', 'approved'])
             ->first();
         if ($existingRefund) {
-            return response()->json(['success' => false, 'message' => 'There is already a pending or approved refund for this sale.']);
+            return response()->json(['success' => false, 'message' => 'There is already a pending or active refund for this sale.']);
         }
 
         $request->validate([
             'refund_amount' => 'required|numeric|min:0.01',
             'refund_reason' => 'required|in:reprocess_overpayment,cancellation,other',
-            'reason_details' => 'nullable|string|max:1000',
+            'reason_details' => 'required|string|max:1000',
             'refund_method' => 'required|in:cash,bank_transfer,gcash,paymaya,credit_card,other',
             'refund_account_id' => 'nullable|integer|exists:payment_accounts,id',
-            'refund_account_name' => 'nullable|string|max:255',
-            'refund_account_number' => 'nullable|string|max:255',
+            'refund_account_name' => 'required|string|max:255',
+            'refund_account_number' => 'required|string|max:255',
         ]);
 
         $refundId = \DB::table('prototype_refunds')->insertGetId([
@@ -3115,43 +3957,70 @@ public function printSlip(string $id)
         }
 
         $request->validate([
-            'action' => 'required|in:approve,complete,reject',
+            'refund_action' => 'required|in:accept,complete,reject',
             'admin_notes' => 'nullable|string|max:1000',
             'refund_reference' => 'nullable|string|max:255',
             'refund_proof' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'refund_amount' => 'nullable|numeric|min:0',
         ]);
 
-        $action = $request->action;
+        $action = $request->refund_action;
+
+        // For complete action, require extra fields
+        if ($action === 'complete') {
+            // Check proof screenshot
+            if (!$request->hasFile('refund_proof')) {
+                return response()->json(['success' => false, 'message' => 'Refund proof screenshot is required to complete the refund.']);
+            }
+            if (!$request->filled('refund_amount')) {
+                return response()->json(['success' => false, 'message' => 'Refund amount is required to complete the refund.']);
+            }
+            if (!$request->filled('refund_reference')) {
+                return response()->json(['success' => false, 'message' => 'Reference number is required to complete the refund.']);
+            }
+            if (!$request->filled('admin_notes')) {
+                return response()->json(['success' => false, 'message' => 'Notes are required to complete the refund.']);
+            }
+        }
+
         $now = now();
         $updateData = ['updated_at' => $now];
         $auditAction = '';
         $auditDesc = '';
 
         switch ($action) {
-            case 'approve':
+            case 'accept':
                 if ($refund->refund_status !== 'pending') {
-                    return response()->json(['success' => false, 'message' => 'Only pending refunds can be approved.']);
+                    return response()->json(['success' => false, 'message' => 'Only pending refunds can be accepted.']);
                 }
-                $updateData['refund_status'] = 'approved';
-                $updateData['approved_by'] = $user->id;
-                $updateData['approved_at'] = $now;
-                $auditAction = 'refund_approved';
-                $auditDesc = 'Refund of ₱' . number_format($refund->refund_amount, 2) . ' approved.';
+                // Check if someone already accepted
+                if ($refund->accepted_by) {
+                    $acceptor = \DB::table('users')->find($refund->accepted_by);
+                    $acceptorName = $acceptor ? $acceptor->name : 'Unknown';
+                    return response()->json(['success' => false, 'message' => 'This refund was already accepted by ' . $acceptorName . '.']);
+                }
+                $updateData['refund_status'] = 'accepted';
+                $updateData['accepted_by'] = $user->id;
+                $updateData['accepted_at'] = $now;
+                $auditAction = 'refund_accepted';
+                $auditDesc = 'Refund of ₱' . number_format($refund->refund_amount, 2) . ' accepted by ' . $user->name . '.';
                 break;
             case 'complete':
-                if ($refund->refund_status !== 'approved') {
-                    return response()->json(['success' => false, 'message' => 'Only approved refunds can be marked as completed.']);
+                if ($refund->refund_status !== 'accepted') {
+                    return response()->json(['success' => false, 'message' => 'Only accepted refunds can be marked as completed.']);
+                }
+                // Only the acceptor can mark as complete
+                if ($refund->accepted_by !== $user->id) {
+                    $acceptor = \DB::table('users')->find($refund->accepted_by);
+                    $acceptorName = $acceptor ? $acceptor->name : 'Another manager';
+                    return response()->json(['success' => false, 'message' => 'Only ' . $acceptorName . ' (who accepted this refund) can mark it as completed.']);
                 }
                 $updateData['refund_status'] = 'completed';
                 $updateData['completed_by'] = $user->id;
                 $updateData['completed_at'] = $now;
                 $updateData['refund_reference'] = $request->refund_reference;
-                $actualAmount = $refund->refund_amount;
-                if ($request->filled('refund_amount')) {
-                    $updateData['refund_amount'] = $request->refund_amount;
-                    $actualAmount = $request->refund_amount;
-                }
+                $updateData['refund_amount'] = $request->refund_amount;
+                $actualAmount = $request->refund_amount;
                 $auditAction = 'refund_completed';
                 $auditDesc = 'Refund of ₱' . number_format($actualAmount, 2) . ' completed.';
 
@@ -3219,13 +4088,15 @@ public function printSlip(string $id)
         $query = \DB::table('prototype_refunds')
             ->join('prototype_sales', 'prototype_refunds.prototype_sale_id', '=', 'prototype_sales.id')
             ->join('users', 'prototype_refunds.requested_by', '=', 'users.id')
+            ->leftJoin('users as acceptors', 'prototype_refunds.accepted_by', '=', 'acceptors.id')
             ->select(
                 'prototype_refunds.*',
                 'prototype_sales.sales_number',
                 'prototype_sales.customer_name',
                 'prototype_sales.total_amount',
                 'prototype_sales.deposit_paid',
-                'users.name as requested_by_name'
+                'users.name as requested_by_name',
+                'acceptors.name as accepted_by_name'
             );
 
         // Filter by status
