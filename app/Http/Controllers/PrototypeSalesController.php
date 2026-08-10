@@ -4332,13 +4332,15 @@ public function printSlip(string $id)
             ->orderBy('created_at', 'desc')
             ->first();
         if ($lastNotif && !$isUrgent) {
-            $hoursSince = $lastNotif->created_at->diffInHours(now());
-            if ($hoursSince < 24) {
-                $remaining = 24 - $hoursSince;
+            $minutesSince = (int) $lastNotif->created_at->diffInMinutes(now());
+            if ($minutesSince < 1440) {
+                $remainingMin = 1440 - $minutesSince;
+                $agoText = $minutesSince < 60 ? $minutesSince . ' min' : round($minutesSince / 60) . 'h';
+                $remainingText = $remainingMin < 60 ? $remainingMin . ' min' : round($remainingMin / 60) . 'h';
                 return response()->json([
                     'success' => false,
                     'cooldown' => true,
-                    'message' => "Na-notify na ang agent {$hoursSince}h ago. Pwede ulit i-notify pagkatapos ng {$remaining}h, o gamitin ang urgent reminder.",
+                    'message' => "Na-notify na ang agent {$agoText} ago. Pwede ulit i-notify pagkatapos ng {$remainingText}, o gamitin ang urgent reminder.",
                 ]);
             }
         }

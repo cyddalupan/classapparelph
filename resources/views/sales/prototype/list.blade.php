@@ -415,6 +415,8 @@
                                 $photoLastAt = $photoNotif['last_at'] ?? null;
                                 $photoCount = $photoNotif['reminder_count'] ?? 0;
                                 $photoCooldown = $photoLastAt && $photoLastAt->diffInHours(now()) < 24;
+                                $photoMinAgo = $photoLastAt ? (int) $photoLastAt->diffInMinutes(now()) : 0;
+                                $photoAgoText = $photoMinAgo < 60 ? $photoMinAgo . 'm ago' : round($photoMinAgo / 60) . 'h ago';
                             @endphp
                             <span data-photos="{{ $allPhotos ? 'complete' : 'missing' }}">
                                 @if($allPhotos)
@@ -427,7 +429,7 @@
                                         <span class="badge bg-warning text-dark" title="Missing approved sample color">🎨 Missing</span>
                                     @endif
                                     @if($photoCooldown)
-                                        <span class="badge bg-secondary" title="Last notified {{ $photoLastAt->diffForHumans() }}">🔔 {{ $photoLastAt->diffInHours(now()) }}h ago</span>
+                                        <span class="badge bg-secondary" title="Last notified {{ $photoLastAt->diffForHumans() }}">🔔 {{ $photoAgoText }}</span>
                                         <button type="button" class="btn btn-sm btn-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>
                                     @else
                                         <button type="button" class="btn btn-sm btn-outline-warning notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" title="Notify agent to upload photos{{ $photoCount > 1 ? ' (reminder #'.$photoCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $photoCount > 1 ? '×'.$photoCount : '' }}</button>
@@ -447,11 +449,13 @@
                                 $payLastAt = $payNotif['last_at'] ?? null;
                                 $payCount = $payNotif['reminder_count'] ?? 0;
                                 $payCooldown = $payLastAt && $payLastAt->diffInHours(now()) < 24;
+                                $payMinAgo = $payLastAt ? (int) $payLastAt->diffInMinutes(now()) : 0;
+                                $payAgoText = $payMinAgo < 60 ? $payMinAgo . 'm ago' : round($payMinAgo / 60) . 'h ago';
                             @endphp
                             @if(($sale->balance_due_computed ?? 0) > 0)
                                 <span class="badge bg-danger">₱{{ number_format($sale->balance_due_computed, 2) }}</span>
                                 @if($payCooldown)
-                                    <span class="badge bg-secondary" title="Last notified {{ $payLastAt->diffForHumans() }}">🔔 {{ $payLastAt->diffInHours(now()) }}h ago</span>
+                                    <span class="badge bg-secondary" title="Last notified {{ $payLastAt->diffForHumans() }}">🔔 {{ $payAgoText }}</span>
                                     <button type="button" class="btn btn-sm btn-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>
                                 @else
                                     <button type="button" class="btn btn-sm btn-outline-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" title="Notify agent to collect payment{{ $payCount > 1 ? ' (reminder #'.$payCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $payCount > 1 ? '×'.$payCount : '' }}</button>
