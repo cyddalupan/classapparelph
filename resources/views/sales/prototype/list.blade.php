@@ -514,8 +514,6 @@ function notifyAgent(btn) {
     var type = btn.getAttribute('data-type');
     var label = type === 'photo_reminder' ? 'upload the missing photos' : 'collect the payment / settle the balance';
 
-    if (!confirm('📨 Notify the agent for ' + saleNumber + '?\n\nReminder: ' + label + '.')) return;
-
     btn.disabled = true;
     btn.innerHTML = '⏳';
 
@@ -531,21 +529,32 @@ function notifyAgent(btn) {
     .then(function(res) { return res.json(); })
     .then(function(data) {
         if (data.success) {
-            alert('✅ ' + data.message);
+            showToast('✅ ' + data.message);
             btn.innerHTML = '✅';
             btn.classList.remove('btn-outline-warning', 'btn-outline-danger');
             btn.classList.add('btn-success');
         } else {
-            alert('⚠️ ' + (data.message || 'Failed to notify agent.'));
+            showToast('⚠️ ' + (data.message || 'Failed to notify agent.'), 'error');
             btn.disabled = false;
             btn.innerHTML = '🔔';
         }
     })
     .catch(function() {
-        alert('❌ Network error. Please try again.');
+        showToast('❌ Network error. Please try again.', 'error');
         btn.disabled = false;
         btn.innerHTML = '🔔';
     });
+}
+
+function showToast(msg, type) {
+    var existing = document.getElementById('notifyToast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'notifyToast';
+    toast.textContent = msg;
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;background:' + (type === 'error' ? '#dc3545' : '#198754') + ';color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-size:14px;font-weight:600;max-width:360px;transition:opacity 0.3s;';
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 300); }, 2500);
 }
 
 function togglePendingRows() {
