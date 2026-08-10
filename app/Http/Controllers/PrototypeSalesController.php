@@ -270,7 +270,30 @@ class PrototypeSalesController extends Controller
             
             if ($firstSaleId === null) $firstSaleId = $saleId;
             $saleIds[] = $saleId;
-            
+
+            // Create a prototype_payments record for the initial deposit
+            // so every payment (initial + additional/full) has its own record
+            if ((float) $deptDeposit > 0) {
+                try {
+                    \App\Models\PrototypePayment::create([
+                        'prototype_sale_id' => $saleId,
+                        'payment_type' => ((float) $deptDeposit >= (float) $deptTotal) ? 'full_payment' : 'down_payment',
+                        'amount' => $deptDeposit,
+                        'payment_method' => $request->payment_method ?: 'cash',
+                        'payment_account_id' => $request->payment_account_id ?: null,
+                        'reference_number' => $request->reference_number ?: null,
+                        'screenshot_path' => $paymentScreenshotPath,
+                        'payment_status' => 'pending',
+                        'payment_date' => $request->payment_date ?: null,
+                        'notes' => 'Initial deposit',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to create initial deposit payment record: ' . $e->getMessage());
+                }
+            }
+
             // Track sold items for this department
             try {
                 $trackedItems = [];
@@ -681,12 +704,19 @@ public function details(Request $request, string $id)
             ->orderBy('created_at', 'desc')
             ->get();
 
+        // Compute total paid from payments table (exclude rejected), fallback to legacy column
+        $totalPaid = $payments->whereNotIn('payment_status', ['rejected', 'reject_pending'])->sum('amount');
+        if ($totalPaid <= 0) {
+            $totalPaid = (float) ($sale->deposit_paid ?? 0);
+        }
+        $balanceDue = max((float) ($sale->total_amount ?? 0) - $totalPaid, 0);
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
             'progressPercent', 'pendingChanges', 'isManager', 'canEdit',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
-            'payments'
+            'payments', 'totalPaid', 'balanceDue'
         ));
     }
 
@@ -2883,17 +2913,11 @@ public function printSlip(string $id)
                 return response()->json(['error' => 'Cannot verify — payment amount must be greater than 0.'], 400);
             }
 
-            // Determine payment status based on what this payment achieves
-            $totalVerifiedBefore = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)
-                ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
-                ->sum('amount');
-
-            $newTotal = $totalVerifiedBefore + $payment->amount;
-
-            if ($newTotal >= $sale->total_amount) {
-                $newStatus = 'full_payment_verified';
-            } elseif ($payment->payment_type === 'down_payment') {
+            // Determine payment status based on the payment's own type
+            if ($payment->payment_type === 'down_payment') {
                 $newStatus = 'down_payment_verified';
+            } elseif (in_array($payment->payment_type, ['fullpayment', 'full_payment'])) {
+                $newStatus = 'full_payment_verified';
             } else {
                 $newStatus = 'additional_payment_verified';
             }
@@ -3414,8 +3438,15 @@ public function printSlip(string $id)
     public function cashFlow(Request $request)
     {
         $accountId = $request->account_id;
+        $agentId = $request->agent_id;
+        $method = $request->method;
+        $dateFrom = $request->date_from;
+        $dateTo = $request->date_to;
+        $search = trim((string) $request->search);
 
         $accounts = \App\Models\PaymentAccount::where('is_active', true)->get();
+        $agents = \App\Models\User::where('role', 'sales_agent')->orderBy('name')->get();
+        $paymentMethods = ['cash', 'bank_transfer', 'gcash', 'paymaya', 'credit_card', 'other'];
 
         $query = \DB::table('prototype_payments')
             ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
@@ -3438,6 +3469,30 @@ public function printSlip(string $id)
             $query->where('prototype_payments.payment_account_id', $accountId);
         }
 
+        if ($agentId) {
+            $query->where('prototype_sales.sales_agent_id', $agentId);
+        }
+
+        if ($method) {
+            $query->where('prototype_payments.payment_method', $method);
+        }
+
+        if ($dateFrom) {
+            $query->whereDate('prototype_payments.payment_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('prototype_payments.payment_date', '<=', $dateTo);
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('prototype_sales.customer_name', 'like', '%' . $search . '%')
+                  ->orWhere('prototype_sales.sales_number', 'like', '%' . $search . '%')
+                  ->orWhere('prototype_payments.reference_number', 'like', '%' . $search . '%');
+            });
+        }
+
         $payments = $query->orderBy('prototype_payments.verified_at', 'desc')->get();
 
         // Calculate totals per account for the summary
@@ -3448,6 +3503,46 @@ public function printSlip(string $id)
                 \DB::raw('COALESCE(SUM(amount), 0) as total_deposit'),
             ])
             ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+            ->groupBy('payment_account_id')
+            ->get()
+            ->keyBy('payment_account_id');
+
+        // Total sale value per account (distinct sales, avoids double-counting multi-payment sales)
+        $accountSaleTotals = \DB::table(\DB::raw('(SELECT DISTINCT p.payment_account_id, p.prototype_sale_id, s.total_amount FROM prototype_payments p JOIN prototype_sales s ON s.id = p.prototype_sale_id WHERE p.payment_status IN (\'verified\', \'down_payment_verified\', \'additional_payment_verified\', \'full_payment_verified\')) as t'))
+            ->select([
+                't.payment_account_id',
+                \DB::raw('COUNT(*) as sale_count'),
+                \DB::raw('COALESCE(SUM(t.total_amount), 0) as total_value'),
+            ])
+            ->groupBy('t.payment_account_id')
+            ->get()
+            ->keyBy('payment_account_id');
+
+        // Pending payments count per account (payments awaiting verification)
+        $pendingCounts = \DB::table('prototype_payments')
+            ->select([
+                'payment_account_id',
+                \DB::raw('COUNT(*) as pending_count'),
+            ])
+            ->whereIn('payment_status', ['pending', 'reject_pending', 'edit_pending'])
+            ->groupBy('payment_account_id')
+            ->get()
+            ->keyBy('payment_account_id');
+
+        // Pending initial deposits per account (sales with deposit but no payment record yet)
+        $pendingDepositCounts = \DB::table('prototype_sales')
+            ->select([
+                'payment_account_id',
+                \DB::raw('COUNT(*) as pending_count'),
+            ])
+            ->where('payment_status', 'pending')
+            ->where('deposit_paid', '>', 0)
+            ->whereNull('deleted_at')
+            ->whereNotExists(function ($query) {
+                $query->select(\DB::raw(1))
+                    ->from('prototype_payments')
+                    ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id');
+            })
             ->groupBy('payment_account_id')
             ->get()
             ->keyBy('payment_account_id');
@@ -3566,7 +3661,7 @@ public function printSlip(string $id)
             ->orderBy('edit_requested_at', 'desc')
             ->get();
 
-        return view('sales.prototype.cashflow', compact('accounts', 'payments', 'accountTotals', 'auditLogs', 'pendingRejections', 'pendingEdits', 'accountId'));
+        return view('sales.prototype.cashflow', compact('accounts', 'agents', 'paymentMethods', 'payments', 'accountTotals', 'accountSaleTotals', 'pendingCounts', 'pendingDepositCounts', 'auditLogs', 'pendingRejections', 'pendingEdits', 'accountId', 'agentId', 'method', 'dateFrom', 'dateTo', 'search'));
     }
 
     /**

@@ -30,13 +30,16 @@
         </div>
     </div>
 
-    <!-- Account Filter -->
+    <!-- Filters -->
     <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white py-2">
+            <h6 class="mb-0"><i class="fas fa-filter me-2 text-primary"></i> Filters</h6>
+        </div>
         <div class="card-body">
             <form method="GET" action="{{ route('sales.cash-flow') }}" class="row g-2 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label">Filter by Account</label>
-                    <select name="account_id" class="form-select" onchange="this.form.submit()">
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label">Account</label>
+                    <select name="account_id" class="form-select">
                         <option value="">All Accounts</option>
                         @foreach($accounts as $account)
                             <option value="{{ $account->id }}" {{ $accountId == $account->id ? 'selected' : '' }}>
@@ -46,10 +49,47 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-filter"></i> Filter
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label">Sales Agent</label>
+                    <select name="agent_id" class="form-select">
+                        <option value="">All Agents</option>
+                        @foreach($agents as $agent)
+                            <option value="{{ $agent->id }}" {{ $agentId == $agent->id ? 'selected' : '' }}>
+                                {{ $agent->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label">Payment Method</label>
+                    <select name="method" class="form-select">
+                        <option value="">All Methods</option>
+                        @foreach($paymentMethods as $pm)
+                            <option value="{{ $pm }}" {{ $method == $pm ? 'selected' : '' }}>
+                                {{ ucfirst(str_replace('_', ' ', $pm)) }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label">Date From</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ $dateFrom }}">
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label">Date To</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ $dateTo }}">
+                </div>
+                <div class="col-md-4 col-lg-2">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="search" class="form-control" placeholder="Customer / Sales # / Ref #" value="{{ $search }}">
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Apply Filters
                     </button>
+                    <a href="{{ route('sales.cash-flow') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-undo"></i> Reset
+                    </a>
                 </div>
             </form>
         </div>
@@ -61,36 +101,79 @@
             @php
                 $totals = $accountTotals->get($account->id);
                 $count = $totals ? $totals->total_count : 0;
-                $amount = $totals ? $totals->total_amount : 0;
-                $deposit = $totals ? $totals->total_deposit : 0;
+                $amount = $totals ? $totals->total_deposit : 0;
+
+                $saleTotals = $accountSaleTotals->get($account->id);
+                $totalValue = $saleTotals ? $saleTotals->total_value : 0;
+                $saleCount = $saleTotals ? $saleTotals->sale_count : 0;
+                $balanceDue = max($totalValue - $amount, 0);
+                $progress = $totalValue > 0 ? round(($amount / $totalValue) * 100) : 0;
+                $progressColor = $progress >= 100 ? 'bg-success' : ($progress >= 50 ? 'bg-warning' : 'bg-danger');
+
+                $pendingCount = ($pendingCounts->get($account->id)->pending_count ?? 0) + ($pendingDepositCounts->get($account->id)->pending_count ?? 0);
+                $isActive = $accountId == $account->id;
             @endphp
             <div class="col-xl-3 col-lg-4 col-md-6">
-                <div class="card stat-card border-start border-4 border-success h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between mb-2">
-                            <h6 class="mb-0">{{ $account->name }}</h6>
-                            @if($account->user)
-                                <small class="text-muted">{{ $account->user->name }}</small>
-                            @endif
-                        </div>
-                        <div class="small text-muted mb-2">
-                            @if($account->provider) {{ $account->provider }} @endif
-                            @if($account->account_number) &middot; {{ $account->account_number }} @endif
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted small">Sales Count:</span>
-                            <span class="fw-semibold">{{ $count }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted small">Total Amount:</span>
-                            <span class="amount-positive">₱{{ number_format($amount, 2) }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <span class="text-muted small">Deposits:</span>
-                            <span>₱{{ number_format($deposit, 2) }}</span>
+                <a href="{{ route('sales.cash-flow', ['account_id' => $account->id]) }}" class="text-decoration-none">
+                    <div class="card stat-card border-start border-4 {{ $isActive ? 'border-primary bg-light' : 'border-success' }} h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-0 text-dark">{{ $account->name }}</h6>
+                                    @if($account->user)
+                                        <small class="text-muted">{{ $account->user->name }}</small>
+                                    @endif
+                                </div>
+                                <div class="d-flex gap-1">
+                                    @if($pendingCount > 0)
+                                        <span class="badge bg-warning text-dark" title="{{ $pendingCount }} pending verification">
+                                            <i class="fas fa-clock"></i> {{ $pendingCount }}
+                                        </span>
+                                    @endif
+                                    @if($balanceDue > 0)
+                                        <span class="badge bg-danger" title="Balance due">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="small text-muted mb-2">
+                                @if($account->provider) {{ $account->provider }} @endif
+                                @if($account->account_number) &middot; {{ $account->account_number }} @endif
+                            </div>
+
+                            <!-- Progress bar: collected vs total sale value -->
+                            <div class="mb-1">
+                                <div class="d-flex justify-content-between small">
+                                    <span class="text-muted">Collected vs Total</span>
+                                    <span class="fw-semibold">{{ $progress }}%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar {{ $progressColor }}" style="width: {{ $progress }}%" role="progressbar"></div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between mt-2">
+                                <span class="text-muted small">Sales:</span>
+                                <span class="fw-semibold">{{ $saleCount }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Collected:</span>
+                                <span class="amount-positive">₱{{ number_format($amount, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Total Value:</span>
+                                <span>₱{{ number_format($totalValue, 2) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Balance Due:</span>
+                                <span class="{{ $balanceDue > 0 ? 'text-danger fw-semibold' : 'text-success fw-semibold' }}">
+                                    {{ $balanceDue > 0 ? '₱' . number_format($balanceDue, 2) : 'Paid' }}
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </a>
             </div>
         @endforeach
     </div>

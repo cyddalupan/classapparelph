@@ -455,13 +455,13 @@
                     </div>
                     @endif
                 @endif
-                @if(($sale->deposit_paid ?? 0) > 0)
+                @if($totalPaid > 0)
                 <div class="mb-2">
-                    <div class="info-label">Deposit Paid</div>
-                    <div class="info-value text-success">₱{{ number_format($sale->deposit_paid, 2) }}</div>
+                    <div class="info-label">Total Paid</div>
+                    <div class="info-value text-success">₱{{ number_format($totalPaid, 2) }}</div>
                 </div>
                 @endif
-                @php $bal = ($sale->total_amount ?? 0) - ($sale->deposit_paid ?? 0); @endphp
+                @php $bal = $balanceDue; @endphp
                 @if($bal > 0)
                 <div class="mb-2">
                     <div class="info-label">Balance Due</div>
@@ -525,119 +525,59 @@
                     </div>
                 </div>
                 @endif
-
-                <div class="mb-2">
-                    <div class="info-label">Payment Method</div>
-                    <div>{{ ucfirst($sale->payment_method ?? 'N/A') }}</div>
-                </div>
-                <div class="mb-2">
-                    <div class="info-label">Paid By</div>
-                    <div>{{ ucfirst($sale->payment_owner ?? 'N/A') }}</div>
-                </div>
-                @php
-                    $paymentAccount = $sale->payment_account_id ? \App\Models\PaymentAccount::find($sale->payment_account_id) : null;
-                @endphp
-                @if($paymentAccount)
-                <div class="mb-2">
-                    <div class="info-label">Account</div>
-                    <div>
-                        <strong>{{ $paymentAccount->name }}</strong>
-                        @if($paymentAccount->user)
-                            <small class="text-muted">({{ $paymentAccount->user->name }})</small>
-                        @endif
-                    </div>
-                </div>
-                @endif
-                <div class="mb-2">
-                    <div class="info-label">Payment Status</div>
-                    <div>
-                        @if($sale->payment_status === 'verified')
-                            <span class="badge bg-success fs-6">✅ Verified</span>
-                            @if($sale->verified_at)
-                                <small class="text-muted d-block mt-1">{{ \Carbon\Carbon::parse($sale->verified_at)->format('M d, g:i A') }}</small>
-                            @endif
-                        @elseif($sale->payment_status === 'rejected')
-                            <span class="badge bg-danger fs-6">❌ Rejected</span>
-                        @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
-                            <span class="badge bg-warning text-dark fs-6">⏳ Pending Verification</span>
-                        @else
-                            <span class="badge bg-secondary fs-6">—</span>
-                        @endif
-                    </div>
-                </div>
-                @if($sale->reference_number)
-                <div class="mb-2">
-                    <div class="info-label">Reference Number</div>
-                    <div>{{ $sale->reference_number }}</div>
-                </div>
-                @endif
-                @if($sale->payment_date)
-                <div class="mb-2">
-                    <div class="info-label">Payment Date</div>
-                    <div>{{ \Carbon\Carbon::parse($sale->payment_date)->format('M d, Y') }}</div>
-                </div>
-                @endif
-                @if($sale->verify_requested_by)
-                <div class="mb-2">
-                    <div class="info-label">Verification Requested</div>
-                    <div>
-                        <span class="badge bg-info"><i class="fas fa-exclamation-circle"></i> Requested</span>
-                        @if($sale->verify_requested_at)
-                            <small class="text-muted d-block mt-1">{{ \Carbon\Carbon::parse($sale->verify_requested_at)->format('M d, g:i A') }}</small>
-                        @endif
-                    </div>
-                </div>
-                @endif
-                @if($sale->payment_screenshot_path)
-                <div class="mt-3">
-                    <div class="info-label">Payment Screenshot</div>
-                    <img src="{{ $sale->payment_screenshot_path }}" alt="Payment Screenshot" class="img-fluid rounded mt-1 payment-img" style="max-height:200px;cursor:pointer;" onclick="openLightbox(this.src)">
-                </div>
-                @endif
             </div>
 
-            <!-- Audit Log -->
-            @php
-                $logs = \App\Models\PaymentAuditLog::with(['user', 'paymentAccount'])
-                    ->where('prototype_sale_id', $sale->id)
-                    ->orderBy('created_at', 'desc')
-                    ->get();
-            @endphp
-            @if($logs->count() > 0)
+            <!-- Payment History (individual payments) -->
+            @if(isset($payments) && $payments->count() > 0)
             <div class="detail-section">
-                <h5 class="detail-title"><i class="fas fa-history me-2"></i>Audit Log ({{ $logs->count() }})</h5>
-                @foreach($logs as $log)
-                    <div class="p-2 mb-1 bg-light rounded">
-                        <div class="d-flex justify-content-between small">
+                <h5 class="detail-title"><i class="fas fa-receipt me-2"></i>Payment History ({{ $payments->count() }})</h5>
+                @foreach($payments as $pay)
+                    <div class="p-2 mb-2 border rounded {{ $pay->payment_status === 'pending' ? 'border-warning' : 'border-secondary' }}">
+                        <div class="d-flex justify-content-between align-items-start">
                             <div>
-                                @if($log->action === 'verified')
-                                    <span class="badge bg-success">Verified</span>
-                                @elseif($log->action === 'rejected')
-                                    <span class="badge bg-danger">Rejected</span>
-                                @elseif($log->action === 're_tagged')
-                                    <span class="badge bg-warning text-dark">Re-tagged</span>
-                                @elseif($log->action === 'edited_ref')
-                                    <span class="badge bg-info">Edited</span>
-                                @elseif($log->action === 'requested_verify')
-                                    <span class="badge bg-primary">Requested Verify</span>
-                                @elseif($log->action === 'additional_payment')
-                                    <span class="badge bg-info">Additional Payment</span>
+                                @php
+                                    $payLabel = match($pay->payment_type) {
+                                        'down_payment' => 'Down Payment',
+                                        'additional' => 'Additional Payment',
+                                        'fullpayment', 'full_payment' => 'Full Payment',
+                                        default => ucwords(str_replace('_', ' ', $pay->payment_type ?? 'Payment'))
+                                    };
+                                    $payBadge = match($pay->payment_status) {
+                                        'verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified' => ['bg-success', '✓ Verified'],
+                                        'rejected', 'reject_pending' => ['bg-danger', '✗ Rejected'],
+                                        'edit_pending' => ['bg-info', 'Edit Pending'],
+                                        default => ['bg-warning text-dark', '⏳ Pending Verification']
+                                    };
+                                @endphp
+                                <span class="badge bg-secondary">{{ $payLabel }}</span>
+                                <span class="badge {{ $payBadge[0] }}">{{ $payBadge[1] }}</span>
+                                <div class="fw-bold mt-1">₱{{ number_format($pay->amount ?? 0, 2) }}</div>
+                                <div class="small text-muted">
+                                    {{ ucfirst($pay->payment_method ?? 'N/A') }}
+                                    @if($pay->payment_account_id)
+                                        @php $payAcct = \App\Models\PaymentAccount::find($pay->payment_account_id); @endphp
+                                        @if($payAcct) · {{ $payAcct->name }} @endif
+                                    @endif
+                                </div>
+                                @if($pay->reference_number)
+                                    <div class="small text-muted"><i class="fas fa-hashtag me-1"></i>{{ $pay->reference_number }}</div>
                                 @endif
-                                <strong>{{ $log->user?->name ?? 'System' }}</strong>
+                                @if($pay->payment_date)
+                                    <div class="small text-muted"><i class="far fa-calendar me-1"></i>{{ \Carbon\Carbon::parse($pay->payment_date)->format('M d, Y') }}</div>
+                                @endif
+                                @if($pay->verified_by)
+                                    <div class="small text-success mt-1">
+                                        <i class="fas fa-user-check me-1"></i>{{ \App\Models\User::find($pay->verified_by)?->name ?? 'Unknown' }}
+                                        @if($pay->verified_at) · {{ \Carbon\Carbon::parse($pay->verified_at)->format('M d, g:i A') }} @endif
+                                    </div>
+                                @endif
                             </div>
-                            <span class="text-muted">{{ $log->created_at->format('M d, g:i A') }}</span>
+                            @if($pay->screenshot_path)
+                                <div class="ms-2">
+                                    <img src="{{ $pay->screenshot_path }}" alt="Payment screenshot" class="rounded" style="width:70px;height:70px;object-fit:cover;cursor:pointer;" onclick="openLightbox('{{ $pay->screenshot_path }}')">
+                                </div>
+                            @endif
                         </div>
-                        @if($log->paymentAccount)
-                            <div class="small text-muted mt-1">Account: {{ $log->paymentAccount->name }}</div>
-                        @endif
-                        @if($log->old_value && $log->new_value)
-                            <div class="small text-muted">
-                                <span class="text-decoration-line-through">{{ $log->old_value }}</span> → <strong>{{ $log->new_value }}</strong>
-                            </div>
-                        @endif
-                        @if($log->remarks)
-                            <div class="small text-muted mt-1"><em>{{ $log->remarks }}</em></div>
-                        @endif
                     </div>
                 @endforeach
             </div>
@@ -667,7 +607,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    @php $remaining = ($sale->total_amount ?? 0) - ($sale->deposit_paid ?? 0); @endphp
+                    @php $remaining = $balanceDue; @endphp
                 @if(isset($relatedSales) && $relatedSales->count() > 0)
     <div class="alert alert-info mb-3">
         <div class="d-flex align-items-start">
@@ -706,7 +646,7 @@
                                 </div>
                                 <div>
                                     <small class="text-muted d-block">Paid</small>
-                                    <strong class="text-success">₱{{ number_format($sale->deposit_paid ?? 0, 2) }}</strong>
+                                    <strong class="text-success">₱{{ number_format($totalPaid, 2) }}</strong>
                                 </div>
                                 <div>
                                     <small class="text-muted d-block">Balance</small>
@@ -718,7 +658,8 @@
                         <!-- Amount -->
                         <div class="col-md-6">
                             <label class="form-label">Payment Amount <span class="text-danger">*</span></label>
-                            <input type="number" name="payment_amount" class="form-control" step="0.01" min="0.01" max="{{ $remaining }}" value="{{ $remaining }}" required>
+                            <input type="number" name="payment_amount" id="payBalanceAmount" class="form-control" step="0.01" min="0.01" max="{{ $remaining }}" value="{{ $remaining }}" required>
+                            <input type="hidden" name="payment_type" id="payBalanceType" value="fullpayment">
                         </div>
 
                         <!-- Date -->
@@ -765,6 +706,15 @@
                         <i class="fas fa-check me-1"></i>Submit Payment
                     </button>
                 </div>
+                @if($errors->any())
+                    <div class="alert alert-danger mt-2">
+                        <ul class="mb-0">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
             </form>
         </div>
     </div>
@@ -877,6 +827,22 @@
 
 @push('scripts')
 <script>
+    // Auto-set payment_type: fullpayment when amount >= remaining, else additional
+    (function() {
+        var remaining = {{ $remaining }};
+        var amountInput = document.getElementById('payBalanceAmount');
+        var typeInput = document.getElementById('payBalanceType');
+        function updateType() {
+            if (!amountInput || !typeInput) return;
+            var val = parseFloat(amountInput.value) || 0;
+            typeInput.value = (val >= remaining - 0.001) ? 'fullpayment' : 'additional';
+        }
+        if (amountInput) {
+            amountInput.addEventListener('input', updateType);
+            updateType();
+        }
+    })();
+
     function toggleAuditLog() {
         var container = document.getElementById('auditLogContainer');
         if (container.style.display !== 'none') {
