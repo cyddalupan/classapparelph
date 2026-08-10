@@ -198,7 +198,7 @@
     @php
         $totalSales   = $sales->count();
         $totalAmount  = $sales->sum('total_amount');
-        $totalDeposit = $sales->sum('deposit_paid');
+        $totalDeposit = $sales->sum('net_paid');
         $saleStatuses = $sales->pluck('kanban_status')->countBy();
     @endphp
 
@@ -282,13 +282,13 @@
                     <div class="detail-value">₱{{ number_format($sale->total_amount, 2) }}</div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Deposit Paid</div>
-                    <div class="detail-value text-success">₱{{ number_format($sale->deposit_paid ?? 0, 2) }}</div>
+                    <div class="detail-label">Net Paid</div>
+                    <div class="detail-value text-success">₱{{ number_format($sale->net_paid ?? 0, 2) }}</div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Balance Due</div>
-                    <div class="detail-value {{ ($sale->balance_due ?? 0) > 0 ? 'text-warning' : 'text-success' }}">
-                        ₱{{ number_format($sale->balance_due ?? 0, 2) }}
+                    <div class="detail-value {{ ($sale->balance_due_computed ?? 0) > 0 ? 'text-warning' : 'text-success' }}">
+                        ₱{{ number_format($sale->balance_due_computed ?? 0, 2) }}
                     </div>
                 </div>
                 <div class="detail-item">
@@ -325,7 +325,7 @@
             <a href="{{ route('sales.prototype.show', $sale->id) }}" class="action-btn">
                 <i class="fas fa-eye"></i> View Details
             </a>
-            @if(($sale->balance_due ?? 0) > 0)
+            @if(($sale->balance_due_computed ?? 0) > 0)
             <a href="{{ route('sales.prototype.agent.payment', $sale->id) }}" class="action-btn primary">
                 <i class="fas fa-money-bill-wave"></i> Add Payment
             </a>

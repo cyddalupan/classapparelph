@@ -39,11 +39,11 @@
         </div>
         <div class="summary-item">
             <span class="summary-label">Already Paid</span>
-            <span class="summary-value paid">₱ {{ number_format($sale->deposit_paid ?? 0, 2) }}</span>
+            <span class="summary-value paid">₱ {{ number_format($sale->net_paid ?? 0, 2) }}</span>
         </div>
         <div class="summary-item">
             <span class="summary-label">Balance Due</span>
-            <span class="summary-value due">₱ {{ number_format(($sale->total_amount - ($sale->deposit_paid ?? 0)), 2) }}</span>
+            <span class="summary-value due">₱ {{ number_format($sale->balance_due_computed ?? 0, 2) }}</span>
         </div>
     </div>
 

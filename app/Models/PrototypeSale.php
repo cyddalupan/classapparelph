@@ -85,6 +85,61 @@ class PrototypeSale extends Model
         return $this->hasMany(\App\Models\PrototypePayment::class, 'prototype_sale_id');
     }
 
+    public function refunds()
+    {
+        return $this->hasMany(\App\Models\PrototypeRefund::class, 'prototype_sale_id');
+    }
+
+    public function completedRefunds()
+    {
+        return $this->refunds()->where('refund_status', 'completed');
+    }
+
+    /**
+     * Total paid from payments table (excluding rejected), fallback to legacy deposit_paid column.
+     */
+    public function getTotalPaidAttribute()
+    {
+        if ($this->relationLoaded('payments')) {
+            $paid = $this->payments->whereNotIn('payment_status', ['rejected', 'reject_pending'])->sum('amount');
+        } else {
+            $paid = $this->payments()->whereNotIn('payment_status', ['rejected', 'reject_pending'])->sum('amount');
+        }
+        if ($paid <= 0) {
+            return (float) ($this->deposit_paid ?? 0);
+        }
+        return (float) $paid;
+    }
+
+    /**
+     * Total refunded from completed refunds.
+     */
+    public function getTotalRefundedAttribute()
+    {
+        if ($this->relationLoaded('completedRefunds')) {
+            $sum = $this->completedRefunds->sum('refund_amount');
+        } else {
+            $sum = $this->completedRefunds()->sum('refund_amount');
+        }
+        return (float) $sum;
+    }
+
+    /**
+     * Net paid = total paid minus completed refunds (never negative).
+     */
+    public function getNetPaidAttribute()
+    {
+        return max($this->total_paid - $this->total_refunded, 0);
+    }
+
+    /**
+     * Balance due computed from net paid (never negative).
+     */
+    public function getBalanceDueComputedAttribute()
+    {
+        return max((float) ($this->total_amount ?? 0) - $this->net_paid, 0);
+    }
+
     public function verifiedPayments()
     {
         return $this->hasMany(\App\Models\PrototypePayment::class, 'prototype_sale_id')->verified();

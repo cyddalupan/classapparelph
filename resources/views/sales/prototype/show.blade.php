@@ -461,6 +461,16 @@
                     <div class="info-value text-success">₱{{ number_format($totalPaid, 2) }}</div>
                 </div>
                 @endif
+                @if(($totalRefunded ?? 0) > 0)
+                <div class="mb-2">
+                    <div class="info-label">Refunded</div>
+                    <div class="info-value text-danger">− ₱{{ number_format($totalRefunded, 2) }}</div>
+                </div>
+                <div class="mb-2">
+                    <div class="info-label">Net Paid</div>
+                    <div class="info-value text-success">₱{{ number_format($netPaid, 2) }}</div>
+                </div>
+                @endif
                 @php $bal = $balanceDue; @endphp
                 @if($bal > 0)
                 <div class="mb-2">
@@ -583,6 +593,69 @@
             </div>
             @endif
 
+            <!-- Refund History (all refunds incl. completed) -->
+            @if(isset($refunds) && $refunds->count() > 0)
+            <div class="detail-section">
+                <h5 class="detail-title"><i class="fas fa-undo-alt me-2"></i>Refund History ({{ $refunds->count() }})</h5>
+                @foreach($refunds as $refund)
+                    @if($activeRefund && $refund->id === $activeRefund->id) @continue @endif
+                    @php
+                        $refundStatusBadge = match($refund->refund_status) {
+                            'pending' => ['bg-warning text-dark', '⏳ Pending'],
+                            'accepted' => ['bg-info text-dark', '✅ Accepted'],
+                            'approved' => ['bg-success', '✅ Approved'],
+                            'completed' => ['bg-primary', '✅ Completed'],
+                            'rejected' => ['bg-danger', '❌ Rejected'],
+                            default => ['bg-secondary', ucfirst($refund->refund_status)],
+                        };
+                        $refundReasonLabel = match($refund->refund_reason) {
+                            'reprocess_overpayment' => 'Overpayment Refund',
+                            'reprocess' => 'Reprocess',
+                            'cancellation' => 'Cancellation',
+                            default => ucwords(str_replace('_', ' ', $refund->refund_reason ?? 'Refund')),
+                        };
+                    @endphp
+                    <div class="p-2 mb-2 border rounded {{ in_array($refund->refund_status, ['pending', 'accepted']) ? 'border-warning' : 'border-secondary' }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge {{ $refundStatusBadge[0] }}">{{ $refundStatusBadge[1] }}</span>
+                                    <span class="badge bg-secondary">{{ $refundReasonLabel }}</span>
+                                </div>
+                                <div class="fw-bold">₱{{ number_format($refund->refund_amount ?? 0, 2) }}</div>
+                                @if($refund->refund_method)
+                                    <div class="small text-muted">via {{ ucfirst($refund->refund_method) }}@if($refund->refund_account_name) · {{ $refund->refund_account_name }}@endif</div>
+                                @endif
+                                @if($refund->refund_reference)
+                                    <div class="small text-muted"><i class="fas fa-hashtag me-1"></i>{{ $refund->refund_reference }}</div>
+                                @endif
+                                @if($refund->reason_details)
+                                    <div class="small text-muted"><i class="fas fa-comment me-1"></i>{{ $refund->reason_details }}</div>
+                                @endif
+                                @if($refund->refund_proof_path)
+                                    <div class="mt-1 d-flex align-items-center gap-2">
+                                        <img src="{{ asset('storage/' . $refund->refund_proof_path) }}" alt="Refund proof" class="rounded" style="width:70px;height:70px;object-fit:cover;cursor:pointer;" onclick="openLightbox('{{ asset('storage/' . $refund->refund_proof_path) }}')">
+                                        <a href="{{ asset('storage/' . $refund->refund_proof_path) }}" target="_blank" class="small">
+                                            <i class="fas fa-external-link-alt me-1"></i>View Full
+                                        </a>
+                                    </div>
+                                @endif
+                            </div>
+                            <div class="small text-muted text-end">
+                                @if($refund->completed_at)
+                                    <div><i class="fas fa-check-circle me-1"></i>{{ \Carbon\Carbon::parse($refund->completed_at)->format('M d, g:i A') }}</div>
+                                @elseif($refund->approved_at)
+                                    <div><i class="fas fa-check me-1"></i>{{ \Carbon\Carbon::parse($refund->approved_at)->format('M d, g:i A') }}</div>
+                                @else
+                                    <div>{{ \Carbon\Carbon::parse($refund->created_at)->format('M d, g:i A') }}</div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+            @endif
+
             <!-- Verified By -->
             @if($sale->verified_by)
             <div class="detail-section">
@@ -646,7 +719,7 @@
                                 </div>
                                 <div>
                                     <small class="text-muted d-block">Paid</small>
-                                    <strong class="text-success">₱{{ number_format($totalPaid, 2) }}</strong>
+                                    <strong class="text-success">₱{{ number_format($netPaid, 2) }}</strong>
                                 </div>
                                 <div>
                                     <small class="text-muted d-block">Balance</small>

@@ -384,8 +384,8 @@
                                 @if(($sale->subtotal ?? 0) > 0)
                                     <span>💰 ₱{{ number_format($sale->subtotal, 2) }}</span>
                                 @endif
-                                @if($sale->deposit_paid > 0)
-                                    <span>💳 ₱{{ number_format($sale->deposit_paid, 2) }} paid</span>
+                                @if($sale->net_paid > 0)
+                                    <span>💳 ₱{{ number_format($sale->net_paid, 2) }} paid</span>
                                 @endif
                                 @if($sale->created_at)
                                     <span>📅 {{ \Carbon\Carbon::parse($sale->created_at)->format('M d') }}</span>

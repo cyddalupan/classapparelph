@@ -611,15 +611,16 @@ public function details(Request $request, string $id)
 
                 public function show(string $id)
     {
-        $sale = \DB::table('prototype_sales')->leftJoin('sales_departments', 'prototype_sales.department_id', '=', 'sales_departments.id')
-            ->select('prototype_sales.*', 'sales_departments.name as department_name', 'sales_departments.code as department_code')
-            ->where('prototype_sales.id', $id)
-            ->first();
+        $sale = \App\Models\PrototypeSale::find($id);
         if (!$sale) {
             abort(404);
         }
+        // Attach department fields (view expects department_name/department_code)
+        $department = \App\Models\SalesDepartment::find($sale->department_id);
+        $sale->department_name = $department->name ?? null;
+        $sale->department_code = $department->code ?? null;
         
-        $services = json_decode($sale->services, true);
+        $services = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
         $kanbanItem = \DB::table('sales_kanban_items')->where('sale_id', $id)->first();
         
         // Check if this sale is part of a group (multi-department transaction)
@@ -703,20 +704,20 @@ public function details(Request $request, string $id)
         $payments = \App\Models\PrototypePayment::where('prototype_sale_id', $id)
             ->orderBy('created_at', 'desc')
             ->get();
+        $sale->setRelation('payments', $payments);
 
-        // Compute total paid from payments table (exclude rejected), fallback to legacy column
-        $totalPaid = $payments->whereNotIn('payment_status', ['rejected', 'reject_pending'])->sum('amount');
-        if ($totalPaid <= 0) {
-            $totalPaid = (float) ($sale->deposit_paid ?? 0);
-        }
-        $balanceDue = max((float) ($sale->total_amount ?? 0) - $totalPaid, 0);
+        // Single source of truth: computed from model accessors (payments minus completed refunds)
+        $totalPaid = $sale->total_paid;
+        $totalRefunded = $sale->total_refunded;
+        $netPaid = $sale->net_paid;
+        $balanceDue = $sale->balance_due_computed;
 
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
             'progressPercent', 'pendingChanges', 'isManager', 'canEdit',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
-            'payments', 'totalPaid', 'balanceDue'
+            'payments', 'totalPaid', 'netPaid', 'balanceDue'
         ));
     }
 
@@ -2319,7 +2320,7 @@ public function printSlip(string $id)
         ];
         
         // Get sales — filter by department if specific, or get ALL
-        $query = \App\Models\PrototypeSale::with([])
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
             ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed']);
         
         if (!$showAll) {
@@ -2411,7 +2412,7 @@ public function printSlip(string $id)
             6 => "#6c757d",
         ];
 
-        $query = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"]);
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn("status", ["confirmed", "in_production", "pending", "completed"]);
         
         // Non-admin users only see their own sales
         $user = auth()->user();
@@ -2515,7 +2516,7 @@ public function printSlip(string $id)
         $endDate = $request->end_date;
         $department = $request->department;
 
-        $query = \App\Models\PrototypeSale::whereIn('status', ['pending', 'confirmed', 'in_production', 'completed']);
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed']);
         
         // Filter by date range (use created_at, estimated_completion_date, or date_needed)
         $query->where(function($q) use ($startDate, $endDate) {
@@ -3717,7 +3718,7 @@ public function printSlip(string $id)
             abort(403, 'Unauthorized access.');
         }
 
-        $query = \DB::table('prototype_sales')
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
             ->where('sales_agent_id', $user->id);
 
         // Date range filter
@@ -3872,7 +3873,7 @@ public function printSlip(string $id)
             abort(403, 'Unauthorized access.');
         }
 
-        $sale = \DB::table('prototype_sales')->find($id);
+        $sale = \App\Models\PrototypeSale::with(['payments', 'refunds'])->find($id);
         if (!$sale) {
             abort(404, 'Sale not found.');
         }

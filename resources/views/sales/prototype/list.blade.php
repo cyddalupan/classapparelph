@@ -387,7 +387,7 @@
                             </span>
                         </td>
                         <td>₱{{ number_format($sale->subtotal ?? 0, 2) }}</td>
-                        <td>₱{{ number_format($sale->deposit_paid, 2) }}</td>
+                        <td>₱{{ number_format($sale->net_paid, 2) }}</td>
                         <td>
                             @if($sale->payment_status === 'verified')
                                 <span class="badge bg-success">✅ Paid</span>
