@@ -4227,4 +4227,49 @@ public function printSlip(string $id)
 
         return view('sales.prototype.refunds', compact('refunds'));
     }
+
+    /**
+     * Upload a design file screenshot or approved sample color screenshot for a sale.
+     * Types: 'file_screenshot' | 'sample_color'
+     */
+    public function uploadDesignImage(Request $request, $id)
+    {
+        $request->validate([
+            'design_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'type' => 'required|in:file_screenshot,sample_color',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $file = $request->file('design_image');
+        $filename = 'design_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        $filePath = $file->storeAs('uploads/sales/' . $id, $filename, 'public');
+        $url = '/storage/' . $filePath;
+
+        $images = $sale->design_images ?? [];
+        $images[] = [
+            'type' => $request->type,
+            'url' => $url,
+            'name' => $file->getClientOriginalName(),
+            'uploaded_by' => auth()->user()->name ?? 'Unknown',
+            'uploaded_at' => now()->toDateTimeString(),
+        ];
+        $sale->design_images = $images;
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Image uploaded successfully.',
+            'image' => [
+                'type' => $request->type,
+                'url' => $url,
+                'name' => $file->getClientOriginalName(),
+                'uploaded_by' => auth()->user()->name ?? 'Unknown',
+                'uploaded_at' => now()->toDateTimeString(),
+            ],
+        ]);
+    }
 }

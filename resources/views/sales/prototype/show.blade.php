@@ -228,6 +228,59 @@
                 @endif
             </div>
 
+            <!-- Design Files & Sample -->
+            <div class="detail-section mt-3">
+                <h5 class="detail-title"><i class="fas fa-images me-2"></i>Design Files & Sample</h5>
+
+                @php
+                    $designImages = $sale->design_images ?? [];
+                    $fileShots = collect($designImages)->where('type', 'file_screenshot')->values();
+                    $colorShots = collect($designImages)->where('type', 'sample_color')->values();
+                @endphp
+
+                <div class="row g-3">
+                    <!-- File Screenshot -->
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="fw-semibold mb-2">📄 File Screenshot</div>
+                            <div class="small text-muted mb-2">Screenshot ng artwork / print file.</div>
+                            <div class="d-flex flex-wrap gap-2 mb-2" id="fileShotsGallery">
+                                @forelse($fileShots as $img)
+                                    <img src="{{ $img['url'] }}" alt="{{ $img['name'] ?? 'File screenshot' }}" class="design-thumb" style="width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;" onclick="openLightbox('{{ $img['url'] }}')">
+                                @empty
+                                    <div class="text-muted small">Wala pang upload.</div>
+                                @endforelse
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('fileShotInput').click()">
+                                <i class="fas fa-upload me-1"></i>Upload File Screenshot
+                            </button>
+                            <input type="file" id="fileShotInput" accept="image/*" class="d-none" onchange="uploadDesignImage(this, 'file_screenshot')">
+                        </div>
+                    </div>
+
+                    <!-- Approved Sample Color -->
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="fw-semibold mb-2">🎨 Approved Sample Color</div>
+                            <div class="small text-muted mb-2">Screenshot ng na-approve na sample color.</div>
+                            <div class="d-flex flex-wrap gap-2 mb-2" id="colorShotsGallery">
+                                @forelse($colorShots as $img)
+                                    <img src="{{ $img['url'] }}" alt="{{ $img['name'] ?? 'Sample color' }}" class="design-thumb" style="width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;" onclick="openLightbox('{{ $img['url'] }}')">
+                                @empty
+                                    <div class="text-muted small">Wala pang upload.</div>
+                                @endforelse
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-success" onclick="document.getElementById('colorShotInput').click()">
+                                <i class="fas fa-upload me-1"></i>Upload Sample Color
+                            </button>
+                            <input type="file" id="colorShotInput" accept="image/*" class="d-none" onchange="uploadDesignImage(this, 'sample_color')">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="designUploadMsg" class="small mt-2"></div>
+            </div>
+
             <!-- Notes -->
             @if(($sale->reason ?? false))
             <div class="detail-section">
@@ -1429,6 +1482,52 @@ function openCompleteRefundShow(refundId, amount) {
     document.getElementById('completeShowRefundAmount').value = amount;
     var modal = new bootstrap.Modal(document.getElementById('completeRefundShowModal'));
     modal.show();
+}
+
+// Design Files & Sample upload
+function uploadDesignImage(input, type) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    var msg = document.getElementById('designUploadMsg');
+    var galleryId = type === 'sample_color' ? 'colorShotsGallery' : 'fileShotsGallery';
+    var gallery = document.getElementById(galleryId);
+    msg.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Uploading...</span>';
+
+    var fd = new FormData();
+    fd.append('design_image', file);
+    fd.append('type', type);
+
+    fetch('{{ route("sales.prototype.upload-design-image", $sale->id) }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: fd
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            if (gallery.querySelector('.text-muted.small')) {
+                gallery.innerHTML = '';
+            }
+            var img = document.createElement('img');
+            img.src = data.image.url;
+            img.alt = data.image.name || 'Upload';
+            img.style.cssText = 'width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;';
+            img.onclick = function() { openLightbox(data.image.url); };
+            gallery.appendChild(img);
+            msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';
+        } else {
+            msg.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>' + (data.message || 'Upload failed.') + '</span>';
+        }
+    })
+    .catch(function() {
+        msg.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Network error. Try again.</span>';
+    })
+    .finally(function() {
+        input.value = '';
+    });
 }
 </script>
 
