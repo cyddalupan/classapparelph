@@ -106,8 +106,11 @@
                 $saleTotals = $accountSaleTotals->get($account->id);
                 $totalValue = $saleTotals ? $saleTotals->total_value : 0;
                 $saleCount = $saleTotals ? $saleTotals->sale_count : 0;
-                $balanceDue = max($totalValue - $amount, 0);
-                $progress = $totalValue > 0 ? round(($amount / $totalValue) * 100) : 0;
+                // Net collected = verified payments minus completed refunds
+                $refundTotal = $accountRefundTotals->get($account->id)->total_refunded ?? 0;
+                $netAmount = max($amount - $refundTotal, 0);
+                $balanceDue = max($totalValue - $netAmount, 0);
+                $progress = $totalValue > 0 ? round(($netAmount / $totalValue) * 100) : 0;
                 $progressColor = $progress >= 100 ? 'bg-success' : ($progress >= 50 ? 'bg-warning' : 'bg-danger');
 
                 $pendingCount = ($pendingCounts->get($account->id)->pending_count ?? 0) + ($pendingDepositCounts->get($account->id)->pending_count ?? 0);
@@ -159,8 +162,14 @@
                             </div>
                             <div class="d-flex justify-content-between">
                                 <span class="text-muted small">Collected:</span>
-                                <span class="amount-positive">₱{{ number_format($amount, 2) }}</span>
+                                <span class="amount-positive">₱{{ number_format($netAmount, 2) }}</span>
                             </div>
+                            @if($refundTotal > 0)
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted small">Refunded:</span>
+                                <span class="text-danger small">− ₱{{ number_format($refundTotal, 2) }}</span>
+                            </div>
+                            @endif
                             <div class="d-flex justify-content-between">
                                 <span class="text-muted small">Total Value:</span>
                                 <span>₱{{ number_format($totalValue, 2) }}</span>
@@ -371,8 +380,8 @@
                                     <th>Sales #</th>
                                     <th>Customer</th>
                                     <th>Account</th>
+                                    <th>Type</th>
                                     <th>Amount</th>
-                                    <th>Deposit</th>
                                     <th>Verified By</th>
                                     <th>Date</th>
                                 </tr>
@@ -391,8 +400,18 @@
                                                 <span class="badge bg-light text-dark">{{ $sale->account_name }}</span>
                                             @endif
                                         </td>
-                                        <td class="fw-semibold">₱{{ number_format($sale->total_amount, 2) }}</td>
-                                        <td>₱{{ number_format($sale->deposit_paid, 2) }}</td>
+                                        <td>
+                                            @php
+                                                $payType = match($sale->payment_type) {
+                                                    'down_payment' => ['Down Payment', 'info'],
+                                                    'additional' => ['Additional', 'primary'],
+                                                    'fullpayment', 'full_payment' => ['Full Payment', 'success'],
+                                                    default => [ucwords(str_replace('_', ' ', $sale->payment_type ?? 'Payment')), 'secondary'],
+                                                };
+                                            @endphp
+                                            <span class="badge bg-{{ $payType[1] }}">{{ $payType[0] }}</span>
+                                        </td>
+                                        <td class="fw-semibold">₱{{ number_format($sale->amount, 2) }}</td>
                                         <td>
                                             @if($sale->verified_by_name)
                                                 <small>{{ $sale->verified_by_name }}</small>
