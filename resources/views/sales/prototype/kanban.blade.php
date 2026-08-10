@@ -340,15 +340,19 @@
                 </div>
                 <div class="drop-zone" data-status="{{ $statusKey }}">
                     @forelse(($columns[$statusKey] ?? []) as $sale)
-                        <div class="kanban-card" data-id="{{ $sale->id }}" draggable="true" data-department="{{ $sale->department_id }}">
-                            @php
-                                $svc = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
-                                $firstItem = isset($svc[0]) ? (is_string($svc[0]) ? $svc[0] : ($svc[0]['name'] ?? $svc[0]['product_name'] ?? 'Item')) : '';
-                                $itemCount = count($svc);
-                                $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
-                                $firstMockup = $mockups[0] ?? null;
-                                $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
-                            @endphp
+                        @php
+                            $svc = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+                            $firstItem = isset($svc[0]) ? (is_string($svc[0]) ? $svc[0] : ($svc[0]['name'] ?? $svc[0]['product_name'] ?? 'Item')) : '';
+                            $itemCount = count($svc);
+                            $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+                            $firstMockup = $mockups[0] ?? null;
+                            $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
+                            $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
+                            $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
+                            $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
+                            $allPhotos = $hasFileShot && $hasColorShot;
+                        @endphp
+                        <div class="kanban-card" data-id="{{ $sale->id }}" draggable="true" data-department="{{ $sale->department_id }}" data-photos="{{ $allPhotos ? 'ok' : 'missing' }}">
 
                             @if($firstMockupUrl)
                                 <img src="{{ $firstMockupUrl }}" alt="mockup" 
@@ -741,6 +745,20 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
     const board = document.getElementById('kanbanBoard');
     const tabs = document.querySelectorAll('.department-tab');
 
+    // Manager/admin can override the photo-completeness lock on card moves
+    window.kanbanCanOverride = {{ $canOverride ? 'true' : 'false' }};
+
+    function showKanbanToast(msg) {
+        var existing = document.getElementById('kanbanToast');
+        if (existing) existing.remove();
+        var toast = document.createElement('div');
+        toast.id = 'kanbanToast';
+        toast.textContent = msg;
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;background:#dc3545;color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-size:14px;font-weight:600;max-width:400px;';
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(function() { toast.remove(); }, 300); }, 3500);
+    }
+
     // === DRAG & DROP (native HTML5 — most reliable) ===
     let draggedCard = null;
 
@@ -791,6 +809,22 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
         var newStatus = zone.dataset.status;
         var saleId = draggedCard.dataset.id;
         if (!newStatus || !saleId) return;
+        
+        // PHOTO LOCK: cannot move to Design and beyond until photos (file screenshot + sample color) are complete
+        var currentStatus = draggedCard.closest('.kanban-column') ? draggedCard.closest('.kanban-column').dataset.status : '';
+        var photosOk = draggedCard.dataset.photos === 'ok';
+        var canOverride = window.kanbanCanOverride === true;
+        var lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        
+        if (lockedStatuses.indexOf(newStatus) !== -1 && !photosOk && !canOverride) {
+            showKanbanToast('⚠️ Hindi ma-move: kulang pang photos (File Screenshot / Sample Color). Kailangan muna kumpleto bago lumipat sa ' + newStatus + '.');
+            document.querySelectorAll('.drop-zone.drag-over').forEach(function(z) { z.classList.remove('drag-over'); });
+            return;
+        }
+        if (lockedStatuses.indexOf(newStatus) !== -1 && !photosOk && canOverride && !confirm('⚠️ Kulang pa ang photos (File Screenshot / Sample Color). I-move pa rin sa ' + newStatus + '?')) {
+            document.querySelectorAll('.drop-zone.drag-over').forEach(function(z) { z.classList.remove('drag-over'); });
+            return;
+        }
         
         // Move card
         var emptyMsg = zone.querySelector('.empty-column');

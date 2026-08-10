@@ -2333,6 +2333,8 @@ public function printSlip(string $id)
         if (!$user || !$user->isAdmin()) {
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
+        // Manager/admin can override photo-completeness restriction on moves
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
         
         $sales = $query->orderBy('created_at', 'desc')->paginate(100);
         
@@ -2368,7 +2370,8 @@ public function printSlip(string $id)
         
         return view('sales.prototype.kanban', compact(
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
-            'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions'
+            'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions',
+            'canOverride'
         ));
     }
 
@@ -2495,6 +2498,27 @@ public function printSlip(string $id)
         ]);
         
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
+        // until both file screenshot + approved sample color are uploaded.
+        $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $user = auth()->user();
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
+        if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
+            $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
+            $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
+            $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
+            if (!($hasFileShot && $hasColorShot)) {
+                if ($request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Hindi ma-move: kulang pang photos (File Screenshot / Sample Color). Kailangan muna kumpleto bago lumipat sa ' . $request->kanban_status . '.',
+                    ], 422);
+                }
+                return redirect()->back()->with('error', 'Hindi ma-move: kulang pang photos (File Screenshot / Sample Color).');
+            }
+        }
+
         $sale->kanban_status = $request->kanban_status;
         $sale->save();
         
@@ -2515,6 +2539,24 @@ public function printSlip(string $id)
         ]);
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
+        // until both file screenshot + approved sample color are uploaded.
+        $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $user = auth()->user();
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
+        if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
+            $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
+            $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
+            $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
+            if (!($hasFileShot && $hasColorShot)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hindi ma-move: kulang pang photos (File Screenshot / Sample Color). Kailangan muna kumpleto bago lumipat sa ' . $request->kanban_status . '.',
+                ], 422);
+            }
+        }
+
         $sale->kanban_status = $request->kanban_status;
         $sale->save();
 
