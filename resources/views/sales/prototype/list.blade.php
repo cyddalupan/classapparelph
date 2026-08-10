@@ -330,6 +330,11 @@
         <select id="agentFilter" onchange="filterTable()">
             <option value="">All Agents</option>
         </select>
+        <select id="photoFilter" onchange="filterTable()">
+            <option value="">All Photos</option>
+            <option value="missing">⚠️ Missing Photos</option>
+            <option value="complete">📄🎨 Complete</option>
+        </select>
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetFilters()" title="Reset all filters">↺ Reset</button>
         <span class="text-muted" style="font-size:13px;">{{ $sales->total() }} orders</span>
     </div>
@@ -370,6 +375,7 @@
                     <th>Sales #</th>
                     <th>Customer</th>
                     <th>Department</th>
+                    <th>Photos</th>
                     <th>Total</th>
                     <th>Net Paid</th>
                     <th>Balance Due</th>
@@ -397,6 +403,26 @@
                         <td>
                             <span class="dept-badge" style="background:{{ $departmentColors[$sale->department_id] ?? '#6c757d' }};">
                                 {{ $departmentLabels[$sale->department_id] ?? 'Unknown' }}
+                            </span>
+                        </td>
+                        <td>
+                            @php
+                                $designImgs = $sale->design_images ?? [];
+                                $hasFileShot = collect($designImgs)->contains('type', 'file_screenshot');
+                                $hasColorShot = collect($designImgs)->contains('type', 'sample_color');
+                                $allPhotos = $hasFileShot && $hasColorShot;
+                            @endphp
+                            <span data-photos="{{ $allPhotos ? 'complete' : 'missing' }}">
+                                @if($allPhotos)
+                                    <span class="badge bg-success" title="File screenshot & sample color uploaded">📄🎨 OK</span>
+                                @else
+                                    @if(!$hasFileShot)
+                                        <span class="badge bg-warning text-dark" title="Missing file screenshot">📄 Missing</span>
+                                    @endif
+                                    @if(!$hasColorShot)
+                                        <span class="badge bg-warning text-dark" title="Missing approved sample color">🎨 Missing</span>
+                                    @endif
+                                @endif
                             </span>
                         </td>
                         <td>₱{{ number_format($sale->total_amount ?? $sale->subtotal ?? 0, 2) }}</td>
@@ -452,7 +478,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" style="text-align:center;padding:40px;color:#6c757d;">
+                        <td colspan="11" style="text-align:center;padding:40px;color:#6c757d;">
                             No orders found.
                             <br><br>
                             <a href="{{ route('sales.prototype.create') }}" class="btn btn-primary">➕ Create First Order</a>
@@ -508,6 +534,7 @@ function filterTable() {
     var status = document.getElementById('statusFilter').value;
     var payment = document.getElementById('paymentFilter').value;
     var agent = document.getElementById('agentFilter').value;
+    var photo = document.getElementById('photoFilter').value;
     var rows = document.querySelectorAll('#orderTable tbody tr');
     
     rows.forEach(function(row) {
@@ -521,9 +548,9 @@ function filterTable() {
         var activeDot = row.querySelector('.pipeline-dot.active');
         var statusMatch = !status || (activeDot && activeDot.closest('.pipeline-step').title === document.querySelector('#statusFilter option[value="' + status + '"]').textContent);
         
-        // Payment filter: match badge text in the Payment column (7th td)
+        // Payment filter: match badge text in the Payment column (8th td)
         var payBadge = '';
-        var payTd = row.querySelector('td:nth-child(7) .badge');
+        var payTd = row.querySelector('td:nth-child(8) .badge');
         if (payTd) payBadge = payTd.textContent.trim();
         var paymentMatch = true;
         if (payment === 'paid') paymentMatch = payBadge.indexOf('Paid') !== -1;
@@ -531,18 +558,23 @@ function filterTable() {
         else if (payment === 'pending') paymentMatch = payBadge.indexOf('Pending') !== -1;
         else if (payment === 'rejected') paymentMatch = payBadge.indexOf('Rejected') !== -1;
         else if (payment === 'balance') {
-            // With Balance Due: Balance Due column (6th td) has a red badge with amount
-            var balBadge = row.querySelector('td:nth-child(6) .badge.bg-danger');
+            // With Balance Due: Balance Due column (7th td) has a red badge with amount
+            var balBadge = row.querySelector('td:nth-child(7) .badge.bg-danger');
             paymentMatch = !!balBadge;
         }
         
-        // Agent filter: match agent cell (9th td)
-        var rowAgent = row.querySelector('td:nth-child(9)') ? row.querySelector('td:nth-child(9)').textContent.trim() : '';
+        // Agent filter: match agent cell (10th td)
+        var rowAgent = row.querySelector('td:nth-child(10)') ? row.querySelector('td:nth-child(10)').textContent.trim() : '';
         var agentMatch = !agent || rowAgent === agent;
+        
+        // Photo filter: Photos column (4th td) has data-photos attribute
+        var photoTd = row.querySelector('td:nth-child(4) [data-photos]');
+        var photoStatus = photoTd ? photoTd.getAttribute('data-photos') : '';
+        var photoMatch = !photo || photoStatus === photo;
         
         var searchMatch = !search || text.indexOf(search) !== -1;
         
-        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && searchMatch) ? '' : 'none';
+        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && photoMatch && searchMatch) ? '' : 'none';
     });
 }
 
@@ -552,7 +584,7 @@ function populateAgentFilter() {
     var seen = {};
     document.querySelectorAll('#orderTable tbody tr').forEach(function(row) {
         if (row.querySelector('td[colspan]')) return;
-        var a = row.querySelector('td:nth-child(9)') ? row.querySelector('td:nth-child(9)').textContent.trim() : '';
+        var a = row.querySelector('td:nth-child(10)') ? row.querySelector('td:nth-child(10)').textContent.trim() : '';
         if (a && !seen[a]) {
             seen[a] = true;
             var opt = document.createElement('option');
@@ -564,7 +596,7 @@ function populateAgentFilter() {
 }
 
 function resetFilters() {
-    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter'].forEach(function(id) {
+    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
     filterTable();
