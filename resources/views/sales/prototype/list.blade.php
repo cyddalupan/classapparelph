@@ -359,7 +359,8 @@
                     <th>Customer</th>
                     <th>Department</th>
                     <th>Total</th>
-                    <th>Deposit</th>
+                    <th>Net Paid</th>
+                    <th>Balance Due</th>
                     <th>Payment</th>
                     <th>Progress</th>
                     <th>Agent</th>
@@ -386,10 +387,25 @@
                                 {{ $departmentLabels[$sale->department_id] ?? 'Unknown' }}
                             </span>
                         </td>
-                        <td>₱{{ number_format($sale->subtotal ?? 0, 2) }}</td>
-                        <td>₱{{ number_format($sale->net_paid, 2) }}</td>
+                        <td>₱{{ number_format($sale->total_amount ?? $sale->subtotal ?? 0, 2) }}</td>
+                        <td>₱{{ number_format($sale->net_paid, 2) }}
+                            @if(($sale->total_refunded ?? 0) > 0)
+                                <div class="small" style="color:#dc3545;"><i class="fas fa-undo-alt me-1"></i>−₱{{ number_format($sale->total_refunded, 2) }} refunded</div>
+                            @endif
+                        </td>
                         <td>
-                            @if($sale->payment_status === 'verified')
+                            @if(($sale->balance_due_computed ?? 0) > 0)
+                                <span class="badge bg-danger">₱{{ number_format($sale->balance_due_computed, 2) }}</span>
+                            @elseif(($sale->net_paid ?? 0) > 0)
+                                <span class="badge bg-success">Paid</span>
+                            @else
+                                <span class="badge bg-secondary">—</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if(($sale->total_refunded ?? 0) > 0 && ($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
+                                <span class="badge bg-info text-dark">↩ Refunded</span>
+                            @elseif($sale->payment_status === 'verified' || (($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0))
                                 <span class="badge bg-success">✅ Paid</span>
                             @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
                                 <span class="badge bg-warning text-dark">⏳ Pending</span>
@@ -424,7 +440,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" style="text-align:center;padding:40px;color:#6c757d;">
+                        <td colspan="10" style="text-align:center;padding:40px;color:#6c757d;">
                             No orders found.
                             <br><br>
                             <a href="{{ route('sales.prototype.create') }}" class="btn btn-primary">➕ Create First Order</a>
