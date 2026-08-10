@@ -3781,7 +3781,15 @@ public function printSlip(string $id)
         // Preserve filter state for the view
         $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department']);
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters'));
+        // Unread notifications for the agent
+        $notifications = \App\Models\SaleNotification::with(['sale', 'fromUser'])
+            ->where('to_user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get();
+        $unreadCount = $notifications->where('is_read', false)->count();
+
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'unreadCount'));
     }
 
     public function agentCreate()
@@ -4271,5 +4279,77 @@ public function printSlip(string $id)
                 'uploaded_at' => now()->toDateTimeString(),
             ],
         ]);
+    }
+
+    /**
+     * Notify the sales agent assigned to a sale (photo upload reminder or payment reminder).
+     * Types: 'photo_reminder' | 'payment_reminder'
+     */
+    public function notifyAgent(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:photo_reminder,payment_reminder',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $agentId = $sale->sales_agent_id;
+        if (!$agentId) {
+            return response()->json(['success' => false, 'message' => 'No sales agent assigned to this sale.']);
+        }
+
+        $from = auth()->user();
+        $type = $request->type;
+
+        if ($type === 'photo_reminder') {
+            $title = '📸 Photo upload needed: ' . $sale->sales_number;
+            $message = 'May kulang pang photos (File Screenshot / Approved Sample Color) para sa order ni ' . ($sale->customer_name ?: 'customer') . '. Pakiupload na lang po.';
+        } else {
+            $title = '💰 Payment needed: ' . $sale->sales_number;
+            $message = 'May balance due na ₱' . number_format($sale->balance_due_computed, 2) . ' para sa order ni ' . ($sale->customer_name ?: 'customer') . '. Pakipag-ayos na lang po ang payment.';
+        }
+
+        \App\Models\SaleNotification::create([
+            'sale_id' => $sale->id,
+            'from_user_id' => $from ? $from->id : null,
+            'to_user_id' => $agentId,
+            'type' => $type,
+            'title' => $title,
+            'message' => $message,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Agent notified! ✅',
+            'title' => $title,
+        ]);
+    }
+
+    /**
+     * Mark a single sale notification as read.
+     */
+    public function notificationRead($id)
+    {
+        $notif = \App\Models\SaleNotification::where('id', $id)
+            ->where('to_user_id', auth()->id())
+            ->first();
+        if ($notif) {
+            $notif->update(['is_read' => true, 'read_at' => now()]);
+        }
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Mark all sale notifications for the current user as read.
+     */
+    public function notificationsReadAll()
+    {
+        \App\Models\SaleNotification::where('to_user_id', auth()->id())
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'read_at' => now()]);
+        return response()->json(['success' => true]);
     }
 }

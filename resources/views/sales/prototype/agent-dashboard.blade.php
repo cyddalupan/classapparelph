@@ -120,6 +120,33 @@
             <p class="page-subtitle">Sales team dashboard — track your orders and payments</p>
         </div>
         <div class="header-actions">
+            @if(isset($notifications))
+            <div class="notif-wrap" style="position:relative;">
+                <button class="action-btn" onclick="toggleNotifPanel()" style="position:relative;" title="Notifications">
+                    <i class="fas fa-bell"></i>
+                    @if(($unreadCount ?? 0) > 0)
+                    <span class="notif-badge" style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;border-radius:50%;font-size:11px;min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 4px;">{{ $unreadCount }}</span>
+                    @endif
+                </button>
+                <div id="notifPanel" style="display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;max-height:420px;overflow-y:auto;background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.18);z-index:1000;border:1px solid #e2e8f0;">
+                    <div style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e293b;display:flex;justify-content:space-between;align-items:center;">
+                        <span>🔔 Notifications</span>
+                        @if(($unreadCount ?? 0) > 0)
+                        <button onclick="markAllRead()" style="border:none;background:#3b82f6;color:#fff;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Mark all read</button>
+                        @endif
+                    </div>
+                    @forelse($notifications as $notif)
+                    <a href="{{ route('sales.prototype.show', $notif->sale_id) }}" onclick="markNotifRead({{ $notif->id }})" style="display:block;padding:12px 16px;border-bottom:1px solid #f1f5f9;text-decoration:none;background:{{ $notif->is_read ? '#fff' : '#eff6ff' }};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='{{ $notif->is_read ? '#fff' : '#eff6ff' }}'">
+                        <div style="font-size:13px;font-weight:600;color:#1e293b;">{{ $notif->title }}</div>
+                        <div style="font-size:12px;color:#64748b;margin-top:2px;">{{ $notif->message }}</div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">from {{ $notif->fromUser->name ?? 'Manager' }} • {{ $notif->created_at->diffForHumans() }}</div>
+                    </a>
+                    @empty
+                    <div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">No notifications yet 🎉</div>
+                    @endforelse
+                </div>
+            </div>
+            @endif
             <a href="{{ route('sales.prototype.create') }}" class="action-btn primary">
                 <i class="fas fa-plus"></i> Add New Sale
             </a>
@@ -353,6 +380,38 @@
 
 @push('scripts')
 <script>
+function toggleNotifPanel() {
+    var panel = document.getElementById('notifPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', function(e) {
+    var panel = document.getElementById('notifPanel');
+    if (panel && !e.target.closest('.notif-wrap')) {
+        panel.style.display = 'none';
+    }
+});
+
+function markNotifRead(id) {
+    fetch('{{ route('sales.prototype.notification-read', ':ID') }}'.replace(':ID', id), {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+        }
+    });
+}
+
+function markAllRead() {
+    fetch('{{ route('sales.prototype.notifications-read-all') }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'application/json'
+        }
+    }).then(function() { location.reload(); });
+}
+
 function showScreenshot(path) {
     const win = window.open('', '_blank', 'width=600,height=700');
     if (!win) { alert('Popup blocked. Please allow popups to view payment proofs.'); return; }

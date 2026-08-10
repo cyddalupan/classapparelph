@@ -422,6 +422,7 @@
                                     @if(!$hasColorShot)
                                         <span class="badge bg-warning text-dark" title="Missing approved sample color">🎨 Missing</span>
                                     @endif
+                                    <button type="button" class="btn btn-sm btn-outline-warning notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" title="Notify agent to upload photos" onclick="event.stopPropagation();notifyAgent(this)">🔔</button>
                                 @endif
                             </span>
                         </td>
@@ -434,6 +435,7 @@
                         <td>
                             @if(($sale->balance_due_computed ?? 0) > 0)
                                 <span class="badge bg-danger">₱{{ number_format($sale->balance_due_computed, 2) }}</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" title="Notify agent to collect payment" onclick="event.stopPropagation();notifyAgent(this)">🔔</button>
                             @elseif(($sale->net_paid ?? 0) > 0)
                                 <span class="badge bg-success">Paid</span>
                             @else
@@ -504,6 +506,46 @@ function showPendingModal() {
 }
 function closePendingModal() {
     document.getElementById('pendingModal').style.display = 'none';
+}
+
+function notifyAgent(btn) {
+    var saleId = btn.getAttribute('data-sale-id');
+    var saleNumber = btn.getAttribute('data-sale-number');
+    var type = btn.getAttribute('data-type');
+    var label = type === 'photo_reminder' ? 'upload the missing photos' : 'collect the payment / settle the balance';
+
+    if (!confirm('📨 Notify the agent for ' + saleNumber + '?\n\nReminder: ' + label + '.')) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '⏳';
+
+    fetch('{{ route('sales.prototype.notify-agent', ':ID') }}'.replace(':ID', saleId), {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ type: type })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            btn.innerHTML = '✅';
+            btn.classList.remove('btn-outline-warning', 'btn-outline-danger');
+            btn.classList.add('btn-success');
+        } else {
+            alert('⚠️ ' + (data.message || 'Failed to notify agent.'));
+            btn.disabled = false;
+            btn.innerHTML = '🔔';
+        }
+    })
+    .catch(function() {
+        alert('❌ Network error. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = '🔔';
+    });
 }
 
 function togglePendingRows() {
