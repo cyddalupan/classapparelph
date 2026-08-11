@@ -413,6 +413,45 @@ public function details(Request $request, string $id)
         // Build HTML for modal (production-focused: items, mockups, refs, print details, notes, comments)
         $html = '';
         
+        // --- Design References: Mockup, File Photo, Approved Color (front and center for production) ---
+        $mockups = json_decode($sale->mockup_images, true) ?: [];
+        $designImgs = is_string($sale->design_images) ? (json_decode($sale->design_images, true) ?: []) : ($sale->design_images ?: []);
+        
+        $imgSections = [];
+        $mockList = [];
+        foreach ($mockups as $m) {
+            $url = is_string($m) ? $m : ($m['url'] ?? '');
+            if ($url) $mockList[] = ['url' => $url, 'label' => '🎨 Mockup'];
+        }
+        if ($mockList) $imgSections[] = $mockList;
+        
+        $fileList = [];
+        foreach ($designImgs as $d) {
+            if (($d['type'] ?? '') === 'file_screenshot') $fileList[] = ['url' => $d['url'] ?? '', 'label' => '📄 File Photo'];
+        }
+        if ($fileList) $imgSections[] = $fileList;
+        
+        $colorList = [];
+        foreach ($designImgs as $d) {
+            if (($d['type'] ?? '') === 'sample_color') $colorList[] = ['url' => $d['url'] ?? '', 'label' => '🎯 Approved Color'];
+        }
+        if ($colorList) $imgSections[] = $colorList;
+        
+        if ($imgSections) {
+            $html .= '<div class="sale-detail-section">';
+            $html .= '<h6><i class="fas fa-images me-2"></i>Design References</h6>';
+            $html .= '<div class="d-flex flex-wrap">';
+            foreach ($imgSections as $sec) {
+                foreach ($sec as $img) {
+                    $html .= '<div class="me-3 mb-2 text-center" style="width:110px;">';
+                    $html .= '<img src="' . e($img['url']) . '" style="width:110px;height:110px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #dee2e6;" onclick="window.openLightbox(\'' . e($img['url']) . '\')" onerror="this.style.display=\'none\';">';
+                    $html .= '<div class="small text-muted mt-1">' . e($img['label']) . '</div>';
+                    $html .= '</div>';
+                }
+            }
+            $html .= '</div></div>';
+        }
+        
         // --- Notes ---
         if ($sale->customer_notes || $sale->internal_notes) {
             $html .= '<div class="sale-detail-section">';
@@ -432,8 +471,8 @@ public function details(Request $request, string $id)
             $html .= '<h6><i class="fas fa-box me-2"></i>Order Items (' . count($services) . ')</h6>';
             
             foreach ($services as $idx => $item) {
-                $itemTotal = $item['totalPrice'] ?? $item['total_price'] ?? $item['price'] ?? 0;
                 $itemName = $item['name'] ?? $item['product_name'] ?? 'Item #' . ($idx + 1);
+                $itemQty = $item['quantity'] ?? $item['qty'] ?? 0;
                 $itemNotes = $item['notes'] ?? '';
                 $subItems = $item['subItems'] ?? [];
                 $printing = $item['printing'] ?? null;
@@ -445,8 +484,10 @@ public function details(Request $request, string $id)
                 if ($item['department'] ?? null) {
                     $html .= ' <span class="badge bg-secondary">' . e($item['department']) . '</span>';
                 }
+                if ($itemQty > 0) {
+                    $html .= ' <span class="badge bg-primary">×' . $itemQty . '</span>';
+                }
                 $html .= '</div>';
-                $html .= '<div class="fw-bold text-nowrap">₱' . number_format($itemTotal, 2) . '</div>';
                 $html .= '</div>';
                 
                 // Sub-items: brand, size, color, qty
@@ -457,7 +498,6 @@ public function details(Request $request, string $id)
                         $size = $si['size'] ?? $si['type'] ?? $si['product_size'] ?? '';
                         $color = $si['color'] ?? $si['product_color'] ?? '';
                         $qty = $si['qty'] ?? $si['quantity'] ?? 1;
-                        $unitPrice = $si['price'] ?? $si['unit_price'] ?? 0;
                         
                         $html .= '<span class="subitem-row">';
                         $parts = [];
@@ -465,7 +505,6 @@ public function details(Request $request, string $id)
                         if ($size) $parts[] = e($size);
                         if ($color) $parts[] = e($color);
                         $parts[] = '×' . $qty;
-                        if ($unitPrice > 0) $parts[] = '₱' . number_format($unitPrice, 2);
                         $html .= implode(' • ', $parts);
                         $html .= '</span>';
                     }
@@ -484,9 +523,6 @@ public function details(Request $request, string $id)
                         $html .= '<div><span class="text-muted">Sizes:</span> ' . e($sizes) . '</div>';
                     }
                     $html .= '<div><span class="text-muted">Qty:</span> ' . ($printing['printQty'] ?? 'N/A') . '</div>';
-                    if (($printing['printSubtotal'] ?? 0) > 0) {
-                        $html .= '<div><span class="text-muted">Print Subtotal:</span> ₱' . number_format($printing['printSubtotal'], 2) . '</div>';
-                    }
                     if ($printing['isSpecialPrice'] ?? false) {
                         $html .= '<div class="text-warning">⭐ Special Price: ' . e($printing['specialReason'] ?? '') . '</div>';
                     }
