@@ -4,10 +4,13 @@
 
 @push('styles')
 <style>
+    /* Let the flex chain shrink so the board scrolls internally instead of widening the page */
+    .main-content, .content-area { min-width: 0; }
     .kanban-board {
         display: flex;
         gap: 16px;
         overflow-x: auto;
+        width: 100%;
         padding: 20px 0;
         min-height: calc(100vh - 160px);
     }
