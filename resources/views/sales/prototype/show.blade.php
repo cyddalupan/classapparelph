@@ -250,7 +250,10 @@
                             <div class="small text-muted mb-2">Screenshot ng artwork / print file.</div>
                             <div class="d-flex flex-wrap gap-2 mb-2" id="fileShotsGallery">
                                 @forelse($fileShots as $img)
-                                    <img src="{{ $img['url'] }}" alt="{{ $img['name'] ?? 'File screenshot' }}" class="design-thumb" style="width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;" onclick="openLightbox('{{ $img['url'] }}')">
+                                    <div style="position:relative;display:inline-block;">
+                                        <img src="{{ $img['url'] }}" alt="{{ $img['name'] ?? 'File screenshot' }}" class="design-thumb" style="width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;" onclick="openLightbox('{{ $img['url'] }}')">
+                                        <button type="button" class="btn btn-sm btn-danger design-del-btn" style="position:absolute;top:-8px;right:-8px;padding:0 6px;font-size:12px;border-radius:50%;z-index:5;" title="Delete this upload" onclick="event.stopPropagation();confirmDeleteDesignImage('{{ $img['url'] }}','file_screenshot','{{ $img['name'] ?? 'image' }}')">✕</button>
+                                    </div>
                                 @empty
                                     <div class="text-muted small">Wala pang upload.</div>
                                 @endforelse
@@ -269,7 +272,10 @@
                             <div class="small text-muted mb-2">Screenshot ng na-approve na sample color.</div>
                             <div class="d-flex flex-wrap gap-2 mb-2" id="colorShotsGallery">
                                 @forelse($colorShots as $img)
-                                    <img src="{{ $img['url'] }}" alt="{{ $img['name'] ?? 'Sample color' }}" class="design-thumb" style="width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;" onclick="openLightbox('{{ $img['url'] }}')">
+                                    <div style="position:relative;display:inline-block;">
+                                        <img src="{{ $img['url'] }}" alt="{{ $img['name'] ?? 'Sample color' }}" class="design-thumb" style="width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;" onclick="openLightbox('{{ $img['url'] }}')">
+                                        <button type="button" class="btn btn-sm btn-danger design-del-btn" style="position:absolute;top:-8px;right:-8px;padding:0 6px;font-size:12px;border-radius:50%;z-index:5;" title="Delete this upload" onclick="event.stopPropagation();confirmDeleteDesignImage('{{ $img['url'] }}','sample_color','{{ $img['name'] ?? 'image' }}')">✕</button>
+                                    </div>
                                 @empty
                                     <div class="text-muted small">Wala pang upload.</div>
                                 @endforelse
@@ -1314,6 +1320,30 @@
     </div>
 </div>
 
+<!-- Delete Design Image Modal -->
+<div id="deleteDesignModal" class="cm-overlay" onclick="if(event.target===this)closeDeleteDesignModal()">
+    <div class="cm-modal">
+        <div class="cm-header">
+            <h4><i class="fas fa-trash-alt text-danger me-2"></i>Delete Image</h4>
+            <button onclick="closeDeleteDesignModal()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body">
+            <p class="cm-body-text">Are you sure you want to delete this <strong id="delImgType">image</strong>?</p>
+            <div class="cm-info-box">
+                <i class="fas fa-info-circle text-warning me-2"></i>
+                Wrong upload? You can delete it — this action is logged in the Audit History with your name and reason.
+            </div>
+            <div class="cm-reject-input-group" style="margin-top:12px;">
+                <textarea id="deleteDesignReason" class="cm-reason-input" rows="2" placeholder="Reason (optional) — hal. wrong upload, duplicate..." maxlength="500"></textarea>
+            </div>
+        </div>
+        <div class="cm-footer">
+            <button onclick="closeDeleteDesignModal()" class="cm-cancel-btn">Cancel</button>
+            <button onclick="doDeleteDesignImage(this)" class="cm-confirm-btn cm-reject"><i class="fas fa-trash-alt me-1"></i>Delete</button>
+        </div>
+    </div>
+</div>
+
 <!-- PDF Item Selector Modal -->
 <div id="pdfSelectorModal" class="cm-overlay" onclick="if(event.target===this)closePdfSelector()">
     <div class="cm-modal" style="max-width:500px;">
@@ -1515,12 +1545,26 @@ function uploadDesignImage(input, type) {
             if (gallery.querySelector('.text-muted.small')) {
                 gallery.innerHTML = '';
             }
+            var wrap = document.createElement('div');
+            wrap.style.cssText = 'position:relative;display:inline-block;';
             var img = document.createElement('img');
             img.src = data.image.url;
             img.alt = data.image.name || 'Upload';
             img.style.cssText = 'width:90px;height:70px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ddd;';
             img.onclick = function() { openLightbox(data.image.url); };
-            gallery.appendChild(img);
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-sm btn-danger design-del-btn';
+            delBtn.style.cssText = 'position:absolute;top:-8px;right:-8px;padding:0 6px;font-size:12px;border-radius:50%;z-index:5;';
+            delBtn.title = 'Delete this upload';
+            delBtn.innerHTML = '✕';
+            delBtn.onclick = function(e) {
+                e.stopPropagation();
+                confirmDeleteDesignImage(data.image.url, type, data.image.name || 'image');
+            };
+            wrap.appendChild(img);
+            wrap.appendChild(delBtn);
+            gallery.appendChild(wrap);
             msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';
         } else {
             msg.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>' + (data.message || 'Upload failed.') + '</span>';
@@ -1531,6 +1575,72 @@ function uploadDesignImage(input, type) {
     })
     .finally(function() {
         input.value = '';
+    });
+}
+
+// --- Delete design image (file screenshot / sample color) ---
+var pendingDeleteImage = null;
+function confirmDeleteDesignImage(url, type, name) {
+    pendingDeleteImage = { url: url, type: type, name: name };
+    document.getElementById('delImgType').textContent = type === 'sample_color' ? 'Approved Sample Color' : 'File Screenshot';
+    document.getElementById('deleteDesignReason').value = '';
+    document.getElementById('deleteDesignModal').style.display = 'flex';
+}
+function closeDeleteDesignModal() {
+    document.getElementById('deleteDesignModal').style.display = 'none';
+    pendingDeleteImage = null;
+}
+function doDeleteDesignImage(btn) {
+    if (!pendingDeleteImage) return;
+    var reason = document.getElementById('deleteDesignReason').value.trim();
+    var fd = new FormData();
+    fd.append('type', pendingDeleteImage.type);
+    fd.append('url', pendingDeleteImage.url);
+    fd.append('reason', reason);
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+
+    fetch('{{ route("sales.prototype.delete-design-image", $sale->id) }}', {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: fd
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete';
+        closeDeleteDesignModal();
+        if (data.success) {
+            var galleryId = pendingDeleteImage.type === 'sample_color' ? 'colorShotsGallery' : 'fileShotsGallery';
+            var gallery = document.getElementById(galleryId);
+            if (gallery) {
+                var wraps = gallery.querySelectorAll('div[style*="position:relative"]');
+                wraps.forEach(function(w) {
+                    var img = w.querySelector('img');
+                    if (img && img.src === pendingDeleteImage.url) w.remove();
+                });
+                var thumbs = gallery.querySelectorAll('img.design-thumb');
+                thumbs.forEach(function(im) {
+                    if (im.src === pendingDeleteImage.url) im.parentElement.remove();
+                });
+                if (!gallery.querySelector('img')) {
+                    gallery.innerHTML = '<div class="text-muted small">Wala pang upload.</div>';
+                }
+            }
+            var msg = document.getElementById('designUploadMsg');
+            if (msg) msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';
+        } else {
+            alert(data.message || 'Delete failed.');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete';
+        alert('Network error. Try again.');
     });
 }
 </script>

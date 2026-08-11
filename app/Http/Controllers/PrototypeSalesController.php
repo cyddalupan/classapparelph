@@ -4369,6 +4369,79 @@ public function printSlip(string $id)
     }
 
     /**
+     * Delete a design image (file screenshot or approved sample color).
+     * Records the deletion in the audit history so accidental deletes can be traced.
+     */
+    public function deleteDesignImage(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:file_screenshot,sample_color',
+            'url' => 'required|string',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $images = is_array($sale->design_images) ? $sale->design_images : (is_string($sale->design_images) ? (json_decode($sale->design_images, true) ?: []) : []);
+        $targetUrl = $request->url;
+        $removed = null;
+        $kept = [];
+
+        foreach ($images as $img) {
+            $url = $img['url'] ?? '';
+            if (($img['type'] ?? '') === $request->type && $url === $targetUrl) {
+                $removed = $img;
+                continue;
+            }
+            $kept[] = $img;
+        }
+
+        if (!$removed) {
+            return response()->json(['success' => false, 'message' => 'Image not found.'], 404);
+        }
+
+        // Remove the physical file (best-effort; keep going even if file already gone)
+        try {
+            $rel = ltrim(str_replace('/storage/', '', $targetUrl), '/');
+            if ($rel) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($rel);
+            }
+        } catch (\Throwable $e) {
+            // ignore file deletion errors — the DB record is what matters
+        }
+
+        $sale->design_images = $kept;
+        $sale->save();
+
+        // Audit history entry
+        $typeLabel = $request->type === 'sample_color' ? 'Approved Sample Color' : 'File Screenshot';
+        $reasonText = $request->reason ? ' Reason: ' . $request->reason : '';
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => auth()->id() ?? 1,
+            'action' => 'design_image_deleted',
+            'description' => 'Deleted ' . $typeLabel . ' ("' . ($removed['name'] ?? 'image') . '")' . $reasonText,
+            'details' => json_encode([
+                'type' => $request->type,
+                'url' => $targetUrl,
+                'name' => $removed['name'] ?? null,
+                'uploaded_by' => $removed['uploaded_by'] ?? null,
+                'uploaded_at' => $removed['uploaded_at'] ?? null,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $typeLabel . ' deleted.',
+        ]);
+    }
+
+    /**
      * Notify the sales agent assigned to a sale (photo upload reminder or payment reminder).
      * Types: 'photo_reminder' | 'payment_reminder'
      */
