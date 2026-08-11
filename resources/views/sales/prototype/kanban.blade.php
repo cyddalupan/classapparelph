@@ -1705,6 +1705,39 @@ document.addEventListener("DOMContentLoaded", function() {
             var isManager = window.kanbanCanOverride === true;
             var html = '';
             data.forEach(function(req) {
+                // ── CHANGE REQUESTS (Add Product from sales page) ──
+                if (req.source === 'change') {
+                    var ageH = req.age_hours || 0;
+                    var ageLabel = ageH < 1 ? '< 1h ago' : (ageH < 24 ? Math.round(ageH) + 'h ago' : Math.round(ageH / 24) + 'd ago');
+                    var stale = ageH >= 24;
+                    var borderCls = stale ? 'border-danger' : 'border-warning';
+                    var ageBadge = stale
+                        ? '<span class="badge bg-danger ms-1" title="Waiting ' + ageLabel + '">⏰ ' + ageLabel + '</span>'
+                        : '<span class="badge bg-secondary ms-1" title="Waiting ' + ageLabel + '">' + ageLabel + '</span>';
+                    var diff = Number(req.total_after || 0) - Number(req.total_before || 0);
+                    var actions = '';
+                    if (isManager) {
+                        actions = '<div style="min-width:140px;text-align:right;">' +
+                            '<button class="btn btn-success btn-sm me-1" onclick="event.stopPropagation();approveChangeRequest(' + req.id + ',' + req.sale_id + ')">✅ Approve</button>' +
+                            '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();rejectChangeRequest(' + req.id + ',' + req.sale_id + ')">❌ Reject</button>' +
+                            '</div>';
+                    }
+                    html += '<div class="card mb-3 ' + borderCls + ' pending-addon-card" data-sale-id="' + req.sale_id + '" onclick="openSaleFromAddon(' + req.sale_id + ')" style="cursor:pointer;" title="Click to view sale details">' +
+                        '<div class="card-body">' +
+                        '<div class="d-flex justify-content-between align-items-start">' +
+                        '<div>' +
+                        '<h6 class="mb-1">' + req.sales_number + ' — ' + (req.customer_name || 'Unknown') + ' <span class="badge bg-info text-dark ms-1">📝 Add Product</span>' + ageBadge + '</h6>' +
+                        '<small class="text-muted">' + (req.change_summary || 'Change request') + '</small><br>' +
+                        '<small class="text-muted">₱' + Number(req.total_before || 0).toFixed(2) + ' → <strong>₱' + Number(req.total_after || 0).toFixed(2) + '</strong> (' + (diff >= 0 ? '+' : '') + diff.toFixed(2) + ')</small><br>' +
+                        '<small class="text-muted">By: ' + (req.requested_by || 'Agent') + ' • ' + new Date(req.created_at).toLocaleString() + '</small>' +
+                        '</div>' +
+                        actions +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                    return;
+                }
+                // ── ADD-ON REQUESTS ──
                 var items = req.items || [];
                 var itemList = items.map(function(it) {
                     var sub = it.subItems && it.subItems[0];
@@ -1862,6 +1895,66 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     };
     
+    // Approve a change request (Add Product from sales page)
+    window.approveChangeRequest = function(changeId, saleId) {
+        if (!confirm('Approve this Add Product change request? Services and total will be updated.')) return;
+        fetch('/sales/prototype/change/' + changeId + '/approve', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showToast('✅ ' + (data.message || 'Change approved.'), 'success');
+                refreshPendingAddons();
+                removePendingAddonBadge(saleId);
+            } else {
+                showToast(data.message || 'Failed to approve.', 'danger');
+            }
+        })
+        .catch(function(err) {
+            showToast('Failed: ' + err.message, 'danger');
+        });
+    };
+
+    // Reject a change request (needs reason, min 5 chars)
+    window.rejectChangeRequest = function(changeId, saleId) {
+        var reason = prompt('Rejection reason (min 5 characters):');
+        if (reason === null) return;
+        reason = (reason || '').trim();
+        if (reason.length < 5) {
+            showToast('Rejection reason must be at least 5 characters.', 'danger');
+            return;
+        }
+        fetch('/sales/prototype/change/' + changeId + '/reject', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ reason: reason })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                showToast('Change request rejected.', 'warning');
+                refreshPendingAddons();
+                removePendingAddonBadge(saleId);
+            } else {
+                showToast(data.message || 'Failed to reject.', 'danger');
+            }
+        })
+        .catch(function(err) {
+            showToast('Failed: ' + err.message, 'danger');
+        });
+    };
+
     // Track sale ID in modal title
     document.addEventListener('hidden.bs.modal', function(e) {
         if (e.target.id === 'saleDetailsModal') {

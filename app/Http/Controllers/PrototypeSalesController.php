@@ -2367,7 +2367,8 @@ public function printSlip(string $id)
             }
         }
 
-        // Which visible sales have pending add-on requests (for card badge + button count)
+        // Which visible sales have pending add-on requests or pending change requests
+        // (Add Product from the sales page creates a change request — both count)
         $pendingAddonSaleIds = [];
         $pendingAddonCount = 0;
         if ($user && ($user->isAdmin() || $user->role === 'manager')) {
@@ -2376,6 +2377,13 @@ public function printSlip(string $id)
                 ->select('sale_id')
                 ->get();
             $pendingAddonSaleIds = $pendingAddons->pluck('sale_id')->map(fn($id) => (int) $id)->all();
+            // Also count pending change requests (Add Product from sales page)
+            $pendingChanges = \DB::table('prototype_sale_changes')
+                ->where('status', 'pending')
+                ->select('sale_id')
+                ->get();
+            $pendingChangeSaleIds = $pendingChanges->pluck('sale_id')->map(fn($id) => (int) $id)->all();
+            $pendingAddonSaleIds = array_values(array_unique(array_merge($pendingAddonSaleIds, $pendingChangeSaleIds)));
             $pendingAddonCount = count($pendingAddonSaleIds);
         }
         
