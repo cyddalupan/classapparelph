@@ -100,14 +100,98 @@
         margin-bottom: 20px;
         flex-wrap: wrap;
         gap: 10px;
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #2563eb 100%);
+        border-radius: 14px;
+        padding: 20px 24px;
+        box-shadow: 0 4px 16px rgba(30, 58, 138, 0.25);
+        position: relative;
+        overflow: hidden;
+    }
+    .list-header::before {
+        content: '';
+        position: absolute;
+        top: -40px;
+        right: -40px;
+        width: 180px;
+        height: 180px;
+        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+        pointer-events: none;
     }
     .list-header h2 {
         margin: 0;
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .list-header .header-sub {
+        color: rgba(255,255,255,0.75);
+        font-size: 13px;
+        margin-top: 3px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .header-stat {
+        background: rgba(255,255,255,0.14);
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
     }
     .list-actions {
         display: flex;
-        gap: 8px;
+        gap: 10px;
         align-items: center;
+        position: relative;
+        z-index: 1;
+    }
+    .list-actions .btn {
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 8px 16px;
+        font-size: 13px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .list-actions .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 14px rgba(0,0,0,0.25);
+    }
+    .btn-kanban {
+        background: linear-gradient(135deg, #312e81 0%, #6366f1 100%);
+        border: 1px solid rgba(255,255,255,0.25);
+        color: #fff !important;
+    }
+    .btn-kanban:hover {
+        background: linear-gradient(135deg, #4338ca 0%, #818cf8 100%);
+        color: #fff !important;
+    }
+    .btn-new-order {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        border: none;
+        color: #fff !important;
+    }
+    .btn-new-order:hover {
+        background: linear-gradient(135deg, #047857 0%, #34d399 100%);
+        color: #fff !important;
+    }
+    .list-actions .btn-pending-hdr {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+        border: none;
+        color: #fff !important;
+    }
+    .list-actions .btn-pending-hdr:hover {
+        background: linear-gradient(135deg, #b45309 0%, #fbbf24 100%);
+        color: #fff !important;
     }
 
     /* Search & filter */
@@ -285,13 +369,28 @@
 
     <!-- Header -->
     <div class="list-header">
-        <h2>📋 Manager's Order List</h2>
+        <div>
+            <h2>📋 Manager's Order List</h2>
+            <div class="header-sub">
+                <span class="header-stat">📦 {{ $sales->total() }} orders</span>
+                @php
+                    $headerPending = isset($totalPending) ? (int) $totalPending : 0;
+                    $headerActive = $sales->filter(function($s) { return !in_array($s->kanban_status, ['delivered', 'completed', 'cancelled']); })->count();
+                    $headerBalance = $sales->filter(function($s) { return $s->balance_due_computed > 0; })->count();
+                @endphp
+                <span class="header-stat">⚡ {{ $headerActive }} active</span>
+                <span class="header-stat">⚠️ {{ $headerBalance }} with balance</span>
+                @if($headerPending > 0)
+                    <span class="header-stat" style="background:rgba(245,158,11,0.35);">🔔 {{ $headerPending }} pending add-on</span>
+                @endif
+            </div>
+        </div>
         <div class="list-actions">
-            <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-outline-primary btn-sm">📊 Kanban Board</a>
-            <a href="{{ route('sales.prototype.create') }}" class="btn btn-primary btn-sm">➕ New Order</a>
+            <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-kanban">📊 Kanban Board</a>
+            <a href="{{ route('sales.prototype.create') }}" class="btn btn-new-order">➕ New Order</a>
             @if(isset($totalPending) && $totalPending > 0)
-                <button class="btn btn-warning btn-sm" id="pendingToggleBtn" onclick="showPendingModal()" style="position:relative;">
-                    🔔 Additional Order <span class="pending-count-badge">{{ $totalPending }}</span>
+                <button class="btn btn-pending-hdr" id="pendingToggleBtn" onclick="showPendingModal()" style="position:relative;">
+                    🔔 Add-ons <span class="pending-count-badge">{{ $totalPending }}</span>
                 </button>
             @endif
         </div>
