@@ -2707,12 +2707,48 @@ public function printSlip(string $id)
                 'services_raw' => $services,
                 'date_needed' => $p->estimated_completion_date,
                 'estimated_completion_date' => $p->estimated_completion_date,
+                'rescheduled_date' => $p->rescheduled_date,
                 'created_at' => $p->created_at,
                 'status' => $p->status,
             ];
         });
         
         return response()->json(['projects' => $projectsFormatted]);
+    }
+
+    /**
+     * Reschedule a project on the calendar — stores the new date in
+     * rescheduled_date WITHOUT touching the original estimated_completion_date.
+     */
+    public function reschedule(Request $request, $id)
+    {
+        $request->validate([
+            'date' => 'required|date',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // Only managers/admins can reschedule
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only managers can reschedule projects.',
+            ], 403);
+        }
+
+        $newDate = \Carbon\Carbon::parse($request->date)->format('Y-m-d');
+        $originalDate = $sale->estimated_completion_date ? \Carbon\Carbon::parse($sale->estimated_completion_date)->format('Y-m-d') : null;
+
+        $sale->rescheduled_date = $newDate;
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Project moved to ' . \Carbon\Carbon::parse($newDate)->format('M d, Y') . '. Original date (' . ($originalDate ? \Carbon\Carbon::parse($originalDate)->format('M d, Y') : 'none') . ') is kept.',
+            'rescheduled_date' => $newDate,
+            'original_date' => $originalDate,
+        ]);
     }
 
     public function verifyPayment(Request $request, $id)

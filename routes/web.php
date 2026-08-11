@@ -774,6 +774,7 @@ Route::get('/inventorylist', function() {
         // CALENDAR route (MUST be before {id} route)
         Route::get('/sales/prototype/calendar', [App\Http\Controllers\PrototypeSalesController::class, 'calendar'])->name('sales.prototype.calendar');
         Route::post('/sales/prototype/calendar-data', [App\Http\Controllers\PrototypeSalesController::class, 'calendarData'])->name('sales.prototype.calendar-data');
+        Route::post('/sales/prototype/{id}/reschedule', [App\Http\Controllers\PrototypeSalesController::class, 'reschedule'])->name('sales.prototype.reschedule');
 
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');

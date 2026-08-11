@@ -211,6 +211,7 @@
     flex-shrink: 0;
 }
 .day-cell.today { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
+.day-cell.drag-over { border-color: #198754; box-shadow: 0 0 0 2.5px rgba(25,135,84,0.4); background: rgba(25,135,84,0.06); }
 .day-cell.today .day-number {
     background: #667eea;
     color: white;
@@ -242,6 +243,37 @@
     flex-shrink: 0;
 }
 .day-project:hover { transform: translateX(2px); }
+.day-project.moved {
+    box-shadow: 0 0 0 1.5px #fd7e14;
+    background-image: linear-gradient(135deg, rgba(253,126,20,0.08) 0%, rgba(253,126,20,0.02) 100%);
+}
+.day-project.dragging {
+    opacity: 0.5;
+    transform: scale(0.97);
+}
+.day-project .dp-moved-badge {
+    display: inline-block;
+    background: #fd7e14;
+    color: #fff;
+    font-size: 0.5rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    letter-spacing: 0.3px;
+}
+.cal-view-btn {
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+}
+.cal-view-btn.active {
+    background: #667eea;
+    border-color: #667eea;
+    color: #fff;
+}
+.cal-view-btn.active:hover { color: #fff; }
 .day-project .dp-name {
     font-weight: 700;
     display: block;
@@ -349,7 +381,13 @@
             <div class="calendar-wrapper">
                 <!-- Header -->
                 <div class="calendar-header">
-                    <h4><i class="fas fa-calendar-alt me-2"></i>Production Calendar</h4>
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <h4 style="margin:0;"><i class="fas fa-calendar-alt me-2"></i>Production Calendar</h4>
+                        <div class="btn-group btn-group-sm" role="group" style="margin:0;">
+                            <button type="button" class="btn btn-light cal-view-btn active" id="viewWeekBtn" onclick="setView('week')"><i class="fas fa-calendar-week"></i> Week</button>
+                            <button type="button" class="btn btn-outline-light cal-view-btn" id="viewMonthBtn" onclick="setView('month')"><i class="fas fa-calendar-alt"></i> Month</button>
+                        </div>
+                    </div>
                     <div class="calendar-nav">
                         <button class="btn btn-sm btn-outline-light" onclick="changeWeek(-1)">
                             <i class="fas fa-chevron-left"></i>
@@ -441,6 +479,17 @@ const dc = {'iPrint':'#0d6efd','Consol':'#198754','Cinco':'#dc3545','Class':'#6f
 let curDate = new Date();
 let activeDept = 'all';
 let customRange = null; // null = nav mode, {start, end} = range mode
+let currentView = 'week'; // 'week' | 'month'
+
+// ========== VIEW TOGGLE ==========
+function setView(view) {
+    currentView = view;
+    document.getElementById('viewWeekBtn').classList.toggle('active', view === 'week');
+    document.getElementById('viewWeekBtn').classList.toggle('btn-outline-light', view !== 'week');
+    document.getElementById('viewMonthBtn').classList.toggle('active', view === 'month');
+    document.getElementById('viewMonthBtn').classList.toggle('btn-outline-light', view !== 'month');
+    loadCal();
+}
 
 // ========== HELPERS ==========
 function getMon(d) {
@@ -457,7 +506,11 @@ function curr(n) { return '₱'+parseFloat(n||0).toLocaleString('en-PH',{minimum
 
 function changeWeek(delta) {
     customRange = null;
-    curDate.setDate(curDate.getDate()+(delta*7));
+    if (currentView === 'month') {
+        curDate.setMonth(curDate.getMonth() + delta);
+    } else {
+        curDate.setDate(curDate.getDate()+(delta*7));
+    }
     loadCal();
 }
 function goToToday() {
@@ -505,12 +558,13 @@ function renderWeek(monday, projects) {
         const dateStr = fmt(d);
         const isToday = dateStr === today;
 
+        // Use effective date: rescheduled_date takes priority, then original
         const dayProjects = projects.filter(p => {
-            const pd = parseD(p.date_needed || p.estimated_completion_date || p.created_at);
+            const pd = parseD(p.rescheduled_date || p.estimated_completion_date || p.created_at);
             return pd && fmt(pd) === dateStr;
         });
 
-        html += `<div class="day-cell ${isToday?'today':''}">`;
+        html += `<div class="day-cell ${isToday?'today':''}" data-date="${dateStr}">`;
         html += `<div class="day-number">${d.getDate()}</div>`;
         html += '<div class="day-projects-list">';
 
@@ -522,11 +576,12 @@ function renderWeek(monday, projects) {
                 const color = dc[dept] || '#6c757d';
                 const name = p.customer_name || 'Unknown';
                 const amt = parseFloat(p.subtotal || p.total_amount || 0);
+                const isMoved = !!p.rescheduled_date && p.rescheduled_date !== p.estimated_completion_date;
+                const orig = p.estimated_completion_date ? parseD(p.estimated_completion_date) : null;
                 
                 // Build items summary from services
                 let itemsHtml = '';
                 if (p.services && p.services.length > 0) {
-                    const itemCounts = {};
                     p.services.forEach(s => {
                         const itemName = s.name || (typeof s === 'string' ? s : 'Item');
                         const short = itemName.length > 18 ? itemName.substring(0, 16)+'..' : itemName;
@@ -535,8 +590,11 @@ function renderWeek(monday, projects) {
                     });
                 }
                 
-                html += `<div class="day-project" style="background:${color}15;border-left:3px solid ${color};"
-                    onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
+                html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
+                    draggable="true" data-id="${p.id}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
+                if (isMoved) {
+                    html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
+                }
                 html += `<span class="dp-name">${name}</span>`;
                 html += `<div class="dp-meta">`;
                 html += `<span class="dp-dept" style="background:${color};color:white;">${dept}</span>`;
@@ -569,7 +627,22 @@ function loadCal() {
     let label = '';
     let dateStart, dateEnd;
 
-    if (customRange) {
+    if (currentView === 'month') {
+        // MONTH MODE — show the full month grid (weeks from 1st to last day)
+        const firstOfMonth = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
+        const lastOfMonth = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0);
+        const firstMon = getMon(firstOfMonth);
+        const lastSun = getSun(getMon(lastOfMonth));
+        weeks = [];
+        let w = new Date(firstMon);
+        while (w <= lastSun) {
+            weeks.push(new Date(w));
+            w.setDate(w.getDate()+7);
+        }
+        dateStart = fmt(firstMon);
+        dateEnd = fmt(lastSun);
+        label = MONTHS[curDate.getMonth()] + ' ' + curDate.getFullYear();
+    } else if (customRange) {
         // RANGE MODE — show all weeks between start and end
         const firstMon = getMon(customRange.start);
         const lastSun = getSun(getMon(customRange.end));
@@ -640,6 +713,74 @@ function loadCal() {
         container.innerHTML = '<div class="alert alert-danger">Failed to load calendar. Try refreshing.</div>';
     });
 }
+
+// ========== DRAG & DROP RESCHEDULE ==========
+let dragSaleId = null;
+
+document.addEventListener('dragstart', function(e) {
+    const card = e.target.closest('.day-project');
+    if (!card) return;
+    dragSaleId = card.getAttribute('data-id');
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', dragSaleId); } catch(err) {}
+});
+
+document.addEventListener('dragend', function(e) {
+    const card = e.target.closest('.day-project');
+    if (card) card.classList.remove('dragging');
+    document.querySelectorAll('.day-cell.drag-over').forEach(function(c) { c.classList.remove('drag-over'); });
+    dragSaleId = null;
+});
+
+document.addEventListener('dragover', function(e) {
+    const cell = e.target.closest('.day-cell');
+    if (!cell || !dragSaleId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    document.querySelectorAll('.day-cell.drag-over').forEach(function(c) { c.classList.remove('drag-over'); });
+    cell.classList.add('drag-over');
+});
+
+document.addEventListener('drop', function(e) {
+    const cell = e.target.closest('.day-cell');
+    if (!cell || !dragSaleId) return;
+    e.preventDefault();
+    document.querySelectorAll('.day-cell.drag-over').forEach(function(c) { c.classList.remove('drag-over'); });
+
+    const newDate = cell.getAttribute('data-date');
+    if (!newDate) return;
+
+    const saleId = dragSaleId;
+    dragSaleId = null;
+
+    if (!confirm('Move this project to ' + new Date(newDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + '?\nOriginal date will be kept.\n\n(Drag = reschedule dahil na-delay)')) return;
+
+    fetch('/sales/prototype/' + saleId + '/reschedule', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ date: newDate })
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        if (res.ok && res.data.success) {
+            loadCal();
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#198754;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:14px;font-weight:600;';
+            toast.textContent = '✅ ' + res.data.message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 4000);
+        } else {
+            alert('⚠️ ' + (res.data.message || 'Failed to reschedule.'));
+        }
+    })
+    .catch(function() {
+        alert('❌ Network error. Please try again.');
+    });
+});
 
 // ========== SUMMARY ==========
 function updateSummary(projects) {
