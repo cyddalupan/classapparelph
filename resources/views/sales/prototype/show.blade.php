@@ -1602,7 +1602,7 @@ function doDeleteDesignImage(btn) {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
 
     fetch('{{ route("sales.prototype.delete-design-image", $sale->id) }}', {
-        method: 'DELETE',
+        method: 'POST',
         headers: {
             'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content,
             'Accept': 'application/json'

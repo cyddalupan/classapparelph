@@ -826,7 +826,7 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/{id}/reprocess-order', [App\Http\Controllers\PrototypeSalesController::class, 'reprocessOrder'])->name('sales.prototype.reprocess-order');
         Route::post('/sales/prototype/refund/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'submitRefund'])->name('sales.prototype.submit-refund');
         Route::post('/sales/prototype/{id}/upload-design-image', [App\Http\Controllers\PrototypeSalesController::class, 'uploadDesignImage'])->name('sales.prototype.upload-design-image');
-        Route::delete('/sales/prototype/{id}/design-image', [App\Http\Controllers\PrototypeSalesController::class, 'deleteDesignImage'])->name('sales.prototype.delete-design-image');
+        Route::post('/sales/prototype/{id}/design-image/delete', [App\Http\Controllers\PrototypeSalesController::class, 'deleteDesignImage'])->name('sales.prototype.delete-design-image');
         Route::post('/sales/prototype/{id}/notify-agent', [App\Http\Controllers\PrototypeSalesController::class, 'notifyAgent'])->name('sales.prototype.notify-agent');
         Route::post('/sales/prototype/notifications/{id}/read', [App\Http\Controllers\PrototypeSalesController::class, 'notificationRead'])->name('sales.prototype.notification-read');
         Route::post('/sales/prototype/notifications/read-all', [App\Http\Controllers\PrototypeSalesController::class, 'notificationsReadAll'])->name('sales.prototype.notifications-read-all');
