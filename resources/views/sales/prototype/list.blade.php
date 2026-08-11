@@ -377,6 +377,7 @@
                     <th>Description</th>
                     <th>Qty</th>
                     <th>Production Status</th>
+                    <th>Photos</th>
                     <th>Total</th>
                     <th>Payment Status</th>
                     <th>Progress</th>
@@ -450,6 +451,18 @@
                             </select>
                             @if(!$allPhotos && !$canOverride)
                                 <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang photos — manual drag lang</div>
+                            @endif
+                        </td>
+                        <td>
+                            @if($allPhotos)
+                                <span class="badge bg-success" title="File screenshot & sample color uploaded">📄🎨 OK</span>
+                            @else
+                                @if(!$hasFileShot)
+                                    <span class="badge bg-warning text-dark" title="Missing file screenshot">📄 Missing</span>
+                                @endif
+                                @if(!$hasColorShot)
+                                    <span class="badge bg-warning text-dark" title="Missing approved sample color">🎨 Missing</span>
+                                @endif
                             @endif
                             @if(!$allPhotos)
                                 <div style="margin-top:3px;">
@@ -526,7 +539,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="11" style="text-align:center;padding:40px;color:#6c757d;">
+                        <td colspan="12" style="text-align:center;padding:40px;color:#6c757d;">
                             No orders found.
                             <br><br>
                             <a href="{{ route('sales.prototype.create') }}" class="btn btn-primary">➕ Create First Order</a>
@@ -650,9 +663,9 @@ function filterTable() {
         var activeDot = row.querySelector('.pipeline-dot.active');
         var statusMatch = !status || (activeDot && activeDot.closest('.pipeline-step').title === document.querySelector('#statusFilter option[value="' + status + '"]').textContent);
         
-        // Payment filter: match badge text in the Payment Status column (7th td)
+        // Payment filter: match badge text in the Payment Status column (8th td)
         var payBadge = '';
-        var payTd = row.querySelector('td:nth-child(7) .badge');
+        var payTd = row.querySelector('td:nth-child(8) .badge');
         if (payTd) payBadge = payTd.textContent.trim();
         var paymentMatch = true;
         if (payment === 'paid') paymentMatch = payBadge.indexOf('Paid') !== -1;
@@ -660,13 +673,13 @@ function filterTable() {
         else if (payment === 'pending') paymentMatch = payBadge.indexOf('Pending') !== -1;
         else if (payment === 'rejected') paymentMatch = payBadge.indexOf('Rejected') !== -1;
         else if (payment === 'balance') {
-            // With Balance Due: red badge with amount in Payment Status column (7th td)
-            var balBadge = row.querySelector('td:nth-child(7) .badge.bg-danger');
+            // With Balance Due: red badge with amount in Payment Status column (8th td)
+            var balBadge = row.querySelector('td:nth-child(8) .badge.bg-danger');
             paymentMatch = !!balBadge;
         }
         
-        // Agent filter: match agent cell (11th td)
-        var rowAgent = row.querySelector('td:nth-child(11)') ? row.querySelector('td:nth-child(11)').textContent.trim() : '';
+        // Agent filter: match agent cell (12th td)
+        var rowAgent = row.querySelector('td:nth-child(12)') ? row.querySelector('td:nth-child(12)').textContent.trim() : '';
         var agentMatch = !agent || rowAgent === agent;
         
         // Photo filter: row has data-photos attribute
@@ -685,7 +698,7 @@ function populateAgentFilter() {
     var seen = {};
     document.querySelectorAll('#orderTable tbody tr').forEach(function(row) {
         if (row.querySelector('td[colspan]')) return;
-        var a = row.querySelector('td:nth-child(11)') ? row.querySelector('td:nth-child(11)').textContent.trim() : '';
+        var a = row.querySelector('td:nth-child(12)') ? row.querySelector('td:nth-child(12)').textContent.trim() : '';
         if (a && !seen[a]) {
             seen[a] = true;
             var opt = document.createElement('option');
