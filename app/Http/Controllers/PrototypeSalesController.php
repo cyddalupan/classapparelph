@@ -2295,7 +2295,7 @@ public function printSlip(string $id)
         $kanbanOrder = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $kanbanLabels = [
             'new'                => 'New',
-            'sample_approval'    => 'SAMPLE/APPROVAL',
+            'sample_approval'    => 'Sample/Approval',
             'design'            => 'Design',
             'production'        => 'Production',
             'quality_check'      => 'Quality Check',
@@ -2412,7 +2412,7 @@ public function printSlip(string $id)
         $kanbanStatuses = ["new", "sample_approval", "design", "production", "quality_check", "ready_for_delivery", "delivered", "completed"];
         $kanbanLabels = [
             "new"                => "New",
-            "sample_approval"    => "SAMPLE/APPROVAL",
+            "sample_approval"    => "Sample/Approval",
             "design"            => "Design",
             "production"        => "Production",
             "quality_check"      => "QC",
@@ -3889,7 +3889,7 @@ public function printSlip(string $id)
         $statuses = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $statusLabels = [
             'new'                => 'New',
-            'sample_approval'    => 'SAMPLE/APPROVAL',
+            'sample_approval'    => 'Sample/Approval',
             'design'            => 'Design',
             'production'        => 'Production',
             'quality_check'      => 'Quality Check',

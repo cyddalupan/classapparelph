@@ -312,7 +312,7 @@
         <select id="statusFilter" onchange="filterTable()">
             <option value="">All Statuses</option>
             <option value="new">New</option>
-            <option value="sample_approval">SAMPLE/APPROVAL</option>
+            <option value="sample_approval">Sample/Approval</option>
             <option value="design">Design</option>
             <option value="production">Production</option>
             <option value="quality_check">Quality Check</option>

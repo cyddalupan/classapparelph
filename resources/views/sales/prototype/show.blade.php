@@ -353,7 +353,7 @@
                     <div class="mt-1">
                         @php $statusLabel = [
                             'new' => 'New',
-                            'sample_approval' => 'SAMPLE/APPROVAL',
+                            'sample_approval' => 'Sample/Approval',
                             'design' => 'Design',
                             'production' => 'Production',
                             'quality_check' => 'Quality Check',
