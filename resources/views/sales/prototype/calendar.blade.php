@@ -320,6 +320,7 @@
 
 /* ========== STATUS ========== */
 .status-new { background: #e3f2fd; color: #1565c0; }
+.status-sample_approval { background: #fef9e7; color: #b7950b; }
 .status-design { background: #fff3e0; color: #e65100; }
 .status-production { background: #fce4ec; color: #c62828; }
 .status-quality_check { background: #f3e5f5; color: #6a1b9a; }
@@ -675,8 +676,8 @@ function updateSummary(projects) {
     });
 
     html+=`<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-tasks me-1"></i> By Status</h6>`;
-    const so = ['new','design','production','quality_check','ready_for_delivery','delivered','completed'];
-    const sl = {'new':'New','design':'Design','production':'Production','quality_check':'QC','ready_for_delivery':'Ready','delivered':'Delivered','completed':'Completed'};
+    const so = ['new','sample_approval','design','production','quality_check','ready_for_delivery','delivered','completed'];
+    const sl = {'new':'New','sample_approval':'SAMPLE/APPROVAL','design':'Design','production':'Production','quality_check':'QC','ready_for_delivery':'Ready','delivered':'Delivered','completed':'Completed'};
     so.forEach(s => {
         if (sb[s]) {
             const pct = Math.round((sb[s]/total)*100)||0;

@@ -106,7 +106,7 @@ class AdminUserController extends Controller
 
         $activeSalesCount = \DB::table('prototype_sales')
             ->where('sales_agent_id', $user->id)
-            ->whereIn('kanban_status', ['new', 'design', 'production', 'quality_check'])
+            ->whereIn('kanban_status', ['new', 'sample_approval', 'design', 'production', 'quality_check'])
             ->count();
 
         return view('admin.users.show', compact('user', 'salesCount', 'activeSalesCount'));

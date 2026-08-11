@@ -351,9 +351,23 @@
                 <div class="mb-3">
                     <div class="info-label">Kanban Status</div>
                     <div class="mt-1">
+                        @php $statusLabel = [
+                            'new' => 'New',
+                            'sample_approval' => 'SAMPLE/APPROVAL',
+                            'design' => 'Design',
+                            'production' => 'Production',
+                            'quality_check' => 'Quality Check',
+                            'ready_for_delivery' => 'Ready for Delivery',
+                            'delivered' => 'Delivered',
+                            'completed' => 'Completed',
+                            'cancelled' => 'Cancelled',
+                        ][$sale->kanban_status ?? 'new'] ?? ucfirst($sale->kanban_status ?? 'New'); @endphp
                         <span class="badge bg-{{ $sale->kanban_status === 'delivered' || $sale->kanban_status === 'completed' ? 'success' : ($sale->kanban_status === 'cancelled' ? 'danger' : 'primary') }} fs-6">
-                            {{ ucfirst($sale->kanban_status ?? 'New') }}
+                            {{ $statusLabel }}
                         </span>
+                        @if($sale->production_stage)
+                            <span class="badge bg-secondary fs-6">{{ $sale->production_stage }}</span>
+                        @endif
                     </div>
                 </div>
                 <div class="mb-3">

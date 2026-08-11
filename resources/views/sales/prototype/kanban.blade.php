@@ -383,6 +383,7 @@
     @php
         $columnColors = [
             'new'                => ['bg' => '#fff3cd', 'text' => '#856404'],
+            'sample_approval'    => ['bg' => '#fef9e7', 'text' => '#b7950b'],
             'design'            => ['bg' => '#cce5ff', 'text' => '#004085'],
             'production'        => ['bg' => '#d4edda', 'text' => '#155724'],
             'quality_check'      => ['bg' => '#e2d9f3', 'text' => '#6f42c1'],
@@ -883,7 +884,7 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
         var currentStatus = draggedCard.closest('.kanban-column') ? draggedCard.closest('.kanban-column').dataset.status : '';
         var photosOk = draggedCard.dataset.photos === 'ok';
         var canOverride = window.kanbanCanOverride === true;
-        var lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        var lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         
         if (lockedStatuses.indexOf(newStatus) !== -1 && !photosOk && !canOverride) {
             showKanbanToast('⚠️ Hindi ma-move: kulang pang photos (File Screenshot / Sample Color). Kailangan muna kumpleto bago lumipat sa ' + newStatus + '.');

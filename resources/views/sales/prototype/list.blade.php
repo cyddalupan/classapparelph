@@ -312,6 +312,7 @@
         <select id="statusFilter" onchange="filterTable()">
             <option value="">All Statuses</option>
             <option value="new">New</option>
+            <option value="sample_approval">SAMPLE/APPROVAL</option>
             <option value="design">Design</option>
             <option value="production">Production</option>
             <option value="quality_check">Quality Check</option>
@@ -444,9 +445,10 @@
                         </td>
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
-                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->kanban_status ?? 'new' }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;">
-                                @foreach($kanbanStatuses as $st)
-                                    <option value="{{ $st }}" {{ ($sale->kanban_status ?? 'new') === $st ? 'selected' : '' }} @if(!$allPhotos && !$canOverride && in_array($st, $lockedStatuses)) disabled title="🔒 Kulang photos (File Screenshot / Sample Color)" @endif>{{ $kanbanLabels[$st] }}</option>
+                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;">
+                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); @endphp
+                                @foreach($prodStageMap as $stage => $st)
+                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if(!$allPhotos && !$canOverride && in_array($st, $lockedStatuses)) disabled title="🔒 Kulang photos (File Screenshot / Sample Color)" @endif>{{ $stage }}</option>
                                 @endforeach
                             </select>
                             @if(!$allPhotos && !$canOverride)
@@ -721,8 +723,10 @@ document.addEventListener('change', function(e) {
     var sel = e.target.closest('.prod-status-select');
     if (!sel) return;
     var saleId = sel.getAttribute('data-sale-id');
-    var newStatus = sel.value;
-    var oldStatus = sel.getAttribute('data-current');
+    var opt = sel.options[sel.selectedIndex];
+    var stage = opt.value;
+    var newStatus = opt.getAttribute('data-status');
+    var oldStage = sel.getAttribute('data-current');
     var row = sel.closest('tr');
     sel.disabled = true;
     var csrf = document.querySelector('meta[name="csrf-token"]');
@@ -732,29 +736,29 @@ document.addEventListener('change', function(e) {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrf ? csrf.content : ''
         },
-        body: JSON.stringify({ kanban_status: newStatus })
+        body: JSON.stringify({ kanban_status: newStatus, production_stage: stage })
     })
     .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
     .then(function(res) {
         sel.disabled = false;
         if (res.ok && res.data.success) {
-            sel.setAttribute('data-current', newStatus);
-            showToast('✅ Moved to ' + newStatus + ' sa kanban', 'success');
+            sel.setAttribute('data-current', stage);
+            showToast('✅ Tagged ' + stage + ' → ' + newStatus + ' sa kanban', 'success');
             updatePipelineInRow(row, newStatus);
         } else {
-            sel.value = oldStatus;
+            sel.value = oldStage;
             showToast('⚠️ ' + (res.data.message || 'Failed to update status.'), 'error');
         }
     })
     .catch(function() {
         sel.disabled = false;
-        sel.value = oldStatus;
+        sel.value = oldStage;
         showToast('❌ Network error. Please try again.', 'error');
     });
 });
 
 function updatePipelineInRow(row, status) {
-    var statuses = ['new', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+    var statuses = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
     var idx = statuses.indexOf(status);
     if (idx < 0 || !row) return;
     row.querySelectorAll('.pipeline-step').forEach(function(step, i) {

@@ -645,6 +645,7 @@ public function details(Request $request, string $id)
         // Compute progress percentage from kanban_status
         $kanbanProgressMap = [
             'new' => 0,
+            'sample_approval' => 8,
             'design' => 15,
             'production' => 50,
             'quality_check' => 70,
@@ -2291,9 +2292,10 @@ public function printSlip(string $id)
         }
         
         // Kanban columns matching the database ENUM
-        $kanbanOrder = ['new', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $kanbanOrder = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $kanbanLabels = [
             'new'                => 'New',
+            'sample_approval'    => 'SAMPLE/APPROVAL',
             'design'            => 'Design',
             'production'        => 'Production',
             'quality_check'      => 'Quality Check',
@@ -2407,15 +2409,44 @@ public function printSlip(string $id)
             "mto"    => 5,
             "other"  => 6,
         ];
-        $kanbanStatuses = ["new", "design", "production", "quality_check", "ready_for_delivery", "delivered", "completed"];
+        $kanbanStatuses = ["new", "sample_approval", "design", "production", "quality_check", "ready_for_delivery", "delivered", "completed"];
         $kanbanLabels = [
             "new"                => "New",
+            "sample_approval"    => "SAMPLE/APPROVAL",
             "design"            => "Design",
             "production"        => "Production",
             "quality_check"      => "QC",
             "ready_for_delivery" => "Ready",
             "delivered"         => "Delivered",
             "completed"         => "Completed",
+        ];
+
+        // Production stage tags → kanban status mapping (Production Status dropdown)
+        $prodStageMap = [
+            'FOR SAMPLE'   => 'sample_approval',
+            'FOR APPROVAL' => 'sample_approval',
+            'FOR FORMAT'   => 'design',
+            'PRINTING'     => 'design',
+            'PRESSING'     => 'production',
+            'CUTTING'      => 'production',
+            'SEWING'       => 'production',
+            'QA'           => 'quality_check',
+            'HOLD'         => 'new',
+            'DISPATCH'     => 'ready_for_delivery',
+            'UNPAID'       => 'delivered',
+            'DONE'         => 'completed',
+        ];
+
+        // Reverse: kanban status → representative stage (for dropdown display)
+        $statusToStage = [
+            'new'                => 'HOLD',
+            'sample_approval'    => 'FOR SAMPLE',
+            'design'             => 'FOR FORMAT',
+            'production'         => 'PRESSING',
+            'quality_check'      => 'QA',
+            'ready_for_delivery' => 'DISPATCH',
+            'delivered'          => 'UNPAID',
+            'completed'          => 'DONE',
         ];
         $departmentLabels = [
             1 => "iPrint",
@@ -2503,7 +2534,7 @@ public function printSlip(string $id)
         }
 
         return view("sales.prototype.list", compact(
-            "sales", "kanbanStatuses", "kanbanLabels",
+            "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
             "departmentLabels", "departmentColors", "isAgent",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs"
@@ -2513,14 +2544,14 @@ public function printSlip(string $id)
     public function updateKanbanStatus(Request $request, $id)
     {
         $request->validate([
-            'kanban_status' => 'required|in:new,design,production,quality_check,ready_for_delivery,delivered,completed'
+            'kanban_status' => 'required|in:new,sample_approval,design,production,quality_check,ready_for_delivery,delivered,completed'
         ]);
         
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
         // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
         // until both file screenshot + approved sample color are uploaded.
-        $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $user = auth()->user();
         $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
         if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
@@ -2561,7 +2592,7 @@ public function printSlip(string $id)
 
         // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
         // until both file screenshot + approved sample color are uploaded.
-        $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $user = auth()->user();
         $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
         if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
@@ -2577,9 +2608,12 @@ public function printSlip(string $id)
         }
 
         $sale->kanban_status = $request->kanban_status;
+        if ($request->filled('production_stage')) {
+            $sale->production_stage = $request->production_stage;
+        }
         $sale->save();
 
-        return response()->json(['success' => true, 'status' => $sale->kanban_status]);
+        return response()->json(['success' => true, 'status' => $sale->kanban_status, 'production_stage' => $sale->production_stage]);
     }
 
     /**
@@ -3852,9 +3886,10 @@ public function printSlip(string $id)
 
         $sales = $query->orderBy('created_at', 'desc')->get();
 
-        $statuses = ['new', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $statuses = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $statusLabels = [
             'new'                => 'New',
+            'sample_approval'    => 'SAMPLE/APPROVAL',
             'design'            => 'Design',
             'production'        => 'Production',
             'quality_check'      => 'Quality Check',
