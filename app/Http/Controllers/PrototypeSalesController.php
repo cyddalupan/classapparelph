@@ -2549,6 +2549,15 @@ public function printSlip(string $id)
         
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
+        // PAYMENT LOCK (server-side): cannot move to Completed while there is a pending balance due
+        $balanceDue = $sale->balance_due_computed;
+        if ($request->kanban_status === 'completed' && $balanceDue > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi ma-move sa Completed: may pending balance pa na ₱' . number_format($balanceDue, 2) . '. Kailangan munang mabayaran bago i-DONE.',
+            ], 422);
+        }
+
         // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
         // until both file screenshot + approved sample color are uploaded.
         $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
@@ -2589,6 +2598,15 @@ public function printSlip(string $id)
         ]);
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // PAYMENT LOCK (server-side): cannot mark as DONE/completed while there is a pending balance due
+        $balanceDue = $sale->balance_due_computed;
+        if ($request->kanban_status === 'completed' && $balanceDue > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi ma-mark na DONE: may pending balance pa na ₱' . number_format($balanceDue, 2) . '. Kailangan munang mabayaran bago i-DONE.',
+            ], 422);
+        }
 
         // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
         // until both file screenshot + approved sample color are uploaded.

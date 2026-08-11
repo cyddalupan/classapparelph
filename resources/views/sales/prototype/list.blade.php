@@ -446,11 +446,14 @@
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
                             <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;{{ !$allPhotos ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : '' }}" @if(!$allPhotos) disabled title="🔒 Kulang photos (File Screenshot / Sample Color) — i-move sa kanban board" @endif>
-                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); @endphp
+                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); $balanceDue = $sale->balance_due_computed; @endphp
                                 @foreach($prodStageMap as $stage => $st)
-                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }}>{{ $stage }}</option>
+                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if($st === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE" @endif>{{ $stage }}</option>
                                 @endforeach
                             </select>
+                            @if($balanceDue > 0)
+                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 may pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE</div>
+                            @endif
                             @if(!$allPhotos)
                                 <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang photos — i-move sa kanban board</div>
                             @endif

@@ -416,7 +416,7 @@
                             $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
                             $allPhotos = $hasFileShot && $hasColorShot;
                         @endphp
-                        <div class="kanban-card" data-id="{{ $sale->id }}" draggable="true" data-department="{{ $sale->department_id }}" data-photos="{{ $allPhotos ? 'ok' : 'missing' }}">
+                        <div class="kanban-card" data-id="{{ $sale->id }}" draggable="true" data-department="{{ $sale->department_id }}" data-photos="{{ $allPhotos ? 'ok' : 'missing' }}" data-balance="{{ $sale->balance_due_computed }}">
 
                             @if($firstMockupUrl)
                                 <img src="{{ $firstMockupUrl }}" alt="mockup" 
@@ -880,6 +880,14 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
         var saleId = draggedCard.dataset.id;
         if (!newStatus || !saleId) return;
         
+        // PAYMENT LOCK: cannot move to Completed while there is a pending balance due
+        var balanceDue = parseFloat(draggedCard.dataset.balance || '0');
+        if (newStatus === 'completed' && balanceDue > 0) {
+            showKanbanToast('⚠️ Hindi ma-move sa Completed: may pending balance pa na ₱' + balanceDue.toLocaleString(undefined, {minimumFractionDigits: 2}) + '. Bayaran muna bago i-DONE.');
+            document.querySelectorAll('.drop-zone.drag-over').forEach(function(z) { z.classList.remove('drag-over'); });
+            return;
+        }
+
         // PHOTO LOCK: cannot move to Design and beyond until photos (file screenshot + sample color) are complete
         var currentStatus = draggedCard.closest('.kanban-column') ? draggedCard.closest('.kanban-column').dataset.status : '';
         var photosOk = draggedCard.dataset.photos === 'ok';
