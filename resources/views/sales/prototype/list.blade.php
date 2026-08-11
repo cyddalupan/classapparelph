@@ -424,16 +424,16 @@
                         $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
                     @endphp
                     <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
-                        <td style="white-space:nowrap;">
-                            <strong>{{ $sale->sales_number }}</strong>
-                            <div style="font-size:11px;color:#6c757d;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
+                        <td style="max-width:120px;">
+                            <strong style="font-size:11px;">{{ $sale->sales_number }}</strong>
+                            <div style="font-size:10px;color:#6c757d;white-space:nowrap;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
                             @if(!empty($pendingCounts[$sale->id]))
                                 <span class="badge bg-warning text-dark pending-row-badge" title="Has pending changes for approval">🔔</span>
                             @endif
                         </td>
                         <td>
                             @if($firstMockupUrl)
-                                <img src="{{ $firstMockupUrl }}" alt="mockup" style="width:44px;height:44px;object-fit:cover;border-radius:6px;cursor:pointer;" title="Click to open order" onerror="this.style.display='none'">
+                                <img src="{{ $firstMockupUrl }}" alt="mockup" style="width:72px;height:auto;max-height:80px;object-fit:contain;border-radius:6px;cursor:pointer;" title="Click to open order" onerror="this.style.display='none'">
                             @else
                                 <span class="text-muted">—</span>
                             @endif
