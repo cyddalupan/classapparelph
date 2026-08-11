@@ -636,15 +636,6 @@ function renderWeek(monday, projects) {
                 if (qty > 0) {
                     html += `<span class="dp-qty">×${qty}</span>`;
                 }
-                html += `</div>`;
-                // Production stage / status badge
-                if (stage) {
-                    const stageLabel = String(stage).toUpperCase();
-                    const stageColor = stageLabel === 'DONE' || stageLabel === 'COMPLETED' ? '#198754' :
-                                      (stageLabel === 'REJECTED' || stageLabel === 'CANCELLED' ? '#dc3545' :
-                                      (stageLabel === 'FOR SAMPLE' || stageLabel === 'APPROVAL' ? '#fd7e14' : '#667eea'));
-                    html += `<span class="dp-stage" style="background:${stageColor}1a;color:${stageColor};border:1px solid ${stageColor}40;">${stageLabel}</span>`;
-                }
                 if (p.payment_status === 'verified') {
                     html += `<span class="dp-status" style="color:#198754;font-weight:600;">✅</span>`;
                 } else if (p.payment_status === 'pending' && p.payment_account_id) {
@@ -654,6 +645,14 @@ function renderWeek(monday, projects) {
                 }
                 html += `<span class="dp-amount">${curr(amt)}</span>`;
                 html += `</div>`;
+                // Production stage / status badge
+                if (stage) {
+                    const stageLabel = String(stage).toUpperCase();
+                    const stageColor = stageLabel === 'DONE' || stageLabel === 'COMPLETED' ? '#198754' :
+                                      (stageLabel === 'REJECTED' || stageLabel === 'CANCELLED' ? '#dc3545' :
+                                      (stageLabel === 'FOR SAMPLE' || stageLabel === 'APPROVAL' ? '#fd7e14' : '#667eea'));
+                    html += `<span class="dp-stage" style="background:${stageColor}1a;color:${stageColor};border:1px solid ${stageColor}40;">${stageLabel}</span>`;
+                }
                 if (itemsHtml) {
                     html += `<div class="dp-items">${itemsHtml}</div>`;
                 }
