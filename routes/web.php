@@ -809,6 +809,7 @@ Route::get('/inventorylist', function() {
         
         // Add-on request routes
         Route::get('/sales/prototype/addon/pending', [App\Http\Controllers\SaleAddonController::class, 'allPending'])->name('sales.prototype.addon.all-pending');
+        Route::get('/sales/prototype/addon/pending-count', [App\Http\Controllers\SaleAddonController::class, 'pendingCount'])->name('sales.prototype.addon.pending-count');
         Route::get('/sales/prototype/{id}/addon/pending', [App\Http\Controllers\SaleAddonController::class, 'pending'])->name('sales.prototype.addon.pending');
         Route::post('/sales/prototype/{id}/addon/request', [App\Http\Controllers\SaleAddonController::class, 'request'])->name('sales.prototype.addon.request');
         Route::post('/sales/prototype/addon/{requestId}/approve', [App\Http\Controllers\SaleAddonController::class, 'approve'])->name('sales.prototype.addon.approve');

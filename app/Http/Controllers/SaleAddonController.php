@@ -26,10 +26,17 @@ class SaleAddonController extends Controller
      */
     public function allPending()
     {
-        $requests = DB::table('sale_addon_requests')
+        $user = auth()->user();
+        $query = DB::table('sale_addon_requests')
             ->join('prototype_sales', 'sale_addon_requests.sale_id', '=', 'prototype_sales.id')
-            ->where('sale_addon_requests.status', 'pending')
-            ->select(
+            ->where('sale_addon_requests.status', 'pending');
+
+        // Non-managers only see pending add-ons on their own sales
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            $query->where('prototype_sales.sales_agent_id', $user ? $user->id : -1);
+        }
+
+        $requests = $query->select(
                 'sale_addon_requests.*',
                 'prototype_sales.sales_number',
                 'prototype_sales.customer_name',
@@ -38,12 +45,30 @@ class SaleAddonController extends Controller
             ->orderBy('sale_addon_requests.created_at', 'desc')
             ->get();
 
-        // Decode requested_items for each
+        // Decode requested_items for each + compute age in hours
         $requests->each(function ($r) {
             $r->items = json_decode($r->requested_items, true);
+            $r->age_hours = round((now()->timestamp - strtotime($r->created_at)) / 3600, 1);
         });
 
         return response()->json($requests);
+    }
+
+    /**
+     * Lightweight pending count (for button badge polling)
+     */
+    public function pendingCount()
+    {
+        $user = auth()->user();
+        $query = DB::table('sale_addon_requests')
+            ->join('prototype_sales', 'sale_addon_requests.sale_id', '=', 'prototype_sales.id')
+            ->where('sale_addon_requests.status', 'pending');
+
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            $query->where('prototype_sales.sales_agent_id', $user ? $user->id : -1);
+        }
+
+        return response()->json(['count' => $query->count()]);
     }
 
     /**
@@ -84,6 +109,11 @@ class SaleAddonController extends Controller
      */
     public function approve(Request $request, int $requestId)
     {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            return response()->json(['error' => 'Unauthorized: admin/manager only'], 403);
+        }
+
         $addon = DB::table('sale_addon_requests')->find($requestId);
         if (!$addon || $addon->status !== 'pending') {
             return response()->json(['error' => 'Request not found or already processed'], 404);
@@ -176,6 +206,11 @@ class SaleAddonController extends Controller
      */
     public function reject(Request $request, int $requestId)
     {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            return response()->json(['error' => 'Unauthorized: admin/manager only'], 403);
+        }
+
         $addon = DB::table('sale_addon_requests')->find($requestId);
         if (!$addon || $addon->status !== 'pending') {
             return response()->json(['error' => 'Request not found or already processed'], 404);

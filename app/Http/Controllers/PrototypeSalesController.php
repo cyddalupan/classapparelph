@@ -2380,11 +2380,23 @@ public function printSlip(string $id)
                 }
             }
         }
+
+        // Which visible sales have pending add-on requests (for card badge + button count)
+        $pendingAddonSaleIds = [];
+        $pendingAddonCount = 0;
+        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+            $pendingAddons = \DB::table('sale_addon_requests')
+                ->where('status', 'pending')
+                ->select('sale_id')
+                ->get();
+            $pendingAddonSaleIds = $pendingAddons->pluck('sale_id')->map(fn($id) => (int) $id)->all();
+            $pendingAddonCount = count($pendingAddonSaleIds);
+        }
         
         return view('sales.prototype.kanban', compact(
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
             'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions',
-            'canOverride'
+            'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount'
         ));
     }
 

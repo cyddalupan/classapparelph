@@ -315,6 +315,7 @@
         <a href="{{ route('sales.prototype.list') }}" class="nav-list-btn">📋 Manager List</a>
         <button type="button" class="btn btn-warning btn-sm" onclick="openPendingAddons()">
             <i class="fas fa-clock me-1"></i>Pending Add-ons
+            <span class="badge bg-dark ms-1" id="pendingAddonsCount" style="font-size:10px;{{ ($pendingAddonCount ?? 0) > 0 ? '' : 'display:none;' }}">{{ $pendingAddonCount ?? 0 }}</span>
         </button>
     </div>
 
@@ -380,6 +381,9 @@
                                     <span class="card-badge" style="background:#e7f0ff;color:#0d6efd;">
                                         {{ $firstItem }}
                                     </span>
+                                @endif
+                                @if(in_array($sale->id, $pendingAddonSaleIds ?? []))
+                                    <span class="card-badge" style="background:#fff3cd;color:#856404;cursor:help;" title="May pending add-on request">🕐 Add-on</span>
                                 @endif
                             </div>
 
@@ -1625,10 +1629,12 @@ document.addEventListener("DOMContentLoaded", function() {
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
+            refreshPendingAddonsCount();
             if (!data.length) {
                 body.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-check-circle fa-3x mb-3" style="color:#28a745;"></i><p>No pending add-on requests.</p></div>';
                 return;
             }
+            var isManager = window.kanbanCanOverride === true;
             var html = '';
             data.forEach(function(req) {
                 var items = req.items || [];
@@ -1636,19 +1642,31 @@ document.addEventListener("DOMContentLoaded", function() {
                     var sub = it.subItems && it.subItems[0];
                     return (sub ? sub.brand + ' ' + sub.size + ' ' + sub.color + ' ×' + it.totalQty : it.name + ' ×' + it.totalQty);
                 }).join(', ');
-                html += '<div class="card mb-3 border-warning">' +
+                // Age indicator + stale highlight (>24h)
+                var ageH = req.age_hours || 0;
+                var ageLabel = ageH < 1 ? '< 1h ago' : (ageH < 24 ? Math.round(ageH) + 'h ago' : Math.round(ageH / 24) + 'd ago');
+                var stale = ageH >= 24;
+                var borderCls = stale ? 'border-danger' : 'border-warning';
+                var ageBadge = stale
+                    ? '<span class="badge bg-danger ms-1" title="Waiting ' + ageLabel + '">⏰ ' + ageLabel + '</span>'
+                    : '<span class="badge bg-secondary ms-1" title="Waiting ' + ageLabel + '">' + ageLabel + '</span>';
+                var actions = '';
+                if (isManager) {
+                    actions = '<div style="min-width:140px;text-align:right;">' +
+                        '<button class="btn btn-success btn-sm me-1" onclick="event.stopPropagation();approveAddon(' + req.id + ',' + req.sale_id + ')">✅ Approve</button>' +
+                        '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();rejectAddon(' + req.id + ',' + req.sale_id + ')">❌ Reject</button>' +
+                        '</div>';
+                }
+                html += '<div class="card mb-3 ' + borderCls + ' pending-addon-card" data-sale-id="' + req.sale_id + '" onclick="openSaleFromAddon(' + req.sale_id + ')" style="cursor:pointer;" title="Click to view sale details">' +
                     '<div class="card-body">' +
                     '<div class="d-flex justify-content-between align-items-start">' +
                     '<div>' +
-                    '<h6 class="mb-1">' + req.sales_number + ' — ' + (req.customer_name || 'Unknown') + '</h6>' +
+                    '<h6 class="mb-1">' + req.sales_number + ' — ' + (req.customer_name || 'Unknown') + ageBadge + '</h6>' +
                     '<small class="text-muted">' + itemList + '</small><br>' +
                     (req.reason ? '<small class="text-muted">Reason: ' + req.reason + '</small>' : '') +
                     '<br><small class="text-muted">By: ' + (req.requested_by || 'Agent') + ' • ' + new Date(req.created_at).toLocaleString() + '</small>' +
                     '</div>' +
-                    '<div style="min-width:140px;text-align:right;">' +
-                    '<button class="btn btn-success btn-sm me-1" onclick="approveAddon(' + req.id + ')">✅ Approve</button>' +
-                    '<button class="btn btn-danger btn-sm" onclick="rejectAddon(' + req.id + ')">❌ Reject</button>' +
-                    '</div>' +
+                    actions +
                     '</div>' +
                     '</div>' +
                     '</div>';
@@ -1660,7 +1678,34 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     };
     
-    window.approveAddon = function(requestId) {
+    // Open sale details modal from a pending add-on request card
+    window.openSaleFromAddon = function(saleId) {
+        var pendingModalEl = document.getElementById('pendingAddonsModal');
+        var pm = bootstrap.Modal.getInstance(pendingModalEl);
+        if (pm) pm.hide();
+        setTimeout(function() {
+            openSaleDetails(saleId);
+        }, 250);
+    };
+    
+    // Refresh the badge count on the Pending Add-ons button (auto-poll every 60s)
+    window.refreshPendingAddonsCount = function() {
+        fetch('/sales/prototype/addon/pending-count', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var el = document.getElementById('pendingAddonsCount');
+            if (el) {
+                el.textContent = data.count || 0;
+                el.style.display = data.count > 0 ? '' : 'none';
+            }
+        })
+        .catch(function() {});
+    };
+    setInterval(refreshPendingAddonsCount, 60000);
+    
+    window.approveAddon = function(requestId, saleId) {
         if (!confirm('Approve this add-on request? Pricing will be recalculated.')) return;
         fetch('/sales/prototype/addon/' + requestId + '/approve', {
             method: 'POST',
@@ -1676,6 +1721,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (data.success) {
                 alert('✅ Approved!\nNew Subtotal: ₱' + data.new_subtotal.toFixed(2) + '\nAdjustment: ₱' + (data.adjustment > 0 ? '+' : '') + data.adjustment.toFixed(2));
                 refreshPendingAddons();
+                removePendingAddonBadge(saleId);
             } else {
                 alert('Error: ' + (data.error || 'Unknown'));
             }
@@ -1685,7 +1731,14 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     };
     
-    window.rejectAddon = function(requestId) {
+    // Remove the 🕐 Add-on badge from the kanban card once resolved
+    window.removePendingAddonBadge = function(saleId) {
+        document.querySelectorAll('.kanban-card[data-id="' + saleId + '"] .card-badge').forEach(function(b) {
+            if (b.textContent.indexOf('🕐') !== -1) b.remove();
+        });
+    };
+    
+    window.rejectAddon = function(requestId, saleId) {
         if (!confirm('Reject this add-on request?')) return;
         fetch('/sales/prototype/addon/' + requestId + '/reject', {
             method: 'POST',
@@ -1701,6 +1754,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (data.success) {
                 alert('❌ Request rejected.');
                 refreshPendingAddons();
+                removePendingAddonBadge(saleId);
             } else {
                 alert('Error: ' + (data.error || 'Unknown'));
             }
