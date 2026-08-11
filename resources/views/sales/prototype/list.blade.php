@@ -300,6 +300,14 @@
     <!-- Filter Bar -->
     <div class="filter-bar">
         <input type="text" id="searchInput" placeholder="Search customer, sales #, phone..." onkeyup="filterTable()">
+        <input type="date" id="dateFrom" title="Date from" onchange="filterTable()" style="min-width:140px;">
+        <input type="date" id="dateTo" title="Date to" onchange="filterTable()" style="min-width:140px;">
+        <select id="stageFilter" onchange="filterTable()" title="Filter by production stage">
+            <option value="">All Stages</option>
+            @foreach(array_keys($prodStageMap) as $stageName)
+                <option value="{{ $stageName }}">{{ $stageName }}</option>
+            @endforeach
+        </select>
         <select id="deptFilter" onchange="filterTable()">
             <option value="">All Departments</option>
             <option value="1">iPrint</option>
@@ -425,7 +433,7 @@
                         $canOverride = auth()->user() && (auth()->user()->isAdmin() || auth()->user()->role === 'manager');
                         $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
                     @endphp
-                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
                         <td style="max-width:120px;">
                             <strong style="font-size:11px;">{{ $sale->sales_number }}</strong>
                             <div style="font-size:10px;color:#6c757d;white-space:nowrap;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
@@ -655,6 +663,9 @@ function filterTable() {
     var payment = document.getElementById('paymentFilter').value;
     var agent = document.getElementById('agentFilter').value;
     var photo = document.getElementById('photoFilter').value;
+    var dateFrom = document.getElementById('dateFrom').value;
+    var dateTo = document.getElementById('dateTo').value;
+    var stage = document.getElementById('stageFilter').value;
     var rows = document.querySelectorAll('#orderTable tbody tr');
     
     rows.forEach(function(row) {
@@ -691,9 +702,19 @@ function filterTable() {
         var photoStatus = row.getAttribute('data-photos') || '';
         var photoMatch = !photo || photoStatus === photo;
         
+        // Date filter: row has data-date attribute (YYYY-MM-DD)
+        var rowDate = row.getAttribute('data-date') || '';
+        var dateMatch = true;
+        if (dateFrom && rowDate < dateFrom) dateMatch = false;
+        if (dateTo && rowDate > dateTo) dateMatch = false;
+        
+        // Stage filter: row has data-stage attribute
+        var rowStage = row.getAttribute('data-stage') || '';
+        var stageMatch = !stage || rowStage === stage;
+        
         var searchMatch = !search || text.indexOf(search) !== -1;
         
-        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && photoMatch && searchMatch) ? '' : 'none';
+        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && photoMatch && dateMatch && stageMatch && searchMatch) ? '' : 'none';
     });
 }
 
@@ -715,7 +736,7 @@ function populateAgentFilter() {
 }
 
 function resetFilters() {
-    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter'].forEach(function(id) {
+    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
     filterTable();
