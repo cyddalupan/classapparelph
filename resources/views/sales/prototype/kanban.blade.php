@@ -345,7 +345,7 @@
                     @forelse(($columns[$statusKey] ?? []) as $sale)
                         @php
                             $svc = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
-                            $firstItem = isset($svc[0]) ? (is_string($svc[0]) ? $svc[0] : ($svc[0]['name'] ?? $svc[0]['product_name'] ?? 'Item')) : '';
+                            $firstItem = isset($svc[0]) ? (is_array($svc[0]) ? \App\Models\PrototypeSale::itemSpecSummary($svc[0]) : $svc[0]) : '';
                             $itemCount = count($svc);
                             $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
                             $firstMockup = $mockups[0] ?? null;

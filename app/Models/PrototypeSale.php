@@ -173,4 +173,28 @@ class PrototypeSale extends Model
         }
         return $this->services ?: [];
     }
+
+    /**
+     * Build a production-facing spec summary for a service item.
+     * Prefers the sublimation form description (e.g. "TSHIRT VNECK - DRIFIT | RAGLAN"),
+     * then garment + fabric + parts, then falls back to the item name.
+     */
+    public static function itemSpecSummary(array $item): string
+    {
+        $sf = $item['sublimationForm'] ?? [];
+        if (!empty($sf['description']) && is_string($sf['description'])) {
+            return trim($sf['description']);
+        }
+        $bits = [];
+        if (!empty($sf['garment']['name'])) $bits[] = $sf['garment']['name'];
+        if (!empty($sf['fabric']['name'])) $bits[] = $sf['fabric']['name'];
+        foreach (($sf['parts'] ?? []) as $p) {
+            if (is_array($p) && !empty($p['name'])) $bits[] = $p['name'];
+            elseif (is_string($p) && trim($p) !== '') $bits[] = trim($p);
+        }
+        if ($bits) return implode(' | ', $bits);
+        $pt = $item['productType'] ?? '';
+        if ($pt) return ucwords(str_replace('_', ' ', $pt));
+        return $item['name'] ?? $item['product_name'] ?? 'Item';
+    }
 }

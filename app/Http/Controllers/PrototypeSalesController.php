@@ -472,6 +472,7 @@ public function details(Request $request, string $id)
             
             foreach ($services as $idx => $item) {
                 $itemName = $item['name'] ?? $item['product_name'] ?? 'Item #' . ($idx + 1);
+                $itemSpec = \App\Models\PrototypeSale::itemSpecSummary($item);
                 $itemQty = $item['quantity'] ?? $item['qty'] ?? 0;
                 $itemNotes = $item['notes'] ?? '';
                 $subItems = $item['subItems'] ?? [];
@@ -480,12 +481,15 @@ public function details(Request $request, string $id)
                 
                 $html .= '<div class="item-card">';
                 $html .= '<div class="d-flex justify-content-between align-items-start mb-2">';
-                $html .= '<div><strong>' . e($itemName) . '</strong>';
+                $html .= '<div><strong>' . e($itemSpec) . '</strong>';
                 if ($item['department'] ?? null) {
                     $html .= ' <span class="badge bg-secondary">' . e($item['department']) . '</span>';
                 }
                 if ($itemQty > 0) {
                     $html .= ' <span class="badge bg-primary">×' . $itemQty . '</span>';
+                }
+                if ($itemSpec !== $itemName && $itemName) {
+                    $html .= '<div class="small text-muted">' . e($itemName) . '</div>';
                 }
                 $html .= '</div>';
                 $html .= '</div>';

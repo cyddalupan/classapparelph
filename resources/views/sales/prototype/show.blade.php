@@ -148,6 +148,7 @@
                         @php
                             $itemTotal = $item['totalPrice'] ?? $item['total_price'] ?? $item['price'] ?? 0;
                             $itemName = $item['name'] ?? $item['product_name'] ?? 'Item #' . ($loop->index + 1);
+                            $itemSpec = \App\Models\PrototypeSale::itemSpecSummary($item);
                             $itemNotes = $item['notes'] ?? '';
                             $subItems = $item['subItems'] ?? [];
                             $printing = $item['printing'] ?? null;
@@ -156,9 +157,12 @@
                         <div class="p-3 mb-2 bg-light rounded">
                             <div class="d-flex justify-content-between align-items-start mb-2">
                                 <div>
-                                    <strong>{{ $itemName }}</strong>
+                                    <strong>{{ $itemSpec }}</strong>
                                     @if(isset($item['department']))
                                         <span class="badge bg-secondary">{{ $item['department'] }}</span>
+                                    @endif
+                                    @if($itemSpec !== $itemName && $itemName)
+                                        <div class="small text-muted">{{ $itemName }}</div>
                                     @endif
                                 </div>
                                 <div class="fw-bold text-nowrap">₱{{ number_format($itemTotal, 2) }}</div>
