@@ -2831,9 +2831,9 @@ public function printSlip(string $id)
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
-        // Only managers/admins can reschedule
+        // Only managers/admins/staff can reschedule
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+        if (!$user || !in_array($user->role, ['admin', 'manager', 'staff'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only managers can reschedule projects.',
