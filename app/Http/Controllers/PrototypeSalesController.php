@@ -2687,14 +2687,32 @@ public function printSlip(string $id)
                     $services = $raw;
                 }
                 // Parse items into structured format
+                $totalQty = 0;
                 foreach ($services as $s) {
                     if (is_string($s)) {
                         $items[] = ['name' => $s, 'qty' => 1];
+                        $totalQty += 1;
                     } elseif (is_array($s)) {
                         $items[] = $s;
+                        $totalQty += (int)($s['quantity'] ?? $s['qty'] ?? 1);
                     }
                 }
             }
+
+            // Mockup thumbnail (same logic as manager list)
+            $mockups = is_string($p->mockup_images) ? json_decode($p->mockup_images, true) : ($p->mockup_images ?? []);
+            $firstMockup = $mockups[0] ?? null;
+            $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
+
+            // Description summary (same as manager list)
+            $descParts = [];
+            foreach ($items as $it) {
+                if (is_array($it) && !empty($it['name'])) {
+                    $descParts[] = $it['name'];
+                }
+            }
+            $description = $descParts ? implode(' + ', array_slice($descParts, 0, 2)) : '';
+
             return [
                 'id' => $p->id,
                 'sales_number' => $p->sales_number,
@@ -2707,8 +2725,12 @@ public function printSlip(string $id)
                 'deposit_paid' => $p->deposit_paid,
                 'balance_due' => $p->balance_due,
                 'kanban_status' => $p->kanban_status,
+                'production_stage' => $p->production_stage,
                 'services' => $items,
                 'services_raw' => $services,
+                'total_qty' => $totalQty,
+                'mockup_url' => $firstMockupUrl,
+                'description' => $description,
                 'date_needed' => $p->estimated_completion_date,
                 'estimated_completion_date' => $p->estimated_completion_date,
                 'rescheduled_date' => $p->rescheduled_date,

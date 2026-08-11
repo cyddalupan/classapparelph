@@ -281,6 +281,33 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.day-project .dp-mockup {
+    width: 100%;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    display: block;
+    border: 1px solid rgba(0,0,0,0.08);
+}
+.day-project .dp-qty {
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: #fff;
+    background: #667eea;
+    border-radius: 8px;
+    padding: 0.05rem 0.4rem;
+    white-space: nowrap;
+}
+.day-project .dp-stage {
+    display: inline-block;
+    font-size: 0.5rem;
+    font-weight: 700;
+    padding: 0.05rem 0.35rem;
+    border-radius: 8px;
+    margin-top: 2px;
+    white-space: nowrap;
+}
 .day-project .dp-meta {
     font-size: 0.6rem;
     opacity: 0.8;
@@ -576,6 +603,9 @@ function renderWeek(monday, projects) {
                 const color = dc[dept] || '#6c757d';
                 const name = p.customer_name || 'Unknown';
                 const amt = parseFloat(p.subtotal || p.total_amount || 0);
+                const qty = parseInt(p.total_qty) || 0;
+                const stage = p.production_stage || p.kanban_status || '';
+                const mockupUrl = p.mockup_url || '';
                 const isMoved = !!p.rescheduled_date && p.rescheduled_date !== p.estimated_completion_date;
                 const orig = p.estimated_completion_date ? parseD(p.estimated_completion_date) : null;
                 
@@ -585,8 +615,8 @@ function renderWeek(monday, projects) {
                     p.services.forEach(s => {
                         const itemName = s.name || (typeof s === 'string' ? s : 'Item');
                         const short = itemName.length > 18 ? itemName.substring(0, 16)+'..' : itemName;
-                        const qty = parseInt(s.qty) || 1;
-                        itemsHtml += `<span class="dp-item">${qty}× ${short}</span>`;
+                        const qtyItem = parseInt(s.qty || s.quantity) || 1;
+                        itemsHtml += `<span class="dp-item">${qtyItem}× ${short}</span>`;
                     });
                 }
                 
@@ -595,9 +625,26 @@ function renderWeek(monday, projects) {
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
                 }
+                // Mockup thumbnail (same as manager list)
+                if (mockupUrl) {
+                    html += `<img src="${mockupUrl}" alt="mockup" class="dp-mockup" loading="lazy" onerror="this.style.display='none'">`;
+                }
                 html += `<span class="dp-name">${name}</span>`;
                 html += `<div class="dp-meta">`;
                 html += `<span class="dp-dept" style="background:${color};color:white;">${dept}</span>`;
+                // Quantity badge
+                if (qty > 0) {
+                    html += `<span class="dp-qty">×${qty}</span>`;
+                }
+                html += `</div>`;
+                // Production stage / status badge
+                if (stage) {
+                    const stageLabel = String(stage).toUpperCase();
+                    const stageColor = stageLabel === 'DONE' || stageLabel === 'COMPLETED' ? '#198754' :
+                                      (stageLabel === 'REJECTED' || stageLabel === 'CANCELLED' ? '#dc3545' :
+                                      (stageLabel === 'FOR SAMPLE' || stageLabel === 'APPROVAL' ? '#fd7e14' : '#667eea'));
+                    html += `<span class="dp-stage" style="background:${stageColor}1a;color:${stageColor};border:1px solid ${stageColor}40;">${stageLabel}</span>`;
+                }
                 if (p.payment_status === 'verified') {
                     html += `<span class="dp-status" style="color:#198754;font-weight:600;">✅</span>`;
                 } else if (p.payment_status === 'pending' && p.payment_account_id) {
