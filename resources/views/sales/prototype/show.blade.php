@@ -1592,10 +1592,12 @@ function closeDeleteDesignModal() {
 }
 function doDeleteDesignImage(btn) {
     if (!pendingDeleteImage) return;
+    var delType = pendingDeleteImage.type;
+    var delUrl = pendingDeleteImage.url;
     var reason = document.getElementById('deleteDesignReason').value.trim();
     var fd = new FormData();
-    fd.append('type', pendingDeleteImage.type);
-    fd.append('url', pendingDeleteImage.url);
+    fd.append('type', delType);
+    fd.append('url', delUrl);
     fd.append('reason', reason);
 
     btn.disabled = true;
@@ -1615,17 +1617,17 @@ function doDeleteDesignImage(btn) {
         btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete';
         closeDeleteDesignModal();
         if (data.success) {
-            var galleryId = pendingDeleteImage.type === 'sample_color' ? 'colorShotsGallery' : 'fileShotsGallery';
+            var galleryId = delType === 'sample_color' ? 'colorShotsGallery' : 'fileShotsGallery';
             var gallery = document.getElementById(galleryId);
             if (gallery) {
                 var wraps = gallery.querySelectorAll('div[style*="position:relative"]');
                 wraps.forEach(function(w) {
                     var img = w.querySelector('img');
-                    if (img && img.src === pendingDeleteImage.url) w.remove();
+                    if (img && img.src === delUrl) w.remove();
                 });
                 var thumbs = gallery.querySelectorAll('img.design-thumb');
                 thumbs.forEach(function(im) {
-                    if (im.src === pendingDeleteImage.url) im.parentElement.remove();
+                    if (im.src === delUrl) im.parentElement.remove();
                 });
                 if (!gallery.querySelector('img')) {
                     gallery.innerHTML = '<div class="text-muted small">Wala pang upload.</div>';
