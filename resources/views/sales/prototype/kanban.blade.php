@@ -344,6 +344,13 @@
 
 @section('content')
 <div class="container-fluid px-4">
+    <!-- Archive Link (top-right) -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <a href="{{ route('sales.prototype.archived') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-weight:600;">
+            📦 Archive <span class="badge bg-secondary ms-1" id="archiveCountBadge">{{ $archivedCount ?? 0 }}</span>
+        </a>
+    </div>
+
     <!-- Department Tabs (AJAX) -->
     <div class="department-tabs">
         @php
@@ -472,6 +479,11 @@
                                     <span>👤 {{ $sale->sales_agent_name }}</span>
                                 @endif
                             </div>
+                            @if($statusKey === 'completed')
+                                <div style="margin-top:6px;">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary archive-btn" style="width:100%;font-size:10px;padding:2px 6px;" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number ?: $sale->id }}" onclick="event.stopPropagation();archiveSale(this)" title="Archive this completed project">📦 Archive</button>
+                                </div>
+                            @endif
                         </div>
                     @empty
                         <div class="empty-column">No items</div>
@@ -827,6 +839,50 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
         toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:99999;background:#dc3545;color:#fff;padding:12px 20px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.2);font-size:14px;font-weight:600;max-width:400px;';
         document.body.appendChild(toast);
         setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(function() { toast.remove(); }, 300); }, 3500);
+    }
+
+    // === ARCHIVE SALE (Completed column) ===
+    function archiveSale(btn) {
+        var saleId = btn.getAttribute('data-sale-id');
+        var saleNumber = btn.getAttribute('data-sale-number');
+        if (!saleId) return;
+        if (!confirm('📦 Archive "' + saleNumber + '"?\n\nIt will be removed from the kanban board and stored in the Archive page.')) return;
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+        fetch('/sales/prototype/' + saleId + '/archive', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+            }
+        })
+        .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            if (res.ok && res.data.success) {
+                var card = btn.closest('.kanban-card');
+                if (card) card.remove();
+                // Update column count
+                var col = btn.closest('.kanban-column');
+                if (col) {
+                    var count = col.querySelector('.card-count');
+                    if (count) count.textContent = col.querySelectorAll('.kanban-card').length;
+                }
+                var toast = document.createElement('div');
+                toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#198754;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:14px;font-weight:600;';
+                toast.textContent = res.data.message;
+                document.body.appendChild(toast);
+                setTimeout(function() { toast.remove(); }, 4000);
+            } else {
+                btn.disabled = false;
+                btn.textContent = '📦 Archive';
+                showKanbanToast('⚠️ ' + (res.data.message || 'Failed to archive.'));
+            }
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.textContent = '📦 Archive';
+            showKanbanToast('❌ Network error. Please try again.');
+        });
     }
 
     // === DRAG & DROP (native HTML5 — most reliable) ===

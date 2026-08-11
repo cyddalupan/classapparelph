@@ -2322,7 +2322,8 @@ public function printSlip(string $id)
         
         // Get sales — filter by department if specific, or get ALL
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
-            ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed']);
+            ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at');
         
         if (!$showAll) {
             $deptId = $deptCodeMap[$activeDept];
@@ -2344,13 +2345,16 @@ public function printSlip(string $id)
         foreach ($kanbanOrder as $k) {
             $columns[$k] = [];
         }
-        
+
         foreach ($sales as $sale) {
             $status = $sale->kanban_status ?: 'new';
             if (isset($columns[$status])) {
                 $columns[$status][] = $sale;
             }
         }
+
+        // Count of archived projects (for the Archive link badge)
+        $archivedCount = \App\Models\PrototypeSale::whereNotNull('archived_at')->count();
         
         // Determine which sales have approved additional products (via change requests)
         $approvedAdditions = [];
@@ -2392,7 +2396,7 @@ public function printSlip(string $id)
         return view('sales.prototype.kanban', compact(
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
             'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions',
-            'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount'
+            'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount', 'archivedCount'
         ));
     }
 
@@ -2714,6 +2718,83 @@ public function printSlip(string $id)
         });
         
         return response()->json(['projects' => $projectsFormatted]);
+    }
+
+    /**
+     * Archive a completed project — sets archived_at. Only completed sales can be archived.
+     */
+    public function archive(Request $request, $id)
+    {
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // Managers/admins only
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            return response()->json(['success' => false, 'message' => 'Only managers can archive projects.'], 403);
+        }
+
+        if ($sale->kanban_status !== 'completed') {
+            return response()->json(['success' => false, 'message' => 'Only Completed projects can be archived.'], 422);
+        }
+
+        if ($sale->archived_at) {
+            return response()->json(['success' => false, 'message' => 'Project is already archived.'], 422);
+        }
+
+        $sale->archived_at = now();
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => '📦 Project ' . ($sale->sales_number ?: '#' . $sale->id) . ' archived.',
+        ]);
+    }
+
+    /**
+     * Archive page — list of archived projects.
+     */
+    public function archived(Request $request)
+    {
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->whereNotNull('archived_at')
+            ->orderByDesc('archived_at');
+
+        // Department filter
+        if ($request->filled('department') && $request->department !== 'all') {
+            $query->where('department_id', $request->department);
+        }
+
+        $sales = $query->paginate(25)->withQueryString();
+
+        // Reuse the list view data helpers where possible
+        $departments = \DB::table('sales_departments')->where('is_active', true)->get();
+
+        return view('sales.prototype.archived', compact('sales', 'departments'));
+    }
+
+    /**
+     * Restore an archived project back to the kanban board (Completed column).
+     */
+    public function restore(Request $request, $id)
+    {
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            return response()->json(['success' => false, 'message' => 'Only managers can restore projects.'], 403);
+        }
+
+        if (!$sale->archived_at) {
+            return response()->json(['success' => false, 'message' => 'Project is not archived.'], 422);
+        }
+
+        $sale->archived_at = null;
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => '↩ Project restored to the kanban board.',
+        ]);
     }
 
     /**

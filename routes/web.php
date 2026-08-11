@@ -779,6 +779,11 @@ Route::get('/inventorylist', function() {
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
 
+        // ARCHIVE routes
+        Route::get('/sales/prototype/archived', [App\Http\Controllers\PrototypeSalesController::class, 'archived'])->name('sales.prototype.archived');
+        Route::post('/sales/prototype/{id}/archive', [App\Http\Controllers\PrototypeSalesController::class, 'archive'])->name('sales.prototype.archive');
+        Route::post('/sales/prototype/{id}/restore', [App\Http\Controllers\PrototypeSalesController::class, 'restore'])->name('sales.prototype.restore');
+
         // KANBAN routes
         Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
         Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');

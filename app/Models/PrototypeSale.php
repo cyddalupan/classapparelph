@@ -47,6 +47,7 @@ class PrototypeSale extends Model
         'estimated_completion_date',
         'rescheduled_date',
         'actual_completion_date',
+        'archived_at',
         'customer_notes',
         'internal_notes',
         'status',
@@ -67,6 +68,7 @@ class PrototypeSale extends Model
         'estimated_completion_date' => 'date',
         'rescheduled_date' => 'date',
         'actual_completion_date' => 'date',
+        'archived_at' => 'datetime',
     ];
 
     public function customer()
