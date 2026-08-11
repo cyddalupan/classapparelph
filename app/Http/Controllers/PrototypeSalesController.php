@@ -410,19 +410,8 @@ public function details(Request $request, string $id)
         
         $services = json_decode($sale->services, true) ?: [];
         
-        // Build HTML for modal
+        // Build HTML for modal (production-focused: items, mockups, refs, print details, notes, comments)
         $html = '';
-        
-        // --- Customer Info ---
-        $html .= '<div class="sale-detail-section">';
-        $html .= '<h6><i class="fas fa-user me-2"></i>Customer Information</h6>';
-        $html .= '<div class="row g-2 small">';
-        $html .= '<div class="col-6"><span class="text-muted">Name:</span> <strong>' . e($sale->customer_name) . '</strong></div>';
-        $html .= '<div class="col-6"><span class="text-muted">Sales #:</span> <strong>' . e($sale->sales_number) . '</strong></div>';
-        if ($sale->customer_phone) $html .= '<div class="col-6"><span class="text-muted">Phone:</span> ' . e($sale->customer_phone) . '</div>';
-        $html .= '<div class="col-6"><span class="text-muted">Agent:</span> ' . e($sale->sales_agent_name ?? 'N/A') . '</div>';
-        $html .= '<div class="col-6"><span class="text-muted">Dept:</span> ' . e($sale->department_name ?? 'N/A') . '</div>';
-        $html .= '</div></div>';
         
         // --- Notes ---
         if ($sale->customer_notes || $sale->internal_notes) {
@@ -529,70 +518,36 @@ public function details(Request $request, string $id)
             $html .= '</div>'; // section
         }
         
-        // --- Payment Info ---
-        $html .= '<div class="sale-detail-section">';
-        $html .= '<h6><i class="fas fa-credit-card me-2"></i>Payment & Totals</h6>';
-        $html .= '<div class="total-row"><span>Total Amount</span><span>₱' . number_format($sale->total_amount ?? 0, 2) . '</span></div>';
-        if (($sale->deposit_paid ?? 0) > 0) {
-            $html .= '<div class="subtotal-row text-success"><span>Deposit Paid</span><span>-₱' . number_format($sale->deposit_paid, 2) . '</span></div>';
-        }
-        $balance = ($sale->total_amount ?? 0) - ($sale->deposit_paid ?? 0);
-        if ($balance > 0) {
-            $html .= '<div class="subtotal-row text-danger fw-bold"><span>Balance Due</span><span>₱' . number_format($balance, 2) . '</span></div>';
-        }
-
-        $html .= '<div class="mt-2 small">';
-        $html .= '<span class="text-muted">Payment Method:</span> ' . e(ucfirst($sale->payment_method ?? 'N/A')) . ' &nbsp;|&nbsp; ';
-        $html .= '<span class="text-muted">Paid by:</span> ' . e(ucfirst($sale->payment_owner ?? 'N/A')) . '<br>';
-        if ($sale->payment_account_id) {
-            $account = \App\Models\PaymentAccount::find($sale->payment_account_id);
-            if ($account) {
-                $html .= '<span class="text-muted">Account:</span> <strong>' . e($account->name) . '</strong>';
-                if ($account->user) {
-                    $html .= ' <span class="text-muted">(' . e($account->user->name) . ')</span>';
-                }
-                $html .= '<br>';
-            }
-        }
-        $html .= '<span class="text-muted">Payment Status:</span> ';
-        if ($sale->payment_status === 'verified') {
-            $html .= '<span class="badge bg-success">✅ Verified</span>';
-            if ($sale->verified_at) $html .= ' <small class="text-muted">' . \Carbon\Carbon::parse($sale->verified_at)->format('M d, g:i A') . '</small>';
-        } elseif ($sale->payment_status === 'rejected') {
-            $html .= '<span class="badge bg-danger">❌ Rejected</span>';
-        } elseif ($sale->payment_status === 'pending' && $sale->payment_account_id) {
-            $html .= '<span class="badge bg-warning text-dark">⏳ Pending</span>';
-        } else {
-            $html .= '<span class="badge bg-secondary">—</span>';
-        }
-        if ($sale->reference_number) {
-            $html .= '<br><span class="text-muted">Reference:</span> ' . e($sale->reference_number);
-        }
-        if ($sale->payment_date) {
-            $html .= ' &nbsp;|&nbsp; <span class="text-muted">Date:</span> ' . \Carbon\Carbon::parse($sale->payment_date)->format('M d, Y');
-        }
-        if ($sale->verify_requested_at) {
-            $html .= '<br><span class="badge bg-info"><i class="fas fa-exclamation-circle"></i> Verify Requested</span>';
-            $html .= ' <small class="text-muted">' . \Carbon\Carbon::parse($sale->verify_requested_at)->format('M d, g:i A') . '</small>';
-        }
-        $html .= '</div>';
-        // Audit log link
-        $auditCount = \App\Models\PaymentAuditLog::where('prototype_sale_id', $id)->count();
-        if ($auditCount > 0) {
-            $html .= '<div class="mt-1 small">';
-            $html .= '<button class="btn btn-sm btn-outline-info" onclick="showAuditLogs(' . $id . ')"><i class="fas fa-history"></i> View Audit Log (' . $auditCount . ')</button>';
-            $html .= '</div>';
-        }
-        $html .= '</div>';
-        
-        // --- Payment Screenshot ---
-        if ($sale->payment_screenshot_path) {
+        // --- Comments (production-relevant) ---
+        $comments = \DB::table('prototype_sale_comments')
+            ->leftJoin('users', 'prototype_sale_comments.user_id', '=', 'users.id')
+            ->select('prototype_sale_comments.*', 'users.name as user_name')
+            ->where('prototype_sale_comments.sale_id', $id)
+            ->orderBy('prototype_sale_comments.created_at', 'desc')
+            ->get();
+        if ($comments->isNotEmpty()) {
             $html .= '<div class="sale-detail-section">';
-            $html .= '<h6><i class="fas fa-camera me-2"></i>Payment Screenshot</h6>';
-            $html .= '<img src="' . e($sale->payment_screenshot_path) . '" class="payment-img" style="cursor:pointer;">';
-            $html .= '<div class="small text-muted mt-1">Click to enlarge</div>';
+            $html .= '<h6><i class="fas fa-comments me-2"></i>Comments (' . $comments->count() . ')</h6>';
+            foreach ($comments as $c) {
+                $html .= '<div class="item-card" style="padding:8px 12px;margin-bottom:6px;">';
+                $html .= '<div class="d-flex justify-content-between">';
+                $html .= '<strong class="small">' . e($c->user_name ?? 'User #' . $c->user_id) . '</strong>';
+                $html .= '<small class="text-muted">' . \Carbon\Carbon::parse($c->created_at)->format('M d, g:i A') . '</small>';
+                $html .= '</div>';
+                $html .= '<div class="small mt-1">' . nl2br(e($c->comment)) . '</div>';
+                $html .= '</div>';
+            }
             $html .= '</div>';
         }
+        
+        // --- Sales # + totals summary line (compact, no payment details) ---
+        $html .= '<div class="sale-detail-section">';
+        $html .= '<h6><i class="fas fa-receipt me-2"></i>Order Summary</h6>';
+        $html .= '<div class="total-row"><span>Sales #</span><span>' . e($sale->sales_number) . '</span></div>';
+        if (($sale->total_amount ?? 0) > 0) {
+            $html .= '<div class="total-row"><span>Total Amount</span><span>₱' . number_format($sale->total_amount, 2) . '</span></div>';
+        }
+        $html .= '</div>';
         
         // Extract first service name for addon modals
         $firstServiceName = '';

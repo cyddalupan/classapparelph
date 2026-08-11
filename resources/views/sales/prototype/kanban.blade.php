@@ -454,6 +454,9 @@
                     <i class="fas fa-plus me-1"></i>+ Add Items
                 </button>
                 <!-- Edit button removed — will be repurposed for manager approval -->
+                <a href="#" id="modalViewFullSaleBtn" class="btn btn-outline-primary" target="_blank" style="display:none;">
+                    <i class="fas fa-external-link-alt"></i> View Full Sale
+                </a>
                 <a href="#" id="modalPrintSlipBtn" class="btn btn-success" target="_blank" style="display:none;">
                     <i class="fas fa-print"></i> View Printable
                 </a>
@@ -959,12 +962,17 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
             // Update Print Slip button link
             var editBtn = document.getElementById('modalEditBtn');
             var printBtn = document.getElementById('modalPrintSlipBtn');
+            var fullSaleBtn = document.getElementById('modalViewFullSaleBtn');
             if (editBtn) {
                 editBtn.style.display = 'none';
             }
             if (printBtn) {
                 printBtn.href = '/sales/prototype/' + saleId + '/print-slip';
                 printBtn.style.display = '';
+            }
+            if (fullSaleBtn) {
+                fullSaleBtn.href = '/sales/prototype/' + saleId;
+                fullSaleBtn.style.display = '';
             }
             // Body dataset already set before the fetch
         })
