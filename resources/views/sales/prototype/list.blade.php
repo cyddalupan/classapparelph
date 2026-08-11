@@ -373,16 +373,16 @@
             <thead>
                 <tr>
                     <th>Sales #</th>
-                    <th>Customer</th>
-                    <th>Department</th>
-                    <th>Photos</th>
+                    <th>Mock Up</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Production Status</th>
                     <th>Total</th>
-                    <th>Net Paid</th>
-                    <th>Balance Due</th>
-                    <th>Payment</th>
+                    <th>Payment Status</th>
                     <th>Progress</th>
+                    <th>Department</th>
+                    <th>Customer</th>
                     <th>Agent</th>
-                    <th>Date</th>
                 </tr>
             </thead>
             <tbody>
@@ -391,58 +391,78 @@
                         $statusIndex = array_search($sale->kanban_status ?? 'new', $kanbanStatuses);
                         if ($statusIndex === false) $statusIndex = 0;
                         $isActive = false;
+
+                        // Mock up thumbnail
+                        $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+                        $firstMockup = $mockups[0] ?? null;
+                        $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
+
+                        // Description + total quantity from services
+                        $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+                        $descParts = [];
+                        $totalQty = 0;
+                        foreach ((array)$svcItems as $svc) {
+                            if (is_array($svc)) {
+                                $descParts[] = \App\Models\PrototypeSale::itemSpecSummary($svc);
+                                $totalQty += (int)($svc['quantity'] ?? 1);
+                            }
+                        }
+                        $description = $descParts ? implode(' + ', $descParts) : '—';
+
+                        // Photos + photo lock
+                        $designImgs = $sale->design_images ?? [];
+                        $hasFileShot = collect($designImgs)->contains('type', 'file_screenshot');
+                        $hasColorShot = collect($designImgs)->contains('type', 'sample_color');
+                        $allPhotos = $hasFileShot && $hasColorShot;
+                        $photoNotif = $lastNotifs[$sale->id]['photo_reminder'] ?? null;
+                        $photoLastAt = $photoNotif['last_at'] ?? null;
+                        $photoCount = $photoNotif['reminder_count'] ?? 0;
+                        $photoCooldown = $photoLastAt && $photoLastAt->diffInHours(now()) < 24;
+                        $photoMinAgo = $photoLastAt ? (int) $photoLastAt->diffInMinutes(now()) : 0;
+                        $photoAgoText = $photoMinAgo < 60 ? $photoMinAgo . 'm ago' : round($photoMinAgo / 60) . 'h ago';
+                        $canOverride = auth()->user() && (auth()->user()->isAdmin() || auth()->user()->role === 'manager');
+                        $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
                     @endphp
-                    <tr onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
-                        <td>
+                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                        <td style="white-space:nowrap;">
                             <strong>{{ $sale->sales_number }}</strong>
+                            <div style="font-size:11px;color:#6c757d;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
                             @if(!empty($pendingCounts[$sale->id]))
                                 <span class="badge bg-warning text-dark pending-row-badge" title="Has pending changes for approval">🔔</span>
                             @endif
                         </td>
-                        <td>{{ $sale->customer_name ?: '—' }}</td>
                         <td>
-                            <span class="dept-badge" style="background:{{ $departmentColors[$sale->department_id] ?? '#6c757d' }};">
-                                {{ $departmentLabels[$sale->department_id] ?? 'Unknown' }}
-                            </span>
+                            @if($firstMockupUrl)
+                                <img src="{{ $firstMockupUrl }}" alt="mockup" style="width:44px;height:44px;object-fit:cover;border-radius:6px;cursor:pointer;" title="Click to open order" onerror="this.style.display='none'">
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
                         </td>
+                        <td style="max-width:220px;">
+                            <div style="font-size:12px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;" title="{{ $description }}">{{ \Illuminate\Support\Str::limit($description, 60) }}</div>
+                        </td>
+                        <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
-                            @php
-                                $designImgs = $sale->design_images ?? [];
-                                $hasFileShot = collect($designImgs)->contains('type', 'file_screenshot');
-                                $hasColorShot = collect($designImgs)->contains('type', 'sample_color');
-                                $allPhotos = $hasFileShot && $hasColorShot;
-                                $photoNotif = $lastNotifs[$sale->id]['photo_reminder'] ?? null;
-                                $photoLastAt = $photoNotif['last_at'] ?? null;
-                                $photoCount = $photoNotif['reminder_count'] ?? 0;
-                                $photoCooldown = $photoLastAt && $photoLastAt->diffInHours(now()) < 24;
-                                $photoMinAgo = $photoLastAt ? (int) $photoLastAt->diffInMinutes(now()) : 0;
-                                $photoAgoText = $photoMinAgo < 60 ? $photoMinAgo . 'm ago' : round($photoMinAgo / 60) . 'h ago';
-                            @endphp
-                            <span data-photos="{{ $allPhotos ? 'complete' : 'missing' }}">
-                                @if($allPhotos)
-                                    <span class="badge bg-success" title="File screenshot & sample color uploaded">📄🎨 OK</span>
-                                @else
-                                    @if(!$hasFileShot)
-                                        <span class="badge bg-warning text-dark" title="Missing file screenshot">📄 Missing</span>
-                                    @endif
-                                    @if(!$hasColorShot)
-                                        <span class="badge bg-warning text-dark" title="Missing approved sample color">🎨 Missing</span>
-                                    @endif
+                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->kanban_status ?? 'new' }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;">
+                                @foreach($kanbanStatuses as $st)
+                                    <option value="{{ $st }}" {{ ($sale->kanban_status ?? 'new') === $st ? 'selected' : '' }} @if(!$allPhotos && !$canOverride && in_array($st, $lockedStatuses)) disabled title="🔒 Kulang photos (File Screenshot / Sample Color)" @endif>{{ $kanbanLabels[$st] }}</option>
+                                @endforeach
+                            </select>
+                            @if(!$allPhotos && !$canOverride)
+                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang photos — manual drag lang</div>
+                            @endif
+                            @if(!$allPhotos)
+                                <div style="margin-top:3px;">
                                     @if($photoCooldown)
                                         <span class="badge bg-secondary" title="Last notified {{ $photoLastAt->diffForHumans() }}">🔔 {{ $photoAgoText }}</span>
                                         <button type="button" class="btn btn-sm btn-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>
                                     @else
                                         <button type="button" class="btn btn-sm btn-outline-warning notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" title="Notify agent to upload photos{{ $photoCount > 1 ? ' (reminder #'.$photoCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $photoCount > 1 ? '×'.$photoCount : '' }}</button>
                                     @endif
-                                @endif
-                            </span>
-                        </td>
-                        <td>₱{{ number_format($sale->total_amount ?? $sale->subtotal ?? 0, 2) }}</td>
-                        <td>₱{{ number_format($sale->net_paid, 2) }}
-                            @if(($sale->total_refunded ?? 0) > 0)
-                                <div class="small" style="color:#dc3545;"><i class="fas fa-undo-alt me-1"></i>−₱{{ number_format($sale->total_refunded, 2) }} refunded</div>
+                                </div>
                             @endif
                         </td>
+                        <td>₱{{ number_format($sale->total_amount ?? $sale->subtotal ?? 0, 2) }}</td>
                         <td>
                             @php
                                 $payNotif = $lastNotifs[$sale->id]['payment_reminder'] ?? null;
@@ -460,24 +480,23 @@
                                 @else
                                     <button type="button" class="btn btn-sm btn-outline-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" title="Notify agent to collect payment{{ $payCount > 1 ? ' (reminder #'.$payCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $payCount > 1 ? '×'.$payCount : '' }}</button>
                                 @endif
-                            @elseif(($sale->net_paid ?? 0) > 0)
-                                <span class="badge bg-success">Paid</span>
-                            @else
-                                <span class="badge bg-secondary">—</span>
                             @endif
-                        </td>
-                        <td>
-                            @if(($sale->total_refunded ?? 0) > 0 && ($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
-                                <span class="badge bg-info text-dark">↩ Refunded</span>
-                            @elseif($sale->payment_status === 'verified' || (($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0))
-                                <span class="badge bg-success">✅ Paid</span>
-                            @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
-                                <span class="badge bg-warning text-dark">⏳ Pending</span>
-                            @elseif($sale->payment_status === 'rejected')
-                                <span class="badge bg-danger">❌ Rejected</span>
-                            @else
-                                <span class="badge bg-secondary">—</span>
-                            @endif
+                            <div style="margin-top:2px;">
+                                @if(($sale->total_refunded ?? 0) > 0 && ($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
+                                    <span class="badge bg-info text-dark">↩ Refunded</span>
+                                @elseif($sale->payment_status === 'verified' || (($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0))
+                                    <span class="badge bg-success">✅ Paid</span>
+                                @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
+                                    <span class="badge bg-warning text-dark">⏳ Pending</span>
+                                @elseif($sale->payment_status === 'rejected')
+                                    <span class="badge bg-danger">❌ Rejected</span>
+                                @else
+                                    <span class="badge bg-secondary">—</span>
+                                @endif
+                                @if(($sale->total_refunded ?? 0) > 0)
+                                    <div class="small" style="color:#dc3545;"><i class="fas fa-undo-alt me-1"></i>−₱{{ number_format($sale->total_refunded, 2) }} refunded</div>
+                                @endif
+                            </div>
                         </td>
                         <td>
                             <div class="pipeline">
@@ -497,10 +516,13 @@
                                 @endforeach
                             </div>
                         </td>
-                        <td style="font-size:12px;color:#6c757d;">{{ $sale->sales_agent_name ?: '—' }}</td>
-                        <td style="font-size:12px;color:#6c757d;white-space:nowrap;">
-                            {{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}
+                        <td>
+                            <span class="dept-badge" style="background:{{ $departmentColors[$sale->department_id] ?? '#6c757d' }};">
+                                {{ $departmentLabels[$sale->department_id] ?? 'Unknown' }}
+                            </span>
                         </td>
+                        <td>{{ $sale->customer_name ?: '—' }}</td>
+                        <td style="font-size:12px;color:#6c757d;">{{ $sale->sales_agent_name ?: '—' }}</td>
                     </tr>
                 @empty
                     <tr>
@@ -628,9 +650,9 @@ function filterTable() {
         var activeDot = row.querySelector('.pipeline-dot.active');
         var statusMatch = !status || (activeDot && activeDot.closest('.pipeline-step').title === document.querySelector('#statusFilter option[value="' + status + '"]').textContent);
         
-        // Payment filter: match badge text in the Payment column (8th td)
+        // Payment filter: match badge text in the Payment Status column (7th td)
         var payBadge = '';
-        var payTd = row.querySelector('td:nth-child(8) .badge');
+        var payTd = row.querySelector('td:nth-child(7) .badge');
         if (payTd) payBadge = payTd.textContent.trim();
         var paymentMatch = true;
         if (payment === 'paid') paymentMatch = payBadge.indexOf('Paid') !== -1;
@@ -638,18 +660,17 @@ function filterTable() {
         else if (payment === 'pending') paymentMatch = payBadge.indexOf('Pending') !== -1;
         else if (payment === 'rejected') paymentMatch = payBadge.indexOf('Rejected') !== -1;
         else if (payment === 'balance') {
-            // With Balance Due: Balance Due column (7th td) has a red badge with amount
+            // With Balance Due: red badge with amount in Payment Status column (7th td)
             var balBadge = row.querySelector('td:nth-child(7) .badge.bg-danger');
             paymentMatch = !!balBadge;
         }
         
-        // Agent filter: match agent cell (10th td)
-        var rowAgent = row.querySelector('td:nth-child(10)') ? row.querySelector('td:nth-child(10)').textContent.trim() : '';
+        // Agent filter: match agent cell (11th td)
+        var rowAgent = row.querySelector('td:nth-child(11)') ? row.querySelector('td:nth-child(11)').textContent.trim() : '';
         var agentMatch = !agent || rowAgent === agent;
         
-        // Photo filter: Photos column (4th td) has data-photos attribute
-        var photoTd = row.querySelector('td:nth-child(4) [data-photos]');
-        var photoStatus = photoTd ? photoTd.getAttribute('data-photos') : '';
+        // Photo filter: row has data-photos attribute
+        var photoStatus = row.getAttribute('data-photos') || '';
         var photoMatch = !photo || photoStatus === photo;
         
         var searchMatch = !search || text.indexOf(search) !== -1;
@@ -664,7 +685,7 @@ function populateAgentFilter() {
     var seen = {};
     document.querySelectorAll('#orderTable tbody tr').forEach(function(row) {
         if (row.querySelector('td[colspan]')) return;
-        var a = row.querySelector('td:nth-child(10)') ? row.querySelector('td:nth-child(10)').textContent.trim() : '';
+        var a = row.querySelector('td:nth-child(11)') ? row.querySelector('td:nth-child(11)').textContent.trim() : '';
         if (a && !seen[a]) {
             seen[a] = true;
             var opt = document.createElement('option');
@@ -680,6 +701,59 @@ function resetFilters() {
         document.getElementById(id).value = '';
     });
     filterTable();
+}
+
+// === PRODUCTION STATUS DROPDOWN — move kanban card ===
+document.addEventListener('change', function(e) {
+    var sel = e.target.closest('.prod-status-select');
+    if (!sel) return;
+    var saleId = sel.getAttribute('data-sale-id');
+    var newStatus = sel.value;
+    var oldStatus = sel.getAttribute('data-current');
+    var row = sel.closest('tr');
+    sel.disabled = true;
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch('/sales/prototype/' + saleId + '/update-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrf ? csrf.content : ''
+        },
+        body: JSON.stringify({ kanban_status: newStatus })
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        sel.disabled = false;
+        if (res.ok && res.data.success) {
+            sel.setAttribute('data-current', newStatus);
+            showToast('✅ Moved to ' + newStatus + ' sa kanban', 'success');
+            updatePipelineInRow(row, newStatus);
+        } else {
+            sel.value = oldStatus;
+            showToast('⚠️ ' + (res.data.message || 'Failed to update status.'), 'error');
+        }
+    })
+    .catch(function() {
+        sel.disabled = false;
+        sel.value = oldStatus;
+        showToast('❌ Network error. Please try again.', 'error');
+    });
+});
+
+function updatePipelineInRow(row, status) {
+    var statuses = ['new', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+    var idx = statuses.indexOf(status);
+    if (idx < 0 || !row) return;
+    row.querySelectorAll('.pipeline-step').forEach(function(step, i) {
+        var dot = step.querySelector('.pipeline-dot');
+        dot.classList.remove('completed', 'active');
+        if (i < idx) dot.classList.add('completed');
+        else if (i === idx) dot.classList.add('active');
+    });
+    row.querySelectorAll('.pipeline-line').forEach(function(line, i) {
+        line.classList.remove('completed');
+        if (i < idx) line.classList.add('completed');
+    });
 }
 
 document.addEventListener('DOMContentLoaded', populateAgentFilter);
