@@ -36,18 +36,75 @@
     .kanban-column-header.completed { background: #d4edda; color: #155724; }
     
     /* Navigation buttons */
+    .kanban-navbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 12px;
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 10px 14px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
     .nav-list-btn {
-        padding: 6px 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 18px;
         font-size: 13px;
-        font-weight: 500;
-        background: #e8f5e9;
-        border-radius: 20px;
+        font-weight: 600;
+        color: #155724;
+        background: linear-gradient(135deg, #e8f5e9, #d7f0db);
+        border: 1px solid #c8e6c9;
+        border-radius: 24px;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: all 0.2s;
         white-space: nowrap;
+        text-decoration: none;
     }
     .nav-list-btn:hover {
-        background: #c8e6c9;
+        background: linear-gradient(135deg, #d7f0db, #c8e6c9);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(21,87,36,0.15);
+        text-decoration: none;
+        color: #155724;
+    }
+    .pending-addons-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 18px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #7a4f01;
+        background: linear-gradient(135deg, #fff3cd, #ffe9a8);
+        border: 1px solid #ffd98a;
+        border-radius: 24px;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    .pending-addons-btn:hover {
+        background: linear-gradient(135deg, #ffe9a8, #ffd98a);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(122,79,1,0.15);
+    }
+    .pending-addons-btn .badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 12px;
+        background: #d9534f;
+        color: #fff;
+        animation: badgePulse 1.5s ease-in-out infinite;
+    }
+    @keyframes badgePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.12); }
+    }
+    .kanban-navbar .nav-spacer {
+        flex: 1;
     }
     
     .kanban-card {
@@ -311,11 +368,14 @@
     </div>
 
     <!-- Navigation -->
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
-        <a href="{{ route('sales.prototype.list') }}" class="nav-list-btn">📋 Manager List</a>
-        <button type="button" class="btn btn-warning btn-sm" onclick="openPendingAddons()">
-            <i class="fas fa-clock me-1"></i>Pending Add-ons
-            <span class="badge bg-dark ms-1" id="pendingAddonsCount" style="font-size:10px;{{ ($pendingAddonCount ?? 0) > 0 ? '' : 'display:none;' }}">{{ $pendingAddonCount ?? 0 }}</span>
+    <div class="kanban-navbar">
+        <a href="{{ route('sales.prototype.list') }}" class="nav-list-btn">
+            <i class="fas fa-list-ul"></i>Manager List
+        </a>
+        <span class="nav-spacer"></span>
+        <button type="button" class="pending-addons-btn" onclick="openPendingAddons()">
+            <i class="fas fa-clock"></i>Pending Add-ons
+            <span class="badge" id="pendingAddonsCount" style="{{ ($pendingAddonCount ?? 0) > 0 ? '' : 'display:none;' }}">{{ $pendingAddonCount ?? 0 }}</span>
         </button>
     </div>
 
