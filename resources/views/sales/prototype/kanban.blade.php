@@ -313,7 +313,6 @@
     <!-- Navigation -->
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
         <a href="{{ route('sales.prototype.list') }}" class="nav-list-btn">📋 Manager List</a>
-        <a href="{{ route('sales.prototype.create') }}" class="btn btn-outline-primary btn-sm">➕ New Order</a>
         <button type="button" class="btn btn-warning btn-sm" onclick="openPendingAddons()">
             <i class="fas fa-clock me-1"></i>Pending Add-ons
         </button>
