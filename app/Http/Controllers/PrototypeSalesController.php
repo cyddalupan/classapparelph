@@ -1737,15 +1737,15 @@ public function printSlip(string $id)
         // Sizes (from sublimation or fallback)
         $sizes = $main['sizes'] ?? [];
 
-        // Total QTY — sum across ALL services (not just first one)
+        // Total QTY — count from the primary service only (matches the roster/sizes shown on the slip)
+        // This avoids pulling in additional-order quantities (e.g. reprocess + 2 add-ons = 13+5+5)
         $totalQty = 0;
-        foreach ($services as $svc) {
-            $sf = $svc['sublimationForm'] ?? [];
-            if (!$sf) continue;
-            foreach ($sf['sizes'] ?? [] as $s) {
-                $totalQty += intval($s['quantity'] ?? 0);
-            }
-            foreach ($sf['roster'] ?? [] as $r) {
+        $primarySf = $main ?: [];
+        foreach ($primarySf['sizes'] ?? [] as $s) {
+            $totalQty += intval($s['quantity'] ?? $s['qty'] ?? 0);
+        }
+        if ($totalQty === 0) {
+            foreach ($primarySf['roster'] ?? [] as $r) {
                 $totalQty += intval($r['qty'] ?? $r['number'] ?? 1);
             }
         }
