@@ -445,14 +445,14 @@
                         </td>
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
-                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;">
+                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;{{ !$allPhotos ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : '' }}" @if(!$allPhotos) disabled title="🔒 Kulang photos (File Screenshot / Sample Color) — i-move sa kanban board" @endif>
                                 @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); @endphp
                                 @foreach($prodStageMap as $stage => $st)
-                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if(!$allPhotos && !$canOverride && in_array($st, $lockedStatuses)) disabled title="🔒 Kulang photos (File Screenshot / Sample Color)" @endif>{{ $stage }}</option>
+                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }}>{{ $stage }}</option>
                                 @endforeach
                             </select>
-                            @if(!$allPhotos && !$canOverride)
-                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang photos — manual drag lang</div>
+                            @if(!$allPhotos)
+                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang photos — i-move sa kanban board</div>
                             @endif
                         </td>
                         <td>
