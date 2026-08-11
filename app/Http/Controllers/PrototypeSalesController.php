@@ -580,15 +580,6 @@ public function details(Request $request, string $id)
             $html .= '</div>';
         }
         
-        // --- Sales # + totals summary line (compact, no payment details) ---
-        $html .= '<div class="sale-detail-section">';
-        $html .= '<h6><i class="fas fa-receipt me-2"></i>Order Summary</h6>';
-        $html .= '<div class="total-row"><span>Sales #</span><span>' . e($sale->sales_number) . '</span></div>';
-        if (($sale->total_amount ?? 0) > 0) {
-            $html .= '<div class="total-row"><span>Total Amount</span><span>₱' . number_format($sale->total_amount, 2) . '</span></div>';
-        }
-        $html .= '</div>';
-        
         // Extract first service name for addon modals
         $firstServiceName = '';
         if (is_array($services) && count($services) > 0) {
