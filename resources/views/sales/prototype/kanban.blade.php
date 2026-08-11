@@ -1757,21 +1757,51 @@ document.addEventListener("DOMContentLoaded", function() {
     };
     
     // Refresh the badge count on the Pending Add-ons button (auto-poll every 60s)
-    window.refreshPendingAddonsCount = function() {
+    var lastPendingAddonCount = {{ $pendingAddonCount ?? 0 }};
+    window.refreshPendingAddonsCount = function(showToastOnNew) {
         fetch('/sales/prototype/addon/pending-count', {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
+            var count = data.count || 0;
             var el = document.getElementById('pendingAddonsCount');
             if (el) {
-                el.textContent = data.count || 0;
-                el.style.display = data.count > 0 ? '' : 'none';
+                el.textContent = count;
+                el.style.display = count > 0 ? '' : 'none';
             }
+            // Toast notification when a NEW pending add-on arrives (same style as add product on sale 19)
+            if (showToastOnNew && count > lastPendingAddonCount) {
+                var added = count - lastPendingAddonCount;
+                showToast('<i class="fas fa-clock me-2"></i><strong>' + count + ' pending add-on request' + (count > 1 ? 's' : '') + '</strong> &middot; ' + added + ' bago. <a href="#" onclick="event.preventDefault();openPendingAddons();" style="color:inherit;text-decoration:underline;">Tingnan</a>', 'warning');
+            }
+            lastPendingAddonCount = count;
         })
         .catch(function() {});
     };
-    setInterval(refreshPendingAddonsCount, 60000);
+    // Initial poll with toast if there are pending add-ons on page load
+    setTimeout(function() { refreshPendingAddonsCount({{ ($pendingAddonCount ?? 0) > 0 ? 'true' : 'false' }}); }, 1200);
+    setInterval(function() { refreshPendingAddonsCount(true); }, 60000);
+
+    // Toast notification — same style as add product on sale 19 (show.blade.php)
+    window.showToast = function(msg, type) {
+        type = type || 'info';
+        var existing = document.querySelector('.toast-notification-' + type);
+        if (existing) existing.remove();
+
+        var toast = document.createElement('div');
+        toast.className = 'toast-notification-' + type;
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;padding:12px 20px;border-radius:8px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.15);max-width:400px;';
+
+        var colors = { success: '#d4edda,#155724', danger: '#f8d7da,#721c24', warning: '#fff3cd,#856404', info: '#d1ecf1,#0c5460' };
+        var c = colors[type] || colors.info;
+        toast.style.background = c.split(',')[0];
+        toast.style.color = c.split(',')[1];
+        toast.innerHTML = msg;
+
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(function() { toast.remove(); }, 300); }, 5000);
+    };
     
     window.approveAddon = function(requestId, saleId) {
         if (!confirm('Approve this add-on request? Pricing will be recalculated.')) return;
