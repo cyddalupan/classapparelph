@@ -881,11 +881,24 @@ public function details(Request $request, string $id)
         // Calculate new totals
         $subtotal = $servicesAfter ? array_sum(array_column($servicesAfter, 'totalPrice')) : 0;
         $totalAmount = $subtotal; // no 12% tax per Andrew's rule
-        $balanceDue = $totalAmount - $change->deposit_after;
+        
+        // Compute NET paid: verified payments minus completed refunds.
+        // (Previously used raw deposit_after, which ignored refunds and
+        //  caused phantom overpayments after a refund was completed.)
+        $totalPaid = \App\Models\PrototypePayment::where('prototype_sale_id', $change->sale_id)
+            ->whereNotIn('payment_status', ['rejected', 'reject_pending'])
+            ->sum('amount');
+        if ($totalPaid <= 0) {
+            $totalPaid = (float) ($change->deposit_after ?? 0);
+        }
+        $totalRefunded = \App\Models\PrototypeRefund::where('prototype_sale_id', $change->sale_id)
+            ->where('refund_status', 'completed')
+            ->sum('refund_amount');
+        $netPaid = max($totalPaid - $totalRefunded, 0);
         
         // Detect overpayment for reprocess
         $isReprocess = ($change->type ?? 'addition') === 'reprocess';
-        $rawBalance = $balanceDue;
+        $rawBalance = $totalAmount - $netPaid;
         $hasOverpayment = $rawBalance < 0;
         $balanceDue = max($rawBalance, 0); // Don't show negative balance
         $overpaymentAmount = $hasOverpayment ? abs($rawBalance) : 0;
@@ -896,11 +909,11 @@ public function details(Request $request, string $id)
             'subtotal' => $subtotal,
             'total_amount' => $totalAmount,
             'balance_due' => $balanceDue,
+            'overpayment' => $overpaymentAmount, // always set: 0 when no overpayment
             'updated_at' => now(),
         ];
         if ($hasOverpayment) {
             $updateData['balance_due'] = 0; // zero out balance, overpayment tracked separately
-            $updateData['overpayment'] = $overpaymentAmount;
         }
         \DB::table('prototype_sales')
             ->where('id', $change->sale_id)
@@ -2995,10 +3008,17 @@ public function printSlip(string $id)
             $totalVerified = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)
                 ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
                 ->sum('amount');
-            $newBalanceDue = max($sale->total_amount - $totalVerified, 0);
+            // Net paid = verified payments minus completed refunds (refunds must reduce what's owed/overpaid)
+            $totalRefunded = \App\Models\PrototypeRefund::where('prototype_sale_id', $saleId)
+                ->where('refund_status', 'completed')
+                ->sum('refund_amount');
+            $netPaid = max($totalVerified - $totalRefunded, 0);
+            $newBalanceDue = max($sale->total_amount - $netPaid, 0);
+            $newOverpayment = $netPaid > $sale->total_amount ? ($netPaid - $sale->total_amount) : 0;
             \DB::table('prototype_sales')->where('id', $saleId)->update([
                 'deposit_paid' => $totalVerified,
                 'balance_due' => $newBalanceDue,
+                'overpayment' => $newOverpayment,
                 'updated_at' => now(),
             ]);
 
@@ -3212,10 +3232,17 @@ public function printSlip(string $id)
                 $totalVerified = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)
                     ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
                     ->sum('amount');
-                $newBalanceDue = max($sale->total_amount - $totalVerified, 0);
+                // Net paid = verified payments minus completed refunds
+                $totalRefunded = \App\Models\PrototypeRefund::where('prototype_sale_id', $saleId)
+                    ->where('refund_status', 'completed')
+                    ->sum('refund_amount');
+                $netPaid = max($totalVerified - $totalRefunded, 0);
+                $newBalanceDue = max($sale->total_amount - $netPaid, 0);
+                $newOverpayment = $netPaid > $sale->total_amount ? ($netPaid - $sale->total_amount) : 0;
                 \DB::table('prototype_sales')->where('id', $saleId)->update([
                     'deposit_paid' => $totalVerified,
                     'balance_due' => $newBalanceDue,
+                    'overpayment' => $newOverpayment,
                     'updated_at' => now(),
                 ]);
             }
