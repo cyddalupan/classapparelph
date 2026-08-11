@@ -45,6 +45,7 @@ class PrototypeSale extends Model
         'kanban_status',
         'assigned_to',
         'estimated_completion_date',
+        'rescheduled_date',
         'actual_completion_date',
         'customer_notes',
         'internal_notes',
@@ -64,6 +65,7 @@ class PrototypeSale extends Model
         'assigned_to' => 'array',
         'verified_at' => 'datetime',
         'estimated_completion_date' => 'date',
+        'rescheduled_date' => 'date',
         'actual_completion_date' => 'date',
     ];
 
