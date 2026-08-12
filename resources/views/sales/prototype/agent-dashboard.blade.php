@@ -467,22 +467,39 @@
                 <i class="fas fa-bell"></i> Notify Verifier @if($verifyCount > 1) ×{{ $verifyCount }}@endif
             </button>
             @endif
-            @if(!$isDone && $isDelayed)
-                @if($sale->is_delayed)
+            @php
+                // Recompute dispatch state (same logic as Status badge) so the button can be gated
+                $delayStageRaw = $sale->production_stage ?: (match($sale->kanban_status ?? 'new') {
+                    'new' => 'HOLD',
+                    'sample_approval' => 'FOR SAMPLE',
+                    'design' => 'FOR FORMAT',
+                    'production' => 'PRINTING',
+                    'quality_check' => 'QA',
+                    'ready_for_delivery' => 'DISPATCH',
+                    'delivered' => 'UNPAID',
+                    'completed' => 'DONE',
+                    default => 'HOLD',
+                });
+                $delayDispatched = in_array($delayStageRaw, ['DISPATCH', 'UNPAID', 'DONE']);
+                $delayLocked = !$isDelayed || $delayDispatched;
+                $delayLockReason = $delayDispatched
+                    ? 'For Dispatch/Done na ang order — hindi na pwedeng i-delay'
+                    : 'Hindi pa lagpas sa due date — hindi pa pwedeng i-delay';
+            @endphp
+            @if($sale->is_delayed)
                 <span class="action-btn" style="border-color:#dc3545;color:#dc3545;cursor:default;">
                     <i class="fas fa-exclamation-triangle"></i> Delayed
                 </span>
-                @else
-                <button type="button" class="action-btn" style="border-color:#dc3545;color:#dc3545;" data-bs-toggle="modal" data-bs-target="#delayConfirmModal{{ $sale->id }}">
+            @else
+                <button type="button" class="action-btn" style="border-color:#dc3545;color:#dc3545;{{ $delayLocked ? 'opacity:0.45;cursor:not-allowed;' : '' }}" {{ $delayLocked ? 'disabled' : '' }} data-bs-toggle="modal" data-bs-target="#delayConfirmModal{{ $sale->id }}" title="{{ $delayLocked ? $delayLockReason : 'Mark this order as delayed' }}">
                     <i class="fas fa-exclamation-triangle"></i> Mark Delayed
                 </button>
-                @endif
             @endif
         </div>
     </div>
 
     <!-- Mark Delayed Confirm Modal -->
-    @if(!$isDone && $isDelayed && !$sale->is_delayed)
+    @if(!$delayLocked && !$sale->is_delayed)
     <div class="modal fade" id="delayConfirmModal{{ $sale->id }}" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
