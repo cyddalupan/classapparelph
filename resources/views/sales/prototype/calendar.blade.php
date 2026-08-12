@@ -950,12 +950,6 @@ function updateSummary(projects) {
         }
     });
 
-    // Financials
-    html += `<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-coins me-1"></i> Financials</h6>`;
-    html += `<div class="summary-item"><span>Total Value</span><span class="value" style="color:#28a745;">${curr(totalAmt)}</span></div>`;
-    html += `<div class="summary-item"><span>Deposit Paid</span><span class="value" style="color:#0d6efd;">${curr(totalDep)}</span></div>`;
-    html += `<div class="summary-item"><span>Balance</span><span class="value" style="color:#dc3545;">${curr(totalAmt-totalDep)}</span></div>`;
-
     document.getElementById('summaryContent').innerHTML = html;
 }
 
