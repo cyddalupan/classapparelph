@@ -2706,10 +2706,11 @@ public function printSlip(string $id)
 
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed']);
         
-        // Filter by date range (use created_at, estimated_completion_date, or date_needed)
+        // Filter by date range (use created_at, estimated_completion_date, or rescheduled_date)
         $query->where(function($q) use ($startDate, $endDate) {
             $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
-              ->orWhereBetween('estimated_completion_date', [$startDate, $endDate]);
+              ->orWhereBetween('estimated_completion_date', [$startDate, $endDate])
+              ->orWhereBetween('rescheduled_date', [$startDate, $endDate]);
         });
         
         // Filter by department
