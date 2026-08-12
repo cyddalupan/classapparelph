@@ -433,7 +433,7 @@
 
                             @if($firstMockupUrl)
                                 <img src="{{ $firstMockupUrl }}" alt="mockup" 
-                                     style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:8px;cursor:pointer;" 
+                                     style="width:100%;height:80px;object-fit:contain;background:#fff;border-radius:6px;margin-bottom:8px;cursor:pointer;" 
                                      onclick="window.openLightbox('{{ $firstMockupUrl }}')"
                                      onerror="this.style.display='none'">
                             @endif
