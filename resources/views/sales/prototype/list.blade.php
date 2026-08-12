@@ -643,7 +643,7 @@
                                 @if(($sale->total_refunded ?? 0) > 0 && ($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
                                     <span class="badge bg-info text-dark">↩ Refunded</span>
                                 @elseif(($sale->balance_due_computed ?? 0) > 0 && ($sale->net_paid ?? 0) > 0)
-                                    <span class="badge bg-warning text-dark" title="May natitira pang bayad (₱{{ number_format($sale->balance_due_computed, 2) }})">⚠️ Balance ₱{{ number_format($sale->balance_due_computed, 2) }}</span>
+                                    <span class="badge bg-warning text-dark" title="May natitira pang bayad: ₱{{ number_format($sale->balance_due_computed, 2) }}">⚠️ Balance</span>
                                 @elseif(($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
                                     <span class="badge bg-success">✅ Paid</span>
                                 @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
