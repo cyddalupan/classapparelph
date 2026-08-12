@@ -3897,14 +3897,14 @@ public function printSlip(string $id)
 
         // Completed refunds per account (subtract from collected: refunds reduce money in)
         // Use DISTINCT to avoid multiplying refund amount across multiple payments of the same sale
-        $accountRefundTotals = \DB::table(\DB::raw('(SELECT DISTINCT p.payment_account_id, r.prototype_sale_id, r.refund_amount FROM prototype_payments p JOIN prototype_refunds r ON r.prototype_sale_id = p.prototype_sale_id WHERE r.refund_status = \'completed\' AND p.payment_status IN (\'verified\', \'down_payment_verified\', \'additional_payment_verified\', \'full_payment_verified\')) as t'))
+        $accountRefundTotals = \DB::table(\DB::raw('(SELECT DISTINCT COALESCE(r.refund_account_id, p.payment_account_id) as account_id, r.prototype_sale_id, r.refund_amount FROM prototype_refunds r LEFT JOIN prototype_payments p ON p.prototype_sale_id = r.prototype_sale_id AND p.payment_status IN (\'verified\', \'down_payment_verified\', \'additional_payment_verified\', \'full_payment_verified\') WHERE r.refund_status = \'completed\') as t'))
             ->select([
-                't.payment_account_id',
+                't.account_id',
                 \DB::raw('COALESCE(SUM(t.refund_amount), 0) as total_refunded'),
             ])
-            ->groupBy('t.payment_account_id')
+            ->groupBy('t.account_id')
             ->get()
-            ->keyBy('payment_account_id');
+            ->keyBy('account_id');
 
         // Pending payments count per account (payments awaiting verification)
         $pendingCounts = \DB::table('prototype_payments')
