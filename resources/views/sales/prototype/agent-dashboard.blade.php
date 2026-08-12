@@ -295,6 +295,31 @@
                     <i class="far fa-calendar-alt"></i>
                     {{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}
                 </span>
+                @php
+                    // Due date status — same logic as manager order list
+                    $dueHiddenStages = ['ready_for_delivery', 'delivered', 'completed'];
+                    $dueRaw = $sale->rescheduled_date ?: $sale->estimated_completion_date;
+                    $dueCarbon = $dueRaw ? \Carbon\Carbon::parse($dueRaw)->startOfDay() : null;
+                    $daysLeft = $dueCarbon ? (int) now()->startOfDay()->diffInDays($dueCarbon, false) : null;
+                    $isDelayed = $dueCarbon && $daysLeft !== null && $daysLeft < 0;
+                    $isDone = in_array($sale->kanban_status ?? 'new', $dueHiddenStages);
+                    $showCountdown = $dueCarbon && !$isDone && !$isDelayed;
+                @endphp
+                @if($isDelayed)
+                    @if($isDone)
+                        <span class="badge bg-secondary" style="margin-left:0.5rem;" title="Delayed order — for review reference">Delayed</span>
+                    @else
+                        <span class="badge bg-danger" style="margin-left:0.5rem;" title="Due {{ $dueCarbon->format('M d, Y') }}">Delayed · Due {{ abs($daysLeft) }}d ago</span>
+                    @endif
+                @elseif($showCountdown)
+                    @if($daysLeft === 0)
+                        <span class="badge bg-danger" style="margin-left:0.5rem;" title="Due today">Due TODAY</span>
+                    @elseif($daysLeft <= 3)
+                        <span class="badge bg-warning text-dark" style="margin-left:0.5rem;" title="Due {{ $dueCarbon->format('M d, Y') }}">{{ $daysLeft }}d left</span>
+                    @else
+                        <span class="badge bg-success" style="margin-left:0.5rem;" title="Due {{ $dueCarbon->format('M d, Y') }}">{{ $daysLeft }}d left</span>
+                    @endif
+                @endif
                 @if($sale->department_name)
                 <span class="sale-id-badge" style="margin-left:0.5rem;">{{ $sale->department_name }}</span>
                 @endif

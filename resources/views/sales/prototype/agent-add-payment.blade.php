@@ -11,7 +11,18 @@
                 <i class="fas fa-money-bill-wave"></i>
                 Add Payment
             </h1>
-            <p class="page-subtitle">{{ $sale->customer_name }} — {{ $sale->sales_number }}</p>
+            <p class="page-subtitle">{{ $sale->sales_number }}
+                @php
+                    $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+                    $descParts = [];
+                    foreach ((array)$svcItems as $svc) {
+                        if (is_array($svc)) $descParts[] = \App\Models\PrototypeSale::itemSpecSummary($svc);
+                    }
+                @endphp
+                @if($descParts)
+                    <span class="text-muted">— {{ implode(' + ', $descParts) }}</span>
+                @endif
+            </p>
         </div>
         <div class="header-actions">
             <a href="{{ route('sales.prototype.show', $sale->id) }}" class="btn btn-outline">
@@ -56,6 +67,7 @@
             </h3>
         </div>
         <div class="card-body">
+            @php $remainingBalance = $sale->balance_due_computed ?? 0; @endphp
             <form action="{{ route('sales.prototype.agent.payment.store', $sale->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
@@ -63,7 +75,7 @@
                     <div class="form-group">
                         <label for="payment_amount">Payment Amount (₱) <span class="required">*</span></label>
                         <input type="number" id="payment_amount" name="payment_amount" class="form-control @error('payment_amount') is-invalid @enderror" 
-                               value="{{ old('payment_amount') }}" step="0.01" min="0.01" placeholder="0.00" required>
+                               value="{{ old('payment_amount', $remainingBalance > 0 ? $remainingBalance : '') }}" step="0.01" min="0.01" max="{{ $remainingBalance > 0 ? $remainingBalance : '' }}" placeholder="0.00" required>
                         @error('payment_amount') <span class="invalid-feedback">{{ $message }}</span> @enderror
                     </div>
 
@@ -77,29 +89,40 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="payment_method">Payment Method <span class="required">*</span></label>
-                        <select id="payment_method" name="payment_method" class="form-control @error('payment_method') is-invalid @enderror" required onchange="togglePaymentRefFields()">
-                            <option value="">Select...</option>
-                            <option value="cash" {{ old('payment_method') === 'cash' ? 'selected' : '' }}>Cash</option>
-                            <option value="gcash" {{ old('payment_method') === 'gcash' ? 'selected' : '' }}>GCash</option>
-                            <option value="bank_transfer" {{ old('payment_method') === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
-                            <option value="check" {{ old('payment_method') === 'check' ? 'selected' : '' }}>Check</option>
+                        <label for="payment_type">Payment Type <span class="required">*</span></label>
+                        <select id="payment_type" name="payment_type" class="form-control @error('payment_type') is-invalid @enderror" required>
+                            <option value="fullpayment" {{ old('payment_type', 'fullpayment') === 'fullpayment' ? 'selected' : '' }}>Full Payment</option>
+                            <option value="additional" {{ old('payment_type') === 'additional' ? 'selected' : '' }}>Additional Payment</option>
                         </select>
-                        @error('payment_method') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        @error('payment_type') <span class="invalid-feedback">{{ $message }}</span> @enderror
                     </div>
 
-                    <div class="form-group" id="refNumberGroup" style="display:none;">
+                    <div class="form-group">
+                        <label for="payment_account_id">Payment Account <span class="required">*</span></label>
+                        <select id="payment_account_id" name="payment_account_id" class="form-control @error('payment_account_id') is-invalid @enderror" required>
+                            <option value="">Select account...</option>
+                            @foreach(\App\Models\PaymentAccount::where('is_active', true)->get() as $acct)
+                                <option value="{{ $acct->id }}" {{ old('payment_account_id') == $acct->id ? 'selected' : '' }}>{{ $acct->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('payment_account_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        <small class="text-muted">Payment method is based on the selected account</small>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
                         <label for="reference_number">Reference Number</label>
                         <input type="text" id="reference_number" name="reference_number" class="form-control" 
                                value="{{ old('reference_number') }}" placeholder="Transaction reference number">
                     </div>
-                </div>
 
-                <div class="form-group" id="screenshotGroup" style="display:none;">
-                    <label for="payment_screenshot">Payment Screenshot / Proof</label>
-                    <input type="file" id="payment_screenshot" name="payment_screenshot" class="form-control-file @error('payment_screenshot') is-invalid @enderror" accept="image/*">
-                    @error('payment_screenshot') <span class="invalid-feedback">{{ $message }}</span> @enderror
-                    <small class="text-muted">Upload proof of payment for verification</small>
+                    <div class="form-group">
+                        <label for="payment_screenshot">Payment Screenshot / Proof</label>
+                        <input type="file" id="payment_screenshot" name="payment_screenshot" class="form-control-file @error('payment_screenshot') is-invalid @enderror" accept="image/*">
+                        @error('payment_screenshot') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        <small class="text-muted">Upload proof of payment for verification</small>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -221,15 +244,5 @@ select.form-control {
 @endpush
 
 @push('scripts')
-<script>
-function togglePaymentRefFields() {
-    const method = document.getElementById('payment_method').value;
-    const refGroup = document.getElementById('refNumberGroup');
-    const screenshotGroup = document.getElementById('screenshotGroup');
-    
-    refGroup.style.display = (method === 'gcash' || method === 'bank_transfer') ? 'block' : 'none';
-    screenshotGroup.style.display = (method === 'gcash' || method === 'bank_transfer' || method === 'check') ? 'block' : 'none';
-}
-</script>
 @endpush
 @endsection
