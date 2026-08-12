@@ -368,6 +368,15 @@
     max-width: 100%;
     border: 1px solid rgba(0,0,0,0.06);
 }
+.day-project .dp-slip-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; font-size: 9px; line-height: 1;
+    background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe;
+    border-radius: 4px; cursor: pointer; padding: 0; margin-left: 3px;
+    vertical-align: middle;
+}
+.day-project .dp-slip-btn:hover { background: #4f46e5; color: #fff; }
+
 
 /* ========== SIDE SUMMARY ========== */
 .summary-panel {
@@ -550,6 +559,38 @@
         </div>
     </div>
 </div>
+
+<!-- === PRODUCTION SLIP MODAL === -->
+<div class="modal fade" id="prodSlipModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="prodSlipModalTitle">Production Slip</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <!-- Tab bar -->
+            <div style="display:flex;border-bottom:2px solid #dee2e6;padding:0 16px;">
+                <button class="prod-tab active" data-tab="prodSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:600;color:#0d6efd;border-bottom:3px solid #0d6efd;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-clipboard-list me-1"></i>Production Slip
+                </button>
+                <button class="prod-tab" data-tab="addProdSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-plus-circle me-1"></i>Additional Production Slip
+                </button>
+            </div>
+            <div class="modal-body" id="modalProdSlipBody">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p class="mt-2">Loading production slip...</p>
+                </div>
+            </div>
+            <div class="modal-body" id="modalAddProdSlipBody" style="display:none;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -719,6 +760,7 @@ function renderWeek(monday, projects) {
                     html += `<span class="dp-status" style="color:#842029;font-weight:600;">❌</span>`;
                 }
                 html += `<span class="dp-amount">${curr(amt)}</span>`;
+                html += `<button class="dp-slip-btn" title="Production Slip" onclick="event.stopPropagation();openProdSlipCalendar(${p.id})">📋</button>`;
                 html += `</div>`;
                 // Production stage tagging (same rules as manager order list)
                 const curStage = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
@@ -1135,5 +1177,869 @@ window.closeLightbox = function() {
 };
 
 document.addEventListener('DOMContentLoaded', loadCal);
+// ===== Production Slip Modal (ported from kanban, calendar version) =====
+var psSaleId = null;
+
+function openProdSlipCalendar(saleId) {
+    psSaleId = saleId;
+    var modalTitle = document.getElementById('prodSlipModalTitle');
+    if (modalTitle) modalTitle.textContent = 'Production Slip — Sale #' + saleId;
+    var modalEl = document.getElementById('prodSlipModal');
+    var prodBody = document.getElementById('modalProdSlipBody');
+    var addProdBody = document.getElementById('modalAddProdSlipBody');
+    if (!modalEl || !prodBody) return;
+
+    // Reset tabs to prodSlip
+    var tabs = modalEl.querySelectorAll('.prod-tab');
+    tabs.forEach(function(t) {
+        t.style.color = '#666';
+        t.style.borderBottomColor = 'transparent';
+        t.style.fontWeight = '500';
+    });
+    var prodTab = modalEl.querySelector('.prod-tab[data-tab="prodSlip"]');
+    if (prodTab) {
+        prodTab.style.color = '#0d6efd';
+        prodTab.style.borderBottomColor = '#0d6efd';
+        prodTab.style.fontWeight = '600';
+    }
+    prodBody.style.display = '';
+    addProdBody.style.display = 'none';
+
+    // Clear caches
+    prodBody.dataset.loaded = '';
+    addProdBody.dataset.loaded = '';
+
+    // Load production slip
+    prodBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading production slip...</p></div>';
+    loadProductionSlip(psSaleId);
+
+    // Show modal
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+}
+
+// Tab switching (no Details tab - we're already on the show page)
+document.addEventListener('click', function(e) {
+    var tab = e.target.closest('.prod-tab');
+    if (!tab || !document.getElementById('prodSlipModal')) return;
+    var tabName = tab.dataset.tab;
+    var tabs = tab.parentElement.querySelectorAll('.prod-tab');
+    tabs.forEach(function(t) {
+        t.style.color = '#666';
+        t.style.borderBottomColor = 'transparent';
+        t.style.fontWeight = '500';
+    });
+    tab.style.color = '#0d6efd';
+    tab.style.borderBottomColor = '#0d6efd';
+    tab.style.fontWeight = '600';
+
+    var prodBody = document.getElementById('modalProdSlipBody');
+    var addProdBody = document.getElementById('modalAddProdSlipBody');
+
+    if (tabName === 'addProdSlip') {
+        prodBody.style.display = 'none';
+        addProdBody.style.display = '';
+        if (!addProdBody.dataset.loaded || addProdBody.dataset.saleId !== String(psSaleId)) {
+            addProdBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading additional production slip...</p></div>';
+            addProdBody.dataset.loaded = '';
+            loadAdditionalProductionSlip(psSaleId);
+        }
+    } else {
+        prodBody.style.display = '';
+        addProdBody.style.display = 'none';
+        if (!prodBody.dataset.loaded || prodBody.dataset.saleId !== String(psSaleId)) {
+            prodBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading production slip...</p></div>';
+            prodBody.dataset.loaded = '';
+            loadProductionSlip(psSaleId);
+        }
+    }
+});
+
+function loadProductionSlip(saleId) {
+    var prodBody = document.getElementById('modalProdSlipBody');
+    if (!saleId || !prodBody) return;
+
+    fetch('/api/production/checklist/' + saleId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                prodBody.innerHTML = '<div class="alert alert-danger">' + escHtml(data.error) + '</div>';
+                return;
+            }
+            renderProductionSlip(data);
+        })
+        .catch(function(err) {
+            prodBody.innerHTML = '<div class="alert alert-danger">Failed to load production slip</div>';
+        });
+}
+
+function renderProductionSlip(data) {
+    var chk = data.checklist || {};
+    var slip = data.slip || {};
+    var saleId = chk.sale_id || 0;
+    var items = chk.items || [];
+    var partRows = slip.partRows || [];
+    var allRosters = slip.allRosters || [];
+    var sizes = slip.sizes || [];
+    var hasRoster = slip.hasRoster || false;
+    var mockupImages = slip.mockupImages || [];
+    var mainMockup = null;
+    for (var mi = 0; mi < mockupImages.length; mi++) {
+        if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
+    }
+    if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
+    var firstMockup = mainMockup;
+    var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
+
+    // Split parts into two columns
+    var splitMid = Math.ceil(partRows.length / 2);
+    var leftParts = partRows.slice(0, splitMid);
+    var rightParts = partRows.slice(splitMid);
+
+    // Helper: find item index by type and label match
+    function findItemIdx(type, matchStr) {
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type === type && items[i].label.indexOf(matchStr) >= 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // Helper: find nth item of a type
+    function findNthItemIdx(type, n) {
+        var count = 0;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type === type) {
+                if (count === n) return i;
+                count++;
+            }
+        }
+        return -1;
+    }
+
+    var html = '';
+    html += '<div class="pslip" id="pslipContent">';
+
+    // Title
+    html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
+    if (slip.salesNumber) {
+        html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
+    }
+    html += '<div class="divider"></div>';
+
+    // Top: 2 columns — Info (33%) | Parts (67%)
+    html += '<table><tr>';
+    html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+    var infoFields = [
+        ['PROJECT:', slip.projectName],
+        ['DESCRIPTION:', slip.description],
+        ['FABRIC:', slip.fabric],
+        ['DESIGNER:', slip.designer],
+        ['QTY:', slip.totalQty + ' PCS'],
+        ['DATE NEEDED:', slip.dateNeeded],
+        ['AGENT:', slip.agent],
+        ['CUSTOMER:', slip.customer],
+    ];
+    infoFields.forEach(function(f) {
+        html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + f[0] + '</td><td>' + escHtml(f[1] || '') + '</td></tr></table>';
+    });
+    html += '</td>';
+
+    // Parts column (67%)
+    html += '<td style="width:67%;vertical-align:top;">';
+    html += '<div style="width:100%;">';
+    // Left parts
+    html += '<table style="width:49%;float:left;">';
+    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+    leftParts.forEach(function(row) {
+        var itemIdx = findItemIdx('part', row.part);
+        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+        html += '<tr' + (done ? ' class="done"' : '') + '>';
+        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+        html += '<td>' + escHtml(row.detail) + '</td></tr>';
+    });
+    html += '</table>';
+    // Right parts
+    html += '<table style="width:49%;float:right;">';
+    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+    rightParts.forEach(function(row) {
+        var itemIdx = findItemIdx('part', row.part);
+        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+        html += '<tr' + (done ? ' class="done"' : '') + '>';
+        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+        html += '<td>' + escHtml(row.detail) + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<div style="clear:both;"></div>';
+    html += '</div></td>';
+    html += '</tr></table>';
+
+    html += '<div class="divider"></div>';
+
+    // Bottom: Mock-up (30%) | Name List (70%)
+    html += '<table><tr>';
+    html += '<td style="width:30%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">MOCK UP</div>';
+    html += '<div class="mockup-box">';
+    if (firstMockupUrl) {
+        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
+    } else {
+        html += '<span>MOCK UP HERE</span>';
+    }
+    html += '</div>';
+    html += '</td>';
+    html += '<td style="width:70%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">NAME LIST</div>';
+    // Check if ANY roster entry has Excel columns data
+    var hasExcelCols = false;
+    var allColHeaders = [];
+    var isArrFormat = false;
+    allRosters.forEach(function(r) {
+        if (r.columns) {
+            hasExcelCols = true;
+            // Detect format: array of [header,value] pairs vs object
+            if (!isArrFormat && Array.isArray(r.columns) && r.columns.length > 0 && Array.isArray(r.columns[0])) {
+                isArrFormat = true;
+            }
+            if (isArrFormat) {
+                // Array of pairs: [["BACK NAMES","dfsdf"], ["SIZE","XL"], ...]
+                r.columns.forEach(function(pair) {
+                    if (allColHeaders.indexOf(pair[0]) < 0) allColHeaders.push(pair[0]);
+                });
+            } else {
+                // Object format (backward compat): {"BACK NAMES":"dfsdf", "SIZE":"XL", ...}
+                Object.keys(r.columns).forEach(function(h) {
+                    if (allColHeaders.indexOf(h) < 0) allColHeaders.push(h);
+                });
+            }
+        }
+    });
+    // Helper: get column value from whichever format
+    function getColVal(cols, hdr) {
+        if (!cols) return '';
+        if (isArrFormat && Array.isArray(cols)) {
+            for (var ci = 0; ci < cols.length; ci++) {
+                if (cols[ci][0] === hdr) return cols[ci][1];
+            }
+            return '';
+        }
+        return cols[hdr] || '';
+    }
+    if (hasRoster && allRosters.length > 0) {
+        html += '<table class="roster-table">';
+        html += '<thead><tr><th>#</th>';
+        if (hasExcelCols) {
+            // Excel-imported: use ALL original column headers
+            allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+        } else {
+            // No Excel columns: use standard hardcoded headers
+            html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+        }
+        html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+        html += '<tbody>';
+        allRosters.forEach(function(rosterItem, idx) {
+            var itemIdx = findNthItemIdx('roster', idx);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + (idx + 1) + '</td>';
+            if (hasExcelCols) {
+                allColHeaders.forEach(function(h) {
+                    html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
+                });
+            } else {
+                html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
+                html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
+                html += '<td>' + (rosterItem.qty || 1) + '</td>';
+            }
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else if (sizes.length > 0) {
+        html += '<table class="roster-table">';
+        html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+        html += '<tbody>';
+        sizes.forEach(function(s, idx) {
+            var itemIdx = findNthItemIdx('size', idx);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + escHtml(s.size || '') + '</td>';
+            html += '<td>' + (s.quantity || 0) + '</td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else {
+        html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+    }
+    html += '</td>';
+    html += '</tr></table>';
+
+    // Notes from sale
+    if (slip.notes) {
+        html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
+    }
+
+    html += '<div class="divider"></div>';
+
+    // === COMMENTS (append-only) ===
+    html += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
+    html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
+    var comments = (chk.ga_notes || '').trim();
+    if (comments) {
+        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
+        if (Array.isArray(comments)) {
+            comments.forEach(function(c) {
+                html += '<div class="ps-comment-entry">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></div>';
+            });
+        }
+    }
+    html += '</div>';
+    html += '<div class="ps-comment-input">';
+    html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
+    html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+
+    html += '</div>'; // end .pslip
+
+    var prodBody = document.getElementById('modalProdSlipBody');
+    prodBody.innerHTML = html;
+    prodBody.dataset.loaded = '1';
+    prodBody.dataset.saleId = saleId;
+}
+
+function loadAdditionalProductionSlip(saleId) {
+    var addProdBody = document.getElementById('modalAddProdSlipBody');
+    if (!saleId || !addProdBody) return;
+
+    fetch('/api/production/additional/' + saleId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                addProdBody.innerHTML = '<div class="alert alert-danger">' + escHtml(data.error) + '</div>';
+                return;
+            }
+            renderAdditionalProductionSlip(saleId, data);
+        })
+        .catch(function(err) {
+            addProdBody.innerHTML = '<div class="alert alert-danger">Failed to load additional production slip</div>';
+        });
+}
+
+function renderAdditionalProductionSlip(saleId, data) {
+    var html = '';
+    
+    // Header banner
+    html += '<div style="margin-bottom:16px;padding:12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;">'
+        + '<strong><i class="fas fa-plus-circle me-1"></i> Additional Production Slip</strong><br>'
+        + '<span style="font-size:12px;color:#856404;">Products added after the original order via change requests.</span>'
+        + '</div>';
+    
+    if (data.has_additional && data.products && data.products.length > 0) {
+        data.products.forEach(function(prod, idx) {
+            var partRows = prod.partRows || [];
+            var roster = prod.roster || [];
+            var sizes = prod.sizes || [];
+            var nameList = roster.length > 0 ? roster : sizes;
+            var hasRoster = roster.length > 0;
+            
+            // Card header
+            html += '<div class="pslip" style="margin-bottom:16px;">';
+            html += '<h1 style="font-size:16pt;">CUSTOMER FORM SPECIFICATIONS</h1>';
+            if (data.sales_number) {
+                html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(data.sales_number) + '</div>';
+            }
+            html += '<div class="divider"></div>';
+            
+            // Info + Parts table
+            html += '<table><tr>';
+            html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+            function fmtDate(d) {
+                if (!d) return '';
+                var parts = d.split('-');
+                if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+                return d;
+            }
+            var infoFields = [
+                ['PROJECT:', prod.name],
+                ['DESCRIPTION:', prod.description],
+                ['FABRIC:', prod.fabric],
+                ['DESIGNER:', prod.designer],
+                ['QTY:', (prod.quantity || 0) + ' PCS'],
+                ['DATE NEEDED:', fmtDate(prod.dateNeeded)],
+                ['AGENT:', data.agent || ''],
+                ['CUSTOMER:', data.customer_name || '']
+            ];
+            infoFields.forEach(function(f) {
+                if (f[1]) {
+                    html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + escHtml(f[0]) + '</td><td>' + escHtml(f[1]) + '</td></tr></table>';
+                }
+            });
+            html += '</td>';
+            html += '<td style="width:67%;vertical-align:top;">';
+            html += '<div style="width:100%;">';
+            // Parts table (dynamic from partRows)
+            html += '<table style="width:100%;"><tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+            partRows.forEach(function(row) {
+                html += '<tr><td>' + escHtml(row.part || row[0]) + '</td><td>' + escHtml(row.detail || row[1]) + '</td></tr>';
+            });
+            html += '</table>';
+            html += '<div style="clear:both;"></div></div></td></tr></table>';
+            
+            html += '<div class="divider"></div>';
+            
+            // Mockup + Name list
+            html += '<table><tr>';
+            html += '<td style="width:30%;vertical-align:top" class="no-border">';
+            html += '<div class="section-title">MOCK UP</div>';
+            html += '<div class="mockup-box">';
+            if (prod.hasMockup && prod.mockupUrl) {
+                html += '<img src="' + escHtml(prod.mockupUrl) + '" alt="mockup" style="cursor:pointer;max-width:100%;max-height:100%;object-fit:contain;" onclick="window.openLightbox(\'' + escHtml(prod.mockupUrl) + '\')">';
+            } else {
+                html += '<span style="color:#999;">No mockup</span>';
+            }
+            html += '</div></td>';
+            
+            // Name list
+            html += '<td style="width:70%;vertical-align:top" class="no-border">';
+            html += '<div class="section-title">NAME LIST</div>';
+            
+            if (hasRoster) {
+                // Check for Excel columns in roster
+                var hasExcelCols = false;
+                var allColHeaders = [];
+                var isArrFormat = false;
+                var rosterData = roster;
+                for (var ri = 0; ri < rosterData.length; ri++) {
+                    if (rosterData[ri].columns) {
+                        hasExcelCols = true;
+                        if (!isArrFormat && Array.isArray(rosterData[ri].columns[0])) {
+                            isArrFormat = true;
+                        }
+                        if (isArrFormat) {
+                            for (var cj = 0; cj < rosterData[ri].columns.length; cj++) {
+                                if (allColHeaders.indexOf(rosterData[ri].columns[cj][0]) === -1) allColHeaders.push(rosterData[ri].columns[cj][0]);
+                            }
+                        } else {
+                            for (var key in rosterData[ri].columns) {
+                                if (allColHeaders.indexOf(key) === -1) allColHeaders.push(key);
+                            }
+                        }
+                    }
+                }
+                function getColValAddon(item, hdr) {
+                    if (!item.columns) return '';
+                    if (isArrFormat && Array.isArray(item.columns)) {
+                        for (var ci = 0; ci < item.columns.length; ci++) {
+                            if (item.columns[ci][0] === hdr) return item.columns[ci][1];
+                        }
+                        return '';
+                    }
+                    return item.columns[hdr] || '';
+                }
+                html += '<table style="width:100%;font-size:9pt;border-collapse:collapse;">';
+                html += '<thead><tr><th>#</th>';
+                if (hasExcelCols) {
+                    allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+                } else {
+                    html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+                }
+                html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+                html += '<tbody>';
+                rosterData.forEach(function(r, ri) {
+                    html += '<tr>';
+                    html += '<td style="text-align:center;">' + (ri + 1) + '</td>';
+                    if (hasExcelCols) {
+                        allColHeaders.forEach(function(h) {
+                            html += '<td>' + escHtml(getColValAddon(r, h)) + '</td>';
+                        });
+                    } else {
+                        html += '<td>' + escHtml(r.name || '') + (r.number ? ' - ' + r.number : '') + '</td>';
+                        html += '<td>' + escHtml(r.size || '') + '</td>';
+                        html += '<td style="text-align:center;">' + (r.qty || 1) + '</td>';
+                    }
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'ga_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'qa1_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'qa2_done\', this.checked)"></td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+            } else if (sizes.length > 0) {
+                html += '<table style="width:100%;font-size:9pt;border-collapse:collapse;">';
+                html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+                html += '<tbody>';
+                sizes.forEach(function(s, si) {
+                    html += '<tr>';
+                    html += '<td>' + escHtml(s.size || '') + '</td>';
+                    html += '<td style="text-align:center;">' + (s.qty || s.quantity || 0) + '</td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'ga_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'qa1_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'qa2_done\', this.checked)"></td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+            }
+            html += '</td></tr></table>';
+            html += '</div>'; // end .pslip
+        });
+    } else {
+        html += '<div class="text-center text-muted py-5">';
+        html += '<i class="fas fa-inbox fa-3x mb-3" style="display:block;color:#ccc;"></i>';
+        html += '<p>No additional products found for this sale.</p>';
+        html += '<p style="font-size:12px;">Additional products appear here after a change request with new items is approved.</p>';
+        html += '</div>';
+    }
+    
+    var addProdBody = document.getElementById('modalAddProdSlipBody');
+    addProdBody.innerHTML = html;
+    addProdBody.dataset.loaded = '1';
+    addProdBody.dataset.saleId = saleId;
+}
+
+function renderProductionSlipHtml(data, showProductLabel) {
+    // Reuse the same rendering as renderProductionSlip but return HTML
+    var chk = data.checklist || {};
+    var slip = data.slip || {};
+    var saleId = chk.sale_id || 0;
+    var items = chk.items || [];
+    var partRows = slip.partRows || [];
+    var allRosters = slip.allRosters || [];
+    var sizes = slip.sizes || [];
+    var hasRoster = slip.hasRoster || false;
+    var mockupImages = slip.mockupImages || [];
+    var mainMockup = null;
+    for (var mi = 0; mi < mockupImages.length; mi++) {
+        if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
+    }
+    if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
+    var firstMockup = mainMockup;
+    var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
+
+    var splitMid = Math.ceil(partRows.length / 2);
+    var leftParts = partRows.slice(0, splitMid);
+    var rightParts = partRows.slice(splitMid);
+
+    function findNthItemIdx(type, n) {
+        var count = 0;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type === type) {
+                if (count === n) return i;
+                count++;
+            }
+        }
+        return -1;
+    }
+
+    function getColVal(item, hdr) {
+        if (!item.columns) return '';
+        if (Array.isArray(item.columns) && Array.isArray(item.columns[0])) {
+            for (var j = 0; j < item.columns.length; j++) {
+                if (item.columns[j][0] === hdr) return item.columns[j][1];
+            }
+            return '';
+        }
+        return item.columns[hdr] || '';
+    }
+
+    var html = '';
+    html += '<div class="pslip" id="pslipContent">';
+
+    html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
+    if (slip.salesNumber) {
+        html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
+    }
+    html += '<div class="divider"></div>';
+
+    html += '<table><tr>';
+    html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+    var infoFields = [
+        ['PROJECT:', slip.projectName],
+        ['DESCRIPTION:', slip.description],
+        ['FABRIC:', slip.fabric],
+        ['DESIGNER:', slip.designer],
+        ['QTY:', slip.totalQty + ' PCS'],
+        ['DATE NEEDED:', slip.dateNeeded],
+        ['AGENT:', slip.agent],
+        ['CUSTOMER:', slip.customer]
+    ];
+    infoFields.forEach(function(f) {
+        if (f[1]) {
+            html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + escHtml(f[0]) + '</td><td>' + escHtml(f[1]) + '</td></tr></table>';
+        }
+    });
+    html += '</td>';
+    html += '<td style="width:67%;vertical-align:top;">';
+    html += '<div style="width:100%;">';
+    html += '<table style="width:49%;float:left;"><tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+    leftParts.forEach(function(row) {
+        html += '<tr><td>' + escHtml(row.part || row[0]) + '</td><td>' + escHtml(row.detail || row[1]) + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<table style="width:49%;float:right;"><tr><th style="width:100px;">Part</th><th>Color/Details</th></tr>';
+    rightParts.forEach(function(row) {
+        html += '<tr><td>' + escHtml(row.part || row[0]) + '</td><td>' + escHtml(row.detail || row[1]) + '</td></tr>';
+    });
+    html += '</table>';
+    html += '<div style="clear:both;"></div></div></td></tr></table>';
+
+    html += '<div class="divider"></div>';
+
+    html += '<table><tr>';
+    html += '<td style="width:30%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">MOCK UP</div>';
+    html += '<div class="mockup-box">';
+    if (firstMockupUrl) {
+        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;max-width:100%;max-height:100%;object-fit:contain;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')">';
+    } else {
+        html += '<span>MOCK UP HERE</span>';
+    }
+    html += '</div></td>';
+
+    html += '<td style="width:70%;vertical-align:top" class="no-border">';
+    html += '<div class="section-title">NAME LIST</div>';
+
+    if (allRosters.length > 0) {
+        var hasExcelCols = false;
+        var allColHeaders = [];
+        var isArrFormat = false;
+        for (var ri = 0; ri < allRosters.length; ri++) {
+            var r = allRosters[ri];
+            if (r.columns) {
+                hasExcelCols = true;
+                if (!isArrFormat && Array.isArray(r.columns[0])) {
+                    isArrFormat = true;
+                }
+                if (isArrFormat) {
+                    for (var cj = 0; cj < r.columns.length; cj++) {
+                        if (allColHeaders.indexOf(r.columns[cj][0]) === -1) allColHeaders.push(r.columns[cj][0]);
+                    }
+                } else {
+                    for (var key in r.columns) {
+                        if (allColHeaders.indexOf(key) === -1) allColHeaders.push(key);
+                    }
+                }
+            }
+        }
+        html += '<table class="roster-table"><thead><tr><th>#</th>';
+        if (hasExcelCols) {
+            allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+        } else {
+            html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+        }
+        html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead><tbody>';
+        allRosters.forEach(function(rosterItem, idx) {
+            var itemIdx = findNthItemIdx('roster', idx);
+            var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + (idx + 1) + '</td>';
+            if (hasExcelCols) {
+                allColHeaders.forEach(function(h) {
+                    html += '<td>' + escHtml(getColVal(rosterItem, h)) + '</td>';
+                });
+            } else {
+                html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
+                html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
+                html += '<td>' + (rosterItem.qty || 1) + '</td>';
+            }
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else if (sizes.length > 0) {
+        html += '<table class="roster-table"><thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead><tbody>';
+        sizes.forEach(function(s, idx) {
+            var itemIdx = findNthItemIdx('size', idx);
+            var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + escHtml(s.size || '') + '</td>';
+            html += '<td>' + (s.quantity || 0) + '</td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    } else {
+        html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+    }
+    html += '</td></tr></table>';
+
+    if (slip.notes) {
+        html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
+    }
+
+    html += '<div class="divider"></div>';
+    html += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
+    html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
+    var comments = (chk.ga_notes || '').trim();
+    if (comments) {
+        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
+        if (Array.isArray(comments)) {
+            comments.forEach(function(c) {
+                html += '<div class="ps-comment-entry">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></div>';
+            });
+        }
+    }
+    html += '</div>';
+    html += '<div class="ps-comment-input">';
+    html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
+    html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    html += '</div>';
+
+    return html;
+}
+
+// Global helper functions (must be outside IIFE for inline event handlers)
+function toggleProdItem(saleId, index, checked) {
+    if (index < 0) return;
+    fetch('/api/production/checklist/' + saleId + '/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({
+            items: [{index: index, status: checked ? 'done' : 'pending'}]
+        })
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var cb = event && event.target;
+            if (cb) {
+                var tr = cb.closest('tr');
+                if (tr) tr.classList.toggle('done', checked);
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to update item', err);
+    });
+
+
+}
+
+function toggleProdCheck(saleId, index, field, checked) {
+    if (index < 0) return;
+    var itemUpdate = {index: index};
+    itemUpdate[field] = checked;
+    fetch('/api/production/checklist/' + saleId + '/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({
+            items: [itemUpdate]
+        })
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var cb = event && event.target;
+            if (cb) {
+                var tr = cb.closest('tr');
+                if (tr) tr.style.backgroundColor = checked ? '#e8f5e9' : '';
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to update check', err);
+    });
+}
+
+
+function toggleQaCheck(saleId, type, checked) {
+    var payload = {};
+    payload[type + '_done'] = checked;
+
+    fetch('/api/production/checklist/' + saleId + '/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var qaCls = checked ? 'checked' : '';
+            var labels = document.querySelectorAll('.ps-check-item label');
+            var idx = (type === 'ga') ? 0 : (type === 'qa1') ? 1 : 2;
+            if (labels[idx]) labels[idx].className = qaCls;
+        }
+    }).catch(function(err) {
+        console.error('Failed to update check', err);
+    });
+}
+
+function addComment(saleId) {
+    var input = document.getElementById('ps-comment-input-' + saleId);
+    if (!input || !input.value.trim()) return;
+    var text = input.value.trim();
+    input.value = '';
+    input.disabled = true;
+
+    // Get current checklist to append to existing comments
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var existing = [];
+        try { existing = JSON.parse(data.checklist.ga_notes || '[]'); } catch(e) {}
+        if (!Array.isArray(existing)) existing = [];
+
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        existing.push({text: text, at: ts});
+
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({ga_notes: JSON.stringify(existing)})
+        });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // Add comment to the list without reloading
+            var list = document.getElementById('ps-comments-' + saleId);
+            if (list) {
+                var entry = document.createElement('div');
+                entry.className = 'ps-comment-entry';
+                var now = new Date();
+                var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+                var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+                entry.innerHTML = escHtml(text) + ' <span class="time">' + ts + '</span>';
+                list.appendChild(entry);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to add comment', err);
+    })
+    .finally(function() {
+        if (input) input.disabled = false;
+    });
+}
+
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+
 </script>
+
 @endpush
