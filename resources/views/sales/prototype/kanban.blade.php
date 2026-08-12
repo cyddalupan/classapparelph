@@ -2174,7 +2174,12 @@ function renderProductionSlip(data) {
     var sizes = slip.sizes || [];
     var hasRoster = slip.hasRoster || false;
     var mockupImages = slip.mockupImages || [];
-    var firstMockup = mockupImages.length > 0 ? mockupImages[0] : null;
+    var mainMockup = null;
+    for (var mi = 0; mi < mockupImages.length; mi++) {
+        if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
+    }
+    if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
+    var firstMockup = mainMockup;
     var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
 
     // Split parts into two columns
@@ -2599,7 +2604,12 @@ function renderProductionSlipHtml(data, showProductLabel) {
     var sizes = slip.sizes || [];
     var hasRoster = slip.hasRoster || false;
     var mockupImages = slip.mockupImages || [];
-    var firstMockup = mockupImages.length > 0 ? mockupImages[0] : null;
+    var mainMockup = null;
+    for (var mi = 0; mi < mockupImages.length; mi++) {
+        if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
+    }
+    if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
+    var firstMockup = mainMockup;
     var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
 
     var splitMid = Math.ceil(partRows.length / 2);
