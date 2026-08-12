@@ -4212,7 +4212,11 @@ public function printSlip(string $id)
             $query->where('department_name', $request->department);
         }
 
-        $sales = $query->orderBy('created_at', 'desc')->get();
+        // Completed sales sink to the bottom; newest first within each group, so the very bottom = oldest dates
+        $sales = $query
+            ->orderByRaw("CASE WHEN kanban_status = 'completed' THEN 1 ELSE 0 END")
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         // Verification request count per sale (kung ilang beses na nag-request ang agent)
         $verificationCounts = \App\Models\SaleNotification::where('type', 'verification_request')
