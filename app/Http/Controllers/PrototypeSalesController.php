@@ -2668,7 +2668,34 @@ public function printSlip(string $id)
     public function calendar()
     {
         $departments = \DB::table('sales_departments')->where('is_active', true)->get();
-        return view('sales.prototype.calendar', compact('departments'));
+
+        // Same production stage map + reverse map as the manager order list
+        $prodStageMap = [
+            'FOR SAMPLE'   => 'sample_approval',
+            'FOR APPROVAL' => 'sample_approval',
+            'FOR FORMAT'   => 'design',
+            'PRINTING'     => 'design',
+            'PRESSING'     => 'production',
+            'CUTTING'      => 'production',
+            'SEWING'       => 'production',
+            'QA'           => 'quality_check',
+            'HOLD'         => 'new',
+            'DISPATCH'     => 'ready_for_delivery',
+            'UNPAID'       => 'delivered',
+            'DONE'         => 'completed',
+        ];
+        $statusToStage = [
+            'new'                => 'HOLD',
+            'sample_approval'    => 'FOR SAMPLE',
+            'design'             => 'FOR FORMAT',
+            'production'         => 'PRESSING',
+            'quality_check'      => 'QA',
+            'ready_for_delivery' => 'DISPATCH',
+            'delivered'          => 'UNPAID',
+            'completed'          => 'DONE',
+        ];
+
+        return view('sales.prototype.calendar', compact('departments', 'prodStageMap', 'statusToStage'));
     }
 
     public function calendarData(Request $request)
@@ -2764,6 +2791,12 @@ public function printSlip(string $id)
                 $productLabel = $description ? trim(explode(' + ', $description)[0]) : ($p->customer_name ?? '');
             }
 
+            // Photo lock (same rule as manager order list): non-admin/manager cannot move to Design+ without photos
+            $dImgs = is_string($p->design_images) ? json_decode($p->design_images, true) : ($p->design_images ?? []);
+            $hasPhotos = collect($dImgs)->contains('type', 'file_screenshot') && collect($dImgs)->contains('type', 'sample_color');
+            $user = auth()->user();
+            $canOverrideStatus = $user && ($user->isAdmin() || $user->role === 'manager');
+
             return [
                 'id' => $p->id,
                 'sales_number' => $p->sales_number,
@@ -2784,6 +2817,8 @@ public function printSlip(string $id)
                 'description' => $description,
                 'product_label' => $productLabel,
                 'sales_agent_name' => ($p->sales_agent_name ? trim(explode(' ', trim($p->sales_agent_name))[0]) : ''),
+                'has_photos' => $hasPhotos,
+                'can_override' => $canOverrideStatus,
                 'date_needed' => $p->estimated_completion_date,
                 'estimated_completion_date' => $p->estimated_completion_date,
                 'rescheduled_date' => $p->rescheduled_date,

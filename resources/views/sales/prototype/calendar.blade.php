@@ -310,6 +310,19 @@
     margin-top: 2px;
     white-space: nowrap;
 }
+.day-project .dp-stage-select {
+    width: 100%;
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.12);
+    margin-top: 2px;
+    cursor: pointer;
+    background: #fff;
+    color: #495057;
+    max-width: 100%;
+}
 .day-project .dp-meta {
     font-size: 0.6rem;
     opacity: 0.8;
@@ -505,6 +518,10 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 
 const dc = {'iPrint':'#0d6efd','Consol':'#198754','Cinco':'#dc3545','Class':'#6f42c1','MTO':'#fd7e14','Other':'#6c757d','iprint':'#0d6efd','consol':'#198754','cinco':'#dc3545','class':'#6f42c1','mto':'#fd7e14','other':'#6c757d'};
 
+// Same production stage map as manager order list (stage → kanban status)
+const PROD_STAGE_MAP = @json($prodStageMap);
+const STATUS_TO_STAGE = @json($statusToStage);
+
 let curDate = new Date();
 let activeDept = 'all';
 let customRange = null; // null = nav mode, {start, end} = range mode
@@ -641,14 +658,17 @@ function renderWeek(monday, projects) {
                 }
                 html += `<span class="dp-amount">${curr(amt)}</span>`;
                 html += `</div>`;
-                // Production stage / status badge
-                if (stage) {
-                    const stageLabel = String(stage).toUpperCase();
-                    const stageColor = stageLabel === 'DONE' || stageLabel === 'COMPLETED' ? '#198754' :
-                                      (stageLabel === 'REJECTED' || stageLabel === 'CANCELLED' ? '#dc3545' :
-                                      (stageLabel === 'FOR SAMPLE' || stageLabel === 'APPROVAL' ? '#fd7e14' : '#667eea'));
-                    html += `<span class="dp-stage" style="background:${stageColor}1a;color:${stageColor};border:1px solid ${stageColor}40;">${stageLabel}</span>`;
-                }
+                // Production stage tagging (same rules as manager order list)
+                const curStage = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
+                const lockedNoPhotos = !p.has_photos && !p.can_override;
+                let stageOpts = '';
+                Object.keys(PROD_STAGE_MAP).forEach(function(st) {
+                    const stStatus = PROD_STAGE_MAP[st];
+                    let dis = '';
+                    if (stStatus === 'completed' && parseFloat(p.balance_due) > 0) dis = 'disabled';
+                    stageOpts += `<option value="${st}" data-status="${stStatus}" ${st === curStage ? 'selected' : ''} ${dis}>${st}</option>`;
+                });
+                html += `<select class="dp-stage-select" data-sale-id="${p.id}" data-current="${curStage}" ${lockedNoPhotos ? 'disabled' : ''} title="${lockedNoPhotos ? '🔒 Kulang photos (File Screenshot / Sample Color) — i-move sa kanban board' : 'Production status → kanban'}" onclick="event.stopPropagation()" style="${lockedNoPhotos ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : ''}">${stageOpts}</select>`;
                 html += `</div>`;
             });
         }
@@ -820,6 +840,52 @@ document.addEventListener('drop', function(e) {
         alert('❌ Network error. Please try again.');
     });
 });
+
+// ========== PRODUCTION STAGE TAGGING (same rules as manager order list) ==========
+document.addEventListener('change', function(e) {
+    const sel = e.target.closest('.dp-stage-select');
+    if (!sel) return;
+    const saleId = sel.getAttribute('data-sale-id');
+    const opt = sel.options[sel.selectedIndex];
+    const stage = opt.value;
+    const newStatus = opt.getAttribute('data-status');
+    const oldStage = sel.getAttribute('data-current');
+    sel.disabled = true;
+    const csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch('/sales/prototype/' + saleId + '/update-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrf ? csrf.content : '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ kanban_status: newStatus, production_stage: stage })
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        if (res.ok && res.data.success) {
+            showToast('✅ Tagged ' + stage + ' → kanban: ' + newStatus, 'success');
+            loadCal(); // refresh so kanban/list stay in sync
+        } else {
+            sel.value = oldStage;
+            sel.disabled = false;
+            showToast('⚠️ ' + (res.data.message || 'Failed to update status.'), 'error');
+        }
+    })
+    .catch(function() {
+        sel.value = oldStage;
+        sel.disabled = false;
+        showToast('❌ Network error. Please try again.', 'error');
+    });
+});
+
+function showToast(msg, type) {
+    const colors = { success: '#198754', error: '#dc3545' };
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:' + (colors[type] || '#0d6efd') + ';color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:14px;font-weight:600;';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 4000);
+}
 
 // ========== SUMMARY ==========
 function updateSummary(projects) {
