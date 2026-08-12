@@ -2802,7 +2802,15 @@ public function printSlip(string $id)
         $endDate = $request->end_date;
         $department = $request->department;
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed']);
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed'])
+            // Hide archived projects (consistent with kanban — archived = filed away)
+            ->whereNull('archived_at');
+        
+        // Non-admin users only see their own sales (consistent with manager list & kanban)
+        $user = auth()->user();
+        if (!$user || !$user->isAdmin()) {
+            $query->where('sales_agent_id', $user ? $user->id : null);
+        }
         
         // Filter by date range (use created_at, estimated_completion_date, or rescheduled_date)
         $query->where(function($q) use ($startDate, $endDate) {
