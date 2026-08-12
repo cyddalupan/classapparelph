@@ -1406,6 +1406,30 @@
     </div>
 </div>
 
+<!-- Set Main Mockup Modal -->
+<div id="setMainModal" class="cm-overlay" onclick="if(event.target===this)closeSetMainModal()">
+    <div class="cm-modal" style="max-width:420px;">
+        <div class="cm-header" style="border-bottom:1px solid #d1fae5;">
+            <h4 style="color:#047857;"><i class="fas fa-star me-2" style="color:#f59e0b;"></i>Set as Main Cover</h4>
+            <button onclick="closeSetMainModal()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body" style="text-align:center;">
+            <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:12px;padding:14px;margin-bottom:16px;">
+                <img id="setMainPreview" src="" alt="Mockup preview" style="max-width:100%;max-height:200px;object-fit:contain;border-radius:8px;background:#fff;" onerror="this.style.display='none'">
+            </div>
+            <p class="cm-body-text" style="font-size:14px;margin-bottom:12px;">Itakda ang mockup na ito bilang <strong>main cover</strong>?</p>
+            <div class="cm-info-box" style="text-align:left;background:#fffbeb;border-left-color:#f59e0b;">
+                <i class="fas fa-info-circle me-2" style="color:#f59e0b;"></i>
+                Lilitaw ito sa <strong>kanban board</strong>, <strong>manager order list</strong>, at <strong>calendar</strong>.
+            </div>
+        </div>
+        <div class="cm-footer">
+            <button onclick="closeSetMainModal()" class="cm-cancel-btn">Cancel</button>
+            <button id="setMainConfirmBtn" onclick="doSetMainMockup(this)" class="cm-confirm-btn cm-approve"><i class="fas fa-star me-1"></i>Set as Main</button>
+        </div>
+    </div>
+</div>
+
 <!-- PDF Item Selector Modal -->
 <div id="pdfSelectorModal" class="cm-overlay" onclick="if(event.target===this)closePdfSelector()">
     <div class="cm-modal" style="max-width:500px;">
@@ -1789,12 +1813,28 @@ function uploadMockup(input) {
     });
 }
 
+var pendingSetMainUrl = null;
 function setMainMockup(url, btn) {
-    if (!confirm('Itakda ang mockup na ito bilang main cover?\nLalabas ito sa kanban board, manager order list, at calendar.')) {
-        return;
-    }
+    pendingSetMainUrl = url;
+    var preview = document.getElementById('setMainPreview');
+    preview.src = url;
+    preview.style.display = '';
+    document.getElementById('setMainConfirmBtn').disabled = false;
+    document.getElementById('setMainConfirmBtn').innerHTML = '<i class="fas fa-star me-1"></i>Set as Main';
+    document.getElementById('setMainModal').style.display = 'flex';
+}
+function closeSetMainModal() {
+    document.getElementById('setMainModal').style.display = 'none';
+    pendingSetMainUrl = null;
+}
+function doSetMainMockup(btn) {
+    if (!pendingSetMainUrl) return;
+    var url = pendingSetMainUrl;
     var fd = new FormData();
     fd.append('url', url);
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
     fetch('{{ route("sales.prototype.set-main-mockup", $sale->id) }}', {
         method: 'POST',
@@ -1809,10 +1849,14 @@ function setMainMockup(url, btn) {
         if (data.success) {
             location.reload();
         } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-star me-1"></i>Set as Main';
             alert(data.message || 'Failed to update main cover.');
         }
     })
     .catch(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-star me-1"></i>Set as Main';
         alert('Network error. Try again.');
     });
 }
