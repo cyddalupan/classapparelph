@@ -4,6 +4,9 @@
 
 @push('styles')
 <style>
+    /* Allow wide table to shrink flex parents so the page itself never scrolls horizontally */
+    .main-content, .content-area { min-width: 0; }
+
     .pipeline-table {
         width: 100%;
         border-collapse: collapse;
@@ -365,7 +368,7 @@
 @endpush
 
 @section('content')
-<div class="container py-4">
+<div class="container-fluid py-4">
 
     <!-- Header -->
     <div class="list-header">
