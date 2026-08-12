@@ -542,9 +542,29 @@
                         $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
                     @endphp
                     <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
-                        <td style="max-width:120px;">
+                        <td style="max-width:130px;">
                             <strong style="font-size:11px;">{{ $sale->sales_number }}</strong>
                             <div style="font-size:10px;color:#6c757d;white-space:nowrap;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
+                            @php
+                                $dueDate = $sale->rescheduled_date ?: $sale->estimated_completion_date;
+                                $dueBadge = null;
+                                if ($dueDate) {
+                                    $dueCarbon = \Carbon\Carbon::parse($dueDate)->startOfDay();
+                                    $daysLeft = (int) now()->startOfDay()->diffInDays($dueCarbon, false);
+                                    if ($daysLeft < 0) {
+                                        $dueBadge = '<span class="badge bg-danger" title="Due ' . $dueCarbon->format('M d, Y') . '">Due ' . abs($daysLeft) . 'd ago</span>';
+                                    } elseif ($daysLeft === 0) {
+                                        $dueBadge = '<span class="badge bg-danger" title="Due today">Due TODAY</span>';
+                                    } elseif ($daysLeft <= 3) {
+                                        $dueBadge = '<span class="badge bg-warning text-dark" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $daysLeft . 'd left</span>';
+                                    } else {
+                                        $dueBadge = '<span class="badge bg-success" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $daysLeft . 'd left</span>';
+                                    }
+                                }
+                            @endphp
+                            @if($dueBadge)
+                                <div style="margin-top:2px;">{!! $dueBadge !!}</div>
+                            @endif
                             @if(!empty($pendingCounts[$sale->id]))
                                 <span class="badge bg-warning text-dark pending-row-badge" title="Has pending changes for approval">🔔</span>
                             @endif
