@@ -158,6 +158,22 @@
     cursor: pointer;
 }
 .range-bar .btn-apply:hover { background: #5568d0; }
+    /* Priority toggle (With Priority) */
+    .range-bar .prio-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0.35rem 0.7rem;
+        border: 1px solid #d0d5e0;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: #fff;
+        cursor: pointer;
+        white-space: nowrap;
+        user-select: none;
+    }
+    .range-bar .prio-toggle input { margin: 0; }
 
 /* ========== WEEKLY GRID ========== */
 .week-container { padding: 1rem 2rem; }
@@ -495,6 +511,9 @@
                     <input type="date" id="rangeEnd">
                     <button class="btn-apply" onclick="applyRange()">Apply</button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="resetToWeek()" style="font-size:0.8rem;">This Week</button>
+                    <label class="prio-toggle" title="Show only projects with a priority">
+                        <input type="checkbox" id="calPrioFilter" onchange="applyCalPrioFilter()"> ⭐ With Priority
+                    </label>
                 </div>
 
                 <!-- Weekly Grid -->
@@ -656,6 +675,15 @@ function goToToday() {
     curDate = new Date();
     loadCal();
 }
+// With Priority toggle — show only projects that have a priority tag
+function applyCalPrioFilter() {
+    var on = document.getElementById('calPrioFilter') ? document.getElementById('calPrioFilter').checked : false;
+    document.querySelectorAll('#weekContainer .day-project').forEach(function(card) {
+        var hasPrio = (card.getAttribute('data-prio') || '') !== '';
+        card.style.display = (!on || hasPrio) ? '' : 'none';
+    });
+}
+
 function filterDept(dept) {
     activeDept = dept;
     document.querySelectorAll('.dept-tab').forEach(t=>t.classList.remove('active'));
@@ -728,7 +756,7 @@ function renderWeek(monday, projects) {
                 const orig = p.estimated_completion_date ? parseD(p.estimated_completion_date) : null;
                 
                 html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
-                    draggable="true" data-id="${p.id}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
+                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
                 }
@@ -867,6 +895,7 @@ function loadCal() {
 
         container.innerHTML = html;
         updateSummary(projects);
+        applyCalPrioFilter();
     })
     .catch(() => {
         container.innerHTML = '<div class="alert alert-danger">Failed to load calendar. Try refreshing.</div>';
