@@ -47,6 +47,8 @@ class PrototypeSale extends Model
         'estimated_completion_date',
         'rescheduled_date',
         'actual_completion_date',
+        'is_delayed',
+        'delayed_at',
         'archived_at',
         'customer_notes',
         'internal_notes',
@@ -68,6 +70,8 @@ class PrototypeSale extends Model
         'estimated_completion_date' => 'date',
         'rescheduled_date' => 'date',
         'actual_completion_date' => 'date',
+        'is_delayed' => 'boolean',
+        'delayed_at' => 'datetime',
         'archived_at' => 'datetime',
     ];
 

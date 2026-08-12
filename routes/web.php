@@ -801,6 +801,7 @@ Route::get('/inventorylist', function() {
 
         // ======== Agent Routes (Sales Team Dashboard & Simplified Sales) ========
         Route::get('/sales/team', [App\Http\Controllers\PrototypeSalesController::class, 'agentDashboard'])->middleware('auth')->name('sales.team.dashboard');
+        Route::post('/sales/team/{id}/delay', [App\Http\Controllers\PrototypeSalesController::class, 'markDelayed'])->middleware('auth')->name('sales.team.delay');
         Route::get('/sales/prototype/agent/create', [App\Http\Controllers\PrototypeSalesController::class, 'agentCreate'])->name('sales.prototype.agent.create');
         Route::post('/sales/prototype/agent', [App\Http\Controllers\PrototypeSalesController::class, 'agentStore'])->name('sales.prototype.agent.store');
         Route::get('/sales/prototype/{id}/agent/payment', [App\Http\Controllers\PrototypeSalesController::class, 'agentAddPayment'])->name('sales.prototype.agent.payment');

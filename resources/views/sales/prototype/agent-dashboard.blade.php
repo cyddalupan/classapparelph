@@ -419,16 +419,28 @@
                     </div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Services</div>
+                    <div class="detail-label">Status</div>
                     <div class="detail-value">
                         @php
-                            $svcItems = is_array($sale->services) ? $sale->services : (json_decode($sale->services ?? '[]', true) ?: []);
-                            $svcNames = array_filter(array_column($svcItems, 'name'));
-                            $svcDisplay = count($svcNames) > 2
-                                ? implode(', ', array_slice($svcNames, 0, 2)) . ' +' . (count($svcNames) - 2)
-                                : implode(', ', $svcNames);
+                            // Dispatched if production stage is DISPATCH (or beyond), otherwise For Print / in production
+                            $stageRaw = $sale->production_stage ?: (match($sale->kanban_status ?? 'new') {
+                                'new' => 'HOLD',
+                                'sample_approval' => 'FOR SAMPLE',
+                                'design' => 'FOR FORMAT',
+                                'production' => 'PRINTING',
+                                'quality_check' => 'QA',
+                                'ready_for_delivery' => 'DISPATCH',
+                                'delivered' => 'UNPAID',
+                                'completed' => 'DONE',
+                                default => 'HOLD',
+                            });
+                            $dispatched = in_array($stageRaw, ['DISPATCH', 'UNPAID', 'DONE']);
                         @endphp
-                        {{ $svcDisplay ?: '—' }}
+                        @if($dispatched)
+                            <span class="badge bg-success"><i class="fas fa-truck"></i> Dispatched</span>
+                        @else
+                            <span class="badge bg-info text-dark"><i class="fas fa-print"></i> For Print</span>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -455,8 +467,45 @@
                 <i class="fas fa-bell"></i> Notify Verifier @if($verifyCount > 1) ×{{ $verifyCount }}@endif
             </button>
             @endif
+            @if(!$isDone && $isDelayed)
+                @if($sale->is_delayed)
+                <span class="action-btn" style="border-color:#dc3545;color:#dc3545;cursor:default;">
+                    <i class="fas fa-exclamation-triangle"></i> Delayed
+                </span>
+                @else
+                <button type="button" class="action-btn" style="border-color:#dc3545;color:#dc3545;" data-bs-toggle="modal" data-bs-target="#delayConfirmModal{{ $sale->id }}">
+                    <i class="fas fa-exclamation-triangle"></i> Mark Delayed
+                </button>
+                @endif
+            @endif
         </div>
     </div>
+
+    <!-- Mark Delayed Confirm Modal -->
+    @if(!$isDone && $isDelayed && !$sale->is_delayed)
+    <div class="modal fade" id="delayConfirmModal{{ $sale->id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('sales.team.delay', $sale->id) }}" class="delay-form">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirm Delay</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0">Sure ka bang <strong>delayed</strong> ang order na ito?</p>
+                        <p class="text-muted small mb-0 mt-1">{{ $sale->sales_number }}</p>
+                        <p class="text-danger small mt-2 mb-0">⚠️ Kapag na-confirm, lalabas ito bilang <strong>DELAYED</strong> sa unahan ng manager order list.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-check"></i> Yes, Delayed</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <!-- Pay Balance Modal -->
     <div class="modal fade" id="payBalanceModal{{ $sale->id }}" tabindex="-1">
@@ -831,5 +880,42 @@ function wirePayBalanceType() {
     });
 }
 document.addEventListener('DOMContentLoaded', wirePayBalanceType);
+
+// Mark Delayed form — submit via AJAX, then refresh so the Delayed badge shows
+function wireDelayForms() {
+    document.querySelectorAll('.delay-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': form.querySelector('input[name="_token"]') ? form.querySelector('input[name="_token"]').value : '',
+                    'Accept': 'application/json'
+                },
+                body: new FormData(form)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showToast('✅ Marked as delayed — lalabas sa unahan ng manager list');
+                    setTimeout(function() { location.reload(); }, 800);
+                } else {
+                    showToast('Error: ' + (data.message || 'unknown'), 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Yes, Delayed';
+                }
+            })
+            .catch(function() {
+                showToast('Network error', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Yes, Delayed';
+            });
+        });
+    });
+}
+document.addEventListener('DOMContentLoaded', wireDelayForms);
 </script>
 @endpush

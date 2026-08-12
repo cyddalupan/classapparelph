@@ -543,6 +543,9 @@
                     @endphp
                     <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
                         <td style="max-width:130px;">
+                            @if($sale->is_delayed)
+                            <span class="badge bg-danger mb-1" title="Marked delayed {{ $sale->delayed_at ? $sale->delayed_at->format('M d, Y H:i') : '' }}">⚠️ DELAYED</span><br>
+                            @endif
                             <strong style="font-size:11px;">{{ $sale->sales_number }}</strong>
                             <div style="font-size:10px;color:#6c757d;white-space:nowrap;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
                             @php

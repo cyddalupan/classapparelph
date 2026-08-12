@@ -2565,7 +2565,8 @@ public function printSlip(string $id)
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
-        $sales = $query->orderBy("created_at", "desc")
+        $sales = $query->orderByRaw("CASE WHEN is_delayed = 1 THEN 0 ELSE 1 END")
+            ->orderBy("created_at", "desc")
             ->paginate(50);
         
         // Determine if current user is an agent-type user
@@ -4155,10 +4156,6 @@ public function printSlip(string $id)
     // ================================================================
     // AGENT METHODS — Simplified Sales for Sales Agents & Reps
     // ================================================================
-
-    /**
-     * Show simplified "Add Sale" form for agents.
-     */
     /**
      * Show dedicated Sales Team dashboard — "My Sales" for agents/reps.
      */
@@ -4308,6 +4305,26 @@ public function printSlip(string $id)
         })->values();
 
         return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts'));
+    }
+
+    /**
+     * Mark a sale as delayed (agent confirms the item is delayed).
+     * The manager order list will then float it to the top with a DELAYED badge.
+     */
+    public function markDelayed(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale = \App\Models\PrototypeSale::where('sales_agent_id', $user->id)->findOrFail($id);
+
+        $sale->is_delayed = true;
+        $sale->delayed_at = now();
+        $sale->save();
+
+        return response()->json(['success' => true, 'is_delayed' => true]);
     }
 
     public function agentCreate()
