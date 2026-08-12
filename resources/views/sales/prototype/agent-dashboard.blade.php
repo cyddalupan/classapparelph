@@ -322,13 +322,9 @@
                     $isDelayed = $dueCarbon && $daysLeft !== null && $daysLeft < 0;
                     $isDone = in_array($sale->kanban_status ?? 'new', $dueHiddenStages);
                 @endphp
-                @if($isDelayed)
-                    @if($isDone)
-                        <span class="badge bg-secondary" style="margin-left:0.5rem;" title="Delayed order — for review reference">Delayed</span>
-                    @else
-                        <span class="badge bg-danger" style="margin-left:0.5rem;" title="Due {{ $dueCarbon->format('M d, Y') }}">Delayed · Due {{ abs($daysLeft) }}d ago</span>
-                    @endif
-                @elseif($dueCarbon)
+                @if(!$isDone && $isDelayed)
+                    <span class="badge bg-danger" style="margin-left:0.5rem;" title="Due {{ $dueCarbon->format('M d, Y') }}">Delayed · Due {{ abs($daysLeft) }}d ago</span>
+                @elseif(!$isDone && $dueCarbon)
                     @if($daysLeft === 0)
                         <span class="badge bg-danger" style="margin-left:0.5rem;" title="Due today">Due TODAY</span>
                     @elseif($daysLeft <= 3)
