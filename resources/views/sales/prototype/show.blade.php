@@ -2900,8 +2900,6 @@ function renderProductionSlipHtml(data, showProductLabel) {
     return html;
 }
 
-})();
-
 // Global helper functions (must be outside IIFE for inline event handlers)
 function toggleProdItem(saleId, index, checked) {
     if (index < 0) return;
