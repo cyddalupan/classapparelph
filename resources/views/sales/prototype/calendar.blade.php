@@ -368,14 +368,6 @@
     max-width: 100%;
     border: 1px solid rgba(0,0,0,0.06);
 }
-.day-project .dp-slip-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px; font-size: 9px; line-height: 1;
-    background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe;
-    border-radius: 4px; cursor: pointer; padding: 0; margin-left: 3px;
-    vertical-align: middle;
-}
-.day-project .dp-slip-btn:hover { background: #4f46e5; color: #fff; }
 
 
 /* ========== SIDE SUMMARY ========== */
@@ -507,13 +499,27 @@
 
 <!-- Project Detail Modal -->
 <div class="modal fade" id="projectModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i>Project Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+            <!-- Tab bar -->
+            <div style="display:flex;border-bottom:2px solid #dee2e6;padding:0 16px;">
+                <button class="prod-tab active" data-tab="details" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:600;color:#0d6efd;border-bottom:3px solid #0d6efd;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-info-circle me-1"></i>Details
+                </button>
+                <button class="prod-tab" data-tab="prodSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-clipboard-list me-1"></i>Production Slip
+                </button>
+                <button class="prod-tab" data-tab="addProdSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-plus-circle me-1"></i>Additional Production Slip
+                </button>
+            </div>
             <div class="modal-body" id="projectModalBody">Loading...</div>
+            <div class="modal-body" id="modalProdSlipBody" style="display:none;"></div>
+            <div class="modal-body" id="modalAddProdSlipBody" style="display:none;"></div>
             <div class="modal-footer">
                 <a href="#" id="calendarEditBtn" class="btn btn-primary" target="_blank" style="display:none;">
                     <i class="fas fa-edit"></i> Edit
@@ -555,37 +561,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="calConfirmBtn"><i class="fas fa-check"></i> Confirm Move</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- === PRODUCTION SLIP MODAL === -->
-<div class="modal fade" id="prodSlipModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="prodSlipModalTitle">Production Slip</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <!-- Tab bar -->
-            <div style="display:flex;border-bottom:2px solid #dee2e6;padding:0 16px;">
-                <button class="prod-tab active" data-tab="prodSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:600;color:#0d6efd;border-bottom:3px solid #0d6efd;cursor:pointer;margin-bottom:-2px;">
-                    <i class="fas fa-clipboard-list me-1"></i>Production Slip
-                </button>
-                <button class="prod-tab" data-tab="addProdSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
-                    <i class="fas fa-plus-circle me-1"></i>Additional Production Slip
-                </button>
-            </div>
-            <div class="modal-body" id="modalProdSlipBody">
-                <div class="text-center text-muted py-4">
-                    <i class="fas fa-spinner fa-spin fa-2x"></i>
-                    <p class="mt-2">Loading production slip...</p>
-                </div>
-            </div>
-            <div class="modal-body" id="modalAddProdSlipBody" style="display:none;"></div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -760,7 +735,6 @@ function renderWeek(monday, projects) {
                     html += `<span class="dp-status" style="color:#842029;font-weight:600;">❌</span>`;
                 }
                 html += `<span class="dp-amount">${curr(amt)}</span>`;
-                html += `<button class="dp-slip-btn" title="Production Slip" onclick="event.stopPropagation();openProdSlipCalendar(${p.id})">📋</button>`;
                 html += `</div>`;
                 // Production stage tagging (same rules as manager order list)
                 const curStage = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
@@ -1101,6 +1075,34 @@ function showDetail(id) {
     const modal = new bootstrap.Modal(document.getElementById('projectModal'));
     const body = document.getElementById('projectModalBody');
     body.innerHTML = '<p class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</p>';
+
+    // Store sale ID immediately (before fetch completes) for Production Slip tab
+    psSaleId = id;
+    body.dataset.saleId = id;
+
+    // Clear production slip caches so they reload when switching tabs
+    var prodBody = document.getElementById('modalProdSlipBody');
+    var addProdBody = document.getElementById('modalAddProdSlipBody');
+    if (prodBody) prodBody.dataset.loaded = '';
+    if (addProdBody) addProdBody.dataset.loaded = '';
+
+    // Reset to Details tab on open
+    var allTabs = document.querySelectorAll('#projectModal .prod-tab');
+    allTabs.forEach(function(t) {
+        t.style.color = '#666';
+        t.style.borderBottomColor = 'transparent';
+        t.style.fontWeight = '500';
+    });
+    var detailsTab = document.querySelector('#projectModal .prod-tab[data-tab="details"]');
+    if (detailsTab) {
+        detailsTab.style.color = '#0d6efd';
+        detailsTab.style.borderBottomColor = '#0d6efd';
+        detailsTab.style.fontWeight = '600';
+    }
+    body.style.display = '';
+    if (prodBody) prodBody.style.display = 'none';
+    if (addProdBody) addProdBody.style.display = 'none';
+
     modal.show();
     fetch(`/sales/prototype/${id}/details`)
         .then(r=>r.json())
@@ -1177,51 +1179,13 @@ window.closeLightbox = function() {
 };
 
 document.addEventListener('DOMContentLoaded', loadCal);
-// ===== Production Slip Modal (ported from kanban, calendar version) =====
+// ===== Production Slip Modal (kanban-style tabs in project modal) =====
 var psSaleId = null;
 
-function openProdSlipCalendar(saleId) {
-    psSaleId = saleId;
-    var modalTitle = document.getElementById('prodSlipModalTitle');
-    if (modalTitle) modalTitle.textContent = 'Production Slip — Sale #' + saleId;
-    var modalEl = document.getElementById('prodSlipModal');
-    var prodBody = document.getElementById('modalProdSlipBody');
-    var addProdBody = document.getElementById('modalAddProdSlipBody');
-    if (!modalEl || !prodBody) return;
-
-    // Reset tabs to prodSlip
-    var tabs = modalEl.querySelectorAll('.prod-tab');
-    tabs.forEach(function(t) {
-        t.style.color = '#666';
-        t.style.borderBottomColor = 'transparent';
-        t.style.fontWeight = '500';
-    });
-    var prodTab = modalEl.querySelector('.prod-tab[data-tab="prodSlip"]');
-    if (prodTab) {
-        prodTab.style.color = '#0d6efd';
-        prodTab.style.borderBottomColor = '#0d6efd';
-        prodTab.style.fontWeight = '600';
-    }
-    prodBody.style.display = '';
-    addProdBody.style.display = 'none';
-
-    // Clear caches
-    prodBody.dataset.loaded = '';
-    addProdBody.dataset.loaded = '';
-
-    // Load production slip
-    prodBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading production slip...</p></div>';
-    loadProductionSlip(psSaleId);
-
-    // Show modal
-    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.show();
-}
-
-// Tab switching (no Details tab - we're already on the show page)
+// Tab switching (Details / Production Slip / Additional Production Slip)
 document.addEventListener('click', function(e) {
     var tab = e.target.closest('.prod-tab');
-    if (!tab || !document.getElementById('prodSlipModal')) return;
+    if (!tab || !document.getElementById('projectModal')) return;
     var tabName = tab.dataset.tab;
     var tabs = tab.parentElement.querySelectorAll('.prod-tab');
     tabs.forEach(function(t) {
@@ -1233,21 +1197,32 @@ document.addEventListener('click', function(e) {
     tab.style.borderBottomColor = '#0d6efd';
     tab.style.fontWeight = '600';
 
+    var detailsBody = document.getElementById('projectModalBody');
     var prodBody = document.getElementById('modalProdSlipBody');
     var addProdBody = document.getElementById('modalAddProdSlipBody');
 
-    if (tabName === 'addProdSlip') {
+    if (tabName === 'details') {
+        detailsBody.style.display = '';
+        prodBody.style.display = 'none';
+        addProdBody.style.display = 'none';
+    } else if (tabName === 'addProdSlip') {
+        detailsBody.style.display = 'none';
         prodBody.style.display = 'none';
         addProdBody.style.display = '';
-        if (!addProdBody.dataset.loaded || addProdBody.dataset.saleId !== String(psSaleId)) {
+        // Reload if different sale or not loaded yet
+        var needReload = !addProdBody.dataset.loaded || addProdBody.dataset.saleId !== String(psSaleId);
+        if (needReload && psSaleId) {
             addProdBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading additional production slip...</p></div>';
             addProdBody.dataset.loaded = '';
             loadAdditionalProductionSlip(psSaleId);
         }
     } else {
+        detailsBody.style.display = 'none';
         prodBody.style.display = '';
         addProdBody.style.display = 'none';
-        if (!prodBody.dataset.loaded || prodBody.dataset.saleId !== String(psSaleId)) {
+        // Reload if different sale or not loaded yet
+        var needReload = !prodBody.dataset.loaded || prodBody.dataset.saleId !== String(psSaleId);
+        if (needReload && psSaleId) {
             prodBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading production slip...</p></div>';
             prodBody.dataset.loaded = '';
             loadProductionSlip(psSaleId);
