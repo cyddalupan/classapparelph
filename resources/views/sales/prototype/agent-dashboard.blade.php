@@ -309,9 +309,9 @@
                 </div>
             </div>
             <div>
-                <span class="sale-date">
+                <span class="sale-date" title="Date needed — {{ $sale->rescheduled_date ? 'rescheduled from ' . \Carbon\Carbon::parse($sale->estimated_completion_date)->format('M d, Y') : 'estimated completion date' }}">
                     <i class="far fa-calendar-alt"></i>
-                    {{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}
+                    {{ \Carbon\Carbon::parse($sale->rescheduled_date ?: ($sale->estimated_completion_date ?: $sale->created_at))->format('M d, Y') }}
                 </span>
                 @php
                     // Due date status — same logic as manager order list
