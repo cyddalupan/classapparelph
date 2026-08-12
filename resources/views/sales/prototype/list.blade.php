@@ -546,7 +546,10 @@
                             <strong style="font-size:11px;">{{ $sale->sales_number }}</strong>
                             <div style="font-size:10px;color:#6c757d;white-space:nowrap;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
                             @php
-                                $dueDate = $sale->rescheduled_date ?: $sale->estimated_completion_date;
+                                // Hide due badge once order is dispatched or done
+                                $dueStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD');
+                                $dueHiddenStages = ['ready_for_delivery', 'delivered', 'completed'];
+                                $dueDate = (!in_array($dueStage, $dueHiddenStages)) ? ($sale->rescheduled_date ?: $sale->estimated_completion_date) : null;
                                 $dueBadge = null;
                                 if ($dueDate) {
                                     $dueCarbon = \Carbon\Carbon::parse($dueDate)->startOfDay();
