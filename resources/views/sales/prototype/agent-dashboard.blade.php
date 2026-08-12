@@ -54,6 +54,7 @@
 .sale-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
 .sale-card-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 0.5rem; }
 .sale-number { font-weight: 700; color: #3b82f6; font-size: 0.9rem; }
+.sale-title { font-weight: 700; color: #1e293b; font-size: 0.95rem; line-height: 1.3; }
 .sale-customer { font-weight: 600; color: #1e293b; }
 .sale-date { color: #94a3b8; font-size: 0.8rem; }
 .sale-id-badge { background: #eef2ff; color: #4f46e5; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
@@ -287,8 +288,21 @@
     <div class="sale-card">
         <div class="sale-card-header">
             <div>
-                <span class="sale-number">{{ $sale->sales_number }}</span>
-                <span class="sale-customer"> — {{ $sale->customer_name }}</span>
+                @php
+                    // Build descriptive title from services (same as manager order list)
+                    $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+                    $descParts = [];
+                    $totalQty = 0;
+                    foreach ((array)$svcItems as $svc) {
+                        if (is_array($svc)) {
+                            $descParts[] = \App\Models\PrototypeSale::itemSpecSummary($svc);
+                            $totalQty += (int)($svc['quantity'] ?? 1);
+                        }
+                    }
+                    $saleTitle = $descParts ? implode(' + ', $descParts) : $sale->sales_number;
+                @endphp
+                <div class="sale-title">{{ $saleTitle }}</div>
+                <div class="sale-number">{{ $sale->sales_number }} @if($totalQty) · {{ $totalQty }} pcs @endif@if(!empty($sale->customer_name) && !in_array(strtoupper(trim($sale->customer_name)), ['TEST', 'TEST ORDER'])) — {{ $sale->customer_name }}@endif</div>
             </div>
             <div>
                 <span class="sale-date">
@@ -303,7 +317,6 @@
                     $daysLeft = $dueCarbon ? (int) now()->startOfDay()->diffInDays($dueCarbon, false) : null;
                     $isDelayed = $dueCarbon && $daysLeft !== null && $daysLeft < 0;
                     $isDone = in_array($sale->kanban_status ?? 'new', $dueHiddenStages);
-                    $showCountdown = $dueCarbon && !$isDone && !$isDelayed;
                 @endphp
                 @if($isDelayed)
                     @if($isDone)
@@ -311,7 +324,7 @@
                     @else
                         <span class="badge bg-danger" style="margin-left:0.5rem;" title="Due {{ $dueCarbon->format('M d, Y') }}">Delayed · Due {{ abs($daysLeft) }}d ago</span>
                     @endif
-                @elseif($showCountdown)
+                @elseif($dueCarbon)
                     @if($daysLeft === 0)
                         <span class="badge bg-danger" style="margin-left:0.5rem;" title="Due today">Due TODAY</span>
                     @elseif($daysLeft <= 3)
