@@ -417,28 +417,29 @@
 @media (max-width: 992px) {
     .week-grid { gap: 3px; }
     .day-project { font-size: 0.62rem; padding: 0.2rem 0.3rem; }
-    /* Production Slip (Interactive) */
-    #modalProdSlipBody { max-height:70vh; overflow-y:auto; }
-    #modalAddProdSlipBody { max-height:70vh; overflow-y:auto; }
-    .pslip { font-family: 'Courier New', monospace; font-size: 10pt; color: #000; padding:0 4px; }
-    .pslip h1 { font-size: 14pt; margin:0 0 2px; text-align:center; }
-    .pslip .divider { border-top:2px solid #000; margin:2px 0; }
-    .pslip table { width:100%; border-collapse:collapse; }
-    .pslip td, .pslip th { border:1px solid #000; padding:2px 4px; text-align:left; font-size:9pt; vertical-align:top; }
-    .pslip .field-label { font-weight:bold; background:#f0f0f0; white-space:nowrap; width:1%; }
-    .pslip .mockup-box { border:2px dashed #999; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:9pt; overflow:hidden; width:100%; aspect-ratio:4/3; max-height:250px; }
-    .pslip .mockup-box img { max-width:100%; max-height:100%; object-fit:contain; cursor:pointer; }
-    .pslip .section-title { font-weight:bold; font-size:11pt; margin:2px 0; }
-    .pslip .chk { width:16px; height:16px; cursor:pointer; accent-color:#198754; margin:0; vertical-align:middle; }
-    .pslip tr.done td { text-decoration:line-through; color:#999; }
-    .pslip .no-border td, .pslip .no-border { border:none; }
-    .ps-comment-list { margin-top:6px; max-height:150px; overflow-y:auto; }
-    .ps-comment-entry { padding:6px 8px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:12px; border-left:3px solid #0d6efd; line-height:1.4; }
-    .ps-comment-entry .time { font-size:10px; color:#999; }
-    .ps-comment-input { display:flex; gap:4px; margin-top:4px; }
-    .ps-comment-input input { flex:1; border:1px solid #dee2e6; border-radius:4px; padding:6px 8px; font-size:12px; }
-    .ps-comment-input button { padding:6px 12px; font-size:12px; background:#0d6efd; color:white; border:none; border-radius:4px; cursor:pointer; }
 }
+
+/* Production Slip (Interactive) */
+#modalProdSlipBody { max-height:70vh; overflow-y:auto; }
+#modalAddProdSlipBody { max-height:70vh; overflow-y:auto; }
+.pslip { font-family: 'Courier New', monospace; font-size: 10pt; color: #000; padding:0 4px; }
+.pslip h1 { font-size: 14pt; margin:0 0 2px; text-align:center; }
+.pslip .divider { border-top:2px solid #000; margin:2px 0; }
+.pslip table { width:100%; border-collapse:collapse; }
+.pslip td, .pslip th { border:1px solid #000; padding:2px 4px; text-align:left; font-size:9pt; vertical-align:top; }
+.pslip .field-label { font-weight:bold; background:#f0f0f0; white-space:nowrap; width:1%; }
+.pslip .mockup-box { border:2px dashed #999; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:9pt; overflow:hidden; width:100%; aspect-ratio:4/3; max-height:250px; }
+.pslip .mockup-box img { max-width:100%; max-height:100%; object-fit:contain; cursor:pointer; }
+.pslip .section-title { font-weight:bold; font-size:11pt; margin:2px 0; }
+.pslip .chk { width:16px; height:16px; cursor:pointer; accent-color:#198754; margin:0; vertical-align:middle; }
+.pslip tr.done td { text-decoration:line-through; color:#999; }
+.pslip .no-border td, .pslip .no-border { border:none; }
+.ps-comment-list { margin-top:6px; max-height:150px; overflow-y:auto; }
+.ps-comment-entry { padding:6px 8px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:12px; border-left:3px solid #0d6efd; line-height:1.4; }
+.ps-comment-entry .time { font-size:10px; color:#999; }
+.ps-comment-input { display:flex; gap:4px; margin-top:4px; }
+.ps-comment-input input { flex:1; border:1px solid #dee2e6; border-radius:4px; padding:6px 8px; font-size:12px; }
+.ps-comment-input button { padding:6px 12px; font-size:12px; background:#0d6efd; color:white; border:none; border-radius:4px; cursor:pointer; }
 @media (max-width: 768px) {
     .calendar-header { flex-direction: column; padding: 1rem; }
     .dept-tabs, .range-bar { padding: 0.5rem 1rem; }
