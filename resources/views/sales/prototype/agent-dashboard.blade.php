@@ -189,7 +189,13 @@
                     <option value="">All</option>
                     <option value="pending" {{ ($filters['payment_status'] ?? '') === 'pending' ? 'selected' : '' }}>Pending</option>
                     <option value="verified" {{ ($filters['payment_status'] ?? '') === 'verified' ? 'selected' : '' }}>Verified</option>
+                    <option value="down_payment_verified" {{ ($filters['payment_status'] ?? '') === 'down_payment_verified' ? 'selected' : '' }}>Down Payment Verified</option>
+                    <option value="additional_payment_verified" {{ ($filters['payment_status'] ?? '') === 'additional_payment_verified' ? 'selected' : '' }}>Additional Verified</option>
+                    <option value="full_payment_verified" {{ ($filters['payment_status'] ?? '') === 'full_payment_verified' ? 'selected' : '' }}>Full Payment Verified</option>
                     <option value="rejected" {{ ($filters['payment_status'] ?? '') === 'rejected' ? 'selected' : '' }}>Rejected</option>
+                    <option value="reject_pending" {{ ($filters['payment_status'] ?? '') === 'reject_pending' ? 'selected' : '' }}>Rejection Pending</option>
+                    <option value="edit_pending" {{ ($filters['payment_status'] ?? '') === 'edit_pending' ? 'selected' : '' }}>Edit Pending</option>
+                    <option value="unpaid" {{ ($filters['payment_status'] ?? '') === 'unpaid' ? 'selected' : '' }}>Unpaid</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -226,7 +232,9 @@
         $totalSales   = $sales->count();
         $totalAmount  = $sales->sum('total_amount');
         $totalDeposit = $sales->sum('net_paid');
-        $saleStatuses = $sales->pluck('kanban_status')->countBy();
+        $pendingPay   = $sales->where('payment_status', 'pending')->count();
+        $inProd       = $sales->where('kanban_status', 'production')->count();
+        $completedCnt = $sales->where('kanban_status', 'completed')->count();
     @endphp
 
     <div class="stats-row">
@@ -243,15 +251,15 @@
             <div class="stat-label">Total Collected</div>
         </div>
         <div class="stat-card pending">
-            <div class="stat-value">{{ $saleStatuses->get('pending', 0) }}</div>
-            <div class="stat-label">Pending</div>
+            <div class="stat-value">{{ $pendingPay }}</div>
+            <div class="stat-label">Pending Payment</div>
         </div>
         <div class="stat-card production">
-            <div class="stat-value">{{ $saleStatuses->get('in_production', 0) }}</div>
+            <div class="stat-value">{{ $inProd }}</div>
             <div class="stat-label">In Production</div>
         </div>
         <div class="stat-card completed">
-            <div class="stat-value">{{ $saleStatuses->get('completed', 0) }}</div>
+            <div class="stat-value">{{ $completedCnt }}</div>
             <div class="stat-label">Completed</div>
         </div>
     </div>
@@ -323,19 +331,33 @@
                     <div>
                         @php
                             $pStatus = $sale->payment_status ?? 'unpaid';
-                            $pBadge = match($pStatus) {
-                                'verified' => 'verified',
+                            $pBadge  = match($pStatus) {
+                                'verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified' => 'verified',
                                 'pending'  => 'pending',
+                                'rejected', 'reject_pending' => 'unpaid',
+                                'edit_pending' => 'pending',
                                 default    => 'unpaid',
                             };
                             $pLabel  = match($pStatus) {
-                                'verified' => 'Verified',
-                                'pending'  => 'Pending Verification',
-                                default    => 'Unpaid',
+                                'verified'                  => 'Verified',
+                                'down_payment_verified'     => 'Down Payment Verified',
+                                'additional_payment_verified' => 'Additional Verified',
+                                'full_payment_verified'     => 'Full Payment Verified',
+                                'pending'                   => 'Pending Verification',
+                                'rejected'                  => 'Rejected',
+                                'reject_pending'            => 'Rejection Pending',
+                                'edit_pending'              => 'Edit Pending',
+                                default                     => 'Unpaid',
+                            };
+                            $pIcon = match($pStatus) {
+                                'verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified' => 'fa-check-circle',
+                                'pending', 'reject_pending', 'edit_pending' => 'fa-clock',
+                                'rejected' => 'fa-times-circle',
+                                default    => 'fa-times-circle',
                             };
                         @endphp
                         <span class="payment-badge {{ $pBadge }}">
-                            <i class="fas {{ $pStatus === 'verified' ? 'fa-check-circle' : ($pStatus === 'pending' ? 'fa-clock' : 'fa-times-circle') }}"></i>
+                            <i class="fas {{ $pIcon }}"></i>
                             {{ $pLabel }}
                         </span>
                     </div>
