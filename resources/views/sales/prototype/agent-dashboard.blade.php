@@ -418,15 +418,103 @@
                 <i class="fas fa-eye"></i> View Details
             </a>
             @if(($sale->balance_due_computed ?? 0) > 0)
-            <a href="{{ route('sales.prototype.agent.payment', $sale->id) }}" class="action-btn primary">
-                <i class="fas fa-money-bill-wave"></i> Add Payment
-            </a>
+            <button type="button" class="action-btn primary" data-bs-toggle="modal" data-bs-target="#payBalanceModal{{ $sale->id }}">
+                <i class="fas fa-money-bill-wave"></i> Pay Balance
+            </button>
             @endif
             @if($sale->payment_status === 'pending' && $sale->payment_screenshot_path)
             <button class="action-btn" onclick="showScreenshot('{{ $sale->payment_screenshot_path }}')">
                 <i class="fas fa-image"></i> View Proof
             </button>
             @endif
+        </div>
+    </div>
+
+    <!-- Pay Balance Modal -->
+    <div class="modal fade" id="payBalanceModal{{ $sale->id }}" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form action="{{ route('sales.prototype.agent.payment.store', $sale->id) }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-credit-card me-2"></i>Pay Balance — {{ $sale->sales_number }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        @php
+                            $remainingAmt = $sale->balance_due_computed ?? 0;
+                            $netPaidAmt = $sale->net_paid ?? 0;
+                        @endphp
+                        <div class="row g-3">
+                            <!-- Summary -->
+                            <div class="col-12">
+                                <div class="bg-light p-3 rounded d-flex justify-content-around text-center">
+                                    <div>
+                                        <small class="text-muted d-block">Total</small>
+                                        <strong>₱{{ number_format($sale->total_amount ?? 0, 2) }}</strong>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block">Paid</small>
+                                        <strong class="text-success">₱{{ number_format($netPaidAmt, 2) }}</strong>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted d-block">Balance</small>
+                                        <strong class="text-danger">₱{{ number_format($remainingAmt, 2) }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Amount -->
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Amount <span class="text-danger">*</span></label>
+                                <input type="number" name="payment_amount" class="form-control pay-balance-amount" step="0.01" min="0.01" max="{{ $remainingAmt }}" value="{{ $remainingAmt }}" required>
+                                <input type="hidden" name="payment_type" class="pay-balance-type" value="fullpayment">
+                            </div>
+
+                            <!-- Date -->
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Date <span class="text-danger">*</span></label>
+                                <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                            </div>
+
+                            <!-- Account -->
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Account <span class="text-danger">*</span></label>
+                                <select name="payment_account_id" class="form-select" required>
+                                    <option value="">Select account...</option>
+                                    @foreach(\App\Models\PaymentAccount::where('is_active', true)->get() as $acct)
+                                        <option value="{{ $acct->id }}">{{ $acct->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Reference -->
+                            <div class="col-md-6">
+                                <label class="form-label">Reference Number</label>
+                                <input type="text" name="reference_number" class="form-control" placeholder="Transaction ref number">
+                            </div>
+
+                            <!-- Screenshot -->
+                            <div class="col-12">
+                                <label class="form-label">Payment Screenshot / Proof</label>
+                                <input type="file" name="payment_screenshot" class="form-control" accept="image/*">
+                            </div>
+
+                            <!-- Notes -->
+                            <div class="col-12">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check me-1"></i>Submit Payment
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
     @empty
@@ -487,5 +575,21 @@ function showScreenshot(path) {
         </head><body><img src="${path}" alt="Payment Screenshot"/></body></html>
     `);
 }
+
+// Auto-set payment_type: fullpayment when amount >= remaining, else additional
+function wirePayBalanceType() {
+    document.querySelectorAll('.pay-balance-amount').forEach(function(input) {
+        var typeInput = input.closest('form').querySelector('.pay-balance-type');
+        var maxVal = parseFloat(input.max) || 0;
+        if (!typeInput) return;
+        var update = function() {
+            var val = parseFloat(input.value) || 0;
+            typeInput.value = (val >= maxVal - 0.001) ? 'fullpayment' : 'additional';
+        };
+        input.addEventListener('input', update);
+        update();
+    });
+}
+document.addEventListener('DOMContentLoaded', wirePayBalanceType);
 </script>
 @endpush
