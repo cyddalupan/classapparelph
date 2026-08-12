@@ -3666,8 +3666,9 @@ public function printSlip(string $id)
             ]);
 
         // Merge: pending/additional deposits from prototype_payments + initial deposits from prototype_sales
+        // Only truly pending payments need verification — rejected ones are already handled (agent edits/resubmits)
         $pendingPayments = $pendingPayments
-            ->whereIn('prototype_payments.payment_status', ['pending', 'rejected'])
+            ->where('prototype_payments.payment_status', 'pending')
             ->union($initialDeposits)
             ->orderBy('created_at', 'desc')
             ->get();
