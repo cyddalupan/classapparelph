@@ -41,7 +41,7 @@
 /* Stats row */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
 .stat-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; text-align: center; min-width: 0; }
-.stat-card .stat-value { font-size: 1.35rem; font-weight: 700; color: #1e293b; line-height: 1.25; overflow-wrap: anywhere; }
+.stat-card .stat-value { font-size: 1.2rem; font-weight: 700; color: #1e293b; line-height: 1.3; white-space: nowrap; }
 .stat-card .stat-label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
 .stat-card.total .stat-value { color: #3b82f6; }
 .stat-card.pending .stat-value { color: #f59e0b; }
