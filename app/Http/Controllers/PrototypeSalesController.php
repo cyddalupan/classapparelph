@@ -364,7 +364,8 @@ class PrototypeSalesController extends Controller
                     $mockupImages = [[
                         'name' => ($item['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
                         'url' => $item['sublimationForm']['mockup'],
-                        'type' => 'sublimation'
+                        'type' => 'sublimation',
+                        'is_main' => true,
                     ]];
                     \DB::table('prototype_sales')->where('id', $saleId)->update(['mockup_images' => json_encode($mockupImages)]);
                     break;
@@ -913,7 +914,8 @@ public function details(Request $request, string $id)
                 $mockupImages = [[
                     'name' => ($firstItem['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
                     'url' => $firstItem['sublimationForm']['mockup'],
-                    'type' => 'sublimation'
+                    'type' => 'sublimation',
+                    'is_main' => true,
                 ]];
                 \DB::table('prototype_sales')
                     ->where('id', $change->sale_id)
@@ -2247,7 +2249,8 @@ public function printSlip(string $id)
                 $mockupImages = [[
                     'name' => ($item['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
                     'url' => $item['sublimationForm']['mockup'],
-                    'type' => 'sublimation'
+                    'type' => 'sublimation',
+                    'is_main' => true,
                 ]];
                 \DB::table('prototype_sales')->where('id', $id)->update(['mockup_images' => json_encode($mockupImages)]);
                 break;
@@ -2699,9 +2702,14 @@ public function printSlip(string $id)
                 }
             }
 
-            // Mockup thumbnail (same logic as manager list)
+            // Mockup thumbnail (same logic as manager list) — main cover first
             $mockups = is_string($p->mockup_images) ? json_decode($p->mockup_images, true) : ($p->mockup_images ?? []);
-            $firstMockup = $mockups[0] ?? null;
+            $mainMockup = null;
+            foreach ($mockups as $m) {
+                if (is_array($m) && !empty($m['is_main'])) { $mainMockup = $m; break; }
+            }
+            if (!$mainMockup && !empty($mockups)) $mainMockup = $mockups[0];
+            $firstMockup = $mainMockup;
             $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
 
             // Description summary (same as manager list)
@@ -4638,6 +4646,171 @@ public function printSlip(string $id)
         return response()->json([
             'success' => true,
             'message' => $typeLabel . ' deleted.',
+        ]);
+    }
+
+    /**
+     * Upload an additional mockup image to a sale. The first mockup on a sale
+     * automatically becomes the main cover; later uploads default to non-main.
+     */
+    public function uploadMockup(Request $request, $id)
+    {
+        $request->validate([
+            'mockup_image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:10240',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $file = $request->file('mockup_image');
+        $filename = 'mockup_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+        $filePath = $file->storeAs('uploads/mockups/' . $id, $filename, 'public');
+        $url = '/storage/' . $filePath;
+
+        $images = is_array($sale->mockup_images) ? $sale->mockup_images : [];
+        $isFirst = empty($images);
+        $images[] = [
+            'name' => $file->getClientOriginalName(),
+            'url' => $url,
+            'type' => 'upload',
+            'is_main' => $isFirst,
+            'uploaded_by' => auth()->user()->name ?? 'Unknown',
+            'uploaded_at' => now()->toDateTimeString(),
+        ];
+        $sale->mockup_images = $images;
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Mockup uploaded successfully.',
+            'image' => $images[count($images) - 1],
+        ]);
+    }
+
+    /**
+     * Delete a mockup image. If the deleted mockup was the main cover,
+     * the first remaining mockup is promoted to main. Records an audit log.
+     */
+    public function deleteMockup(Request $request, $id)
+    {
+        $request->validate([
+            'url' => 'required|string',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $images = is_array($sale->mockup_images) ? $sale->mockup_images : [];
+        $targetUrl = $request->url;
+        $removed = null;
+        $kept = [];
+        $wasMain = false;
+
+        foreach ($images as $img) {
+            $url = is_array($img) ? ($img['url'] ?? '') : $img;
+            if ($url === $targetUrl) {
+                $removed = $img;
+                $wasMain = is_array($img) && !empty($img['is_main']);
+                continue;
+            }
+            $kept[] = $img;
+        }
+
+        if (!$removed) {
+            return response()->json(['success' => false, 'message' => 'Mockup not found.'], 404);
+        }
+
+        // Promote first remaining mockup if we just deleted the main cover
+        if ($wasMain && !empty($kept) && is_array($kept[0])) {
+            $kept[0]['is_main'] = true;
+        }
+
+        // Remove the physical file (best-effort)
+        try {
+            $rel = ltrim(str_replace('/storage/', '', $targetUrl), '/');
+            if ($rel) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($rel);
+            }
+        } catch (\Throwable $e) {
+            // ignore file deletion errors
+        }
+
+        $sale->mockup_images = $kept;
+        $sale->save();
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => auth()->id() ?? 1,
+            'action' => 'mockup_deleted',
+            'description' => 'Deleted mockup ("' . ($removed['name'] ?? 'image') . '")' . ($request->reason ? ' Reason: ' . $request->reason : ''),
+            'details' => json_encode([
+                'url' => $targetUrl,
+                'name' => $removed['name'] ?? null,
+                'was_main' => $wasMain,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Mockup deleted.',
+            'promoted' => $wasMain,
+        ]);
+    }
+
+    /**
+     * Set which mockup is used as the main cover on the kanban board,
+     * manager order list, and calendar. Other mockups stay as alternates.
+     */
+    public function setMainMockup(Request $request, $id)
+    {
+        $request->validate([
+            'url' => 'required|string',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $images = is_array($sale->mockup_images) ? $sale->mockup_images : [];
+        $found = false;
+        foreach ($images as &$img) {
+            if (is_array($img)) {
+                $img['is_main'] = ($img['url'] ?? '') === $request->url;
+                if (($img['url'] ?? '') === $request->url) {
+                    $found = true;
+                }
+            }
+        }
+        unset($img);
+
+        if (!$found) {
+            return response()->json(['success' => false, 'message' => 'Mockup not found.'], 404);
+        }
+
+        $sale->mockup_images = $images;
+        $sale->save();
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => auth()->id() ?? 1,
+            'action' => 'mockup_main_changed',
+            'description' => 'Set mockup as main cover.',
+            'details' => json_encode(['url' => $request->url]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Main cover updated.',
         ]);
     }
 

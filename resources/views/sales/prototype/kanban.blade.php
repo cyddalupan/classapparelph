@@ -416,7 +416,13 @@
                             $firstItem = isset($svc[0]) ? (is_array($svc[0]) ? \App\Models\PrototypeSale::itemSpecSummary($svc[0]) : $svc[0]) : '';
                             $itemCount = count($svc);
                             $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
-                            $firstMockup = $mockups[0] ?? null;
+                            // Main cover = entry with is_main flag, fallback to first
+                            $mainMockup = null;
+                            foreach ($mockups as $m) {
+                                if (is_array($m) && !empty($m['is_main'])) { $mainMockup = $m; break; }
+                            }
+                            if (!$mainMockup && !empty($mockups)) $mainMockup = $mockups[0];
+                            $firstMockup = $mainMockup;
                             $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
                             $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
                             $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');

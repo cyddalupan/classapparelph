@@ -232,6 +232,54 @@
                 @endif
             </div>
 
+            <!-- Mockups / Main Cover -->
+            <div class="detail-section mt-3">
+                <h5 class="detail-title"><i class="fas fa-palette me-2"></i>Mockups <span class="text-muted small fw-normal">(pinili ang isa bilang main cover)</span></h5>
+
+                @php
+                    $allMockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+                    $mainMockup = null;
+                    foreach ($allMockups as $m) {
+                        if (is_array($m) && !empty($m['is_main'])) { $mainMockup = $m; break; }
+                    }
+                    if (!$mainMockup && !empty($allMockups)) $mainMockup = $allMockups[0];
+                @endphp
+
+                <div class="d-flex flex-wrap gap-2 mb-2" id="mockupsGallery">
+                    @forelse($allMockups as $m)
+                        @php
+                            $mUrl = is_string($m) ? $m : ($m['url'] ?? '');
+                            $mName = is_array($m) ? ($m['name'] ?? 'Mockup') : 'Mockup';
+                            $isMain = is_array($m) && !empty($m['is_main']);
+                        @endphp
+                        @if($mUrl)
+                            <div style="position:relative;display:inline-block;" class="mockup-item">
+                                <img src="{{ $mUrl }}" alt="{{ $mName }}" class="mockup-thumb" style="width:110px;height:90px;object-fit:cover;border-radius:6px;cursor:pointer;border:{{ $isMain ? '3px solid #10b981' : '1px solid #ddd' }};" onclick="openLightbox('{{ $mUrl }}')">
+                                @if($isMain)
+                                    <span style="position:absolute;top:-8px;left:-8px;background:#10b981;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.25);">⭐ MAIN</span>
+                                @endif
+                                <div class="d-flex gap-1 mt-1">
+                                    @if(!$isMain)
+                                        <button type="button" class="btn btn-sm btn-outline-success" style="padding:1px 8px;font-size:11px;" onclick="setMainMockup('{{ $mUrl }}', this)" title="Gamitin bilang main cover sa kanban, manager list, at calendar">Set as Main</button>
+                                    @else
+                                        <span class="text-success small fw-semibold" style="font-size:11px;"><i class="fas fa-check-circle"></i> Main cover</span>
+                                    @endif
+                                    <button type="button" class="btn btn-sm btn-outline-danger" style="padding:1px 8px;font-size:11px;margin-left:auto;" onclick="confirmDeleteMockup('{{ $mUrl }}','{{ $mName }}')" title="Delete mockup">✕</button>
+                                </div>
+                            </div>
+                        @endif
+                    @empty
+                        <div class="text-muted small">Wala pang mockup. Mag-upload para makapili ng main cover.</div>
+                    @endforelse
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('mockupUploadInput').click()">
+                    <i class="fas fa-upload me-1"></i>Add Mockup
+                </button>
+                <input type="file" id="mockupUploadInput" accept="image/*" class="d-none" onchange="uploadMockup(this)">
+                <div id="mockupUploadMsg" class="small mt-2"></div>
+            </div>
+
             <!-- Design Files & Sample -->
             <div class="detail-section mt-3">
                 <h5 class="detail-title"><i class="fas fa-images me-2"></i>Design Files & Sample</h5>
@@ -1648,6 +1696,158 @@ function doDeleteDesignImage(btn) {
                 }
             }
             var msg = document.getElementById('designUploadMsg');
+            if (msg) msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';
+        } else {
+            alert(data.message || 'Delete failed.');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete';
+        alert('Network error. Try again.');
+    });
+}
+
+// === MOCKUP MANAGEMENT (multiple mockups + main cover) ===
+function uploadMockup(input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    var msg = document.getElementById('mockupUploadMsg');
+    var gallery = document.getElementById('mockupsGallery');
+    msg.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Uploading...</span>';
+
+    var fd = new FormData();
+    fd.append('mockup_image', file);
+
+    fetch('{{ route("sales.prototype.upload-mockup", $sale->id) }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: fd
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            if (gallery.querySelector('.text-muted.small')) gallery.innerHTML = '';
+            var wrap = document.createElement('div');
+            wrap.style.cssText = 'position:relative;display:inline-block;';
+            wrap.className = 'mockup-item';
+            var img = document.createElement('img');
+            img.src = data.image.url;
+            img.alt = data.image.name || 'Mockup';
+            img.className = 'mockup-thumb';
+            img.style.cssText = 'width:110px;height:90px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #ddd;';
+            img.onclick = function() { openLightbox(data.image.url); };
+            var actions = document.createElement('div');
+            actions.className = 'd-flex gap-1 mt-1';
+            if (data.image.is_main) {
+                actions.innerHTML = '<span class="text-success small fw-semibold" style="font-size:11px;"><i class="fas fa-check-circle"></i> Main cover</span>';
+            } else {
+                var btnMain = document.createElement('button');
+                btnMain.type = 'button';
+                btnMain.className = 'btn btn-sm btn-outline-success';
+                btnMain.style.cssText = 'padding:1px 8px;font-size:11px;';
+                btnMain.textContent = 'Set as Main';
+                btnMain.onclick = function() { setMainMockup(data.image.url, btnMain); };
+                actions.appendChild(btnMain);
+            }
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'btn btn-sm btn-outline-danger';
+            delBtn.style.cssText = 'padding:1px 8px;font-size:11px;margin-left:auto;';
+            delBtn.textContent = '✕';
+            delBtn.title = 'Delete mockup';
+            delBtn.onclick = function(e) {
+                e.stopPropagation();
+                confirmDeleteMockup(data.image.url, data.image.name || 'Mockup');
+            };
+            actions.appendChild(delBtn);
+            wrap.appendChild(img);
+            wrap.appendChild(actions);
+            gallery.appendChild(wrap);
+            msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';
+        } else {
+            msg.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>' + (data.message || 'Upload failed.') + '</span>';
+        }
+    })
+    .catch(function() {
+        msg.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Network error. Try again.</span>';
+    })
+    .finally(function() {
+        input.value = '';
+    });
+}
+
+function setMainMockup(url, btn) {
+    var fd = new FormData();
+    fd.append('url', url);
+
+    fetch('{{ route("sales.prototype.set-main-mockup", $sale->id) }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: fd
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Failed to update main cover.');
+        }
+    })
+    .catch(function() {
+        alert('Network error. Try again.');
+    });
+}
+
+var pendingDeleteMockup = null;
+function confirmDeleteMockup(url, name) {
+    pendingDeleteMockup = { url: url, name: name };
+    document.getElementById('delImgType').textContent = 'mockup';
+    document.getElementById('deleteDesignReason').value = '';
+    document.getElementById('deleteDesignModal').style.display = 'flex';
+}
+function doDeleteMockup(btn) {
+    if (!pendingDeleteMockup) return;
+    var delUrl = pendingDeleteMockup.url;
+    var reason = document.getElementById('deleteDesignReason').value.trim();
+    var fd = new FormData();
+    fd.append('url', delUrl);
+    fd.append('reason', reason);
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+
+    fetch('{{ route("sales.prototype.delete-mockup", $sale->id) }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('[name="csrf-token"]').content,
+            'Accept': 'application/json'
+        },
+        body: fd
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete';
+        closeDeleteDesignModal();
+        if (data.success) {
+            var gallery = document.getElementById('mockupsGallery');
+            if (gallery) {
+                gallery.querySelectorAll('.mockup-item').forEach(function(w) {
+                    var img = w.querySelector('img');
+                    if (img && img.src === delUrl) w.remove();
+                });
+                if (!gallery.querySelector('img')) {
+                    gallery.innerHTML = '<div class="text-muted small">Wala pang mockup. Mag-upload para makapili ng main cover.</div>';
+                }
+            }
+            var msg = document.getElementById('mockupUploadMsg');
             if (msg) msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';
         } else {
             alert(data.message || 'Delete failed.');

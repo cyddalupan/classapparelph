@@ -506,7 +506,13 @@
 
                         // Mock up thumbnail
                         $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
-                        $firstMockup = $mockups[0] ?? null;
+                        // Main cover = entry with is_main flag, fallback to first
+                        $mainMockup = null;
+                        foreach ($mockups as $m) {
+                            if (is_array($m) && !empty($m['is_main'])) { $mainMockup = $m; break; }
+                        }
+                        if (!$mainMockup && !empty($mockups)) $mainMockup = $mockups[0];
+                        $firstMockup = $mainMockup;
                         $firstMockupUrl = is_string($firstMockup) ? $firstMockup : ($firstMockup['url'] ?? '');
 
                         // Description + total quantity from services
