@@ -474,7 +474,9 @@
                                 @if($sale->created_at)
                                     <span>📅 {{ \Carbon\Carbon::parse($sale->created_at)->format('M d') }}</span>
                                 @endif
-                                @if($sale->payment_status === 'verified')
+                                @if(($sale->balance_due_computed ?? 0) > 0 && ($sale->net_paid ?? 0) > 0)
+                                    <span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:4px;font-size:10px;background:#fff3cd;color:#664d03;font-weight:600;" title="May natitira pang bayad (₱{{ number_format($sale->balance_due_computed, 2) }})">⚠️ Balance ₱{{ number_format($sale->balance_due_computed, 2) }}</span>
+                                @elseif(($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
                                     <span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:4px;font-size:10px;background:#d1e7dd;color:#0f5132;font-weight:600;">✅ Paid</span>
                                 @elseif($sale->payment_status === 'pending' && $sale->payment_account_id)
                                     <span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:4px;font-size:10px;background:#fff3cd;color:#664d03;font-weight:600;">⏳ Pending</span>
