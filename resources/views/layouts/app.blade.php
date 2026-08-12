@@ -450,7 +450,7 @@
                                         </div>
                                         @foreach($navSaleVerificationNotifs as $sv)
                                         <a href="{{ route('sales.verification') }}" class="text-decoration-none d-block py-1" style="border-bottom:1px dashed #dbeafe;">
-                                            <div class="small"><strong>{{ $sv->title }}</strong></div>
+                                            <div class="small"><strong>{{ $sv->title }}</strong>@if($sv->reminder_count > 1) <span class="badge bg-primary" style="font-size:9px;">Request #{{ $sv->reminder_count }}</span>@endif</div>
                                             <div class="small text-muted text-truncate">{{ $sv->message }}</div>
                                             <small class="text-muted" style="font-size:10px;">{{ $sv->fromUser?->name }} &middot; {{ $sv->created_at->diffForHumans() }}</small>
                                         </a>

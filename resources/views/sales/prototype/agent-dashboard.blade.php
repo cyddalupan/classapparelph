@@ -445,8 +445,9 @@
             </button>
             @endif
             @if(in_array($sale->payment_status ?? '', ['pending', 'reject_pending', 'edit_pending']))
+            @php $verifyCount = $verificationCounts[$sale->id] ?? 0; @endphp
             <button type="button" class="action-btn notify-verifier-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" onclick="notifyVerifier(this)" title="Notify the verifier to check this pending payment (max once every 24h)">
-                <i class="fas fa-bell"></i> Notify Verifier
+                <i class="fas fa-bell"></i> Notify Verifier@if($verifyCount > 1) ×{{ $verifyCount }}@endif
             </button>
             @endif
         </div>

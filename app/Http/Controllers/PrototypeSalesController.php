@@ -4150,6 +4150,13 @@ public function printSlip(string $id)
 
         $sales = $query->orderBy('created_at', 'desc')->get();
 
+        // Verification request count per sale (kung ilang beses na nag-request ang agent)
+        $verificationCounts = \App\Models\SaleNotification::where('type', 'verification_request')
+            ->whereIn('sale_id', $sales->pluck('id'))
+            ->selectRaw('sale_id, MAX(reminder_count) as cnt')
+            ->groupBy('sale_id')
+            ->pluck('cnt', 'sale_id');
+
         $statuses = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $statusLabels = [
             'new'                => 'New',
@@ -4212,7 +4219,7 @@ public function printSlip(string $id)
             ->get();
         $unreadCount = $notifications->where('is_read', false)->count();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'paymentMethods'));
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'paymentMethods', 'verificationCounts'));
     }
 
     public function agentCreate()
