@@ -444,6 +444,11 @@
                 <i class="fas fa-image"></i> View Proof
             </button>
             @endif
+            @if(in_array($sale->payment_status ?? '', ['pending', 'reject_pending', 'edit_pending']))
+            <button type="button" class="action-btn notify-verifier-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" onclick="notifyVerifier(this)" title="Notify the verifier to check this pending payment (max once every 24h)">
+                <i class="fas fa-bell"></i> Notify Verifier
+            </button>
+            @endif
         </div>
     </div>
 
@@ -591,6 +596,62 @@ function showScreenshot(path) {
         img{max-width:100%;max-height:100vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,0.12);}</style>
         </head><body><img src="${path}" alt="Payment Screenshot"/></body></html>
     `);
+}
+
+function notifyVerifier(btn) {
+    var saleId = btn.getAttribute('data-sale-id');
+    var saleNumber = btn.getAttribute('data-sale-number');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    fetch('{{ route('sales.prototype.notify-verifier', ':ID') }}'.replace(':ID', saleId), {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToastMsg('✅ ' + data.message);
+            btn.innerHTML = '<i class="fas fa-check"></i> Notified';
+            btn.style.borderColor = '#16a34a';
+            btn.style.color = '#16a34a';
+            setTimeout(function() { location.reload(); }, 1500);
+        } else if (data.cooldown) {
+            showToastMsg('⏳ ' + data.message, 'warn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-bell"></i> Notify Verifier';
+        } else {
+            showToastMsg('❌ ' + (data.message || 'Error notifying verifier'), 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-bell"></i> Notify Verifier';
+        }
+    })
+    .catch(function() {
+        showToastMsg('❌ Error notifying verifier', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-bell"></i> Notify Verifier';
+    });
+}
+
+function showToastMsg(msg, type) {
+    var container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;display:flex;flex-direction:column;gap:8px;';
+        document.body.appendChild(container);
+    }
+    var el = document.createElement('div');
+    var bg = type === 'error' ? '#dc2626' : (type === 'warn' ? '#d97706' : '#16a34a');
+    el.style.cssText = 'background:' + bg + ';color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.2);max-width:340px;';
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(function() { el.remove(); }, 4000);
 }
 
 // Auto-set payment_type: fullpayment when amount >= remaining, else additional

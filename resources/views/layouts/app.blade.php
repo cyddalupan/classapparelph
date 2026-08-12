@@ -437,11 +437,27 @@
                             <div class="dropdown d-inline-block">
                                 <button class="header-btn dropdown-toggle" data-bs-toggle="dropdown" title="Notifications">
                                     <i class="fas fa-bell"></i>
-                                    @if($navNotificationCount > 0 || $navPendingVerifications > 0)
-                                    <span class="notification-badge">{{ $navNotificationCount + $navPendingVerifications }}</span>
+                                    @if($navNotificationCount > 0 || $navPendingVerifications > 0 || ($navSaleVerificationCount ?? 0) > 0)
+                                    <span class="notification-badge">{{ $navNotificationCount + $navPendingVerifications + ($navSaleVerificationCount ?? 0) }}</span>
                                     @endif
                                 </button>
                                 <div class="dropdown-menu dropdown-menu-end shadow" style="min-width: 380px; max-height: 480px; overflow-y: auto;">
+                                    @if($navSaleVerificationCount > 0)
+                                    <div class="px-3 py-2 border-bottom" style="background:#eff6ff;">
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <i class="fas fa-bell text-primary"></i>
+                                            <strong class="small">{{ $navSaleVerificationCount }} payment verification request(s)</strong>
+                                        </div>
+                                        @foreach($navSaleVerificationNotifs as $sv)
+                                        <a href="{{ route('sales.verification') }}" class="text-decoration-none d-block py-1" style="border-bottom:1px dashed #dbeafe;">
+                                            <div class="small"><strong>{{ $sv->title }}</strong></div>
+                                            <div class="small text-muted text-truncate">{{ $sv->message }}</div>
+                                            <small class="text-muted" style="font-size:10px;">{{ $sv->fromUser?->name }} &middot; {{ $sv->created_at->diffForHumans() }}</small>
+                                        </a>
+                                        @endforeach
+                                        <a href="{{ route('sales.verification') }}" class="small text-primary text-decoration-none d-block mt-1">Go to Payment Verification &rarr;</a>
+                                    </div>
+                                    @endif
                                     @if($navPendingVerifications > 0)
                                     <div class="px-3 py-2 bg-warning bg-opacity-10 border-bottom">
                                         <a href="{{ route('procurement.orders.index', ['status' => 'for_verification']) }}" class="text-decoration-none d-flex align-items-center gap-2">

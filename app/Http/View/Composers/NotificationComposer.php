@@ -5,6 +5,7 @@ namespace App\Http\View\Composers;
 use App\Models\ProcurementNotification;
 use App\Models\ProcurementOrder;
 use App\Models\SalesDepartment;
+use App\Models\SaleNotification;
 use Illuminate\View\View;
 
 class NotificationComposer
@@ -35,10 +36,21 @@ class NotificationComposer
             ->whereIn('department_id', $managedDeptIds)
             ->count();
 
+        // Unread payment verification requests (from agents) for this user
+        $saleVerificationNotifs = SaleNotification::with(['sale', 'fromUser'])
+            ->where('to_user_id', $user->id)
+            ->where('type', 'verification_request')
+            ->where('is_read', false)
+            ->latest()
+            ->take(10)
+            ->get();
+
         $view->with([
             'navUnreadNotifications' => $notifications,
             'navNotificationCount' => $notifications->count(),
             'navPendingVerifications' => $pendingCount,
+            'navSaleVerificationNotifs' => $saleVerificationNotifs,
+            'navSaleVerificationCount' => $saleVerificationNotifs->count(),
         ]);
     }
 }

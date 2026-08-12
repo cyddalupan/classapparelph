@@ -5036,6 +5036,72 @@ public function printSlip(string $id)
     }
 
     /**
+     * Agent requests payment verification from verifiers (24h cooldown per sale).
+     */
+    public function notifyVerifier(Request $request, $id)
+    {
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $from = auth()->user();
+
+        // Cooldown check: last verification_request for this sale within 24h blocks it
+        $lastNotif = \App\Models\SaleNotification::where('sale_id', $sale->id)
+            ->where('type', 'verification_request')
+            ->orderBy('created_at', 'desc')
+            ->first();
+        if ($lastNotif) {
+            $minutesSince = (int) $lastNotif->created_at->diffInMinutes(now());
+            if ($minutesSince < 1440) {
+                $remainingMin = 1440 - $minutesSince;
+                $remainingText = $remainingMin < 60 ? $remainingMin . ' min' : round($remainingMin / 60) . 'h';
+                $agoText = $minutesSince < 60 ? $minutesSince . ' min' : round($minutesSince / 60) . 'h';
+                return response()->json([
+                    'success' => false,
+                    'cooldown' => true,
+                    'message' => "Na-request na ang verification {$agoText} ago. Pwede ulit mag-request pagkatapos ng {$remainingText}.",
+                ]);
+            }
+        }
+
+        // Verifiers = users who can access the payment verification page (admin/staff)
+        $verifiers = \App\Models\User::whereIn('role', ['admin', 'staff'])->get();
+        if ($verifiers->isEmpty()) {
+            return response()->json(['success' => false, 'message' => 'Walang available na verifier ngayon.']);
+        }
+
+        $customer = $sale->customer_name ?: 'customer';
+        $title = '🔔 Verification requested: ' . $sale->sales_number;
+        $message = 'May pending payment para sa order ni ' . $customer . '. Pakiverify na lang po.';
+
+        $notifCount = \App\Models\SaleNotification::where('sale_id', $sale->id)
+            ->where('type', 'verification_request')
+            ->count() + 1;
+
+        foreach ($verifiers as $verifier) {
+            \App\Models\SaleNotification::create([
+                'sale_id' => $sale->id,
+                'from_user_id' => $from ? $from->id : null,
+                'to_user_id' => $verifier->id,
+                'type' => 'verification_request',
+                'is_urgent' => false,
+                'reminder_count' => $notifCount,
+                'title' => $title,
+                'message' => $message,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Verifier notified! ✅',
+            'title' => $title,
+            'reminder_count' => $notifCount,
+        ]);
+    }
+
+    /**
      * Mark a single sale notification as read.
      */
     public function notificationRead($id)
