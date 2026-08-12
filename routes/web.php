@@ -837,6 +837,7 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/{id}/mockup/delete', [App\Http\Controllers\PrototypeSalesController::class, 'deleteMockup'])->name('sales.prototype.delete-mockup');
         Route::post('/sales/prototype/{id}/mockup/set-main', [App\Http\Controllers\PrototypeSalesController::class, 'setMainMockup'])->name('sales.prototype.set-main-mockup');
         Route::post('/sales/prototype/{id}/notify-agent', [App\Http\Controllers\PrototypeSalesController::class, 'notifyAgent'])->name('sales.prototype.notify-agent');
+        Route::post('/sales/prototype/notifications/{id}/respond', [App\Http\Controllers\PrototypeSalesController::class, 'respondUrgent'])->name('sales.prototype.respond-urgent');
         Route::post('/sales/prototype/{id}/notify-verifier', [App\Http\Controllers\PrototypeSalesController::class, 'notifyVerifier'])->name('sales.prototype.notify-verifier');
         Route::post('/sales/prototype/notifications/{id}/read', [App\Http\Controllers\PrototypeSalesController::class, 'notificationRead'])->name('sales.prototype.notification-read');
         Route::post('/sales/prototype/notifications/read-all', [App\Http\Controllers\PrototypeSalesController::class, 'notificationsReadAll'])->name('sales.prototype.notifications-read-all');

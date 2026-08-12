@@ -15,6 +15,8 @@ class SaleNotification extends Model
         'reminder_count',
         'title',
         'message',
+        'response',
+        'responded_at',
         'is_read',
         'read_at',
     ];

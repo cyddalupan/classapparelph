@@ -1073,6 +1073,70 @@ public function details(Request $request, string $id)
     }
 
     /**
+     * Agent responds to an urgent notification (2nd reminder+).
+     * The reason is posted to the sale's Comments section so the notifier can see it.
+     */
+    public function respondUrgent(Request $request, string $id)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Please log in first.'], 401);
+        }
+
+        $request->validate([
+            'response' => 'required|string|max:1000',
+        ]);
+
+        $notif = \App\Models\SaleNotification::where('id', $id)
+            ->where('to_user_id', $user->id)
+            ->where('is_urgent', true)
+            ->first();
+
+        if (!$notif) {
+            return response()->json(['success' => false, 'message' => 'Notification not found.']);
+        }
+
+        if ($notif->response) {
+            return response()->json(['success' => false, 'message' => 'You already responded to this notification.']);
+        }
+
+        $comment = trim($request->response);
+
+        // Post to the sale's Comments section (visible to everyone)
+        $commentId = \DB::table('prototype_sale_comments')->insertGetId([
+            'sale_id' => $notif->sale_id,
+            'user_id' => $user->id,
+            'comment' => '[Response to urgent notification] ' . $comment,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Mark notification as responded + read
+        $notif->update([
+            'response' => $comment,
+            'responded_at' => now(),
+            'is_read' => true,
+            'read_at' => now(),
+        ]);
+
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $notif->sale_id,
+            'user_id' => $user->id,
+            'action' => 'comment_added',
+            'description' => 'Agent responded to urgent notification: ' . substr($comment, 0, 100) . (strlen($comment) > 100 ? '...' : ''),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'comment_id' => $commentId,
+            'message' => 'Response posted to the sale comments.',
+        ]);
+    }
+
+    /**
      * Get audit history for a sale (AJAX).
      */
     public function auditHistory(string $id)
@@ -4219,7 +4283,15 @@ public function printSlip(string $id)
             ->get();
         $unreadCount = $notifications->where('is_read', false)->count();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'paymentMethods', 'verificationCounts'));
+        // Urgent notifications (2nd reminder+) that still need the agent's response
+        $urgentNotifications = $notifications->filter(function ($n) {
+            return $n->is_urgent
+                && ($n->reminder_count ?? 1) >= 2
+                && !$n->response
+                && $n->is_read == false;
+        })->values();
+
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'paymentMethods', 'verificationCounts'));
     }
 
     public function agentCreate()

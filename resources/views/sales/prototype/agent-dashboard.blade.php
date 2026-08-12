@@ -138,7 +138,7 @@
                         @endif
                     </div>
                     @forelse($notifications as $notif)
-                    <a href="{{ route('sales.prototype.show', $notif->sale_id) }}" onclick="markNotifRead({{ $notif->id }})" style="display:block;padding:12px 16px;border-bottom:1px solid #f1f5f9;text-decoration:none;background:{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }};border-left:{{ $notif->is_urgent ? '3px solid #dc2626' : '3px solid transparent' }};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }}'">
+                    <a href="{{ route('sales.prototype.show', $notif->sale_id) }}" onclick="{{ ($notif->is_urgent && ($notif->reminder_count ?? 1) >= 2 && !$notif->response) ? 'return openUrgentById(' . $notif->id . ')' : 'markNotifRead(' . $notif->id . ')' }}" style="display:block;padding:12px 16px;border-bottom:1px solid #f1f5f9;text-decoration:none;background:{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }};border-left:{{ $notif->is_urgent ? '3px solid #dc2626' : '3px solid transparent' }};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }}'">
                         <div style="font-size:13px;font-weight:600;color:{{ $notif->is_urgent ? '#dc2626' : '#1e293b' }};">{{ $notif->title }}</div>
                         <div style="font-size:12px;color:#64748b;margin-top:2px;">{{ $notif->message }}</div>
                         <div style="font-size:11px;color:#94a3b8;margin-top:4px;">from {{ $notif->fromUser->name ?? 'Manager' }} • {{ $notif->created_at->diffForHumans() }}{{ $notif->reminder_count > 1 ? ' • Reminder #' . $notif->reminder_count : '' }}</div>
@@ -552,6 +552,42 @@
     @endforelse
 
 </div>
+
+<!-- Urgent Notification Response Modal -->
+<div class="modal fade" id="urgentResponseModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#fef2f2;border-bottom:1px solid #fecaca;">
+                <h5 class="modal-title" style="color:#b91c1c;"><i class="fas fa-exclamation-triangle me-2"></i>Urgent Notification</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="urgentNotifBox" class="mb-3 p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                    <div id="urgentSaleNumber" style="font-weight:700;color:#1e293b;"></div>
+                    <div id="urgentTitle" style="font-weight:600;color:#b91c1c;margin-top:4px;"></div>
+                    <div id="urgentMessage" style="font-size:13px;color:#64748b;margin-top:4px;"></div>
+                    <div id="urgentFrom" style="font-size:12px;color:#94a3b8;margin-top:6px;"></div>
+                </div>
+                <label for="urgentResponseText" class="form-label fw-semibold">
+                    <i class="fas fa-pen me-1"></i> Bakit hindi pa nagbabayad ang customer? (Why hasn't the customer paid yet?)
+                </label>
+                <textarea id="urgentResponseText" class="form-control" rows="4" maxlength="1000" placeholder="Type your reason here... Ito ay mapo-post sa Comments section ng sale at makikita ng lahat."></textarea>
+                <div class="d-flex justify-content-between mt-1">
+                    <small class="text-muted">Posted to the sale's Comments section — visible to everyone.</small>
+                    <small class="text-muted"><span id="urgentCharCount">0</span>/1000</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" onclick="skipUrgent()">
+                    <i class="fas fa-eye me-1"></i> Silipin lang (Just view)
+                </button>
+                <button type="button" class="btn btn-danger" id="urgentSubmitBtn" onclick="submitUrgentResponse()">
+                    <i class="fas fa-paper-plane me-1"></i> Send Reason
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -560,6 +596,126 @@ function toggleNotifPanel() {
     var panel = document.getElementById('notifPanel');
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
+
+// Urgent notifications queue (2nd reminder+, unread, not yet responded)
+@php
+$urgentQueueJs = $urgentNotifications->map(function ($n) {
+    return [
+        'id' => $n->id,
+        'sale_id' => $n->sale_id,
+        'sale_number' => $n->sale->sales_number ?? ('Sale #' . $n->sale_id),
+        'title' => $n->title,
+        'message' => $n->message,
+        'from' => $n->fromUser->name ?? 'Manager',
+        'reminder_count' => $n->reminder_count ?? 1,
+        'time' => $n->created_at ? $n->created_at->diffForHumans() : '',
+    ];
+})->values();
+@endphp
+var urgentQueue = @json($urgentQueueJs);
+var urgentIndex = 0;
+var currentUrgentId = null;
+
+function openUrgentById(id) {
+    for (var i = 0; i < urgentQueue.length; i++) {
+        if (urgentQueue[i].id === id) {
+            fillUrgentModal(urgentQueue[i]);
+            currentUrgentId = id;
+            var modalEl = document.getElementById('urgentResponseModal');
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+            return false;
+        }
+    }
+    return true; // not in queue → allow normal navigation
+}
+
+function fillUrgentModal(n) {
+    document.getElementById('urgentSaleNumber').textContent = '🧾 ' + n.sale_number;
+    document.getElementById('urgentTitle').textContent = n.title;
+    document.getElementById('urgentMessage').textContent = n.message;
+    document.getElementById('urgentFrom').textContent = 'From: ' + n.from + ' • Reminder #' + n.reminder_count + ' • ' + n.time;
+    document.getElementById('urgentResponseText').value = '';
+    document.getElementById('urgentCharCount').textContent = '0';
+}
+
+function showNextUrgent() {
+    while (urgentIndex < urgentQueue.length) {
+        var n = urgentQueue[urgentIndex];
+        urgentIndex++;
+        if (n) {
+            fillUrgentModal(n);
+            currentUrgentId = n.id;
+            var modalEl = document.getElementById('urgentResponseModal');
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+            return;
+        }
+    }
+}
+
+function submitUrgentResponse() {
+    var btn = document.getElementById('urgentSubmitBtn');
+    var text = document.getElementById('urgentResponseText').value.trim();
+    if (!text) {
+        showToastMsg('⚠️ Please type your reason first.', 'warn');
+        return;
+    }
+    if (!currentUrgentId) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+    fetch('{{ route('sales.prototype.respond-urgent', ':ID') }}'.replace(':ID', currentUrgentId), {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({ response: text })
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            showToastMsg('✅ ' + data.message);
+            var modalEl = document.getElementById('urgentResponseModal');
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+            currentUrgentId = null;
+            setTimeout(function() { location.reload(); }, 1200);
+        } else {
+            showToastMsg('❌ ' + (data.message || 'Error sending response'), 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Send Reason';
+        }
+    })
+    .catch(function() {
+        showToastMsg('❌ Error sending response', 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i> Send Reason';
+    });
+}
+
+function skipUrgent() {
+    // Just viewed → mark as read so it doesn't nag again, but leave unresponded
+    if (currentUrgentId) {
+        markNotifRead(currentUrgentId);
+        currentUrgentId = null;
+    }
+    showToastMsg('👀 Marked as viewed. The notifier will see it was not answered yet.');
+}
+
+// Auto-open modal when there are urgent notifications needing a response
+document.addEventListener('DOMContentLoaded', function() {
+    if (urgentQueue.length > 0) {
+        setTimeout(showNextUrgent, 600);
+    }
+    var ta = document.getElementById('urgentResponseText');
+    if (ta) {
+        ta.addEventListener('input', function() {
+            document.getElementById('urgentCharCount').textContent = ta.value.length;
+        });
+    }
+});
 
 document.addEventListener('click', function(e) {
     var panel = document.getElementById('notifPanel');
