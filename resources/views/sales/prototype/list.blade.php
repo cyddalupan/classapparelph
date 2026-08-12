@@ -430,6 +430,12 @@
             <option value="delivered">Delivered</option>
             <option value="completed">Completed</option>
         </select>
+        <select id="prioFilter" onchange="filterTable()" title="Filter by priority">
+            <option value="">All Priorities</option>
+            @for($i = 1; $i <= 10; $i++)
+                <option value="{{ $i }}">Prio {{ $i }}</option>
+            @endfor
+        </select>
         <select id="paymentFilter" onchange="filterTable()">
             <option value="">All Payments</option>
             <option value="paid">✅ Paid</option>
@@ -541,7 +547,7 @@
                         $canOverride = auth()->user() && (auth()->user()->isAdmin() || auth()->user()->role === 'manager');
                         $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
                     @endphp
-                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
                         <td style="max-width:130px;">
                             <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:80px;padding:1px 4px;margin-bottom:3px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}">
                                 <option value="" {{ !$sale->priority ? 'selected' : '' }}>Prio —</option>
@@ -809,6 +815,7 @@ function filterTable() {
     var dateFrom = document.getElementById('dateFrom').value;
     var dateTo = document.getElementById('dateTo').value;
     var stage = document.getElementById('stageFilter').value;
+    var prio = document.getElementById('prioFilter').value;
     var rows = document.querySelectorAll('#orderTable tbody tr');
     
     rows.forEach(function(row) {
@@ -855,9 +862,13 @@ function filterTable() {
         var rowStage = row.getAttribute('data-stage') || '';
         var stageMatch = !stage || rowStage === stage;
         
+        // Priority filter: row has data-prio attribute
+        var rowPrio = row.getAttribute('data-prio') || '';
+        var prioMatch = !prio || rowPrio === prio;
+        
         var searchMatch = !search || text.indexOf(search) !== -1;
         
-        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && photoMatch && dateMatch && stageMatch && searchMatch) ? '' : 'none';
+        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && photoMatch && dateMatch && stageMatch && prioMatch && searchMatch) ? '' : 'none';
     });
 }
 
@@ -879,7 +890,7 @@ function populateAgentFilter() {
 }
 
 function resetFilters() {
-    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter'].forEach(function(id) {
+    ['searchInput', 'deptFilter', 'statusFilter', 'prioFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
     filterTable();
