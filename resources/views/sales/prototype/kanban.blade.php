@@ -45,6 +45,21 @@
         border-color: #0d6efd;
         background: #fff;
     }
+    .kfb-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #fff;
+        cursor: pointer;
+        white-space: nowrap;
+        user-select: none;
+    }
+    .kfb-toggle input { margin: 0; }
     .kfb-clear {
         padding: 6px 12px;
         border: 1px solid #dc3545;
@@ -465,12 +480,7 @@
     <div class="kanban-filter-bar">
         <div class="kfb-group">
             <label for="kanbanFilterPriority">Priority:</label>
-            <select id="kanbanFilterPriority" class="kfb-select">
-                <option value="">All Priorities</option>
-                @for($i = 1; $i <= 9; $i++)
-                    <option value="{{ $i }}">Prio {{ $i }}</option>
-                @endfor
-            </select>
+            <label class="kfb-toggle"><input type="checkbox" id="kanbanFilterPriority" class="kfb-check"> ⭐ With Priority</label>
         </div>
         <div class="kfb-group">
             <label for="kanbanFilterStatus">Status:</label>
@@ -1262,7 +1272,7 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
     var filterResult = document.getElementById('kanbanFilterResult');
     
     window.applyKanbanFilter = function() {
-        var prio = filterPrioSel ? filterPrioSel.value : '';
+        var prio = filterPrioSel ? filterPrioSel.checked : false;
         var status = filterStatusSel ? filterStatusSel.value : '';
         
         var visibleCards = 0;
@@ -1283,7 +1293,7 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
             cards.forEach(function(card) {
                 totalCards++;
                 var cardPrio = card.getAttribute('data-priority') || '';
-                var prioMatch = !prio || cardPrio === prio;
+                var prioMatch = !prio || cardPrio !== '';
                 if (prioMatch) {
                     card.classList.remove('filtered-out');
                     if (colMatch) colVisible++;
@@ -1304,8 +1314,7 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
                     var e = document.createElement('div');
                     e.className = 'empty-column';
                     e.textContent = prio ? 'No items match filter' : 'No items';
-                    zone.appendChild(e);
-                } else if (empty && (colVisible > 0 || !colMatch)) {
+                    zone.appendChild(e);                } else if (empty && (colVisible > 0 || !colMatch)) {
                     // Only remove synthetic empty states; keep original "No items" if truly empty
                     if (empty.textContent === 'No items match filter') empty.remove();
                 }
@@ -1315,7 +1324,7 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
         if (filterResult) {
             if (prio || status) {
                 var parts = [];
-                if (prio) parts.push('Prio ' + prio);
+                if (prio) parts.push('With Priority');
                 if (status) {
                     var stLabel = '';
                     document.querySelectorAll('#kanbanFilterStatus option').forEach(function(o) {
@@ -1335,7 +1344,7 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
     var filterClear = document.getElementById('kanbanFilterClear');
     if (filterClear) {
         filterClear.addEventListener('click', function() {
-            if (filterPrioSel) filterPrioSel.value = '';
+            if (filterPrioSel) filterPrioSel.checked = false;
             if (filterStatusSel) filterStatusSel.value = '';
             applyKanbanFilter();
         });

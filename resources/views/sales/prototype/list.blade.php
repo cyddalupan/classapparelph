@@ -214,6 +214,22 @@
     }
     .filter-bar input { min-width: 200px; }
 
+    /* Priority toggle (With Priority) */
+    .prio-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 13px;
+        background: #fff;
+        cursor: pointer;
+        white-space: nowrap;
+        user-select: none;
+    }
+    .prio-toggle input { min-width: 0; margin: 0; }
+
     /* Pending notification styles */
     .pending-count-badge {
         position: absolute;
@@ -430,12 +446,9 @@
             <option value="delivered">Delivered</option>
             <option value="completed">Completed</option>
         </select>
-        <select id="prioFilter" onchange="filterTable()" title="Filter by priority">
-            <option value="">All Priorities</option>
-            @for($i = 1; $i <= 10; $i++)
-                <option value="{{ $i }}">Prio {{ $i }}</option>
-            @endfor
-        </select>
+        <label class="prio-toggle" title="Show only orders with a priority set">
+            <input type="checkbox" id="prioFilter" onchange="filterTable()"> ⭐ With Priority
+        </label>
         <select id="paymentFilter" onchange="filterTable()">
             <option value="">All Payments</option>
             <option value="paid">✅ Paid</option>
@@ -815,7 +828,7 @@ function filterTable() {
     var dateFrom = document.getElementById('dateFrom').value;
     var dateTo = document.getElementById('dateTo').value;
     var stage = document.getElementById('stageFilter').value;
-    var prio = document.getElementById('prioFilter').value;
+    var prio = document.getElementById('prioFilter').checked;
     var rows = document.querySelectorAll('#orderTable tbody tr');
     
     rows.forEach(function(row) {
@@ -862,9 +875,9 @@ function filterTable() {
         var rowStage = row.getAttribute('data-stage') || '';
         var stageMatch = !stage || rowStage === stage;
         
-        // Priority filter: row has data-prio attribute
+        // Priority filter: row has data-prio attribute (toggle — show only rows WITH a priority)
         var rowPrio = row.getAttribute('data-prio') || '';
-        var prioMatch = !prio || rowPrio === prio;
+        var prioMatch = !prio || rowPrio !== '';
         
         var searchMatch = !search || text.indexOf(search) !== -1;
         
@@ -890,9 +903,10 @@ function populateAgentFilter() {
 }
 
 function resetFilters() {
-    ['searchInput', 'deptFilter', 'statusFilter', 'prioFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter'].forEach(function(id) {
+    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
+    document.getElementById('prioFilter').checked = false;
     filterTable();
 }
 
