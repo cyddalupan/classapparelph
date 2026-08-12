@@ -6,6 +6,67 @@
 <style>
     /* Let the flex chain shrink so the board scrolls internally instead of widening the page */
     .main-content, .content-area { min-width: 0; }
+    .kanban-filter-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 10px 14px;
+        background: #fff;
+        border: 1px solid #e3e6ea;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .kfb-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .kfb-group label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #555;
+        margin: 0;
+        white-space: nowrap;
+    }
+    .kfb-select {
+        padding: 6px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 13px;
+        background: #f8f9fa;
+        color: #212529;
+        cursor: pointer;
+        min-width: 130px;
+    }
+    .kfb-select:focus {
+        outline: none;
+        border-color: #0d6efd;
+        background: #fff;
+    }
+    .kfb-clear {
+        padding: 6px 12px;
+        border: 1px solid #dc3545;
+        background: #fff;
+        color: #dc3545;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .kfb-clear:hover {
+        background: #dc3545;
+        color: #fff;
+    }
+    .kfb-result {
+        font-size: 12px;
+        font-weight: 600;
+        color: #0d6efd;
+        margin-left: auto;
+    }
+    .kanban-column.filtered-out { display: none; }
+    .kanban-card.filtered-out { display: none; }
     .kanban-board {
         display: flex;
         gap: 16px;
@@ -400,6 +461,30 @@
         ];
     @endphp
 
+    <!-- Kanban Filter Bar -->
+    <div class="kanban-filter-bar">
+        <div class="kfb-group">
+            <label for="kanbanFilterPriority">Priority:</label>
+            <select id="kanbanFilterPriority" class="kfb-select">
+                <option value="">All Priorities</option>
+                @for($i = 1; $i <= 9; $i++)
+                    <option value="{{ $i }}">Prio {{ $i }}</option>
+                @endfor
+            </select>
+        </div>
+        <div class="kfb-group">
+            <label for="kanbanFilterStatus">Status:</label>
+            <select id="kanbanFilterStatus" class="kfb-select">
+                <option value="">All Statuses</option>
+                @foreach($kanbanOrder as $st)
+                    <option value="{{ $st }}">{{ $kanbanLabels[$st] ?? ucfirst($st) }}</option>
+                @endforeach
+            </select>
+        </div>
+        <button type="button" id="kanbanFilterClear" class="kfb-clear"><i class="fas fa-times"></i> Clear</button>
+        <span class="kfb-result" id="kanbanFilterResult"></span>
+    </div>
+
     <!-- Kanban Board -->
     <div class="kanban-board" id="kanbanBoard">
         @foreach($kanbanOrder as $statusKey)
@@ -429,7 +514,7 @@
                             $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
                             $allPhotos = $hasFileShot && $hasColorShot;
                         @endphp
-                        <div class="kanban-card" data-id="{{ $sale->id }}" draggable="true" data-department="{{ $sale->department_id }}" data-photos="{{ $allPhotos ? 'ok' : 'missing' }}" data-balance="{{ $sale->balance_due_computed }}">
+                        <div class="kanban-card" data-id="{{ $sale->id }}" draggable="true" data-department="{{ $sale->department_id }}" data-photos="{{ $allPhotos ? 'ok' : 'missing' }}" data-balance="{{ $sale->balance_due_computed }}" data-priority="{{ $sale->priority ?? '' }}">
 
                             @if($sale->priority)
                                 @php $prioHue = max(0, min(45, ($sale->priority - 1) * 5)); @endphp
@@ -1160,6 +1245,8 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
                 if (newTitle) document.title = newTitle.textContent;
                 board.style.opacity = '1';
                 board.style.pointerEvents = '';
+                // Re-apply filter after board reload
+                applyKanbanFilter();
             })
             .catch(function(err) {
                 console.error('Tab switch error:', err);
@@ -1168,6 +1255,91 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
             });
         });
     });
+    
+    // === KANBAN FILTER (Priority + Status) ===
+    var filterPrioSel = document.getElementById('kanbanFilterPriority');
+    var filterStatusSel = document.getElementById('kanbanFilterStatus');
+    var filterResult = document.getElementById('kanbanFilterResult');
+    
+    window.applyKanbanFilter = function() {
+        var prio = filterPrioSel ? filterPrioSel.value : '';
+        var status = filterStatusSel ? filterStatusSel.value : '';
+        
+        var visibleCards = 0;
+        var totalCards = 0;
+        
+        document.querySelectorAll('#kanbanBoard .kanban-column').forEach(function(col) {
+            var colStatus = col.getAttribute('data-status');
+            var colMatch = !status || colStatus === status;
+            if (colMatch) {
+                col.classList.remove('filtered-out');
+            } else {
+                col.classList.add('filtered-out');
+            }
+            
+            var zone = col.querySelector('.drop-zone');
+            var cards = zone ? zone.querySelectorAll('.kanban-card') : [];
+            var colVisible = 0;
+            cards.forEach(function(card) {
+                totalCards++;
+                var cardPrio = card.getAttribute('data-priority') || '';
+                var prioMatch = !prio || cardPrio === prio;
+                if (prioMatch) {
+                    card.classList.remove('filtered-out');
+                    if (colMatch) colVisible++;
+                } else {
+                    card.classList.add('filtered-out');
+                }
+            });
+            visibleCards += colVisible;
+            
+            // Update column count (only visible cards)
+            var count = col.querySelector('.card-count');
+            if (count) count.textContent = colVisible;
+            
+            // Empty state per column
+            if (zone) {
+                var empty = zone.querySelector('.empty-column');
+                if (colMatch && colVisible === 0 && !empty) {
+                    var e = document.createElement('div');
+                    e.className = 'empty-column';
+                    e.textContent = prio ? 'No items match filter' : 'No items';
+                    zone.appendChild(e);
+                } else if (empty && (colVisible > 0 || !colMatch)) {
+                    // Only remove synthetic empty states; keep original "No items" if truly empty
+                    if (empty.textContent === 'No items match filter') empty.remove();
+                }
+            }
+        });
+        
+        if (filterResult) {
+            if (prio || status) {
+                var parts = [];
+                if (prio) parts.push('Prio ' + prio);
+                if (status) {
+                    var stLabel = '';
+                    document.querySelectorAll('#kanbanFilterStatus option').forEach(function(o) {
+                        if (o.value === status) stLabel = o.textContent;
+                    });
+                    parts.push(stLabel);
+                }
+                filterResult.textContent = 'Showing ' + visibleCards + ' of ' + totalCards + ' (' + parts.join(' + ') + ')';
+            } else {
+                filterResult.textContent = '';
+            }
+        }
+    };
+    
+    if (filterPrioSel) filterPrioSel.addEventListener('change', applyKanbanFilter);
+    if (filterStatusSel) filterStatusSel.addEventListener('change', applyKanbanFilter);
+    var filterClear = document.getElementById('kanbanFilterClear');
+    if (filterClear) {
+        filterClear.addEventListener('click', function() {
+            if (filterPrioSel) filterPrioSel.value = '';
+            if (filterStatusSel) filterStatusSel.value = '';
+            applyKanbanFilter();
+        });
+    }
     
     // === IMAGE LIGHTBOX (dynamically created — avoids Bootstrap modal repaint issues) ===
     window.openLightbox = function(src) {
