@@ -2441,6 +2441,17 @@ public function printSlip(string $id)
             }
         }
 
+        // Sort each column: priority-tagged first (Prio 1 → 2 → 3), then by created_at desc
+        foreach ($columns as $status => &$col) {
+            usort($col, function ($a, $b) {
+                $pa = $a->priority ?? 99;
+                $pb = $b->priority ?? 99;
+                if ($pa !== $pb) return $pa <=> $pb;
+                return strcmp($b->created_at ?? '', $a->created_at ?? '');
+            });
+        }
+        unset($col);
+
         // Count of archived projects (for the Archive link badge)
         $archivedCount = \App\Models\PrototypeSale::whereNotNull('archived_at')->count();
         
@@ -2566,6 +2577,8 @@ public function printSlip(string $id)
         }
         
         $sales = $query->orderByRaw("CASE WHEN is_delayed = 1 THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
+            ->orderBy('priority', 'asc')
             ->orderBy("created_at", "desc")
             ->paginate(50);
         
@@ -2728,6 +2741,26 @@ public function printSlip(string $id)
     }
 
     /**
+     * Set priority tag (Prio 1/2/3) for a sale — manager order list.
+     */
+    public function updatePriority(Request $request, $id)
+    {
+        $request->validate([
+            'priority' => 'nullable|integer|min:1|max:3',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $sale->priority = $request->filled('priority') ? (int) $request->priority : null;
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'priority' => $sale->priority,
+            'message' => $sale->priority ? "Prio " . $sale->priority . " na ang order na ito" : 'Naalis ang priority tag',
+        ]);
+    }
+
+    /**
      * Verify payment for a sale.
      */
     public function calendar()
@@ -2876,6 +2909,7 @@ public function printSlip(string $id)
                 'balance_due' => $p->balance_due,
                 'kanban_status' => $p->kanban_status,
                 'production_stage' => $p->production_stage,
+                'priority' => $p->priority,
                 'services' => $items,
                 'services_raw' => $services,
                 'total_qty' => $totalQty,

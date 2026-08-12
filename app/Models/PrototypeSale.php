@@ -43,6 +43,8 @@ class PrototypeSale extends Model
         'reference_images',
         'design_images',
         'kanban_status',
+        'production_stage',
+        'priority',
         'assigned_to',
         'estimated_completion_date',
         'rescheduled_date',

@@ -483,6 +483,7 @@
         <table class="pipeline-table" id="orderTable">
             <thead>
                 <tr>
+                    <th>Priority</th>
                     <th>Sales #</th>
                     <th>Mock Up</th>
                     <th>Description</th>
@@ -542,6 +543,14 @@
                         $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
                     @endphp
                     <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                        <td style="text-align:center;">
+                            <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:80px;padding:2px 6px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}">
+                                <option value="" {{ !$sale->priority ? 'selected' : '' }}>—</option>
+                                <option value="1" {{ $sale->priority === 1 ? 'selected' : '' }}>🔴 Prio 1</option>
+                                <option value="2" {{ $sale->priority === 2 ? 'selected' : '' }}>🟠 Prio 2</option>
+                                <option value="3" {{ $sale->priority === 3 ? 'selected' : '' }}>🟡 Prio 3</option>
+                            </select>
+                        </td>
                         <td style="max-width:130px;">
                             @if($sale->is_delayed)
                             <span class="badge bg-danger mb-1" title="Marked delayed {{ $sale->delayed_at ? $sale->delayed_at->format('M d, Y H:i') : '' }}">⚠️ DELAYED</span><br>
@@ -914,6 +923,50 @@ document.addEventListener('change', function(e) {
     .catch(function() {
         sel.disabled = false;
         sel.value = oldStage;
+        showToast('❌ Network error. Please try again.', 'error');
+    });
+});
+
+// === PRIORITY DROPDOWN — tag Prio 1/2/3 ===
+document.addEventListener('change', function(e) {
+    var sel = e.target.closest('.prio-select');
+    if (!sel) return;
+    var saleId = sel.getAttribute('data-sale-id');
+    var oldPrio = sel.getAttribute('data-current');
+    var prio = sel.value;
+    sel.disabled = true;
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch('/sales/prototype/' + saleId + '/priority', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrf ? csrf.content : ''
+        },
+        body: JSON.stringify({ priority: prio })
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        sel.disabled = false;
+        if (res.ok && res.data.success) {
+            sel.setAttribute('data-current', prio);
+            if (prio) {
+                sel.style.background = '#fff3cd';
+                sel.style.color = '#856404';
+                sel.style.fontWeight = '600';
+            } else {
+                sel.style.background = '';
+                sel.style.color = '';
+                sel.style.fontWeight = '';
+            }
+            showToast(res.data.message || '✅ Priority saved', 'success');
+        } else {
+            sel.value = oldPrio;
+            showToast('⚠️ ' + (res.data.message || 'Failed to save priority.'), 'error');
+        }
+    })
+    .catch(function() {
+        sel.disabled = false;
+        sel.value = oldPrio;
         showToast('❌ Network error. Please try again.', 'error');
     });
 });

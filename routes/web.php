@@ -787,6 +787,7 @@ Route::get('/inventorylist', function() {
         // KANBAN routes
         Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
         Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
+        Route::post('/sales/prototype/{id}/priority', [App\Http\Controllers\PrototypeSalesController::class, 'updatePriority'])->name('sales.prototype.priority');
 
         Route::get('/sales/prototype/{id}/details', [App\Http\Controllers\PrototypeSalesController::class, 'details'])->name('sales.prototype.details');
         Route::get('/sales/prototype/{id}/print-slip', [App\Http\Controllers\PrototypeSalesController::class, 'printSlip'])->name('sales.prototype.print-slip');

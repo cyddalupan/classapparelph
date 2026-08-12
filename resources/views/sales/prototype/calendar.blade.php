@@ -262,6 +262,15 @@
     margin-bottom: 2px;
     letter-spacing: 0.3px;
 }
+.day-project .dp-prio-badge {
+    display: inline-block;
+    font-size: 0.5rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    letter-spacing: 0.3px;
+}
 .cal-view-btn {
     border-radius: 6px;
     font-size: 0.78rem;
@@ -662,6 +671,13 @@ function renderWeek(monday, projects) {
         if (dayProjects.length === 0) {
             html += `<div style="font-size:0.55rem;color:#ddd;text-align:center;padding:0.5rem 0;">—</div>`;
         } else {
+            // Sort: priority-tagged first (Prio 1 → 2 → 3), then original order
+            dayProjects.sort(function(a, b) {
+                var pa = a.priority ? parseInt(a.priority) : 99;
+                var pb = b.priority ? parseInt(b.priority) : 99;
+                if (pa !== pb) return pa - pb;
+                return 0;
+            });
             dayProjects.forEach(p => {
                 const dept = p.department_name || 'other';
                 const color = dc[dept] || '#6c757d';
@@ -677,6 +693,12 @@ function renderWeek(monday, projects) {
                     draggable="true" data-id="${p.id}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
+                }
+                if (p.priority) {
+                    const prio = parseInt(p.priority);
+                    const pc = prio === 1 ? '#dc3545' : (prio === 2 ? '#fd7e14' : '#ffc107');
+                    const pt = prio === 3 ? '#212529' : '#fff';
+                    html += `<span class="dp-prio-badge" style="background:${pc};color:${pt};font-weight:700;">PRIO ${prio}</span>`;
                 }
                 // Mockup thumbnail (same as manager list)
                 if (mockupUrl) {
