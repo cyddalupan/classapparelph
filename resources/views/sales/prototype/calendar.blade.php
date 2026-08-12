@@ -283,8 +283,9 @@
 }
 .day-project .dp-mockup {
     width: 100%;
-    height: 48px;
+    height: 68px;
     object-fit: cover;
+    object-position: center;
     border-radius: 4px;
     margin-bottom: 3px;
     display: block;
@@ -601,24 +602,13 @@ function renderWeek(monday, projects) {
             dayProjects.forEach(p => {
                 const dept = p.department_name || 'other';
                 const color = dc[dept] || '#6c757d';
-                const name = p.customer_name || 'Unknown';
+                const name = (p.product_label ? p.product_label + (p.sales_agent_name ? ' - ' + p.sales_agent_name : '') : (p.customer_name || 'Unknown'));
                 const amt = parseFloat(p.subtotal || p.total_amount || 0);
                 const qty = parseInt(p.total_qty) || 0;
                 const stage = p.production_stage || p.kanban_status || '';
                 const mockupUrl = p.mockup_url || '';
                 const isMoved = !!p.rescheduled_date && p.rescheduled_date !== p.estimated_completion_date;
                 const orig = p.estimated_completion_date ? parseD(p.estimated_completion_date) : null;
-                
-                // Build items summary from services
-                let itemsHtml = '';
-                if (p.services && p.services.length > 0) {
-                    p.services.forEach(s => {
-                        const itemName = s.name || (typeof s === 'string' ? s : 'Item');
-                        const short = itemName.length > 18 ? itemName.substring(0, 16)+'..' : itemName;
-                        const qtyItem = parseInt(s.qty || s.quantity) || 1;
-                        itemsHtml += `<span class="dp-item">${qtyItem}× ${short}</span>`;
-                    });
-                }
                 
                 html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
                     draggable="true" data-id="${p.id}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
@@ -652,9 +642,6 @@ function renderWeek(monday, projects) {
                                       (stageLabel === 'REJECTED' || stageLabel === 'CANCELLED' ? '#dc3545' :
                                       (stageLabel === 'FOR SAMPLE' || stageLabel === 'APPROVAL' ? '#fd7e14' : '#667eea'));
                     html += `<span class="dp-stage" style="background:${stageColor}1a;color:${stageColor};border:1px solid ${stageColor}40;">${stageLabel}</span>`;
-                }
-                if (itemsHtml) {
-                    html += `<div class="dp-items">${itemsHtml}</div>`;
                 }
                 html += `</div>`;
             });

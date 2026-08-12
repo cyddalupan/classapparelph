@@ -2721,6 +2721,28 @@ public function printSlip(string $id)
             }
             $description = $descParts ? implode(' + ', array_slice($descParts, 0, 2)) : '';
 
+            // Product label (e.g. TSHIRT VNECK) — from first service's sublimationForm garment
+            $productLabel = '';
+            foreach ($services as $svc) {
+                if (is_array($svc)) {
+                    $sf = $svc['sublimationForm'] ?? null;
+                    if (is_array($sf)) {
+                        $garment = $sf['garment'] ?? null;
+                        if (is_array($garment) && !empty($garment['name'])) {
+                            $productLabel = trim($garment['name']);
+                            break;
+                        }
+                        if (!empty($sf['description'])) {
+                            $productLabel = trim(explode(' - ', $sf['description'])[0]);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!$productLabel) {
+                $productLabel = $description ? trim(explode(' + ', $description)[0]) : ($p->customer_name ?? '');
+            }
+
             return [
                 'id' => $p->id,
                 'sales_number' => $p->sales_number,
@@ -2739,6 +2761,8 @@ public function printSlip(string $id)
                 'total_qty' => $totalQty,
                 'mockup_url' => $firstMockupUrl,
                 'description' => $description,
+                'product_label' => $productLabel,
+                'sales_agent_name' => $p->sales_agent_name ?? '',
                 'date_needed' => $p->estimated_completion_date,
                 'estimated_completion_date' => $p->estimated_completion_date,
                 'rescheduled_date' => $p->rescheduled_date,
