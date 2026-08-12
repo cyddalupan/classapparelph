@@ -176,6 +176,10 @@
     <div class="filter-bar">
         <form method="GET" action="{{ route('sales.team.dashboard') }}">
             <div class="filter-group">
+                <label for="search">Search</label>
+                <input type="text" id="search" name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Customer / Sales # / Phone">
+            </div>
+            <div class="filter-group">
                 <label for="date_from">Date From</label>
                 <input type="date" id="date_from" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
             </div>
@@ -183,6 +187,17 @@
                 <label for="date_to">Date To</label>
                 <input type="date" id="date_to" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
             </div>
+            @if(!empty($agents))
+            <div class="filter-group">
+                <label for="agent_id">Agent</label>
+                <select id="agent_id" name="agent_id">
+                    <option value="">All Agents</option>
+                    @foreach($agents as $agent)
+                    <option value="{{ $agent->id }}" {{ ($filters['agent_id'] ?? '') == $agent->id ? 'selected' : '' }}>{{ $agent->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             <div class="filter-group">
                 <label for="payment_status">Payment Status</label>
                 <select id="payment_status" name="payment_status">
@@ -216,12 +231,24 @@
                     @endforeach
                 </select>
             </div>
+            <div class="filter-group">
+                <label for="payment_method">Payment Method</label>
+                <select id="payment_method" name="payment_method">
+                    <option value="">All</option>
+                    @foreach($paymentMethods as $pm)
+                    <option value="{{ $pm }}" {{ ($filters['payment_method'] ?? '') === $pm ? 'selected' : '' }}>{{ ucfirst(str_replace('_', ' ', $pm)) }}</option>
+                    @endforeach
+                </select>
+            </div>
             <div class="filter-actions">
                 <button type="submit" class="action-btn primary">
                     <i class="fas fa-filter"></i> Apply
                 </button>
                 <a href="{{ route('sales.team.dashboard') }}" class="action-btn">
                     <i class="fas fa-times"></i> Reset
+                </a>
+                <a href="{{ route('sales.team.export', $filters) }}" class="action-btn" style="background:#10b981;border-color:#10b981;color:white;">
+                    <i class="fas fa-file-csv"></i> Export CSV
                 </a>
             </div>
         </form>
@@ -243,12 +270,20 @@
             <div class="stat-label">Total Orders</div>
         </div>
         <div class="stat-card total">
-            <div class="stat-value">₱{{ number_format($totalAmount, 0) }}</div>
+            <div class="stat-value">{{ number_format($totalPieces, 0) }}</div>
+            <div class="stat-label">Total Pieces</div>
+        </div>
+        <div class="stat-card total">
+            <div class="stat-value">₱{{ number_format($totalValue, 0) }}</div>
             <div class="stat-label">Total Value</div>
         </div>
         <div class="stat-card deposit">
-            <div class="stat-value">₱{{ number_format($totalDeposit, 0) }}</div>
+            <div class="stat-value">₱{{ number_format($totalCollected, 0) }}</div>
             <div class="stat-label">Total Collected</div>
+        </div>
+        <div class="stat-card pending">
+            <div class="stat-value">₱{{ number_format($totalBalance, 0) }}</div>
+            <div class="stat-label">Balance Due</div>
         </div>
         <div class="stat-card pending">
             <div class="stat-value">{{ $pendingPay }}</div>

@@ -4105,8 +4105,29 @@ public function printSlip(string $id)
             abort(403, 'Unauthorized access.');
         }
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
-            ->where('sales_agent_id', $user->id);
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds']);
+
+        // Agent filter: admins/representatives can view all agents; agents see only their own
+        $isAdmin = $user->isAdmin();
+        $selectedAgentId = $request->filled('agent_id') ? (int) $request->agent_id : null;
+        if (!$isAdmin && !$user->isSalesRepresentative()) {
+            $query->where('sales_agent_id', $user->id);
+        } elseif ($selectedAgentId) {
+            $query->where('sales_agent_id', $selectedAgentId);
+        } else {
+            // Admin with no agent selected: optionally filter to their own sales
+            $query->where('sales_agent_id', $user->id);
+        }
+
+        // Search: customer name or sales number
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('customer_name', 'like', '%' . $search . '%')
+                  ->orWhere('sales_number', 'like', '%' . $search . '%')
+                  ->orWhere('customer_phone', 'like', '%' . $search . '%');
+            });
+        }
 
         // Date range filter
         if ($request->filled('date_from')) {
@@ -4114,6 +4135,13 @@ public function printSlip(string $id)
         }
         if ($request->filled('date_to')) {
             $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        // Payment method filter (via payments relation)
+        if ($request->filled('payment_method')) {
+            $query->whereHas('payments', function ($q) use ($request) {
+                $q->where('payment_method', $request->payment_method);
+            });
         }
 
         // Payment status filter
@@ -4156,7 +4184,41 @@ public function printSlip(string $id)
             ->toArray();
 
         // Preserve filter state for the view
-        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department']);
+        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department', 'search', 'agent_id', 'payment_method']);
+
+        // Agent list for the filter (admins/representatives only)
+        $agents = [];
+        if ($isAdmin || $user->isSalesRepresentative()) {
+            $agents = \App\Models\User::where('role', 'sales_agent')
+                ->orWhere('role', 'sales_representative')
+                ->orderBy('name')
+                ->get();
+        }
+
+        // Totals summary: pieces, value, collected, balance
+        $totalPieces = 0;
+        $totalValue = 0;
+        $totalCollected = 0;
+        $totalBalance = 0;
+        foreach ($sales as $sale) {
+            $items = is_array($sale->services) ? $sale->services : (json_decode($sale->services, true) ?: []);
+            foreach ($items as $item) {
+                $totalPieces += (int) ($item['quantity'] ?? 0);
+            }
+            $totalValue += (float) $sale->total_amount;
+            $collected = $sale->payments
+                ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+                ->sum('amount');
+            $totalCollected += (float) $collected;
+            $totalBalance += max((float) $sale->total_amount - (float) $collected, 0);
+        }
+
+        $paymentMethods = \DB::table('prototype_payments')
+            ->select('payment_method')
+            ->distinct()
+            ->orderBy('payment_method')
+            ->pluck('payment_method')
+            ->toArray();
 
         // Unread notifications for the agent
         $notifications = \App\Models\SaleNotification::with(['sale', 'fromUser'])
@@ -4166,7 +4228,130 @@ public function printSlip(string $id)
             ->get();
         $unreadCount = $notifications->where('is_read', false)->count();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'unreadCount'));
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'unreadCount', 'agents', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'paymentMethods'));
+    }
+
+    public function agentExport(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        // Same filtering logic as agentDashboard
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds']);
+
+        $isAdmin = $user->isAdmin();
+        $selectedAgentId = $request->filled('agent_id') ? (int) $request->agent_id : null;
+        if (!$isAdmin && !$user->isSalesRepresentative()) {
+            $query->where('sales_agent_id', $user->id);
+        } elseif ($selectedAgentId) {
+            $query->where('sales_agent_id', $selectedAgentId);
+        } else {
+            $query->where('sales_agent_id', $user->id);
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('customer_name', 'like', '%' . $search . '%')
+                  ->orWhere('sales_number', 'like', '%' . $search . '%')
+                  ->orWhere('customer_phone', 'like', '%' . $search . '%');
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->where('created_at', '>=', $request->date_from . ' 00:00:00');
+        }
+        if ($request->filled('date_to')) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        if ($request->filled('payment_method')) {
+            $query->whereHas('payments', function ($q) use ($request) {
+                $q->where('payment_method', $request->payment_method);
+            });
+        }
+
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+
+        if ($request->filled('kanban_status')) {
+            $query->where('kanban_status', $request->kanban_status);
+        }
+
+        if ($request->filled('department')) {
+            $query->where('department_name', $request->department);
+        }
+
+        $sales = $query->orderBy('created_at', 'desc')->get();
+
+        $statusLabels = [
+            'new'                => 'New',
+            'sample_approval'    => 'Sample/Approval',
+            'design'            => 'Design',
+            'production'        => 'Production',
+            'quality_check'      => 'Quality Check',
+            'ready_for_delivery' => 'Ready for Delivery',
+            'delivered'         => 'Delivered',
+            'completed'         => 'Completed',
+        ];
+
+        $paymentLabels = [
+            'pending'                    => 'Pending',
+            'verified'                   => 'Verified',
+            'rejected'                   => 'Rejected',
+            'reject_pending'             => 'Rejection Pending',
+            'edit_pending'               => 'Edit Pending',
+            'down_payment_verified'      => 'Down Payment Verified',
+            'additional_payment_verified'=> 'Additional Payment Verified',
+            'full_payment_verified'      => 'Full Payment Verified',
+        ];
+
+        $agentNames = \App\Models\User::pluck('name', 'id')->toArray();
+
+        $filename = 'sales-team-export-' . date('Y-m-d-His') . '.csv';
+        $handle = fopen('php://output', 'w');
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        fputcsv($handle, [
+            'Sales #', 'Customer', 'Phone', 'Agent', 'Department', 'Date',
+            'Total Value', 'Collected', 'Balance', 'Pieces',
+            'Payment Status', 'Order Status',
+        ]);
+
+        foreach ($sales as $sale) {
+            $items = is_array($sale->services) ? $sale->services : (json_decode($sale->services, true) ?: []);
+            $pieces = 0;
+            foreach ($items as $item) {
+                $pieces += (int) ($item['quantity'] ?? 0);
+            }
+
+            $collected = $sale->payments
+                ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+                ->sum('amount');
+
+            fputcsv($handle, [
+                $sale->sales_number,
+                $sale->customer_name,
+                $sale->customer_phone ?? '',
+                $agentNames[$sale->sales_agent_id] ?? '',
+                $sale->department_name ?? '',
+                \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d'),
+                number_format($sale->total_amount, 2),
+                number_format($collected, 2),
+                number_format(max($sale->total_amount - $collected, 0), 2),
+                $pieces,
+                $paymentLabels[$sale->payment_status] ?? $sale->payment_status,
+                $statusLabels[$sale->kanban_status] ?? $sale->kanban_status,
+            ]);
+        }
+
+        fclose($handle);
+        exit;
     }
 
     public function agentCreate()
