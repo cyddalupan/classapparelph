@@ -284,8 +284,9 @@
 .day-project .dp-mockup {
     width: 100%;
     height: 68px;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
+    background: #fff;
     border-radius: 4px;
     margin-bottom: 3px;
     display: block;
