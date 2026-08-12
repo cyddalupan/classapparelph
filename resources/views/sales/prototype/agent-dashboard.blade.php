@@ -8,14 +8,15 @@
 
 /* Filter bar */
 .filter-bar { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; }
-.filter-bar form { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+.filter-bar form { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.85rem; align-items: end; }
 .filter-group { display: flex; flex-direction: column; gap: 0.25rem; }
 .filter-group label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
 .filter-group input,
-.filter-group select { padding: 0.45rem 0.7rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; color: #1e293b; background: white; min-width: 140px; }
+.filter-group select { padding: 0.45rem 0.7rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; color: #1e293b; background: white; width: 100%; min-width: 0; }
 .filter-group input:focus,
 .filter-group select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
-.filter-actions { display: flex; gap: 0.5rem; align-items: flex-end; padding-bottom: 1px; }
+.filter-group.search-field { grid-column: span 2; }
+.filter-actions { display: flex; gap: 0.5rem; align-items: center; padding-bottom: 1px; justify-content: flex-end; }
 .filter-actions .action-btn { padding: 0.45rem 1rem; }
 .active-filter-count { display: inline-flex; align-items: center; gap: 0.3rem; background: #eef2ff; color: #4f46e5; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
 
@@ -38,9 +39,9 @@
 .header-actions { display: flex; gap: 0.75rem; }
 
 /* Stats row */
-.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-.stat-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; text-align: center; }
-.stat-card .stat-value { font-size: 1.75rem; font-weight: 700; color: #1e293b; }
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.stat-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; text-align: center; min-width: 0; }
+.stat-card .stat-value { font-size: 1.5rem; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-card .stat-label { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
 .stat-card.total .stat-value { color: #3b82f6; }
 .stat-card.pending .stat-value { color: #f59e0b; }
@@ -175,7 +176,7 @@
     <!-- Filter Bar -->
     <div class="filter-bar">
         <form method="GET" action="{{ route('sales.team.dashboard') }}">
-            <div class="filter-group">
+            <div class="filter-group search-field">
                 <label for="search">Search</label>
                 <input type="text" id="search" name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Customer / Sales # / Phone">
             </div>
@@ -187,17 +188,6 @@
                 <label for="date_to">Date To</label>
                 <input type="date" id="date_to" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
             </div>
-            @if(!empty($agents))
-            <div class="filter-group">
-                <label for="agent_id">Agent</label>
-                <select id="agent_id" name="agent_id">
-                    <option value="">All Agents</option>
-                    @foreach($agents as $agent)
-                    <option value="{{ $agent->id }}" {{ ($filters['agent_id'] ?? '') == $agent->id ? 'selected' : '' }}>{{ $agent->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            @endif
             <div class="filter-group">
                 <label for="payment_status">Payment Status</label>
                 <select id="payment_status" name="payment_status">
@@ -247,9 +237,6 @@
                 <a href="{{ route('sales.team.dashboard') }}" class="action-btn">
                     <i class="fas fa-times"></i> Reset
                 </a>
-                <a href="{{ route('sales.team.export', $filters) }}" class="action-btn" style="background:#10b981;border-color:#10b981;color:white;">
-                    <i class="fas fa-file-csv"></i> Export CSV
-                </a>
             </div>
         </form>
     </div>
@@ -276,10 +263,6 @@
         <div class="stat-card total">
             <div class="stat-value">₱{{ number_format($totalValue, 0) }}</div>
             <div class="stat-label">Total Value</div>
-        </div>
-        <div class="stat-card deposit">
-            <div class="stat-value">₱{{ number_format($totalCollected, 0) }}</div>
-            <div class="stat-label">Total Collected</div>
         </div>
         <div class="stat-card pending">
             <div class="stat-value">₱{{ number_format($totalBalance, 0) }}</div>
