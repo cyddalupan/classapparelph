@@ -528,7 +528,12 @@ function getMon(d) {
     return date;
 }
 function getSun(m) { const d=new Date(m); d.setDate(d.getDate()+6); return d; }
-function fmt(d) { return d.toISOString().split('T')[0]; }
+function fmt(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+}
 function parseD(s) { if (!s) return null; const d=new Date(s); return isNaN(d.getTime())?null:d; }
 function curr(n) { return '₱'+parseFloat(n||0).toLocaleString('en-PH',{minimumFractionDigits:2}); }
 
@@ -572,7 +577,7 @@ function resetToWeek() {
 
 // ========== RENDER ==========
 function renderWeek(monday, projects) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = fmt(new Date());
 
     // Build 7 day cells
     let html = '<div class="week-grid">';

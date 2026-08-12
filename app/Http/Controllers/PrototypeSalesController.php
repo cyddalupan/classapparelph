@@ -588,9 +588,30 @@ public function details(Request $request, string $id)
             $firstServiceName = $first['name'] ?? $first['projectName'] ?? $first['project_name'] ?? '';
         }
         
+        // Modal title: product type + agent (consistent with calendar card), fallback to customer name
+        $productLabel = '';
+        foreach ($services as $svc) {
+            if (is_array($svc)) {
+                $sf = $svc['sublimationForm'] ?? null;
+                if (is_array($sf)) {
+                    $garment = $sf['garment'] ?? null;
+                    if (is_array($garment) && !empty($garment['name'])) {
+                        $productLabel = trim($garment['name']);
+                        break;
+                    }
+                    if (!empty($sf['description'])) {
+                        $productLabel = trim(explode(' - ', $sf['description'])[0]);
+                        break;
+                    }
+                }
+            }
+        }
+        $agentShort = $sale->sales_agent_name ? trim(explode(' ', trim($sale->sales_agent_name))[0]) : '';
+        $modalTitle = $productLabel ? $productLabel . ($agentShort ? ' - ' . $agentShort : '') : ('Sale: ' . $sale->customer_name);
+        
         return response()->json([
             'html' => $html,
-            'title' => 'Sale: ' . $sale->customer_name . ' (#' . $sale->sales_number . ')',
+            'title' => $modalTitle . ' (#' . $sale->sales_number . ')',
             'can_addon' => !in_array($sale->kanban_status, ['delivered', 'completed']),
             'firstServiceName' => $firstServiceName
         ]);
