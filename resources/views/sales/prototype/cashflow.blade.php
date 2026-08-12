@@ -9,6 +9,18 @@
     .flow-item { padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; }
     .flow-item:last-child { border-bottom: none; }
     .amount-positive { color: #198754; font-weight: 600; }
+    .account-avatar {
+        width: 42px; height: 42px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .bg-gcash { background: linear-gradient(135deg, #00c6fb, #005bea); }
+    .bg-bank_transfer { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .bg-cash { background: linear-gradient(135deg, #11998e, #38ef7d); }
+    .bg-paymaya { background: linear-gradient(135deg, #f857a6, #ff5858); }
+    .bg-credit_card { background: linear-gradient(135deg, #f2994a, #f2c94c); }
+    .bg-other { background: linear-gradient(135deg, #6c757d, #495057); }
     .section-title { font-weight: 600; color: #333; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e9ecef; }
     .audit-entry { padding: 0.5rem 0; border-bottom: 1px solid #f8f9fa; font-size: 0.9rem; }
     .audit-entry:last-child { border-bottom: none; }
@@ -44,7 +56,6 @@
                         @foreach($accounts as $account)
                             <option value="{{ $account->id }}" {{ $accountId == $account->id ? 'selected' : '' }}>
                                 {{ $account->name }}
-                                @if($account->user) ({{ $account->user->name }}) @endif
                             </option>
                         @endforeach
                     </select>
@@ -104,82 +115,57 @@
                 $amount = $totals ? $totals->total_deposit : 0;
 
                 $saleTotals = $accountSaleTotals->get($account->id);
-                $totalValue = $saleTotals ? $saleTotals->total_value : 0;
                 $saleCount = $saleTotals ? $saleTotals->sale_count : 0;
                 // Net collected = verified payments minus completed refunds
                 $refundTotal = $accountRefundTotals->get($account->id)->total_refunded ?? 0;
                 $netAmount = max($amount - $refundTotal, 0);
-                $balanceDue = max($totalValue - $netAmount, 0);
-                $progress = $totalValue > 0 ? round(($netAmount / $totalValue) * 100) : 0;
-                $progressColor = $progress >= 100 ? 'bg-success' : ($progress >= 50 ? 'bg-warning' : 'bg-danger');
 
                 $pendingCount = ($pendingCounts->get($account->id)->pending_count ?? 0) + ($pendingDepositCounts->get($account->id)->pending_count ?? 0);
                 $isActive = $accountId == $account->id;
             @endphp
             <div class="col-xl-3 col-lg-4 col-md-6">
                 <a href="{{ route('sales.cash-flow', ['account_id' => $account->id]) }}" class="text-decoration-none">
-                    <div class="card stat-card border-start border-4 {{ $isActive ? 'border-primary bg-light' : 'border-success' }} h-100">
+                    <div class="card stat-card h-100 {{ $isActive ? 'border-primary shadow' : 'border-0' }}">
                         <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <h6 class="mb-0 text-dark">{{ $account->name }}</h6>
-                                    @if($account->user)
-                                        <small class="text-muted">{{ $account->user->name }}</small>
-                                    @endif
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="account-avatar bg-{{ $account->provider ?: 'other' }}">
+                                        <i class="fas {{ $account->provider == 'gcash' ? 'fa-mobile-alt' : ($account->provider == 'bank_transfer' ? 'fa-university' : ($account->provider == 'cash' ? 'fa-money-bill-wave' : 'fa-wallet')) }}"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0 text-dark fw-bold">{{ $account->name }}</h6>
+                                        <small class="text-muted">
+                                            @if($account->provider) {{ ucfirst(str_replace('_', ' ', $account->provider)) }} @endif
+                                            @if($account->account_number) &middot; {{ $account->account_number }} @endif
+                                        </small>
+                                    </div>
                                 </div>
-                                <div class="d-flex gap-1">
-                                    @if($pendingCount > 0)
-                                        <span class="badge bg-warning text-dark" title="{{ $pendingCount }} pending verification">
-                                            <i class="fas fa-clock"></i> {{ $pendingCount }}
-                                        </span>
-                                    @endif
-                                    @if($balanceDue > 0)
-                                        <span class="badge bg-danger" title="Balance due">
-                                            <i class="fas fa-exclamation-triangle"></i>
-                                        </span>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="small text-muted mb-2">
-                                @if($account->provider) {{ $account->provider }} @endif
-                                @if($account->account_number) &middot; {{ $account->account_number }} @endif
+                                @if($pendingCount > 0)
+                                    <span class="badge bg-warning text-dark" title="{{ $pendingCount }} pending verification">
+                                        <i class="fas fa-clock"></i> {{ $pendingCount }}
+                                    </span>
+                                @endif
                             </div>
 
-                            <!-- Progress bar: collected vs total sale value -->
-                            <div class="mb-1">
-                                <div class="d-flex justify-content-between small">
-                                    <span class="text-muted">Collected vs Total</span>
-                                    <span class="fw-semibold">{{ $progress }}%</span>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar {{ $progressColor }}" style="width: {{ $progress }}%" role="progressbar"></div>
-                                </div>
+                            <div class="rounded-3 p-3 mb-3" style="background: linear-gradient(135deg, #f8f9fa, #e9f7ef);">
+                                <div class="small text-muted text-uppercase fw-semibold" style="letter-spacing: 0.5px;">Collected</div>
+                                <div class="amount-positive fs-4 fw-bold">₱{{ number_format($netAmount, 2) }}</div>
                             </div>
 
-                            <div class="d-flex justify-content-between mt-2">
-                                <span class="text-muted small">Sales:</span>
+                            <div class="d-flex justify-content-between pt-2 border-top">
+                                <span class="text-muted small"><i class="fas fa-receipt me-1"></i> Sales</span>
                                 <span class="fw-semibold">{{ $saleCount }}</span>
                             </div>
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted small">Collected:</span>
-                                <span class="amount-positive">₱{{ number_format($netAmount, 2) }}</span>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span class="text-muted small"><i class="fas fa-coins me-1"></i> Payments</span>
+                                <span class="fw-semibold">{{ $count }}</span>
                             </div>
                             @if($refundTotal > 0)
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted small">Refunded:</span>
-                                <span class="text-danger small">− ₱{{ number_format($refundTotal, 2) }}</span>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span class="text-muted small"><i class="fas fa-undo me-1"></i> Refunded</span>
+                                <span class="text-danger small fw-semibold">− ₱{{ number_format($refundTotal, 2) }}</span>
                             </div>
                             @endif
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted small">Total Value:</span>
-                                <span>₱{{ number_format($totalValue, 2) }}</span>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted small">Balance Due:</span>
-                                <span class="{{ $balanceDue > 0 ? 'text-danger fw-semibold' : 'text-success fw-semibold' }}">
-                                    {{ $balanceDue > 0 ? '₱' . number_format($balanceDue, 2) : 'Paid' }}
-                                </span>
-                            </div>
                         </div>
                     </div>
                 </a>
