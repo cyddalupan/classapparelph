@@ -521,6 +521,13 @@ const dc = {'iPrint':'#0d6efd','Consol':'#198754','Cinco':'#dc3545','Class':'#6f
 // Same production stage map as manager order list (stage → kanban status)
 const PROD_STAGE_MAP = @json($prodStageMap);
 const STATUS_TO_STAGE = @json($statusToStage);
+const STAGE_COLORS = {
+    'FOR SAMPLE': '#fd7e14', 'FOR APPROVAL': '#fd7e14',
+    'FOR FORMAT': '#0d6efd', 'PRINTING': '#0d6efd',
+    'PRESSING': '#6f42c1', 'CUTTING': '#6f42c1', 'SEWING': '#6f42c1',
+    'QA': '#20c997', 'HOLD': '#6c757d', 'DISPATCH': '#17a2b8',
+    'UNPAID': '#dc3545', 'DONE': '#28a745'
+};
 
 let curDate = new Date();
 let activeDept = 'all';
@@ -890,60 +897,64 @@ function showToast(msg, type) {
 // ========== SUMMARY ==========
 function updateSummary(projects) {
     const total = projects.length;
+    const totalQty = projects.reduce((s,p)=>s+(parseInt(p.total_qty)||0),0);
     const totalAmt = projects.reduce((s,p)=>s+parseFloat(p.subtotal || p.total_amount || 0),0);
     const totalDep = projects.reduce((s,p)=>s+parseFloat(p.deposit_paid||0),0);
 
-    const sb = {}, db = {}, itemb = {};
+    const db = {}, prodb = {}, stb = {};
     projects.forEach(p => {
-        const s=p.kanban_status||'new'; sb[s]=(sb[s]||0)+1;
-        const d=p.department_name||'other'; db[d]=(db[d]||0)+1;
-        // Tally items/services
-        if (p.services && p.services.length > 0) {
-            p.services.forEach(svc => {
-                const name = svc.name || (typeof svc === 'string' ? svc : 'Item');
-                const qty = parseInt(svc.qty) || 1;
-                itemb[name] = (itemb[name]||0) + qty;
-            });
-        }
+        const d = p.department_name || 'other';
+        db[d] = (db[d] || 0) + 1;
+        // By product type (TSHIRT VNECK, POLO, ...) — total pieces
+        const pl = p.product_label || p.customer_name || 'Unknown';
+        prodb[pl] = (prodb[pl] || 0) + (parseInt(p.total_qty) || 0);
+        // By production stage (SEWING, FOR FORMAT, ...) — project count + pieces
+        const st = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
+        if (!stb[st]) stb[st] = { count: 0, qty: 0 };
+        stb[st].count++;
+        stb[st].qty += (parseInt(p.total_qty) || 0);
     });
 
     let html = `
         <div class="d-flex justify-content-around mb-3 pb-2 border-bottom">
             <div class="summary-stat"><div class="stat-number">${total}</div><div class="stat-label">Projects</div></div>
+            <div class="summary-stat"><div class="stat-number" style="color:#667eea;">${totalQty}</div><div class="stat-label">Pieces</div></div>
             <div class="summary-stat"><div class="stat-number" style="color:#28a745;">${curr(totalAmt)}</div><div class="stat-label">Value</div></div>
-        </div>
-        <h6 style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;"><i class="fas fa-boxes me-1"></i> Items Summary</h6>`;
+        </div>`;
 
-    // Sort items by qty descending
-    const sortedItems = Object.keys(itemb).sort((a,b) => itemb[b]-itemb[a]);
-    sortedItems.forEach(name => {
-        const qty = itemb[name];
-        html+=`<div class="summary-item summary-item-compact"><span>${name}</span><span class="value" style="font-weight:700;">${qty}pc${qty>1?'s':''}</span></div>`;
+    // By Product (pieces per product type)
+    html += `<h6 style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;"><i class="fas fa-tshirt me-1"></i> By Product</h6>`;
+    const sortedProds = Object.keys(prodb).sort((a,b) => prodb[b]-prodb[a]);
+    sortedProds.forEach(pl => {
+        const q = prodb[pl];
+        html += `<div class="summary-item summary-item-compact"><span>${pl}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
     });
 
-    html+=`<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-tasks me-1"></i> By Status</h6>`;
-    const so = ['new','sample_approval','design','production','quality_check','ready_for_delivery','delivered','completed'];
-    const sl = {'new':'New','sample_approval':'Sample/Approval','design':'Design','production':'Production','quality_check':'QC','ready_for_delivery':'Ready','delivered':'Delivered','completed':'Completed'};
-    so.forEach(s => {
-        if (sb[s]) {
-            const pct = Math.round((sb[s]/total)*100)||0;
-            html+=`<div class="summary-item"><span><span class="status-${s}" style="font-size:0.7rem;padding:0.15rem 0.5rem;border-radius:8px;font-weight:600;">${sl[s]||s}</span></span><span class="value">${sb[s]} <small class="text-muted">(${pct}%)</small></span></div>`;
+    // By Stage (production flow order)
+    html += `<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-industry me-1"></i> By Stage</h6>`;
+    const stageOrder = ['FOR SAMPLE','FOR APPROVAL','FOR FORMAT','PRINTING','PRESSING','CUTTING','SEWING','QA','HOLD','DISPATCH','UNPAID','DONE'];
+    stageOrder.forEach(st => {
+        if (stb[st]) {
+            const c = STAGE_COLORS[st] || '#6c757d';
+            html += `<div class="summary-item"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:0.4rem;"></span>${st}</span><span class="value">${stb[st].count} proj · ${stb[st].qty} pc${stb[st].qty>1?'s':''}</span></div>`;
         }
     });
 
-    html+=`<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-building me-1"></i> By Department</h6>`;
+    // By Department
+    html += `<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-building me-1"></i> By Department</h6>`;
     const dor = ['iPrint','Consol','Cinco','Class','MTO','Other'];
     dor.forEach(d => {
         if (db[d]) {
-            const c=dc[d]||'#6c757d';
-            html+=`<div class="summary-item"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:0.4rem;"></span>${d}</span><span class="value">${db[d]}</span></div>`;
+            const c = dc[d] || '#6c757d';
+            html += `<div class="summary-item"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:0.4rem;"></span>${d}</span><span class="value">${db[d]}</span></div>`;
         }
     });
 
-    html+=`<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-coins me-1"></i> Financials</h6>`;
-    html+=`<div class="summary-item"><span>Total Value</span><span class="value" style="color:#28a745;">${curr(totalAmt)}</span></div>`;
-    html+=`<div class="summary-item"><span>Deposit Paid</span><span class="value" style="color:#0d6efd;">${curr(totalDep)}</span></div>`;
-    html+=`<div class="summary-item"><span>Balance</span><span class="value" style="color:#dc3545;">${curr(totalAmt-totalDep)}</span></div>`;
+    // Financials
+    html += `<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-coins me-1"></i> Financials</h6>`;
+    html += `<div class="summary-item"><span>Total Value</span><span class="value" style="color:#28a745;">${curr(totalAmt)}</span></div>`;
+    html += `<div class="summary-item"><span>Deposit Paid</span><span class="value" style="color:#0d6efd;">${curr(totalDep)}</span></div>`;
+    html += `<div class="summary-item"><span>Balance</span><span class="value" style="color:#dc3545;">${curr(totalAmt-totalDep)}</span></div>`;
 
     document.getElementById('summaryContent').innerHTML = html;
 }
