@@ -422,7 +422,7 @@
                     <div class="detail-label">Status</div>
                     <div class="detail-value">
                         @php
-                            // Dispatched if production stage is DISPATCH (or beyond), otherwise For Print / in production
+                            // Show the ACTUAL production stage (same as manager list tagging), not a generic label
                             $stageRaw = $sale->production_stage ?: (match($sale->kanban_status ?? 'new') {
                                 'new' => 'HOLD',
                                 'sample_approval' => 'FOR SAMPLE',
@@ -435,11 +435,26 @@
                                 default => 'HOLD',
                             });
                             $dispatched = in_array($stageRaw, ['DISPATCH', 'UNPAID', 'DONE']);
+                            $stageLabels = [
+                                'FOR SAMPLE' => 'For Sample',
+                                'FOR APPROVAL' => 'For Approval',
+                                'FOR FORMAT' => 'For Format',
+                                'PRINTING' => 'Printing',
+                                'PRESSING' => 'Pressing',
+                                'CUTTING' => 'Cutting',
+                                'SEWING' => 'Sewing',
+                                'QA' => 'QA',
+                                'HOLD' => 'Hold',
+                                'DISPATCH' => 'Dispatched',
+                                'UNPAID' => 'Delivered (Unpaid)',
+                                'DONE' => 'Done',
+                            ];
+                            $stageLabel = $stageLabels[$stageRaw] ?? ucwords(strtolower(str_replace('_', ' ', $stageRaw)));
                         @endphp
                         @if($dispatched)
-                            <span class="badge bg-success"><i class="fas fa-truck"></i> Dispatched</span>
+                            <span class="badge bg-success"><i class="fas fa-truck"></i> {{ $stageLabel }}</span>
                         @else
-                            <span class="badge bg-info text-dark"><i class="fas fa-print"></i> For Print</span>
+                            <span class="badge bg-info text-dark"><i class="fas fa-print"></i> {{ $stageLabel }}</span>
                         @endif
                     </div>
                 </div>
