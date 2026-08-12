@@ -508,6 +508,39 @@
         </div>
     </div>
 </div>
+
+<!-- Calendar Info/Notification Modal (replaces browser alert) -->
+<div class="modal fade" id="calInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="calInfoTitle"><i class="fas fa-info-circle me-2"></i>Notice</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="calInfoBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calendar Reschedule Confirm Modal (replaces browser confirm) -->
+<div class="modal fade" id="calConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-calendar-plus me-2"></i>Confirm Reschedule</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="calConfirmBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="calConfirmBtn"><i class="fas fa-check"></i> Confirm Move</button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -829,11 +862,35 @@ document.addEventListener('drop', function(e) {
 
     // Bawal mag-usog paurong — dapat future date lang palagi (YYYY-MM-DD string compare)
     if (fromDate && newDate < fromDate) {
-        alert('⚠️ Hindi pwedeng i-usog paurong. Pumili ng mas future date (pagkatapos ng ' + new Date(fromDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + ').');
+        document.getElementById('calInfoTitle').innerHTML = '<i class="fas fa-exclamation-triangle text-warning me-2"></i>Hindi Pwedeng I-usog Paurong';
+        document.getElementById('calInfoBody').innerHTML = '<p class="mb-1">Hindi pwedeng i-usog <strong>paurong</strong> ang project.</p><p class="mb-0 text-muted">Pumili ng mas <strong>future date</strong> (pagkatapos ng ' + new Date(fromDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + ').</p>';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('calInfoModal')).show();
         return;
     }
 
-    if (!confirm('Move this project to ' + new Date(newDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + '?\nOriginal date will be kept.\n\n(Drag = reschedule dahil na-delay)')) return;
+    // Confirm via modal — maghihintay ng confirmation bago mag-fetch
+    pendingReschedule = { saleId: saleId, newDate: newDate };
+    document.getElementById('calConfirmBody').innerHTML =
+        '<p class="mb-1">Ilipat ang project na ito sa <strong>' + new Date(newDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + '</strong>?</p>' +
+        '<p class="mb-0 text-muted small">Original date will be kept.<br>(Drag = reschedule dahil na-delay)</p>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('calConfirmModal')).show();
+    return;
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.closest('#calConfirmBtn')) {
+        doReschedule();
+    }
+});
+
+let pendingReschedule = null;
+
+function doReschedule() {
+    if (!pendingReschedule) return;
+    const saleId = pendingReschedule.saleId;
+    const newDate = pendingReschedule.newDate;
+    pendingReschedule = null;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('calConfirmModal')).hide();
 
     fetch('/sales/prototype/' + saleId + '/reschedule', {
         method: 'POST',
@@ -847,19 +904,29 @@ document.addEventListener('drop', function(e) {
     .then(function(res) {
         if (res.ok && res.data.success) {
             loadCal();
-            const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#198754;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:14px;font-weight:600;';
-            toast.textContent = '✅ ' + res.data.message;
-            document.body.appendChild(toast);
-            setTimeout(function() { toast.remove(); }, 4000);
+            showCalToast('✅ ' + res.data.message);
         } else {
-            alert('⚠️ ' + (res.data.message || 'Failed to reschedule.'));
+            showCalInfo('error', res.data.message || 'Failed to reschedule.');
         }
     })
     .catch(function() {
-        alert('❌ Network error. Please try again.');
+        showCalInfo('error', 'Network error. Please try again.');
     });
-});
+}
+
+function showCalInfo(type, msg) {
+    document.getElementById('calInfoTitle').innerHTML = (type === 'error' ? '<i class="fas fa-times-circle text-danger me-2"></i>Error' : '<i class="fas fa-info-circle me-2"></i>Notice');
+    document.getElementById('calInfoBody').innerHTML = '<p class="mb-0">' + msg + '</p>';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('calInfoModal')).show();
+}
+
+function showCalToast(msg) {
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;background:#198754;color:#fff;padding:12px 18px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:14px;font-weight:600;';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 4000);
+}
 
 // ========== PRODUCTION STAGE TAGGING (same rules as manager order list) ==========
 document.addEventListener('change', function(e) {
