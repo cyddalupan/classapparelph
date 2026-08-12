@@ -1401,7 +1401,7 @@
         </div>
         <div class="cm-footer">
             <button onclick="closeDeleteDesignModal()" class="cm-cancel-btn">Cancel</button>
-            <button onclick="doDeleteDesignImage(this)" class="cm-confirm-btn cm-reject"><i class="fas fa-trash-alt me-1"></i>Delete</button>
+            <button onclick="doDeleteModalConfirm(this)" class="cm-confirm-btn cm-reject"><i class="fas fa-trash-alt me-1"></i>Delete</button>
         </div>
     </div>
 </div>
@@ -1651,6 +1651,15 @@ function confirmDeleteDesignImage(url, type, name) {
 function closeDeleteDesignModal() {
     document.getElementById('deleteDesignModal').style.display = 'none';
     pendingDeleteImage = null;
+    pendingDeleteMockup = null;
+}
+// Dispatcher: routes modal confirm to the right delete flow (design image vs mockup)
+function doDeleteModalConfirm(btn) {
+    if (pendingDeleteMockup) {
+        doDeleteMockup(btn);
+    } else {
+        doDeleteDesignImage(btn);
+    }
 }
 function doDeleteDesignImage(btn) {
     if (!pendingDeleteImage) return;
@@ -1781,6 +1790,9 @@ function uploadMockup(input) {
 }
 
 function setMainMockup(url, btn) {
+    if (!confirm('Itakda ang mockup na ito bilang main cover?\nLalabas ito sa kanban board, manager order list, at calendar.')) {
+        return;
+    }
     var fd = new FormData();
     fd.append('url', url);
 
@@ -1841,7 +1853,7 @@ function doDeleteMockup(btn) {
             if (gallery) {
                 gallery.querySelectorAll('.mockup-item').forEach(function(w) {
                     var img = w.querySelector('img');
-                    if (img && img.src === delUrl) w.remove();
+                    if (img && (img.getAttribute('src') === delUrl || img.src === delUrl || img.src.endsWith(delUrl))) w.remove();
                 });
                 if (!gallery.querySelector('img')) {
                     gallery.innerHTML = '<div class="text-muted small">Wala pang mockup. Mag-upload para makapili ng main cover.</div>';
