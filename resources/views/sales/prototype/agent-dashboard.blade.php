@@ -302,7 +302,11 @@
                     $saleTitle = $descParts ? implode(' + ', $descParts) : $sale->sales_number;
                 @endphp
                 <div class="sale-title">{{ $saleTitle }}</div>
-                <div class="sale-number">{{ $sale->sales_number }} @if($totalQty) · {{ $totalQty }} pcs @endif@if(!empty($sale->customer_name) && !in_array(strtoupper(trim($sale->customer_name)), ['TEST', 'TEST ORDER'])) — {{ $sale->customer_name }}@endif</div>
+                <div class="sale-number">{{ $sale->sales_number }}@if($totalQty) · {{ $totalQty }} pcs@endif
+                    @if(!empty($sale->customer_name) && !in_array(strtoupper(trim($sale->customer_name)), ['TEST', 'TEST ORDER']))
+                        — {{ $sale->customer_name }}
+                    @endif
+                </div>
             </div>
             <div>
                 <span class="sale-date">
