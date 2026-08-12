@@ -696,9 +696,9 @@ function renderWeek(monday, projects) {
                 }
                 if (p.priority) {
                     const prio = parseInt(p.priority);
-                    const pc = prio === 1 ? '#dc3545' : (prio === 2 ? '#fd7e14' : '#ffc107');
-                    const pt = prio === 3 ? '#212529' : '#fff';
-                    html += `<span class="dp-prio-badge" style="background:${pc};color:${pt};font-weight:700;">PRIO ${prio}</span>`;
+                    const hue = Math.max(0, Math.min(45, (prio - 1) * 5));
+                    const pc = `hsl(${hue}, 85%, 45%)`;
+                    html += `<span class="dp-prio-badge" style="background:${pc};color:#fff;font-weight:700;">PRIO ${prio}</span>`;
                 }
                 // Mockup thumbnail (same as manager list)
                 if (mockupUrl) {

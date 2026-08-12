@@ -2746,7 +2746,7 @@ public function printSlip(string $id)
     public function updatePriority(Request $request, $id)
     {
         $request->validate([
-            'priority' => 'nullable|integer|min:1|max:3',
+            'priority' => 'nullable|integer|min:1|max:10',
         ]);
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
