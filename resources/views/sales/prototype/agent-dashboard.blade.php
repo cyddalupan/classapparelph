@@ -223,11 +223,11 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label for="payment_method">Payment Method</label>
-                <select id="payment_method" name="payment_method">
+                <label for="services">Services</label>
+                <select id="services" name="services">
                     <option value="">All</option>
-                    @foreach($paymentMethods as $pm)
-                    <option value="{{ $pm }}" {{ ($filters['payment_method'] ?? '') === $pm ? 'selected' : '' }}>{{ ucfirst(str_replace('_', ' ', $pm)) }}</option>
+                    @foreach($services as $svc)
+                    <option value="{{ $svc }}" {{ ($filters['services'] ?? '') === $svc ? 'selected' : '' }}>{{ $svc }}</option>
                     @endforeach
                 </select>
             </div>
@@ -419,8 +419,17 @@
                     </div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Payment Method</div>
-                    <div class="detail-value">{{ ucfirst($sale->payment_method ?? '—') }}</div>
+                    <div class="detail-label">Services</div>
+                    <div class="detail-value">
+                        @php
+                            $svcItems = is_array($sale->services) ? $sale->services : (json_decode($sale->services ?? '[]', true) ?: []);
+                            $svcNames = array_filter(array_column($svcItems, 'name'));
+                            $svcDisplay = count($svcNames) > 2
+                                ? implode(', ', array_slice($svcNames, 0, 2)) . ' +' . (count($svcNames) - 2)
+                                : implode(', ', $svcNames);
+                        @endphp
+                        {{ $svcDisplay ?: '—' }}
+                    </div>
                 </div>
             </div>
         </div>

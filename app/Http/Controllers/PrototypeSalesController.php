@@ -4190,13 +4190,6 @@ public function printSlip(string $id)
             $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
         }
 
-        // Payment method filter (via payments relation)
-        if ($request->filled('payment_method')) {
-            $query->whereHas('payments', function ($q) use ($request) {
-                $q->where('payment_method', $request->payment_method);
-            });
-        }
-
         // Payment status filter
         if ($request->filled('payment_status')) {
             $query->where('payment_status', $request->payment_status);
@@ -4217,6 +4210,20 @@ public function printSlip(string $id)
             ->orderByRaw("CASE WHEN kanban_status = 'completed' THEN 1 ELSE 0 END")
             ->orderBy('created_at', 'desc')
             ->get();
+
+        // Services filter (services is a JSON array of items, so filter the collection)
+        if ($request->filled('services')) {
+            $serviceFilter = $request->services;
+            $sales = $sales->filter(function ($sale) use ($serviceFilter) {
+                $items = is_array($sale->services) ? $sale->services : (json_decode($sale->services, true) ?: []);
+                foreach ($items as $item) {
+                    if (($item['name'] ?? '') === $serviceFilter) {
+                        return true;
+                    }
+                }
+                return false;
+            })->values();
+        }
 
         // Verification request count per sale (kung ilang beses na nag-request ang agent)
         $verificationCounts = \App\Models\SaleNotification::where('type', 'verification_request')
@@ -4248,7 +4255,7 @@ public function printSlip(string $id)
             ->toArray();
 
         // Preserve filter state for the view
-        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department', 'search', 'payment_method']);
+        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department', 'search', 'services']);
 
         // Totals summary: pieces, value, collected (net of refunds), balance
         $totalPieces = 0;
@@ -4272,12 +4279,17 @@ public function printSlip(string $id)
             $totalBalance += max((float) $sale->total_amount - $netCollected, 0);
         }
 
-        $paymentMethods = \DB::table('prototype_payments')
-            ->select('payment_method')
-            ->distinct()
-            ->orderBy('payment_method')
-            ->pluck('payment_method')
-            ->toArray();
+        // Unique services (item names) for the filter dropdown — from the agent's own sales
+        $services = collect();
+        foreach ($sales as $sale) {
+            $items = is_array($sale->services) ? $sale->services : (json_decode($sale->services, true) ?: []);
+            foreach ($items as $item) {
+                if (!empty($item['name'])) {
+                    $services->push($item['name']);
+                }
+            }
+        }
+        $services = $services->unique()->sort()->values()->toArray();
 
         // Unread notifications for the agent
         $notifications = \App\Models\SaleNotification::with(['sale', 'fromUser'])
@@ -4295,7 +4307,7 @@ public function printSlip(string $id)
                 && $n->is_read == false;
         })->values();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'paymentMethods', 'verificationCounts'));
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts'));
     }
 
     public function agentCreate()
