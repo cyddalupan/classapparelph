@@ -782,11 +782,15 @@ function loadCal() {
 
 // ========== DRAG & DROP RESCHEDULE ==========
 let dragSaleId = null;
+let dragSaleFromDate = null;
 
 document.addEventListener('dragstart', function(e) {
     const card = e.target.closest('.day-project');
     if (!card) return;
     dragSaleId = card.getAttribute('data-id');
+    // Current effective date = the day-cell this card sits in
+    const cell = card.closest('.day-cell');
+    dragSaleFromDate = cell ? cell.getAttribute('data-date') : null;
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     try { e.dataTransfer.setData('text/plain', dragSaleId); } catch(err) {}
@@ -797,6 +801,7 @@ document.addEventListener('dragend', function(e) {
     if (card) card.classList.remove('dragging');
     document.querySelectorAll('.day-cell.drag-over').forEach(function(c) { c.classList.remove('drag-over'); });
     dragSaleId = null;
+    dragSaleFromDate = null;
 });
 
 document.addEventListener('dragover', function(e) {
@@ -818,7 +823,15 @@ document.addEventListener('drop', function(e) {
     if (!newDate) return;
 
     const saleId = dragSaleId;
+    const fromDate = dragSaleFromDate;
     dragSaleId = null;
+    dragSaleFromDate = null;
+
+    // Bawal mag-usog paurong — dapat future date lang palagi (YYYY-MM-DD string compare)
+    if (fromDate && newDate < fromDate) {
+        alert('⚠️ Hindi pwedeng i-usog paurong. Pumili ng mas future date (pagkatapos ng ' + new Date(fromDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + ').');
+        return;
+    }
 
     if (!confirm('Move this project to ' + new Date(newDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + '?\nOriginal date will be kept.\n\n(Drag = reschedule dahil na-delay)')) return;
 
