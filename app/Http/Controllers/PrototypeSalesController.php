@@ -2762,7 +2762,7 @@ public function printSlip(string $id)
                 'mockup_url' => $firstMockupUrl,
                 'description' => $description,
                 'product_label' => $productLabel,
-                'sales_agent_name' => $p->sales_agent_name ?? '',
+                'sales_agent_name' => ($p->sales_agent_name ? trim(explode(' ', trim($p->sales_agent_name))[0]) : ''),
                 'date_needed' => $p->estimated_completion_date,
                 'estimated_completion_date' => $p->estimated_completion_date,
                 'rescheduled_date' => $p->rescheduled_date,
