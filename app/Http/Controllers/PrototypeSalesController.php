@@ -4197,6 +4197,32 @@ public function printSlip(string $id)
             $query->where('kanban_status', $request->kanban_status);
         }
 
+        // Production stage filter — matches actual production_stage OR the stage derived from kanban status
+        if ($request->filled('production_stage')) {
+            $stageFilter = $request->production_stage;
+            $stageToKanban = [
+                'FOR SAMPLE' => 'sample_approval',
+                'FOR APPROVAL' => 'sample_approval',
+                'FOR FORMAT' => 'design',
+                'PRINTING' => 'design',
+                'PRESSING' => 'production',
+                'CUTTING' => 'production',
+                'SEWING' => 'production',
+                'QA' => 'quality_check',
+                'HOLD' => 'new',
+                'DISPATCH' => 'ready_for_delivery',
+                'UNPAID' => 'delivered',
+                'DONE' => 'completed',
+            ];
+            $query->where(function ($q) use ($stageFilter, $stageToKanban) {
+                $q->where('production_stage', $stageFilter)
+                  ->orWhere(function ($q2) use ($stageFilter, $stageToKanban) {
+                      $q2->whereNull('production_stage')
+                         ->where('kanban_status', $stageToKanban[$stageFilter] ?? '');
+                  });
+            });
+        }
+
         // Department/shop filter
         if ($request->filled('department')) {
             $query->where('department_name', $request->department);
@@ -4252,7 +4278,7 @@ public function printSlip(string $id)
             ->toArray();
 
         // Preserve filter state for the view
-        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department', 'search', 'services']);
+        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department', 'search', 'services', 'production_stage']);
 
         // Totals summary: pieces, value, collected (net of refunds), balance
         $totalPieces = 0;
@@ -4288,6 +4314,22 @@ public function printSlip(string $id)
         }
         $services = $services->unique()->sort()->values()->toArray();
 
+        // Production stage options for the filter dropdown (same tags as manager list)
+        $prodStageOptions = [
+            'HOLD' => 'Hold',
+            'FOR SAMPLE' => 'For Sample',
+            'FOR APPROVAL' => 'For Approval',
+            'FOR FORMAT' => 'For Format',
+            'PRINTING' => 'Printing',
+            'PRESSING' => 'Pressing',
+            'CUTTING' => 'Cutting',
+            'SEWING' => 'Sewing',
+            'QA' => 'QA',
+            'DISPATCH' => 'Dispatched',
+            'UNPAID' => 'Delivered (Unpaid)',
+            'DONE' => 'Done',
+        ];
+
         // Unread notifications for the agent
         $notifications = \App\Models\SaleNotification::with(['sale', 'fromUser'])
             ->where('to_user_id', $user->id)
@@ -4304,7 +4346,7 @@ public function printSlip(string $id)
                 && $n->is_read == false;
         })->values();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts'));
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions'));
     }
 
     /**

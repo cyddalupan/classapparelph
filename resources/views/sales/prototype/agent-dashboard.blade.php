@@ -214,6 +214,15 @@
                 </select>
             </div>
             <div class="filter-group">
+                <label for="production_stage">Production Status</label>
+                <select id="production_stage" name="production_stage">
+                    <option value="">All</option>
+                    @foreach($prodStageOptions as $stageKey => $stageLabel)
+                    <option value="{{ $stageKey }}" {{ ($filters['production_stage'] ?? '') === $stageKey ? 'selected' : '' }}>{{ $stageLabel }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="filter-group">
                 <label for="department">Shop/Department</label>
                 <select id="department" name="department">
                     <option value="">All</option>
