@@ -251,6 +251,7 @@
                             $mUrl = is_string($m) ? $m : ($m['url'] ?? '');
                             $mName = is_array($m) ? ($m['name'] ?? 'Mockup') : 'Mockup';
                             $isMain = is_array($m) && !empty($m['is_main']);
+                            $canDelete = count($allMockups) > 1;
                         @endphp
                         @if($mUrl)
                             <div style="position:relative;display:inline-block;" class="mockup-item">
@@ -264,7 +265,11 @@
                                     @else
                                         <span class="text-success small fw-semibold" style="font-size:11px;"><i class="fas fa-check-circle"></i> Main cover</span>
                                     @endif
-                                    <button type="button" class="btn btn-sm btn-outline-danger" style="padding:1px 8px;font-size:11px;margin-left:auto;" onclick="confirmDeleteMockup('{{ $mUrl }}','{{ $mName }}')" title="Delete mockup">✕</button>
+                                    @if($canDelete)
+                                        <button type="button" class="btn btn-sm btn-outline-danger" style="padding:1px 8px;font-size:11px;margin-left:auto;" onclick="confirmDeleteMockup('{{ $mUrl }}','{{ $mName }}')" title="Delete mockup">✕</button>
+                                    @else
+                                        <span class="text-muted small" style="font-size:10px;margin-left:auto;" title="Hindi pwedeng burahin ang nag-iisang mockup — mag-upload muna ng bago"><i class="fas fa-lock me-1"></i>1 lang</span>
+                                    @endif
                                 </div>
                             </div>
                         @endif
@@ -1800,6 +1805,7 @@ function uploadMockup(input) {
             wrap.appendChild(img);
             wrap.appendChild(actions);
             gallery.appendChild(wrap);
+            refreshMockupDeleteState();
             msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';
         } else {
             msg.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>' + (data.message || 'Upload failed.') + '</span>';
@@ -1868,6 +1874,44 @@ function confirmDeleteMockup(url, name) {
     document.getElementById('deleteDesignReason').value = '';
     document.getElementById('deleteDesignModal').style.display = 'flex';
 }
+// Refresh delete button visibility: hide when only 1 mockup remains
+function refreshMockupDeleteState() {
+    var gallery = document.getElementById('mockupsGallery');
+    if (!gallery) return;
+    var items = gallery.querySelectorAll('.mockup-item');
+    var canDelete = items.length > 1;
+    items.forEach(function(w) {
+        var img = w.querySelector('img');
+        var actions = w.querySelector('.d-flex.gap-1.mt-1');
+        if (!img || !actions) return;
+        var delBtn = actions.querySelector('.btn-outline-danger');
+        var lockSpan = actions.querySelector('.text-muted.small');
+        if (canDelete) {
+            if (lockSpan) {
+                var url = img.getAttribute('src');
+                var name = img.alt || 'Mockup';
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm btn-outline-danger';
+                btn.style.cssText = 'padding:1px 8px;font-size:11px;margin-left:auto;';
+                btn.textContent = '✕';
+                btn.title = 'Delete mockup';
+                btn.onclick = function(e) { e.stopPropagation(); confirmDeleteMockup(url, name); };
+                lockSpan.replaceWith(btn);
+            }
+        } else {
+            if (delBtn) {
+                var span = document.createElement('span');
+                span.className = 'text-muted small';
+                span.style.cssText = 'font-size:10px;margin-left:auto;';
+                span.title = 'Hindi pwedeng burahin ang nag-iisang mockup — mag-upload muna ng bago';
+                span.innerHTML = '<i class="fas fa-lock me-1"></i>1 lang';
+                delBtn.replaceWith(span);
+            }
+        }
+    });
+}
+
 function doDeleteMockup(btn) {
     if (!pendingDeleteMockup) return;
     var delUrl = pendingDeleteMockup.url;
@@ -1902,6 +1946,7 @@ function doDeleteMockup(btn) {
                 if (!gallery.querySelector('img')) {
                     gallery.innerHTML = '<div class="text-muted small">Wala pang mockup. Mag-upload para makapili ng main cover.</div>';
                 }
+                refreshMockupDeleteState();
             }
             var msg = document.getElementById('mockupUploadMsg');
             if (msg) msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + data.message + '</span>';

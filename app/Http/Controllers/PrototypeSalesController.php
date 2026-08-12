@@ -4706,6 +4706,15 @@ public function printSlip(string $id)
         }
 
         $images = is_array($sale->mockup_images) ? $sale->mockup_images : [];
+
+        // Guard: huwag pwedeng mag-delete kung isa na lang ang mockup
+        if (count($images) <= 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi na pwedeng mag-delete — kailangan ng kahit isang mockup. Mag-upload muna ng bago bago burahin ito.',
+            ], 422);
+        }
+
         $targetUrl = $request->url;
         $removed = null;
         $kept = [];
