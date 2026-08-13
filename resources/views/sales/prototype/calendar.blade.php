@@ -239,11 +239,11 @@
 }
 .day-cell .day-total {
     display: inline-block;
-    font-size: 0.55rem;
+    font-size: 0.72rem;
     font-weight: 800;
     color: #fff;
-    border-radius: 8px;
-    padding: 0.05rem 0.35rem;
+    border-radius: 10px;
+    padding: 0.12rem 0.5rem;
     line-height: 1.3;
     white-space: nowrap;
 }
