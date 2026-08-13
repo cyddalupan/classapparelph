@@ -405,6 +405,54 @@
                 @endif
             </div>
 
+            <!-- Production Feedback -->
+            <div class="detail-section mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="detail-title mb-0" style="border-bottom:none;padding-bottom:0;">
+                        <i class="fas fa-clipboard-check me-2" style="color:#d97706;"></i>Production Feedback
+                    </h5>
+                    @if($isManager)
+                    <button class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="openFeedbackModal()">
+                        <i class="fas fa-plus"></i> Give Feedback
+                    </button>
+                    @endif
+                </div>
+
+                @if(($productionFeedbacks ?? collect())->isEmpty())
+                <div class="text-muted py-2" style="font-size:13px;">
+                    <i class="fas fa-info-circle"></i> No production feedback yet.
+                </div>
+                @else
+                <div class="mt-2" style="max-height:320px;overflow-y:auto;">
+                    @foreach($productionFeedbacks as $fb)
+                    <div class="border rounded p-2 mb-2" style="border-color:#e5e7eb !important;font-size:13px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge" style="background:{{ $fb->status === 'resolved' ? '#059669' : ($fb->status === 'acknowledged' ? '#2563eb' : '#d97706') }};color:#fff;">
+                                    {{ ucfirst($fb->status) }}
+                                </span>
+                                <span class="badge bg-secondary">{{ \App\Models\ProductionFeedback::CATEGORIES[$fb->category] ?? $fb->category }}</span>
+                                <strong class="ms-1">{{ $fb->fromUser->name ?? 'Manager' }}</strong>
+                                <span class="text-muted">→ {{ $fb->toUser->name ?? 'Agent' }}</span>
+                            </div>
+                            <small class="text-muted">{{ $fb->created_at->diffForHumans() }}</small>
+                        </div>
+                        <div class="mt-1">{{ $fb->message }}</div>
+                        @if($fb->status === 'open' && !$isManager && $fb->to_user_id === auth()->id())
+                        <div class="mt-1">
+                            <button class="btn btn-sm btn-outline-primary" onclick="updateFeedbackStatus({{ $fb->id }}, 'acknowledged')">Acknowledge</button>
+                            <button class="btn btn-sm btn-outline-success" onclick="updateFeedbackStatus({{ $fb->id }}, 'resolved')">Mark Resolved</button>
+                        </div>
+                        @endif
+                        @if(($fb->resolved_at ?? null))
+                        <small class="text-muted">Resolved {{ $fb->resolved_at->diffForHumans() }}</small>
+                        @endif
+                    </div>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+
             <!-- Audit History -->
             <div class="detail-section mt-3">
                 <div class="d-flex justify-content-between align-items-center">
@@ -1506,6 +1554,39 @@
             <button onclick="closePdfSelector()" class="cm-cancel-btn">Cancel</button>
             <button onclick="doDownloadPdf()" class="cm-confirm-btn cm-approve">
                 <i class="fas fa-download"></i> Download Selected
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="feedbackModal" class="cm-overlay" style="display:none;" onclick="if(event.target===this)closeFeedbackModal()">
+    <div class="cm-modal" style="max-width:520px;">
+        <div class="cm-header">
+            <h4><i class="fas fa-clipboard-check me-2" style="color:#d97706;"></i>Give Production Feedback</h4>
+            <button onclick="closeFeedbackModal()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body">
+            <p class="cm-body-text">Feedback para sa sales agent — para sa production delay na dulot ng kulang na impormasyon o files.</p>
+            <form id="feedbackForm">
+                @csrf
+                <div class="mb-2">
+                    <label style="font-weight:600;font-size:13px;">Category</label>
+                    <select name="category" class="form-control" required>
+                        @foreach(\App\Models\ProductionFeedback::CATEGORIES as $val => $label)
+                        <option value="{{ $val }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label style="font-weight:600;font-size:13px;">Message</label>
+                    <textarea name="message" class="form-control" rows="3" placeholder="Ano ang kulang / anong delay ang na-capture..." required maxlength="2000"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="cm-footer">
+            <button onclick="closeFeedbackModal()" class="cm-cancel-btn">Cancel</button>
+            <button onclick="submitFeedback()" class="cm-confirm-btn" style="background:#d97706;">
+                <i class="fas fa-paper-plane"></i> Send Feedback
             </button>
         </div>
     </div>
@@ -3040,6 +3121,58 @@ function addComment(saleId) {
 function escHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openFeedbackModal() {
+    document.getElementById('feedbackModal').style.display = 'flex';
+}
+function closeFeedbackModal() {
+    document.getElementById('feedbackModal').style.display = 'none';
+}
+function submitFeedback() {
+    var form = document.getElementById('feedbackForm');
+    var cat = form.querySelector('[name=category]').value;
+    var msg = form.querySelector('[name=message]').value.trim();
+    if (!msg) { alert('Please enter a message.'); return; }
+    var btn = event.target;
+    btn.disabled = true;
+    fetch('{{ route('sales.prototype.production-feedback.store', $sale->id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({category: cat, message: msg})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            closeFeedbackModal();
+            location.reload();
+        } else {
+            alert(data.message || 'Failed to send feedback.');
+            btn.disabled = false;
+        }
+    })
+    .catch(function() { alert('Request failed.'); btn.disabled = false; });
+}
+function updateFeedbackStatus(feedbackId, status) {
+    fetch('{{ route('sales.prototype.production-feedback.status', 'FEEDBACK_ID') }}'.replace('FEEDBACK_ID', feedbackId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({status: status})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { location.reload(); }
+        else { alert(data.message || 'Failed to update.'); }
+    })
+    .catch(function() { alert('Request failed.'); });
 }
 
 </script>

@@ -695,6 +695,56 @@
         </div>
     </div>
 </div>
+
+<!-- Production Feedback Section -->
+<div class="detail-section mt-4" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0" style="font-weight:700;color:#1e293b;">
+            <i class="fas fa-clipboard-check me-2" style="color:#d97706;"></i>Production Feedback
+            @if(($openFeedbackCount ?? 0) > 0)
+            <span class="badge ms-1" style="background:#d97706;color:#fff;">{{ $openFeedbackCount }} open</span>
+            @endif
+        </h5>
+        <small class="text-muted">Feedback mula sa manager tungkol sa production delays</small>
+    </div>
+
+    @if(($productionFeedbacks ?? collect())->isEmpty())
+    <div class="text-muted py-3 text-center" style="font-size:13px;">
+        <i class="fas fa-check-circle me-1" style="color:#059669;"></i> Wala pang production feedback. Keep it up!
+    </div>
+    @else
+    <div style="max-height:360px;overflow-y:auto;">
+        @foreach($productionFeedbacks as $fb)
+        <div class="border rounded p-2 mb-2" style="border-color:#e5e7eb !important;font-size:13px;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="badge" style="background:{{ $fb->status === 'resolved' ? '#059669' : ($fb->status === 'acknowledged' ? '#2563eb' : '#d97706') }};color:#fff;">
+                        {{ ucfirst($fb->status) }}
+                    </span>
+                    <span class="badge bg-secondary">{{ \App\Models\ProductionFeedback::CATEGORIES[$fb->category] ?? $fb->category }}</span>
+                    <strong class="ms-1">{{ $fb->fromUser->name ?? 'Manager' }}</strong>
+                </div>
+                <small class="text-muted">{{ $fb->created_at->diffForHumans() }}</small>
+            </div>
+            <div class="mt-1">
+                @if($fb->sale)
+                <a href="{{ route('sales.prototype.show', $fb->sale_id) }}" style="color:#2563eb;text-decoration:none;">
+                    Sale #{{ $fb->sale->sales_number ?? $fb->sale_id }}
+                </a>
+                @endif
+                — {{ $fb->message }}
+            </div>
+            @if($fb->status === 'open')
+            <div class="mt-1">
+                <button class="btn btn-sm btn-outline-primary" onclick="updateMyFeedback({{ $fb->id }}, 'acknowledged')">Acknowledge</button>
+                <button class="btn btn-sm btn-outline-success" onclick="updateMyFeedback({{ $fb->id }}, 'resolved')">Mark Resolved</button>
+            </div>
+            @endif
+        </div>
+        @endforeach
+    </div>
+    @endif
+</div>
 @endsection
 
 @push('scripts')
@@ -842,6 +892,44 @@ function markNotifRead(id) {
 }
 
 function markAllRead() {
+    fetch('{{ route('sales.prototype.notifications-read-all') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
+            'Accept': 'application/json'
+        }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            document.querySelectorAll('.notif-wrap [style*="background:#eff6ff"]').forEach(function(el) {
+                el.style.background = '#fff';
+            });
+            var badge = document.querySelector('.notif-badge');
+            if (badge) badge.remove();
+            location.reload();
+        }
+    });
+}
+
+function updateMyFeedback(feedbackId, status) {
+    fetch('{{ route('sales.prototype.production-feedback.status', 'FEEDBACK_ID') }}'.replace('FEEDBACK_ID', feedbackId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({status: status})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { location.reload(); }
+        else { alert(data.message || 'Failed to update.'); }
+    })
+    .catch(function() { alert('Request failed.'); });
+}
     fetch('{{ route('sales.prototype.notifications-read-all') }}', {
         method: 'POST',
         headers: {

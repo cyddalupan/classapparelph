@@ -870,6 +870,9 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/change/{changeId}/approve', [App\Http\Controllers\PrototypeSalesController::class, 'approveChange'])->name('sales.prototype.approve-change');
         Route::post('/sales/prototype/change/{changeId}/reject', [App\Http\Controllers\PrototypeSalesController::class, 'rejectChange'])->name('sales.prototype.reject-change');
         Route::post('/sales/prototype/{id}/add-comment', [App\Http\Controllers\PrototypeSalesController::class, 'addComment'])->name('sales.prototype.add-comment');
+        Route::post('/sales/prototype/{id}/production-feedback', [App\Http\Controllers\PrototypeSalesController::class, 'storeProductionFeedback'])->name('sales.prototype.production-feedback.store');
+        Route::post('/sales/prototype/production-feedback/{feedbackId}/status', [App\Http\Controllers\PrototypeSalesController::class, 'updateProductionFeedback'])->name('sales.prototype.production-feedback.status');
+        Route::get('/sales/prototype/production-feedback/list', [App\Http\Controllers\PrototypeSalesController::class, 'productionFeedbackList'])->name('sales.prototype.production-feedback.list');
         Route::get('/sales/prototype/{id}/audit-history', [App\Http\Controllers\PrototypeSalesController::class, 'auditHistory'])->name('sales.prototype.audit-history');
         Route::post('/sales/prototype/{id}/add-product', [App\Http\Controllers\PrototypeSalesController::class, 'addProduct'])->name('sales.prototype.add-product');
         Route::post('/sales/prototype/{id}/reprocess-order', [App\Http\Controllers\PrototypeSalesController::class, 'reprocessOrder'])->name('sales.prototype.reprocess-order');

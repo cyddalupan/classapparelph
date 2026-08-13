@@ -721,12 +721,19 @@ public function details(Request $request, string $id)
         $netPaid = $sale->net_paid;
         $balanceDue = $sale->balance_due_computed;
 
+        // Production feedback for this sale (visible to manager + assigned agent)
+        $productionFeedbacks = \App\Models\ProductionFeedback::with(['fromUser', 'toUser'])
+            ->where('sale_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
             'progressPercent', 'pendingChanges', 'isManager', 'canEdit',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
-            'payments', 'totalPaid', 'netPaid', 'balanceDue'
+            'payments', 'totalPaid', 'netPaid', 'balanceDue',
+            'productionFeedbacks'
         ));
     }
 
@@ -1070,6 +1077,126 @@ public function details(Request $request, string $id)
         }
         
         return redirect()->back()->with('success', 'Comment added.');
+    }
+
+    /**
+     * Manager gives production feedback to the sale's sales agent.
+     * Creates a notification so the agent sees it in My Sales.
+     */
+    public function storeProductionFeedback(Request $request, string $id)
+    {
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            return response()->json(['success' => false, 'message' => 'Only managers can give production feedback.']);
+        }
+
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            abort(404);
+        }
+        if (!$sale->sales_agent_id) {
+            return response()->json(['success' => false, 'message' => 'This sale has no assigned sales agent.']);
+        }
+
+        $request->validate([
+            'category' => 'required|in:' . implode(',', array_keys(\App\Models\ProductionFeedback::CATEGORIES)),
+            'message' => 'required|string|max:2000',
+        ]);
+
+        $feedback = \App\Models\ProductionFeedback::create([
+            'sale_id' => $id,
+            'from_user_id' => $user->id,
+            'to_user_id' => $sale->sales_agent_id,
+            'category' => $request->category,
+            'message' => $request->message,
+            'status' => 'open',
+        ]);
+
+        // Notify the agent
+        \App\Models\SaleNotification::create([
+            'sale_id' => $id,
+            'from_user_id' => $user->id,
+            'to_user_id' => $sale->sales_agent_id,
+            'type' => 'production_feedback',
+            'title' => 'Production Feedback',
+            'message' => 'You received production feedback: ' . (\App\Models\ProductionFeedback::CATEGORIES[$request->category] ?? $request->category) . ' — ' . substr($request->message, 0, 120) . (strlen($request->message) > 120 ? '...' : ''),
+        ]);
+
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $id,
+            'user_id' => $user->id,
+            'action' => 'production_feedback_added',
+            'description' => 'Manager gave production feedback to ' . ($sale->sales_agent_name ?? 'agent') . ': ' . substr($request->message, 0, 100),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'feedback_id' => $feedback->id]);
+        }
+        return redirect()->back()->with('success', 'Production feedback sent.');
+    }
+
+    /**
+     * Sales agent updates the status of production feedback (acknowledge / resolve).
+     */
+    public function updateProductionFeedback(Request $request, string $feedbackId)
+    {
+        $user = auth()->user();
+        $feedback = \App\Models\ProductionFeedback::findOrFail($feedbackId);
+
+        $isManager = $user && in_array($user->role, ['admin', 'manager']);
+        $isTargetAgent = $user && $feedback->to_user_id === $user->id;
+        if (!$isManager && !$isTargetAgent) {
+            return response()->json(['success' => false, 'message' => 'You cannot update this feedback.']);
+        }
+
+        $request->validate([
+            'status' => 'required|in:open,acknowledged,resolved',
+        ]);
+
+        $status = $request->status;
+        $feedback->status = $status;
+        $feedback->acknowledged_at = $status === 'acknowledged' || $status === 'resolved' ? now() : null;
+        $feedback->resolved_at = $status === 'resolved' ? now() : null;
+        $feedback->save();
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true]);
+        }
+        return redirect()->back()->with('success', 'Feedback updated.');
+    }
+
+    /**
+     * Manager's view: all production feedback given across all sales agents.
+     */
+    public function productionFeedbackList(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+            abort(403);
+        }
+
+        $query = \App\Models\ProductionFeedback::with(['sale', 'fromUser', 'toUser']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('agent_id')) {
+            $query->where('to_user_id', $request->agent_id);
+        }
+        if ($request->filled('category')) {
+            $query->where('category', $request->category);
+        }
+
+        $feedbacks = $query->orderBy('created_at', 'desc')->paginate(25)->withQueryString();
+
+        $agents = \App\Models\User::where('role', 'sales_agent')->orderBy('name')->get();
+        $statusCounts = \App\Models\ProductionFeedback::selectRaw('status, count(*) as total')
+            ->groupBy('status')->pluck('total', 'status')->toArray();
+
+        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts'));
     }
 
     /**
@@ -1657,8 +1784,9 @@ public function printSlip(string $id)
      * Generate and download print slip as PDF.
      */
     /**
-     * Compress a base64-encoded image for PDF embedding.
-     * Rescales to max 800px and saves as JPEG 70% quality.
+     * Normalize/compress a base64-encoded mockup image for PDF embedding.
+     * - Converts WebP (and other non-JPEG/PNG formats) to JPEG so DomPDF renders them.
+     * - Rescales large images to max 800px and saves as JPEG 70% quality.
      */
     private function compressMockupImage(string $dataUrl): string
     {
@@ -1674,10 +1802,38 @@ public function printSlip(string $id)
         $base64 = $m[2];
         $rawData = base64_decode($base64, true);
         if ($rawData === false || strlen($rawData) < 50000) {
-            return $dataUrl; // small image or invalid, skip
+            // Tiny/invalid image: if it's WebP, still try to convert (DomPDF can't render WebP)
+            if ($ext === 'webp') {
+                $img = @imagecreatefromstring($rawData ?: '');
+                if ($img) {
+                    ob_start();
+                    imagejpeg($img, null, 80);
+                    $jpg = ob_get_clean();
+                    imagedestroy($img);
+                    if ($jpg) {
+                        return 'data:image/jpeg;base64,' . base64_encode($jpg);
+                    }
+                }
+            }
+            return $dataUrl;
+        }
+
+        // Always convert WebP to JPEG regardless of size (DomPDF WebP support is unreliable)
+        if ($ext === 'webp') {
+            $img = @imagecreatefromstring($rawData);
+            if ($img) {
+                ob_start();
+                imagejpeg($img, null, 80);
+                $jpg = ob_get_clean();
+                imagedestroy($img);
+                if ($jpg) {
+                    return 'data:image/jpeg;base64,' . base64_encode($jpg);
+                }
+            }
+            return $dataUrl;
         }
         
-        // Only compress images larger than 500KB
+        // Only compress other images larger than 500KB
         if (strlen($rawData) < 512000) {
             return $dataUrl;
         }
@@ -4434,7 +4590,15 @@ public function printSlip(string $id)
                 && $n->is_read == false;
         })->values();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions'));
+        // Production feedback received by this agent
+        $productionFeedbacks = \App\Models\ProductionFeedback::with(['sale', 'fromUser'])
+            ->where('to_user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
+        $openFeedbackCount = $productionFeedbacks->where('status', 'open')->count();
+
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions', 'productionFeedbacks', 'openFeedbackCount'));
     }
 
     /**
