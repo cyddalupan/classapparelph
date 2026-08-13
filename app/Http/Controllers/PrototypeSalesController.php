@@ -2813,11 +2813,25 @@ public function printSlip(string $id)
                 });
         }
 
+        // Production feedback GIVEN by this manager (shown on manager order list)
+        $productionFeedbacks = collect();
+        $openFeedbackCount = 0;
+        $showFeedbackSection = false;
+        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+            $showFeedbackSection = true;
+            $productionFeedbacks = \App\Models\ProductionFeedback::with(['sale', 'fromUser', 'toUser'])
+                ->where('from_user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(20)
+                ->get();
+            $openFeedbackCount = $productionFeedbacks->where('status', 'open')->count();
+        }
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
             "departmentLabels", "departmentColors", "isAgent",
             "pendingCounts", "totalPending", "pendingChangesList",
-            "lastNotifs"
+            "lastNotifs", "productionFeedbacks", "openFeedbackCount", "showFeedbackSection"
         ));
     }
 

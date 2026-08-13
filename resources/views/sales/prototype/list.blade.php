@@ -733,6 +733,57 @@
         {{ $sales->links() }}
     </div>
 
+    @if(($showFeedbackSection ?? false))
+    <!-- Production Feedback Section (manager: lahat ng feedback na binigay nya) -->
+    <div class="detail-section mt-4" style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;">
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <h5 class="mb-0" style="font-weight:700;color:#1e293b;">
+                <i class="fas fa-clipboard-check me-2" style="color:#d97706;"></i>Production Feedback
+                @if(($openFeedbackCount ?? 0) > 0)
+                <span class="badge ms-1" style="background:#d97706;color:#fff;">{{ $openFeedbackCount }} open</span>
+                @endif
+            </h5>
+            <div class="d-flex gap-2 align-items-center">
+                <small class="text-muted" style="font-size:12px;">Lahat ng feedback na binigay mo sa mga agents</small>
+                <a href="{{ route('sales.prototype.production-feedback.list') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-external-link-alt me-1"></i> View All
+                </a>
+            </div>
+        </div>
+
+        @if(($productionFeedbacks ?? collect())->isEmpty())
+        <div class="text-muted py-3 text-center" style="font-size:13px;">
+            <i class="fas fa-check-circle me-1" style="color:#059669;"></i> Wala ka pang binibigay na production feedback.
+        </div>
+        @else
+        <div style="max-height:360px;overflow-y:auto;">
+            @foreach($productionFeedbacks as $fb)
+            <div class="border rounded p-2 mb-2" style="border-color:#e5e7eb !important;font-size:13px;">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <div>
+                        <span class="badge" style="background:{{ $fb->status === 'resolved' ? '#059669' : ($fb->status === 'acknowledged' ? '#2563eb' : '#d97706') }};color:#fff;">
+                            {{ ucfirst($fb->status) }}
+                        </span>
+                        <span class="badge bg-secondary">{{ \App\Models\ProductionFeedback::CATEGORIES[$fb->category] ?? $fb->category }}</span>
+                        <strong class="ms-1" style="font-size:12px;">para kay {{ $fb->toUser->name ?? 'Agent' }}</strong>
+                    </div>
+                    <small class="text-muted">{{ $fb->created_at->diffForHumans() }}</small>
+                </div>
+                <div class="mt-1">
+                    @if($fb->sale)
+                    <a href="{{ route('sales.prototype.show', $fb->sale_id) }}" style="color:#2563eb;text-decoration:none;">
+                        Sale #{{ $fb->sale->sales_number ?? $fb->sale_id }}
+                    </a>
+                    @endif
+                    — {{ $fb->message }}
+                </div>
+            </div>
+            @endforeach
+        </div>
+        @endif
+    </div>
+    @endif
+
 </div>
 @endsection
 
