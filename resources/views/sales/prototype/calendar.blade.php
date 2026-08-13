@@ -218,13 +218,40 @@
     display: flex;
     flex-direction: column;
 }
+.day-cell .day-head {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 0.15rem;
+    flex-shrink: 0;
+}
 .day-cell .day-number {
     font-size: 0.75rem;
     font-weight: 700;
     color: #666;
     padding: 0.15rem 0.3rem;
-    margin-bottom: 0.15rem;
     flex-shrink: 0;
+}
+.day-cell .day-totals {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+}
+.day-cell .day-total {
+    display: inline-block;
+    font-size: 0.55rem;
+    font-weight: 800;
+    color: #fff;
+    border-radius: 8px;
+    padding: 0.05rem 0.35rem;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+.day-cell .day-total-1 {
+    background: #667eea;
+}
+.day-cell .day-total-2 {
+    background: #f0932b;
 }
 .day-cell.today { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
 .day-cell.drag-over { border-color: #198754; box-shadow: 0 0 0 2.5px rgba(25,135,84,0.4); background: rgba(25,135,84,0.06); }
@@ -741,7 +768,16 @@ function renderWeek(monday, projects) {
         });
 
         html += `<div class="day-cell ${isToday?'today':''}" data-date="${dateStr}">`;
+        var gt = getGarmentTotals(dayProjects);
+        html += `<div class="day-head">`;
         html += `<div class="day-number">${d.getDate()}</div>`;
+        if (dayProjects.length > 0) {
+            html += `<div class="day-totals" title="${GARMENT_GROUP1.join(' + ')} | Iba pang garments">`;
+            html += `<span class="day-total day-total-1">${gt.g1}</span>`;
+            html += `<span class="day-total day-total-2">${gt.g2}</span>`;
+            html += '</div>';
+        }
+        html += '</div>';
         html += '<div class="day-projects-list">';
 
         if (dayProjects.length === 0) {
@@ -1081,6 +1117,24 @@ function showToast(msg, type) {
 var calFilters = { prio: false, garments: {}, fabrics: {}, parts: {} };
 
 // Extract per-project garment/fabric/parts lists (same logic as summary breakdown)
+var GARMENT_GROUP1 = ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'];
+
+// Totals per day: Group 1 = the 3 shirt/jersey types above, Group 2 = all other garments
+function getGarmentTotals(projects) {
+    var g1 = 0, g2 = 0;
+    projects.forEach(function(p) {
+        (p.services || []).forEach(function(it) {
+            var sf = it.sublimationForm || {};
+            var g = (sf.garment && sf.garment.name) ? String(sf.garment.name).trim().toUpperCase() : '';
+            if (!g) return;
+            var qty = parseInt(it.quantity || it.qty || 1) || 1;
+            if (GARMENT_GROUP1.indexOf(g) !== -1) g1 += qty;
+            else g2 += qty;
+        });
+    });
+    return { g1: g1, g2: g2 };
+}
+
 function getProjBreakdown(p) {
     var bd = { garments: {}, fabrics: {}, parts: {} };
     (p.services || []).forEach(function(it) {
