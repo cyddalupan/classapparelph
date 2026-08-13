@@ -407,6 +407,7 @@
         <div class="list-actions">
             <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-kanban">📊 Kanban Board</a>
             <a href="{{ route('sales.prototype.delays') }}" class="btn btn-delays" style="background:#dc3545;color:#fff;">⚠️ Delay List</a>
+            <a href="{{ route('sales.prototype.production-feedback.list') }}" class="btn" style="background:#d97706;color:#fff;">📋 Production Feedback @if(($openFeedbackCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#d97706;">{{ $openFeedbackCount }}</span>@endif</a>
             <a href="{{ route('sales.prototype.create') }}" class="btn btn-new-order">➕ New Order</a>
             @if(isset($totalPending) && $totalPending > 0)
                 <button class="btn btn-pending-hdr" id="pendingToggleBtn" onclick="showPendingModal()" style="position:relative;">
