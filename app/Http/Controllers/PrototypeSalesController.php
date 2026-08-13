@@ -4436,9 +4436,17 @@ public function printSlip(string $id)
         // ---- KPIs ----
         $totalOrders = $sales->count();
         $totalRevenue = $sales->sum('total_amount');
-        $totalBalance = $sales->sum('balance_due');
+        $totalBalance = 0;
         $totalCollected = $sales->sum(function ($s) {
-            return $s->payments->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])->sum('amount');
+            $collected = $s->payments->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])->sum('amount');
+            $refunded = $s->refunds->where('refund_status', 'completed')->sum('refund_amount');
+            return max($collected - $refunded, 0);
+        });
+        $totalBalance = $sales->sum(function ($s) {
+            $collected = $s->payments->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])->sum('amount');
+            $refunded = $s->refunds->where('refund_status', 'completed')->sum('refund_amount');
+            $netCollected = max($collected - $refunded, 0);
+            return max((float) $s->total_amount - $netCollected, 0);
         });
         $totalPieces = 0;
 
