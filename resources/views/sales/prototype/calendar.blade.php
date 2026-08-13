@@ -1124,9 +1124,9 @@ var calFilters = { prio: false, garments: {}, fabrics: {}, parts: {} };
 
 // Extract per-project garment/fabric/parts lists (same logic as summary breakdown)
 var GARMENT_GROUP1 = ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'];
-var GARMENT_GROUP2 = ['JERSEY SHORT'];
+var GARMENT_GROUP2 = ['JERSEY UP AND DOWN'];
 
-// Totals per day: G1 = 3 shirt/jersey-up types, G2 = JERSEY SHORT, G3 = all other garments
+// Totals per day: G1 = 3 shirt/jersey-up types, G2 = JERSEY UP AND DOWN, G3 = all other garments
 function getProjectGarmentTotals(p) {
     var g1 = 0, g2 = 0, g3 = 0;
     (p.services || []).forEach(function(it) {
