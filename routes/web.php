@@ -727,6 +727,19 @@ Route::get('/inventorylist', function() {
             $customers = $query->orderBy('total_spent', 'desc')
                 ->limit(50)
                 ->get();
+
+            // Outstanding balance per customer (how much is still collectible)
+            $outstanding = \Illuminate\Support\Facades\DB::table('prototype_sales')
+                ->whereNull('archived_at')
+                ->where('balance_due', '>', 0)
+                ->whereIn('customer_id', $customers->pluck('id'))
+                ->groupBy('customer_id')
+                ->selectRaw('customer_id, SUM(balance_due) as total_outstanding')
+                ->pluck('total_outstanding', 'customer_id');
+
+            foreach ($customers as $c) {
+                $c->outstanding_balance = (float) ($outstanding[$c->id] ?? 0);
+            }
             
             return response()->json(["customers" => $customers]);
         });

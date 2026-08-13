@@ -52,6 +52,21 @@
         <div class="col-md-3">
             <div class="card border-0 shadow-sm">
                 <div class="card-body text-center">
+                    <div class="text-muted small mb-1">Outstanding Balance</div>
+                    <div class="display-6 fw-bold {{ $outstandingBalance > 0 ? 'text-danger' : 'text-secondary' }}">
+                        ₱{{ number_format($outstandingBalance, 2) }}
+                    </div>
+                    @if($outstandingBalance > 0)
+                        <span class="badge bg-danger mt-1"><i class="fas fa-exclamation-circle me-1"></i>May pending balance pa</span>
+                    @else
+                        <span class="badge bg-success mt-1">Fully paid ✓</span>
+                    @endif
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
                     <div class="text-muted small mb-1">Avg Order Value</div>
                     <div class="display-6 fw-bold text-info">
                         ₱{{ number_format($orderCount > 0 ? $totalSpent / $orderCount : 0, 2) }}
@@ -145,13 +160,26 @@
 
             <!-- NOTES SECTION -->
             <div class="card border-0 shadow-sm mt-3">
-                <div class="card-header bg-white py-3">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-sticky-note me-2"></i>Notes</h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="editNotesBtn" onclick="toggleNotesEdit()">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </button>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-0">
+                    <p class="text-muted small mb-0" id="notesDisplay">
                         {{ $customer->notes ?: 'No notes yet.' }}
                     </p>
+                    <div class="d-none" id="notesEditWrap">
+                        <textarea class="form-control" id="edit_notes" rows="3" placeholder="Maglagay ng notes tungkol sa customer...">{{ $customer->notes }}</textarea>
+                        <div class="d-flex gap-2 mt-2">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="saveCustomerNotes()">
+                                <i class="fas fa-save me-1"></i> Save Notes
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleNotesEdit()">Cancel</button>
+                        </div>
+                        <div id="notesStatus" class="mt-2"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -183,7 +211,10 @@
                                         </div>
                                         <div class="text-end">
                                             <div class="fw-bold">₱{{ number_format($order->subtotal ?? 0, 2) }}</div>
-                                            <a href="{{ route('sales.prototype.create', ['edit_sale' => $order->id]) }}" class="small text-primary text-decoration-none">View</a>
+                                            @if(isset($order->balance_due) && $order->balance_due > 0)
+                                                <div class="small text-danger fw-bold">Bal: ₱{{ number_format($order->balance_due, 2) }}</div>
+                                            @endif
+                                            <a href="{{ route('sales.prototype.show', $order->id) }}" class="small text-primary text-decoration-none">View</a>
                                         </div>
                                     </div>
                                 </div>
@@ -250,6 +281,52 @@ function toggleEdit() {
         btn.innerHTML = '<i class="fas fa-edit me-1"></i> Edit';
         document.getElementById('editStatus').innerHTML = '';
     }
+}
+
+function toggleNotesEdit() {
+    const wrap = document.getElementById('notesEditWrap');
+    const display = document.getElementById('notesDisplay');
+    const btn = document.getElementById('editNotesBtn');
+    const isEditing = wrap.classList.contains('d-none');
+    
+    if (isEditing) {
+        wrap.classList.remove('d-none');
+        display.classList.add('d-none');
+        btn.innerHTML = '<i class="fas fa-times me-1"></i> Cancel';
+    } else {
+        wrap.classList.add('d-none');
+        display.classList.remove('d-none');
+        btn.innerHTML = '<i class="fas fa-edit me-1"></i> Edit';
+        document.getElementById('notesStatus').innerHTML = '';
+    }
+}
+
+function saveCustomerNotes() {
+    const id = document.getElementById('customer_id').value;
+    const notes = document.getElementById('edit_notes').value.trim();
+    const status = document.getElementById('notesStatus');
+    
+    status.innerHTML = '<div class="text-primary"><i class="fas fa-spinner fa-spin me-1"></i>Saving...</div>';
+    
+    fetch('/api/customers/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+        body: JSON.stringify({ notes: notes, _token: '{{ csrf_token() }}' })
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(result) {
+        if (result.success) {
+            status.innerHTML = '<div class="text-success"><i class="fas fa-check me-1"></i>Notes saved!</div>';
+            document.getElementById('notesDisplay').textContent = notes || 'No notes yet.';
+            setTimeout(function() { toggleNotesEdit(); }, 1200);
+        } else {
+            status.innerHTML = '<div class="alert alert-danger py-2 mb-0">' + (result.message || 'Save failed') + '</div>';
+        }
+    })
+    .catch(function(err) {
+        status.innerHTML = '<div class="alert alert-danger py-2 mb-0">Error saving notes.</div>';
+        console.error(err);
+    });
 }
 
 function saveCustomerEdit() {

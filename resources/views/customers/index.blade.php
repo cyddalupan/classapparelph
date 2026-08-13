@@ -97,6 +97,7 @@
                             <th>Contact</th>
                             <th>Orders</th>
                             <th>Total Spent</th>
+                            <th>Outstanding</th>
                             <th>Tier</th>
                             <th>Last Order</th>
                             <th>Created By</th>
@@ -119,6 +120,14 @@
                             </td>
                             <td class="text-center">{{ $customer->total_orders }}</td>
                             <td class="text-end">₱{{ number_format($customer->total_spent, 2) }}</td>
+                            <td class="text-end">
+                                @php $custOut = (float) ($outstanding[$customer->id] ?? 0); @endphp
+                                @if($custOut > 0)
+                                    <span class="badge bg-danger">₱{{ number_format($custOut, 2) }}</span>
+                                @else
+                                    <span class="badge bg-success">₱0.00</span>
+                                @endif
+                            </td>
                             <td>
                                 @php
                                     $tierColors = ['bronze' => '#cd7f32', 'silver' => '#a8a8a8', 'gold' => '#ffd700', 'platinum' => '#e5e4e2'];
@@ -143,7 +152,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
+                            <td colspan="10" class="text-center py-5 text-muted">
                                 <i class="fas fa-users fa-3x mb-3 d-block"></i>
                                 No customers yet.<br>
                                 <a href="{{ route('sales.prototype.create') }}" class="btn btn-sm btn-primary mt-2">Create your first sale</a>
@@ -279,6 +288,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td class="text-center">${c.total_orders}</td>
                     <td class="text-end">₱${parseFloat(c.total_spent).toFixed(2)}</td>
+                    <td class="text-end">${parseFloat(c.outstanding_balance || 0) > 0
+                        ? '<span class="badge bg-danger">₱' + parseFloat(c.outstanding_balance).toFixed(2) + '</span>'
+                        : '<span class="badge bg-success">₱0.00</span>'}</td>
                     <td><span class="badge" style="background: ${tierColor}; color: #000;">${c.customer_tier.charAt(0).toUpperCase() + c.customer_tier.slice(1)}</span></td>
                     <td><small>${lastOrder}</small></td>
                     <td><small>${c.creator ? c.creator.name : '—'}</small></td>

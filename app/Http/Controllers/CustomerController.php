@@ -16,7 +16,16 @@ class CustomerController extends Controller
             ->orderBy('total_spent', 'desc')
             ->paginate(20);
 
-        return view('customers.index', compact('customers'));
+        // Outstanding balance per customer (how much is still collectible)
+        $outstanding = DB::table('prototype_sales')
+            ->whereNull('archived_at')
+            ->where('balance_due', '>', 0)
+            ->whereIn('customer_id', $customers->pluck('id'))
+            ->groupBy('customer_id')
+            ->selectRaw('customer_id, SUM(balance_due) as total_outstanding')
+            ->pluck('total_outstanding', 'customer_id');
+
+        return view('customers.index', compact('customers', 'outstanding'));
     }
 
     // Show customer detail page (NEW — dedicated profile page)
@@ -32,6 +41,13 @@ class CustomerController extends Controller
         
         $orderCount = $orders->count();
         $totalSpent = $orders->sum('subtotal');
+
+        // Outstanding balance — how much is still collectible from this customer
+        $outstandingBalance = DB::table('prototype_sales')
+            ->where('customer_id', $id)
+            ->whereNull('archived_at')
+            ->where('balance_due', '>', 0)
+            ->sum('balance_due');
         
         // Get products purchased from prototype_order_items via prototype_orders
         $recentItems = DB::table('prototype_order_items')
@@ -41,7 +57,7 @@ class CustomerController extends Controller
             ->limit(10)
             ->get();
         
-        return view('customers.show', compact('customer', 'orders', 'orderCount', 'totalSpent', 'recentItems'));
+        return view('customers.show', compact('customer', 'orders', 'orderCount', 'totalSpent', 'recentItems', 'outstandingBalance'));
     }
 
     // Save customer (create or update)
@@ -227,6 +243,7 @@ class CustomerController extends Controller
             'marketplace' => 'nullable|string|max:100',
             'location' => 'nullable|string|max:255',
             'company' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -237,7 +254,7 @@ class CustomerController extends Controller
             ], 422);
         }
         
-        $customer->update($request->only(['name', 'phone', 'email', 'marketplace', 'location', 'company']));
+        $customer->update($request->only(['name', 'phone', 'email', 'marketplace', 'location', 'company', 'notes']));
         
         return response()->json([
             'success' => true,
