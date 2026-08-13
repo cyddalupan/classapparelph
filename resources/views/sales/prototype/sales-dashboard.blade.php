@@ -83,6 +83,15 @@
             </select>
         </div>
         <div class="col-md-2">
+            <label>Shop</label>
+            <select name="department" class="form-select form-select-sm">
+                <option value="">All</option>
+                @foreach($departments as $dept)
+                <option value="{{ $dept }}" {{ ($filters['department'] ?? '') === $dept ? 'selected' : '' }}>{{ $dept }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-2">
             <label>Product</label>
             <input type="text" name="product" class="form-control form-control-sm" placeholder="e.g. Jersey" value="{{ $filters['product'] ?? '' }}">
         </div>
@@ -166,6 +175,29 @@
 </div>
 
 <div class="row g-3 mt-1">
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <h6><i class="fas fa-store me-2" style="color:#0ea5e9;"></i>Revenue by Shop</h6>
+            @if(count($shopLabels) > 0)
+            <div style="height:280px; position:relative;"><canvas id="shopChart"></canvas></div>
+            @else
+            <p class="text-muted text-center py-4 mb-0">No shop data yet</p>
+            @endif
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="chart-card">
+            <h6><i class="fas fa-chart-bar me-2" style="color:#f97316;"></i>Orders & Pieces by Shop</h6>
+            @if(count($shopLabels) > 0)
+            <div style="height:280px; position:relative;"><canvas id="shopOrdersChart"></canvas></div>
+            @else
+            <p class="text-muted text-center py-4 mb-0">No shop data yet</p>
+            @endif
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
     <div class="col-lg-5">
         <div class="chart-card">
             <h6><i class="fas fa-trophy me-2" style="color:#f59e0b;"></i>Top 10 Products by Revenue</h6>
@@ -212,7 +244,7 @@
                         @endphp
                         <tr>
                             <td><span class="rank-badge {{ $badgeCls }}">{{ $rank }}</span></td>
-                            <td class="fw-semibold">{{ $name }}</td>
+                            <td class="fw-semibold">{{ $name }}@if(!empty($p['projects']))<div style="font-size:.7rem;color:#94a3b8;font-weight:400;">📁 {{ implode(' • ', array_slice($p['projects'], 0, 2)) }}</div>@endif</td>
                             <td class="text-center">{{ number_format($p['qty']) }}</td>
                             <td class="text-center">{{ $p['orders'] }}</td>
                             <td class="text-end fw-semibold">₱{{ number_format($p['revenue'], 2) }}</td>
@@ -306,6 +338,58 @@ document.addEventListener('DOMContentLoaded', function () {
                 plugins: {
                     legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
                     tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ₱' + Number(ctx.raw).toLocaleString(undefined, {minimumFractionDigits: 2}) } }
+                }
+            }
+        });
+    }
+    @endif
+
+    // Shop revenue doughnut
+    @if(count($shopLabels) > 0)
+    const shopCtx = document.getElementById('shopChart');
+    if (shopCtx && window.Chart) {
+        new Chart(shopCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {!! json_encode($shopLabels) !!},
+                datasets: [{
+                    data: {!! json_encode($shopRevenue) !!},
+                    backgroundColor: ['#0ea5e9', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#ec4899', '#84cc16', '#06b6d4', '#f97316', '#6366f1'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ₱' + Number(ctx.raw).toLocaleString(undefined, {minimumFractionDigits: 2}) } }
+                }
+            }
+        });
+    }
+
+    // Shop orders + pieces bar
+    const shopOrdCtx = document.getElementById('shopOrdersChart');
+    if (shopOrdCtx && window.Chart) {
+        new Chart(shopOrdCtx, {
+            type: 'bar',
+            data: {
+                labels: {!! json_encode($shopLabels) !!},
+                datasets: [
+                    { label: 'Orders', data: {!! json_encode($shopOrders) !!}, backgroundColor: '#0ea5e9', borderRadius: 6, yAxisID: 'y' },
+                    { label: 'Pieces', data: {!! json_encode($shopPieces) !!}, backgroundColor: '#f97316', borderRadius: 6, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top', labels: { boxWidth: 14, font: { size: 11 } } } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+                    y1: { beginAtZero: true, position: 'right', ticks: { precision: 0, font: { size: 10 } }, grid: { display: false } },
+                    x: { ticks: { font: { size: 10 } }, grid: { display: false } }
                 }
             }
         });

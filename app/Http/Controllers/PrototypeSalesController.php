@@ -4415,6 +4415,7 @@ public function printSlip(string $id)
             'date_to' => $request->date_to,
             'payment_status' => $request->payment_status,
             'kanban_status' => $request->kanban_status,
+            'department' => $request->department,
             'product' => $request->product,
         ];
 
@@ -4429,6 +4430,9 @@ public function printSlip(string $id)
         }
         if ($request->filled('kanban_status')) {
             $query->where('kanban_status', $request->kanban_status);
+        }
+        if ($request->filled('department')) {
+            $query->where('department_name', $request->department);
         }
 
         $sales = $query->orderBy('created_at', 'desc')->get();
@@ -4471,8 +4475,13 @@ public function printSlip(string $id)
             foreach ($items as $item) {
                 if (!is_array($item)) continue;
 
-                $name = $item['name'] ?? ($item['garment']['name'] ?? null);
-                if (!$name) continue;
+                $rawName = $item['name'] ?? ($item['garment']['name'] ?? null);
+                if (!$rawName) continue;
+
+                // Real product spec (e.g. "TSHIRT VNECK - DRIFIT | RAGLAN") instead of the
+                // project name (which often defaults to "Additional Order - <customer>")
+                $spec = \App\Models\PrototypeSale::itemSpecSummary($item);
+                $name = ($spec && $spec !== 'Item') ? $spec : $rawName;
 
                 $qty = (int) ($item['quantity'] ?? 0);
                 $unitPrice = (float) ($item['unitPrice'] ?? 0);
@@ -4480,11 +4489,14 @@ public function printSlip(string $id)
                 $type = $item['productType'] ?? ($item['department'] ?? 'General');
 
                 if (!isset($productMap[$name])) {
-                    $productMap[$name] = ['qty' => 0, 'revenue' => 0, 'orders' => 0, 'type' => $type];
+                    $productMap[$name] = ['qty' => 0, 'revenue' => 0, 'orders' => 0, 'type' => $type, 'projects' => []];
                 }
                 $productMap[$name]['qty'] += $qty;
                 $productMap[$name]['revenue'] += $lineTotal;
                 $productMap[$name]['orders'] += 1;
+                if (!in_array($rawName, $productMap[$name]['projects'])) {
+                    $productMap[$name]['projects'][] = $rawName;
+                }
                 $totalPieces += $qty;
             }
         }
@@ -4497,6 +4509,60 @@ public function printSlip(string $id)
             $needle = strtolower(trim($request->product));
             $productMap = array_filter($productMap, fn($p, $n) => str_contains(strtolower($n), $needle), ARRAY_FILTER_USE_BOTH);
         }
+
+        // ---- Shop aggregation (department_name on the sale, fallback to item department) ----
+        $shopMap = [];
+        foreach ($sales as $sale) {
+            $shop = trim((string) ($sale->department_name ?? ''));
+            $items = $sale->services;
+            if (is_string($items)) {
+                $items = json_decode($items, true) ?: [];
+            }
+            $items = is_array($items) ? $items : [];
+            if ($shop === '') {
+                foreach ($items as $it) {
+                    if (is_array($it) && !empty($it['department'])) {
+                        $shop = trim((string) $it['department']);
+                        break;
+                    }
+                }
+            }
+            if ($shop === '') {
+                $shop = 'No Shop';
+            }
+            if (!isset($shopMap[$shop])) {
+                $shopMap[$shop] = ['revenue' => 0, 'orders' => 0, 'pieces' => 0];
+            }
+            $shopMap[$shop]['revenue'] += (float) $sale->total_amount;
+            $shopMap[$shop]['orders'] += 1;
+            foreach ($items as $it) {
+                if (is_array($it)) {
+                    $shopMap[$shop]['pieces'] += (int) ($it['quantity'] ?? 0);
+                }
+            }
+        }
+        uasort($shopMap, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+        $shopLabels = array_keys($shopMap);
+        $shopRevenue = array_map(fn($s) => round($s['revenue'], 2), array_values($shopMap));
+        $shopOrders = array_map(fn($s) => $s['orders'], array_values($shopMap));
+        $shopPieces = array_map(fn($s) => $s['pieces'], array_values($shopMap));
+
+        // Distinct shops for the filter dropdown (sale-level + item-level)
+        $departments = \DB::table('prototype_sales')
+            ->whereNotNull('department_name')
+            ->distinct()
+            ->orderBy('department_name')
+            ->pluck('department_name');
+        $itemDepts = collect();
+        foreach (\DB::table('prototype_sales')->whereNotNull('services')->get(['services']) as $row) {
+            $itms = json_decode($row->services, true) ?: [];
+            foreach ((array) $itms as $it) {
+                if (is_array($it) && !empty($it['department'])) {
+                    $itemDepts->push(trim((string) $it['department']));
+                }
+            }
+        }
+        $departments = $departments->merge($itemDepts)->unique()->sort()->values();
 
         // ---- Chart data ----
         ksort($dailyTrend);
@@ -4554,7 +4620,8 @@ public function printSlip(string $id)
             'totalOrders', 'totalRevenue', 'totalBalance', 'totalCollected', 'totalPieces',
             'productMap', 'trendLabels', 'trendRevenue', 'trendOrders',
             'topProducts', 'productLabels', 'productRevenue',
-            'paymentLabels', 'paymentValues'
+            'paymentLabels', 'paymentValues',
+            'shopLabels', 'shopRevenue', 'shopOrders', 'shopPieces', 'departments'
         ));
     }
 
