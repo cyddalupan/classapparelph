@@ -237,8 +237,8 @@ class CustomerController extends Controller
         $customer = Customer::findOrFail($id);
         
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
+            'name' => 'sometimes|required|string|max:255',
+            'phone' => 'sometimes|required|string|max:20',
             'email' => 'nullable|email|max:255',
             'marketplace' => 'nullable|string|max:100',
             'location' => 'nullable|string|max:255',
