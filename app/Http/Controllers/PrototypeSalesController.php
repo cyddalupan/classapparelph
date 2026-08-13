@@ -4597,15 +4597,7 @@ public function printSlip(string $id)
                 && $n->is_read == false;
         })->values();
 
-        // Production feedback received by this agent
-        $productionFeedbacks = \App\Models\ProductionFeedback::with(['sale', 'fromUser'])
-            ->where('to_user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->limit(20)
-            ->get();
-        $openFeedbackCount = $productionFeedbacks->where('status', 'open')->count();
-
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions', 'productionFeedbacks', 'openFeedbackCount'));
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions'));
     }
 
     /**
