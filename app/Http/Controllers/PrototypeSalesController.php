@@ -4392,6 +4392,148 @@ public function printSlip(string $id)
     }
 
     /**
+     * Sales Dashboard — KPIs, trend chart, top products & opportunity table.
+     * Agents see their own sales; admins/representatives see everything.
+     */
+    public function salesDashboard(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds']);
+
+        // Scope: agents see only their own sales
+        if ($user->isSalesAgent() && !$user->isAdmin()) {
+            $query->where('sales_agent_id', $user->id);
+        }
+
+        // Filters
+        $filters = [
+            'date_from' => $request->date_from,
+            'date_to' => $request->date_to,
+            'payment_status' => $request->payment_status,
+            'kanban_status' => $request->kanban_status,
+            'product' => $request->product,
+        ];
+
+        if ($request->filled('date_from')) {
+            $query->where('created_at', '>=', $request->date_from . ' 00:00:00');
+        }
+        if ($request->filled('date_to')) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+        if ($request->filled('payment_status')) {
+            $query->where('payment_status', $request->payment_status);
+        }
+        if ($request->filled('kanban_status')) {
+            $query->where('kanban_status', $request->kanban_status);
+        }
+
+        $sales = $query->orderBy('created_at', 'desc')->get();
+
+        // ---- KPIs ----
+        $totalOrders = $sales->count();
+        $totalRevenue = $sales->sum('total_amount');
+        $totalBalance = $sales->sum('balance_due');
+        $totalCollected = $sales->sum(function ($s) {
+            return $s->payments->where('payment_status', 'verified')->sum('amount');
+        });
+        $totalPieces = 0;
+
+        // ---- Product aggregation from services JSON ----
+        $productMap = []; // name => ['qty' => int, 'revenue' => float, 'orders' => int, 'type' => string]
+        $dailyTrend = []; // 'Y-m-d' => ['revenue' => float, 'orders' => int]
+
+        foreach ($sales as $sale) {
+            $day = $sale->created_at->format('Y-m-d');
+            if (!isset($dailyTrend[$day])) {
+                $dailyTrend[$day] = ['revenue' => 0, 'orders' => 0];
+            }
+            $dailyTrend[$day]['revenue'] += (float) $sale->total_amount;
+            $dailyTrend[$day]['orders'] += 1;
+
+            $items = $sale->services;
+            if (is_string($items)) {
+                $items = json_decode($items, true) ?: [];
+            }
+            $items = is_array($items) ? $items : [];
+
+            foreach ($items as $item) {
+                if (!is_array($item)) continue;
+
+                $name = $item['name'] ?? ($item['garment']['name'] ?? null);
+                if (!$name) continue;
+
+                $qty = (int) ($item['quantity'] ?? 0);
+                $unitPrice = (float) ($item['unitPrice'] ?? 0);
+                $lineTotal = (float) ($item['totalPrice'] ?? ($unitPrice * $qty));
+                $type = $item['productType'] ?? ($item['department'] ?? 'General');
+
+                if (!isset($productMap[$name])) {
+                    $productMap[$name] = ['qty' => 0, 'revenue' => 0, 'orders' => 0, 'type' => $type];
+                }
+                $productMap[$name]['qty'] += $qty;
+                $productMap[$name]['revenue'] += $lineTotal;
+                $productMap[$name]['orders'] += 1;
+                $totalPieces += $qty;
+            }
+        }
+
+        // Sort products by revenue (best sellers first)
+        uasort($productMap, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+
+        // Product name filter (applied after aggregation)
+        if ($request->filled('product')) {
+            $needle = strtolower(trim($request->product));
+            $productMap = array_filter($productMap, fn($p, $n) => str_contains(strtolower($n), $needle), ARRAY_FILTER_USE_BOTH);
+        }
+
+        // ---- Chart data ----
+        ksort($dailyTrend);
+        $trendLabels = array_keys($dailyTrend);
+        $trendRevenue = array_map(fn($d) => round($d['revenue'], 2), array_values($dailyTrend));
+        $trendOrders = array_map(fn($d) => $d['orders'], array_values($dailyTrend));
+
+        $topProducts = array_slice($productMap, 0, 10, true);
+        $productLabels = array_map(fn($name) => $topProducts[$name]['qty'] . 'x ' . $topProducts[$name]['type'], array_keys($topProducts));
+        $productRevenue = array_map(fn($p) => round($p['revenue'], 2), $topProducts);
+
+        // Payment status breakdown for pie chart
+        $statusMap = [];
+        foreach ($sales as $sale) {
+            $st = $sale->payment_status ?: 'pending';
+            if (!isset($statusMap[$st])) {
+                $statusMap[$st] = 0;
+            }
+            $statusMap[$st] += (float) $sale->total_amount;
+        }
+        $paymentLabels = array_keys($statusMap);
+        $paymentValues = array_map(fn($v) => round($v, 2), array_values($statusMap));
+
+        $statuses = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $statusLabels = [
+            'new' => 'New',
+            'sample_approval' => 'Sample/Approval',
+            'design' => 'Design',
+            'production' => 'Production',
+            'quality_check' => 'Quality Check',
+            'ready_for_delivery' => 'Ready for Delivery',
+            'delivered' => 'Delivered',
+            'completed' => 'Completed',
+        ];
+
+        return view('sales.prototype.sales-dashboard', compact(
+            'sales', 'filters', 'statuses', 'statusLabels',
+            'totalOrders', 'totalRevenue', 'totalBalance', 'totalCollected', 'totalPieces',
+            'productMap', 'trendLabels', 'trendRevenue', 'trendOrders',
+            'topProducts', 'productLabels', 'productRevenue',
+            'paymentLabels', 'paymentValues'
+        ));
+    }
+
+    /**
      * Mark a sale as delayed (agent confirms the item is delayed).
      * The manager order list will then float it to the top with a DELAYED badge.
      */

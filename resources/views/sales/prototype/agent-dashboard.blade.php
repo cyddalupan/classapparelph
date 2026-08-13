@@ -149,6 +149,9 @@
                 </div>
             </div>
             @endif
+            <a href="{{ route('sales.prototype.dashboard') }}" class="action-btn" title="Sales Dashboard">
+                <i class="fas fa-chart-line"></i> Sales Dashboard
+            </a>
             <a href="{{ route('sales.prototype.create') }}" class="action-btn primary">
                 <i class="fas fa-plus"></i> Add New Sale
             </a>
