@@ -3683,6 +3683,9 @@ public function printSlip(string $id)
             return response()->json(['error' => 'Invalid action'], 400);
         }
 
+        // Recompute sale-level payment_status from actual payment records
+        $this->syncSalePaymentStatus($saleId);
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -3691,6 +3694,49 @@ public function printSlip(string $id)
         }
 
         return redirect()->route('sales.prototype.verification')->with('success', $msg);
+    }
+
+    /**
+     * Recompute a sale's payment_status from its prototype_payments.
+     * Fixes stale 'pending' left behind when individual payments are verified
+     * (the verify flow used to update only the payment row, never the sale).
+     * Leaves the sale status untouched when no payment rows exist yet
+     * (initial-deposit flow manages the sale status directly).
+     */
+    protected function syncSalePaymentStatus($saleId)
+    {
+        $payments = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)->get(['payment_status']);
+        if ($payments->isEmpty()) {
+            return;
+        }
+        $sale = \DB::table('prototype_sales')->find($saleId);
+        if (!$sale) {
+            return;
+        }
+
+        $statuses = $payments->pluck('payment_status');
+        if ($statuses->contains('pending')) {
+            $newStatus = 'pending';
+        } elseif ($statuses->contains('reject_pending')) {
+            $newStatus = 'reject_pending';
+        } elseif ($statuses->contains('edit_pending')) {
+            $newStatus = 'edit_pending';
+        } elseif ((float) $sale->balance_due <= 0) {
+            $newStatus = 'full_payment_verified';
+        } elseif ($statuses->contains('full_payment_verified') || $statuses->contains('down_payment_verified')) {
+            $newStatus = 'down_payment_verified';
+        } elseif ($statuses->contains('additional_payment_verified')) {
+            $newStatus = 'additional_payment_verified';
+        } elseif ($statuses->contains('verified')) {
+            $newStatus = 'verified';
+        } else {
+            return; // all rejected / nothing verified — leave as-is
+        }
+
+        \DB::table('prototype_sales')->where('id', $saleId)->update([
+            'payment_status' => $newStatus,
+            'updated_at' => now(),
+        ]);
     }
 
     /**
