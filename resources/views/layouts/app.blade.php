@@ -207,7 +207,6 @@
 
                 <!-- Navigation Menu -->
                 <nav class="sidebar-nav">
-<style>.demo-hidden{display:none!important}.nav-section:has(.demo-section-hidden){display:none!important}</style>
                     <!-- Main Navigation -->
                     <div class="nav-section">
                         <div class="nav-section-title">Main</div>
@@ -223,16 +222,16 @@
                     <!-- Business Operations (orders, pricing, customers, production — hidden from procurement) -->
                     <div class="nav-section">
                         <div class="nav-section-title">Business</div>
-                        <a href="{{ route('orders.index') }}" class="nav-item demo-hidden {{ request()->routeIs('orders.*') ? 'active' : '' }}">
+                        <a href="{{ route('orders.index') }}" class="nav-item {{ request()->routeIs('orders.*') ? 'active' : '' }}">
                             <i class="fas fa-shopping-cart"></i>
                             <span class="nav-text">Orders</span>
                             <span class="nav-badge">24</span>
                         </a>
-                        <a href="{{ route('product-pricing.index') }}" class="nav-item demo-hidden {{ request()->routeIs('product-pricing.*') ? 'active' : '' }}">
+                        <a href="{{ route('product-pricing.index') }}" class="nav-item {{ request()->routeIs('product-pricing.*') ? 'active' : '' }}">
                             <i class="fas fa-money-bill-wave"></i>
                             <span class="nav-text">Product Pricing</span>
                         </a>
-                        <a href="{{ route('printing.public') }}" class="nav-item demo-hidden {{ request()->routeIs('printing.*') ? 'active' : '' }}">
+                        <a href="{{ route('printing.public') }}" class="nav-item {{ request()->routeIs('printing.*') ? 'active' : '' }}">
                             <i class="fas fa-calculator"></i>
                             <span class="nav-text">Pricing Calculator</span>
                         </a>
@@ -247,7 +246,7 @@
                     @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
                     <div class="nav-section">
                         <div class="nav-section-title">Production</div>
-                        <a href="{{ route('production.tracking') }}" class="nav-item demo-hidden {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
+                        <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
                             <i class="fas fa-cogs"></i>
                             <span class="nav-text">Dashboard</span>
                         </a>
@@ -263,7 +262,7 @@
                             <i class="fas fa-calendar-alt"></i>
                             <span class="nav-text">Calendar</span>
                         </a>
-                        <a href="{{ route('sales.prototype.refunds') }}" class="nav-item demo-hidden {{ request()->routeIs('sales.prototype.refunds') ? 'active' : '' }}">
+                        <a href="{{ route('sales.prototype.refunds') }}" class="nav-item {{ request()->routeIs('sales.prototype.refunds') ? 'active' : '' }}">
                             <i class="fas fa-undo-alt"></i>
                             <span class="nav-text">Refunds</span>
                         </a>
@@ -271,7 +270,7 @@
                             <i class="fas fa-check-circle"></i>
                             <span class="nav-text">Payment Verification</span>
                         </a>
-                        <a href="{{ route('procurement.orders.create') }}" class="nav-item demo-hidden {{ request()->routeIs('procurement.orders.create') || request()->routeIs('procurement.orders.*') ? 'active' : '' }}">
+                        <a href="{{ route('procurement.orders.create') }}" class="nav-item {{ request()->routeIs('procurement.orders.create') || request()->routeIs('procurement.orders.*') ? 'active' : '' }}">
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Create Order</span>
                             <span class="nav-badge new">NEW</span>
@@ -282,7 +281,7 @@
                     <!-- Inventory Management (visible to all including procurement) -->
                     @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
                     <div class="nav-section">
-                        <div class="nav-section-title demo-section-hidden">Supplies</div>
+                        <div class="nav-section-title">Supplies</div>
                         <a href="{{ route('inventory.unified') }}" class="nav-item {{ request()->routeIs('inventory.unified') ? 'active' : '' }}">
                             <i class="fas fa-boxes"></i>
                             <span class="nav-text">Inventory Management</span>
@@ -308,7 +307,7 @@
                     <!-- Design & Analytics (hidden from procurement) -->
                     @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
                     <div class="nav-section">
-                        <div class="nav-section-title demo-section-hidden">Design</div>
+                        <div class="nav-section-title">Design</div>
                         <a href="{{ route('design.studio') }}" class="nav-item {{ request()->routeIs('design.*') ? 'active' : '' }}">
                             <i class="fas fa-paint-brush"></i>
                             <span class="nav-text">Design Studio</span>
@@ -316,7 +315,7 @@
                     </div>
 
                     <div class="nav-section">
-                        <div class="nav-section-title demo-section-hidden">Analytics</div>
+                        <div class="nav-section-title">Analytics</div>
                         <a href="{{ route('analytics.dashboard') }}" class="nav-item {{ request()->routeIs('analytics.*') ? 'active' : '' }}">
                             <i class="fas fa-chart-line"></i>
                             <span class="nav-text">Analytics</span>
@@ -331,7 +330,7 @@
                     <!-- Finance (visible to all including procurement) -->
                     @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
                     <div class="nav-section">
-                        <div class="nav-section-title demo-section-hidden">Finance</div>
+                        <div class="nav-section-title">Finance</div>
                         <a href="{{ route('finance.dashboard') }}" class="nav-item {{ request()->routeIs('finance.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-chart-pie"></i>
                             <span class="nav-text">Finance Dashboard</span>
@@ -353,7 +352,7 @@
                     <!-- Administration (Admin Only) -->
                     @if(Auth::user()->isAdmin())
                     <div class="nav-section">
-                        <div class="nav-section-title demo-section-hidden">Administration</div>
+                        <div class="nav-section-title">Administration</div>
                         <a href="{{ route('admin.dashboard') }}" class="nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-cogs"></i>
                             <span class="nav-text">Admin Dashboard</span>
