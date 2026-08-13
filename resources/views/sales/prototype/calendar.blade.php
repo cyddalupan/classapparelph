@@ -855,7 +855,8 @@ function renderWeek(monday, projects) {
                 html += `</div>`;
                 // Production stage tagging (same rules as manager order list)
                 const curStage = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
-                const lockedNoPhotos = !p.has_photos && !p.can_override;
+                // Photo lock — same rule as manager order list: locked for EVERYONE (incl. admin/manager) when photos missing
+                const lockedNoPhotos = !p.has_photos;
                 let stageOpts = '';
                 Object.keys(PROD_STAGE_MAP).forEach(function(st) {
                     const stStatus = PROD_STAGE_MAP[st];
