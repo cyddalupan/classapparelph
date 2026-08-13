@@ -1190,7 +1190,7 @@ public function details(Request $request, string $id)
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-        if ($request->filled('agent_id')) {
+        if ($request->filled('agent_id') && $isManager) {
             $query->where('to_user_id', $request->agent_id);
         }
         if ($request->filled('category')) {
@@ -1200,7 +1200,18 @@ public function details(Request $request, string $id)
         $feedbacks = $query->orderBy('created_at', 'desc')->paginate(25)->withQueryString();
 
         $agents = \App\Models\User::whereIn('role', ['sales_agent', 'sales_representative'])->orderBy('name')->get();
-        $statusCounts = \App\Models\ProductionFeedback::selectRaw('status, count(*) as total')
+
+        // Status counts must match what THIS user actually sees (agents: own only, managers: + agent filter)
+        $countQuery = \App\Models\ProductionFeedback::query();
+        if (!$isManager) {
+            $countQuery->where('to_user_id', $user->id);
+        } elseif ($request->filled('agent_id')) {
+            $countQuery->where('to_user_id', $request->agent_id);
+        }
+        if ($request->filled('category')) {
+            $countQuery->where('category', $request->category);
+        }
+        $statusCounts = $countQuery->selectRaw('status, count(*) as total')
             ->groupBy('status')->pluck('total', 'status')->toArray();
 
         return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'isManager'));
