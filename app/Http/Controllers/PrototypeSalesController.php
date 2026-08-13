@@ -4469,6 +4469,27 @@ public function printSlip(string $id)
         return view('sales.prototype.delay-review', compact('sale', 'items', 'mainMockupUrl', 'stageColors'));
     }
 
+    /**
+     * Delay list — all delayed sales in one page (with or without feedback),
+     * so managers can review every delay in a single view.
+     */
+    public function delayList()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            abort(403, 'Only managers can view the delay list.');
+        }
+
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->where('is_delayed', 1)
+            ->orderByRaw('CASE WHEN delay_feedback IS NOT NULL AND delay_feedback != \'\' THEN 0 ELSE 1 END')
+            ->orderBy('delayed_at', 'desc');
+
+        $sales = $query->paginate(100);
+
+        return view('sales.prototype.delay-list', compact('sales'));
+    }
+
     public function agentCreate()
     {
         $user = auth()->user();

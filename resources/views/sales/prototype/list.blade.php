@@ -406,6 +406,7 @@
         </div>
         <div class="list-actions">
             <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-kanban">📊 Kanban Board</a>
+            <a href="{{ route('sales.prototype.delays') }}" class="btn btn-delays" style="background:#dc3545;color:#fff;">⚠️ Delay List</a>
             <a href="{{ route('sales.prototype.create') }}" class="btn btn-new-order">➕ New Order</a>
             @if(isset($totalPending) && $totalPending > 0)
                 <button class="btn btn-pending-hdr" id="pendingToggleBtn" onclick="showPendingModal()" style="position:relative;">
