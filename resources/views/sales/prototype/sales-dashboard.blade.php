@@ -142,10 +142,14 @@
     <div class="col-lg-8">
         <div class="chart-card">
             <h6><i class="fas fa-chart-area me-2 text-primary"></i>Revenue & Orders Trend</h6>
-            @if(count($trendLabels) > 0)
+            @if(count($trendLabels) >= 2)
             <canvas id="trendChart" height="110"></canvas>
             @else
-            <p class="text-muted text-center py-4 mb-0">No sales data for this period 📭</p>
+            <div class="text-center py-4">
+                <p class="mb-1" style="font-size:1.6rem;">📈</p>
+                <p class="text-muted mb-0">Kailangan ng at least 2 days na may sales para makita ang trend.</p>
+                <small class="text-muted">Mag-add pa ng sales at babalik dito para makita ang pagtaas!</small>
+            </div>
             @endif
         </div>
     </div>
@@ -237,7 +241,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // Trend chart
-    @if(count($trendLabels) > 0)
+    @if(count($trendLabels) >= 2)
     const trendCtx = document.getElementById('trendChart');
     if (trendCtx && window.Chart) {
         new Chart(trendCtx, {

@@ -4492,6 +4492,23 @@ public function printSlip(string $id)
 
         // ---- Chart data ----
         ksort($dailyTrend);
+
+        // Fill gaps between first and last sale date so the trend line is continuous
+        if (count($dailyTrend) > 1) {
+            $dates = array_keys($dailyTrend);
+            $start = \Carbon\Carbon::parse(min($dates));
+            $end = \Carbon\Carbon::parse(max($dates));
+            if ($start->diffInDays($end) <= 45) {
+                for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+                    $key = $d->format('Y-m-d');
+                    if (!isset($dailyTrend[$key])) {
+                        $dailyTrend[$key] = ['revenue' => 0, 'orders' => 0];
+                    }
+                }
+                ksort($dailyTrend);
+            }
+        }
+
         $trendLabels = array_keys($dailyTrend);
         $trendRevenue = array_map(fn($d) => round($d['revenue'], 2), array_values($dailyTrend));
         $trendOrders = array_map(fn($d) => $d['orders'], array_values($dailyTrend));
