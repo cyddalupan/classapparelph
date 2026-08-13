@@ -441,6 +441,21 @@
     font-size: 0.85rem;
 }
 .summary-item:last-child { border-bottom: none; }
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    color: #555;
+    padding: 0.15rem 0;
+}
+.legend-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
 .summary-item-compact { padding: 0.2rem 0; font-size: 0.75rem; }
 .summary-item-compact .value { font-size: 0.8rem; }
 .summary-item .value { font-weight: 700; }
@@ -1372,6 +1387,14 @@ function updateSummary(projects) {
             html += `<div class="summary-item"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:0.4rem;"></span>${d}</span><span class="value">${db[d]}</span></div>`;
         }
     });
+
+    // Legend (color coding ng day badges)
+    html += `<div style="margin-top:1rem;padding-top:0.8rem;border-top:2px solid #667eea;">`;
+    html += `<div style="font-size:0.75rem;font-weight:700;color:#666;margin-bottom:0.4rem;"><i class="fas fa-palette me-1"></i> Legend (per day badges)</div>`;
+    html += `<div class="legend-item"><span class="legend-dot" style="background:#667eea;"></span>${GARMENT_GROUP1.join(' + ')}</div>`;
+    html += `<div class="legend-item"><span class="legend-dot" style="background:#f0932b;"></span>${GARMENT_GROUP2.join(' + ')}</div>`;
+    html += `<div class="legend-item"><span class="legend-dot" style="background:#28a745;"></span>Iba pang garments</div>`;
+    html += '</div>';
 
     document.getElementById('summaryContent').innerHTML = html;
 }
