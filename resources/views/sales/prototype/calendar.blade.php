@@ -1070,18 +1070,41 @@ function updateSummary(projects) {
     const totalAmt = projects.reduce((s,p)=>s+parseFloat(p.subtotal || p.total_amount || 0),0);
     const totalDep = projects.reduce((s,p)=>s+parseFloat(p.deposit_paid||0),0);
 
-    const db = {}, prodb = {}, stb = {};
+    const db = {}, garb = {}, fab = {}, partb = {}, stb = {};
     projects.forEach(p => {
         const d = p.department_name || 'other';
         db[d] = (db[d] || 0) + 1;
-        // By product type (TSHIRT VNECK, POLO, ...) — total pieces
-        const pl = p.product_label || p.customer_name || 'Unknown';
-        prodb[pl] = (prodb[pl] || 0) + (parseInt(p.total_qty) || 0);
         // By production stage (SEWING, FOR FORMAT, ...) — project count + pieces
         const st = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
         if (!stb[st]) stb[st] = { count: 0, qty: 0 };
         stb[st].count++;
         stb[st].qty += (parseInt(p.total_qty) || 0);
+        
+        // Per-item breakdown: garment type, fabric, and parts (from services data)
+        (p.services || []).forEach(it => {
+            const qty = parseInt(it.quantity || it.qty || 1) || 1;
+            const sf = it.sublimationForm || {};
+            // Garment type (TSHIRT VNECK, JERSEY SHORT, POLO, ...)
+            const g = (sf.garment && sf.garment.name) ? String(sf.garment.name).trim() : (it.name || 'Unknown');
+            garb[g] = (garb[g] || 0) + qty;
+            // Fabric (DRIFIT, AIRCOOL, POLYDEX 180, ...)
+            const f = (sf.fabric && sf.fabric.name) ? String(sf.fabric.name).trim() : '';
+            if (f) fab[f] = (fab[f] || 0) + qty;
+            // Parts — from parts array + derived from specifications (SLIT, RAGLAN, POCKET, KNITTED COLLAR)
+            const parts = [];
+            (sf.parts || []).forEach(pa => { if (pa && pa.name) parts.push(String(pa.name).trim().toUpperCase()); });
+            const specs = sf.specifications || {};
+            if (specs.slit && String(specs.slit).toUpperCase() !== 'NO' && String(specs.slit).toUpperCase() !== 'NONE' && String(specs.slit).trim() !== '') parts.push('SLIT');
+            if (specs.shoulder && String(specs.shoulder).toUpperCase() === 'RAGLAN') parts.push('RAGLAN');
+            if (specs.pocket && String(specs.pocket).toUpperCase() !== 'NO' && String(specs.pocket).toUpperCase() !== 'NONE') parts.push('POCKET');
+            Object.keys(specs).forEach(k => {
+                const v = String(specs[k]).trim().toUpperCase();
+                if (k.toLowerCase().indexOf('collar') !== -1 && v && v !== 'NO' && v !== 'NONE') parts.push('KNITTED COLLAR');
+            });
+            // De-duplicate per item so qty is not double-counted
+            const seen = {};
+            parts.forEach(pn => { if (!seen[pn]) { seen[pn] = 1; partb[pn] = (partb[pn] || 0) + qty; } });
+        });
     });
 
     let html = `
@@ -1091,13 +1114,33 @@ function updateSummary(projects) {
             <div class="summary-stat"><div class="stat-number" style="color:#28a745;">${curr(totalAmt)}</div><div class="stat-label">Value</div></div>
         </div>`;
 
-    // By Product (pieces per product type)
-    html += `<h6 style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;"><i class="fas fa-tshirt me-1"></i> By Product</h6>`;
-    const sortedProds = Object.keys(prodb).sort((a,b) => prodb[b]-prodb[a]);
-    sortedProds.forEach(pl => {
-        const q = prodb[pl];
+    // By Garment (pieces per garment type — per item, para hiwalay ang Jersey Short sa Polo)
+    html += `<h6 style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;"><i class="fas fa-tshirt me-1"></i> By Garment</h6>`;
+    const sortedGarbs = Object.keys(garb).sort((a,b) => garb[b]-garb[a]);
+    sortedGarbs.forEach(pl => {
+        const q = garb[pl];
         html += `<div class="summary-item summary-item-compact"><span>${pl}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
     });
+
+    // By Fabric (pieces per fabric type)
+    if (Object.keys(fab).length) {
+        html += `<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-layer-group me-1"></i> By Fabric</h6>`;
+        const sortedFabs = Object.keys(fab).sort((a,b) => fab[b]-fab[a]);
+        sortedFabs.forEach(f => {
+            const q = fab[f];
+            html += `<div class="summary-item summary-item-compact"><span>${f}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
+        });
+    }
+
+    // By Parts (pieces with each specific part — SLIT, RAGLAN, KNITTED COLLAR, ...)
+    if (Object.keys(partb).length) {
+        html += `<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-tools me-1"></i> By Parts</h6>`;
+        const sortedParts = Object.keys(partb).sort((a,b) => partb[b]-partb[a]);
+        sortedParts.forEach(pn => {
+            const q = partb[pn];
+            html += `<div class="summary-item summary-item-compact"><span>${pn}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
+        });
+    }
 
     // By Stage (production flow order)
     html += `<h6 style="font-size:0.8rem;color:#666;margin:0.8rem 0 0.5rem;"><i class="fas fa-industry me-1"></i> By Stage</h6>`;
