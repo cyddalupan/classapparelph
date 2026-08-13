@@ -4438,7 +4438,7 @@ public function printSlip(string $id)
         $totalRevenue = $sales->sum('total_amount');
         $totalBalance = $sales->sum('balance_due');
         $totalCollected = $sales->sum(function ($s) {
-            return $s->payments->where('payment_status', 'verified')->sum('amount');
+            return $s->payments->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])->sum('amount');
         });
         $totalPieces = 0;
 
