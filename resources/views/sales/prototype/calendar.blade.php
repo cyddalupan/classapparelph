@@ -801,9 +801,10 @@ function renderWeek(monday, projects) {
                 const isMoved = !!p.rescheduled_date && p.rescheduled_date !== p.estimated_completion_date;
                 const orig = p.estimated_completion_date ? parseD(p.estimated_completion_date) : null;
                 const bd = getProjBreakdown(p);
+                const pt = getProjectGarmentTotals(p);
                 
                 html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
-                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
+                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" data-g1="${pt.g1}" data-g2="${pt.g2}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
                 }
@@ -1120,17 +1121,24 @@ var calFilters = { prio: false, garments: {}, fabrics: {}, parts: {} };
 var GARMENT_GROUP1 = ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'];
 
 // Totals per day: Group 1 = the 3 shirt/jersey types above, Group 2 = all other garments
+function getProjectGarmentTotals(p) {
+    var g1 = 0, g2 = 0;
+    (p.services || []).forEach(function(it) {
+        var sf = it.sublimationForm || {};
+        var g = (sf.garment && sf.garment.name) ? String(sf.garment.name).trim().toUpperCase() : '';
+        if (!g) return;
+        var qty = parseInt(it.quantity || it.qty || 1) || 1;
+        if (GARMENT_GROUP1.indexOf(g) !== -1) g1 += qty;
+        else g2 += qty;
+    });
+    return { g1: g1, g2: g2 };
+}
+
 function getGarmentTotals(projects) {
     var g1 = 0, g2 = 0;
     projects.forEach(function(p) {
-        (p.services || []).forEach(function(it) {
-            var sf = it.sublimationForm || {};
-            var g = (sf.garment && sf.garment.name) ? String(sf.garment.name).trim().toUpperCase() : '';
-            if (!g) return;
-            var qty = parseInt(it.quantity || it.qty || 1) || 1;
-            if (GARMENT_GROUP1.indexOf(g) !== -1) g1 += qty;
-            else g2 += qty;
-        });
+        var t = getProjectGarmentTotals(p);
+        g1 += t.g1; g2 += t.g2;
     });
     return { g1: g1, g2: g2 };
 }
@@ -1177,6 +1185,23 @@ function applyCalFilters() {
             if (!matchesAny(calFilters.parts, pl2)) show = false;
         }
         card.style.display = show ? '' : 'none';
+    });
+    updateDayBadges();
+}
+
+// Recompute day badges from currently visible cards (follows active filters)
+function updateDayBadges() {
+    document.querySelectorAll('#weekContainer .day-cell').forEach(function(cell) {
+        var t1 = 0, t2 = 0;
+        cell.querySelectorAll('.day-project').forEach(function(card) {
+            if (card.style.display === 'none') return;
+            t1 += parseInt(card.getAttribute('data-g1') || 0) || 0;
+            t2 += parseInt(card.getAttribute('data-g2') || 0) || 0;
+        });
+        var b1 = cell.querySelector('.day-total-1');
+        var b2 = cell.querySelector('.day-total-2');
+        if (b1) b1.textContent = t1;
+        if (b2) b2.textContent = t2;
     });
 }
 
