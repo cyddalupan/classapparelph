@@ -1174,11 +1174,18 @@ public function details(Request $request, string $id)
     public function productionFeedbackList(Request $request)
     {
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+        $isManager = $user && in_array($user->role, ['admin', 'manager']);
+        $isAgent = $user && !$isManager && ($user->isSalesAgent() || $user->isSalesRepresentative());
+        if (!$isManager && !$isAgent) {
             abort(403);
         }
 
         $query = \App\Models\ProductionFeedback::with(['sale', 'fromUser', 'toUser']);
+
+        // Agents only see feedback addressed to them
+        if (!$isManager) {
+            $query->where('to_user_id', $user->id);
+        }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -1192,11 +1199,11 @@ public function details(Request $request, string $id)
 
         $feedbacks = $query->orderBy('created_at', 'desc')->paginate(25)->withQueryString();
 
-        $agents = \App\Models\User::where('role', 'sales_agent')->orderBy('name')->get();
+        $agents = \App\Models\User::whereIn('role', ['sales_agent', 'sales_representative'])->orderBy('name')->get();
         $statusCounts = \App\Models\ProductionFeedback::selectRaw('status, count(*) as total')
             ->groupBy('status')->pluck('total', 'status')->toArray();
 
-        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts'));
+        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'isManager'));
     }
 
     /**

@@ -152,8 +152,8 @@
             <a href="{{ route('sales.prototype.dashboard') }}" class="action-btn" title="Sales Dashboard">
                 <i class="fas fa-chart-line"></i> Sales Dashboard
             </a>
-            <a href="{{ route('sales.prototype.list') }}" class="action-btn" title="Production Dashboard" style="border-color:#d97706;color:#d97706;">
-                <i class="fas fa-industry"></i> Production Dashboard
+            <a href="{{ route('sales.prototype.production-feedback.list') }}" class="action-btn" title="Production Feedback" style="border-color:#d97706;color:#d97706;">
+                <i class="fas fa-clipboard-check"></i> Production Feedback
             </a>
             <a href="{{ route('sales.prototype.create') }}" class="action-btn primary">
                 <i class="fas fa-plus"></i> Add New Sale

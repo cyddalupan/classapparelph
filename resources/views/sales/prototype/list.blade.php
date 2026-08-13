@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', ($isAgent ?? false) ? 'Production Dashboard' : 'Manager List — All Orders')
+@section('title', 'Manager List — All Orders')
 
 @push('styles')
 <style>
@@ -389,7 +389,7 @@
     <!-- Header -->
     <div class="list-header">
         <div>
-            <h2>📋 {{ ($isAgent ?? false) ? "Production Dashboard" : "Manager's Order List" }}</h2>
+            <h2>📋 Manager's Order List</h2>
             <div class="header-sub">
                 <span class="header-stat">📦 {{ $sales->total() }} orders</span>
                 @php
