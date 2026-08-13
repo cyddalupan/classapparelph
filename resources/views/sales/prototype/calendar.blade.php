@@ -925,6 +925,7 @@ function loadCal() {
     .then(r=>r.json())
     .then(data => {
         const projects = data.projects || [];
+        window.calProjects = projects;
 
         // Single month ribbon across all weeks
         let html = '';
@@ -1187,6 +1188,22 @@ function applyCalFilters() {
         card.style.display = show ? '' : 'none';
     });
     updateDayBadges();
+    // Recompute summary from the filtered project set too
+    updateSummary(getFilteredProjects());
+    syncSummToggles();
+}
+
+// Projects matching the currently active filters (same rules as applyCalFilters)
+function getFilteredProjects() {
+    if (!window.calProjects) return [];
+    return window.calProjects.filter(function(p) {
+        if (calFilters.prio && !p.priority) return false;
+        var bd = getProjBreakdown(p);
+        if (hasActive(calFilters.garments) && !matchesAny(calFilters.garments, bd.garments)) return false;
+        if (hasActive(calFilters.fabrics) && !matchesAny(calFilters.fabrics, bd.fabrics)) return false;
+        if (hasActive(calFilters.parts) && !matchesAny(calFilters.parts, bd.parts)) return false;
+        return true;
+    });
 }
 
 // Recompute day badges from currently visible cards (follows active filters)
