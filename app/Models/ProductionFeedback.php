@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductionFeedback extends Model
 {
+    // "feedback" is uncountable in Laravel's pluralizer, so Eloquent would
+    // look for `production_feedback` instead of the real table name.
+    protected $table = 'production_feedbacks';
+
     protected $fillable = [
         'sale_id',
         'from_user_id',
