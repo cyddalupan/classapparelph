@@ -143,7 +143,7 @@
         <div class="chart-card">
             <h6><i class="fas fa-chart-area me-2 text-primary"></i>Revenue & Orders Trend</h6>
             @if(count($trendLabels) >= 2)
-            <canvas id="trendChart" height="110"></canvas>
+            <div style="height:300px; position:relative;"><canvas id="trendChart"></canvas></div>
             @else
             <div class="text-center py-4">
                 <p class="mb-1" style="font-size:1.6rem;">📈</p>
@@ -157,7 +157,7 @@
         <div class="chart-card">
             <h6><i class="fas fa-chart-pie me-2 text-success"></i>Revenue by Payment Status</h6>
             @if(count($paymentLabels) > 0)
-            <canvas id="paymentChart" height="180"></canvas>
+            <div style="height:280px; position:relative;"><canvas id="paymentChart"></canvas></div>
             @else
             <p class="text-muted text-center py-4 mb-0">No data yet</p>
             @endif
@@ -170,7 +170,7 @@
         <div class="chart-card">
             <h6><i class="fas fa-trophy me-2" style="color:#f59e0b;"></i>Top 10 Products by Revenue</h6>
             @if(count($productLabels) > 0)
-            <canvas id="productChart" height="220"></canvas>
+            <div style="height:320px; position:relative;"><canvas id="productChart"></canvas></div>
             @else
             <p class="text-muted text-center py-4 mb-0">No product data yet</p>
             @endif
