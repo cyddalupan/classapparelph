@@ -56,6 +56,14 @@
                             <input type="number" id="filterMaxSpent" class="form-control form-control-sm" placeholder="999999" min="0">
                         </div>
                         <div class="col-md-2">
+                            <label class="form-label small mb-1">Outstanding Balance</label>
+                            <select id="filterOutstanding" class="form-select form-select-sm">
+                                <option value="">All</option>
+                                <option value="has">May Balance</option>
+                                <option value="none">Fully Paid</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label small mb-1">Marketplace</label>
                             <select id="filterMarketplace" class="form-select form-select-sm">
                                 <option value="">All</option>
@@ -217,6 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
             min_spent: $('#filterMinSpent').value,
             max_spent: $('#filterMaxSpent').value,
             marketplace: $('#filterMarketplace').value,
+            balance: $('#filterOutstanding').value,
             date_from: $('#filterDateFrom').value,
             date_to: $('#filterDateTo').value
         };
@@ -224,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function fetchCustomers() {
         const params = getFilterParams();
-        const hasFilters = params.tier || params.min_spent || params.max_spent || params.marketplace || params.date_from || params.date_to;
+        const hasFilters = params.tier || params.min_spent || params.max_spent || params.marketplace || params.balance || params.date_from || params.date_to;
         const hasSearch = params.q && params.q.length >= 2;
 
         if (!hasSearch && !hasFilters) {
@@ -250,6 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
         $('#filterMinSpent').value = '';
         $('#filterMaxSpent').value = '';
         $('#filterMarketplace').value = '';
+        $('#filterOutstanding').value = '';
         $('#filterDateFrom').value = '';
         $('#filterDateTo').value = '';
         $('#customerSearch').value = '';

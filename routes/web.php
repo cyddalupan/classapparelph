@@ -723,6 +723,27 @@ Route::get('/inventorylist', function() {
             if ($marketplace = $request->query('marketplace')) {
                 $query->where('marketplace', $marketplace);
             }
+
+            // Outstanding balance filter (based on non-archived orders with balance_due > 0)
+            if ($balance = $request->query('balance')) {
+                if ($balance === 'has') {
+                    $query->whereExists(function ($q) {
+                        $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('prototype_sales')
+                            ->whereColumn('prototype_sales.customer_id', 'customers.id')
+                            ->whereNull('prototype_sales.archived_at')
+                            ->where('prototype_sales.balance_due', '>', 0);
+                    });
+                } elseif ($balance === 'none') {
+                    $query->whereNotExists(function ($q) {
+                        $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                            ->from('prototype_sales')
+                            ->whereColumn('prototype_sales.customer_id', 'customers.id')
+                            ->whereNull('prototype_sales.archived_at')
+                            ->where('prototype_sales.balance_due', '>', 0);
+                    });
+                }
+            }
             
             $customers = $query->orderBy('total_spent', 'desc')
                 ->limit(50)
