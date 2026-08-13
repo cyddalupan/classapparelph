@@ -1760,7 +1760,7 @@ public function printSlip(string $id)
         }
         unset($svc, $sf);
         
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.prototype.print-slip', compact('sale', 'services'));
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.prototype.print-slip', compact('sale', 'services') + ['pdfMode' => true]);
         $pdf->setPaper('A4', 'landscape');
         
         $itemLabel = count($services) === 1 ? \Illuminate\Support\Str::slug(end($services)['name'] ?? 'item') : '';

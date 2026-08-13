@@ -176,8 +176,13 @@
     .product-selector button.active { background: #000; color: #fff; border-color: #000; }
 </style>
 </head>
+@php
+    // In PDF mode (DomPDF runs no JS), show ALL items stacked — the
+    // product-selector/showProduct tab UI is only for browser preview.
+    $pdfMode = $pdfMode ?? false;
+@endphp
 <body>
-@if(count($slipDataList) > 1)
+@if(!$pdfMode && count($slipDataList) > 1)
     <div class="product-selector no-print">
         @foreach($slipDataList as $sdIdx => $sd)
             @php
@@ -195,7 +200,7 @@
         $hasExcelHeaders = !empty($sd['excelHeaders']);
         $excelHeaders = $sd['excelHeaders'] ?? [];
     @endphp
-    <div class="print-slip-item" style="display: {{ $sdIdx === 0 ? 'block' : 'none' }}">
+    <div class="print-slip-item" style="{{ $pdfMode ? '' : 'display: ' . ($sdIdx === 0 ? 'block' : 'none') }}">
         <div class="print-slip">
             <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:3px;">
                 <div style="font-size:12pt;font-weight:bold;">{{ $sd['garmentName'] ?: $sd['_itemName'] }}</div>
