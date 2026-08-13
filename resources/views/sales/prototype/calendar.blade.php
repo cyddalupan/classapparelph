@@ -417,6 +417,17 @@
 .summary-stat { text-align: center; padding: 0.4rem 0.5rem; }
 .summary-stat .stat-number { font-size: 1.4rem; font-weight: 800; color: #667eea; }
 .summary-stat .stat-label { font-size: 0.7rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px; }
+    /* Clickable summary toggles */
+    .summ-toggle {
+        cursor: pointer;
+        border-radius: 6px;
+        padding: 0.2rem 0.4rem;
+        transition: background 0.15s;
+        margin: 0 -0.4rem;
+    }
+    .summ-toggle:hover { background: #f0f2ff; }
+    .summ-toggle.active { background: #667eea; color: #fff; }
+    .summ-toggle.active .value { color: #fff; }
 
 /* ========== STATUS ========== */
 .status-new { background: #e3f2fd; color: #1565c0; }
@@ -677,11 +688,10 @@ function goToToday() {
 }
 // With Priority toggle — show only projects that have a priority tag
 function applyCalPrioFilter() {
-    var on = document.getElementById('calPrioFilter') ? document.getElementById('calPrioFilter').checked : false;
-    document.querySelectorAll('#weekContainer .day-project').forEach(function(card) {
-        var hasPrio = (card.getAttribute('data-prio') || '') !== '';
-        card.style.display = (!on || hasPrio) ? '' : 'none';
-    });
+    var cb = document.getElementById('calPrioFilter');
+    calFilters.prio = cb ? cb.checked : false;
+    applyCalFilters();
+    syncSummToggles();
 }
 
 function filterDept(dept) {
@@ -754,9 +764,10 @@ function renderWeek(monday, projects) {
                 const mockupUrl = p.mockup_url || '';
                 const isMoved = !!p.rescheduled_date && p.rescheduled_date !== p.estimated_completion_date;
                 const orig = p.estimated_completion_date ? parseD(p.estimated_completion_date) : null;
+                const bd = getProjBreakdown(p);
                 
                 html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
-                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
+                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
                 }
@@ -895,7 +906,9 @@ function loadCal() {
 
         container.innerHTML = html;
         updateSummary(projects);
-        applyCalPrioFilter();
+        initSummToggleClicks();
+        applyCalFilters();
+        syncSummToggles();
     })
     .catch(() => {
         container.innerHTML = '<div class="alert alert-danger">Failed to load calendar. Try refreshing.</div>';
@@ -1064,6 +1077,96 @@ function showToast(msg, type) {
 }
 
 // ========== SUMMARY ==========
+// === SUMMARY CLICKABLE FILTERS ===
+var calFilters = { prio: false, garments: {}, fabrics: {}, parts: {} };
+
+// Extract per-project garment/fabric/parts lists (same logic as summary breakdown)
+function getProjBreakdown(p) {
+    var bd = { garments: {}, fabrics: {}, parts: {} };
+    (p.services || []).forEach(function(it) {
+        var sf = it.sublimationForm || {};
+        var g = (sf.garment && sf.garment.name) ? String(sf.garment.name).trim() : '';
+        if (g) bd.garments[g] = 1;
+        var f = (sf.fabric && sf.fabric.name) ? String(sf.fabric.name).trim() : '';
+        if (f) bd.fabrics[f] = 1;
+        (sf.parts || []).forEach(function(pa) { if (pa && pa.name) bd.parts[String(pa.name).trim().toUpperCase()] = 1; });
+        var specs = sf.specifications || {};
+        if (specs.slit && String(specs.slit).toUpperCase() !== 'NO' && String(specs.slit).toUpperCase() !== 'NONE' && String(specs.slit).trim() !== '') bd.parts['SLIT'] = 1;
+        if (specs.shoulder && String(specs.shoulder).toUpperCase() === 'RAGLAN') bd.parts['RAGLAN'] = 1;
+        if (specs.pocket && String(specs.pocket).toUpperCase() !== 'NO' && String(specs.pocket).toUpperCase() !== 'NONE') bd.parts['POCKET'] = 1;
+        Object.keys(specs).forEach(function(k) {
+            var v = String(specs[k]).trim().toUpperCase();
+            if (k.toLowerCase().indexOf('collar') !== -1 && v && v !== 'NO' && v !== 'NONE') bd.parts['KNITTED COLLAR'] = 1;
+        });
+    });
+    return { garments: Object.keys(bd.garments), fabrics: Object.keys(bd.fabrics), parts: Object.keys(bd.parts) };
+}
+
+function hasActive(obj) { for (var k in obj) { if (obj[k]) return true; } return false; }
+function matchesAny(obj, list) { for (var k in obj) { if (obj[k] && list.indexOf(k) !== -1) return true; } return false; }
+
+// Apply priority + summary toggles to all day-project cards
+function applyCalFilters() {
+    document.querySelectorAll('#weekContainer .day-project').forEach(function(card) {
+        var show = true;
+        if (calFilters.prio && !(card.getAttribute('data-prio') || '')) show = false;
+        if (show && hasActive(calFilters.garments)) {
+            var gl = (card.getAttribute('data-garments') || '').split(',');
+            if (!matchesAny(calFilters.garments, gl)) show = false;
+        }
+        if (show && hasActive(calFilters.fabrics)) {
+            var fl = (card.getAttribute('data-fabrics') || '').split(',');
+            if (!matchesAny(calFilters.fabrics, fl)) show = false;
+        }
+        if (show && hasActive(calFilters.parts)) {
+            var pl2 = (card.getAttribute('data-parts') || '').split(',');
+            if (!matchesAny(calFilters.parts, pl2)) show = false;
+        }
+        card.style.display = show ? '' : 'none';
+    });
+}
+
+// Toggle a summary filter (click the summary item)
+function toggleSummFilter(type, val, el) {
+    if (type === 'prio') {
+        calFilters.prio = !calFilters.prio;
+        var cb = document.getElementById('calPrioFilter');
+        if (cb) cb.checked = calFilters.prio;
+    } else {
+        if (!calFilters[type]) calFilters[type] = {};
+        calFilters[type][val] = !calFilters[type][val];
+    }
+    applyCalFilters();
+    syncSummToggles();
+}
+
+// Restore active states on summary items (after re-render)
+function syncSummToggles() {
+    document.querySelectorAll('#summaryContent .summ-toggle').forEach(function(el) {
+        var t = el.getAttribute('data-f-type');
+        var v = el.getAttribute('data-f-val');
+        var on = false;
+        if (t === 'prio') on = calFilters.prio;
+        else if (calFilters[t]) on = !!calFilters[t][v];
+        el.classList.toggle('active', on);
+        var valEl = el.querySelector('.value');
+        if (t === 'prio' && valEl) valEl.textContent = on ? 'ON' : 'OFF';
+    });
+}
+
+// Click delegation for summary toggles
+function initSummToggleClicks() {
+    var sc = document.getElementById('summaryContent');
+    if (sc && !sc.getAttribute('data-toggle-init')) {
+        sc.setAttribute('data-toggle-init', '1');
+        sc.addEventListener('click', function(e) {
+            var el = e.target.closest('.summ-toggle');
+            if (!el) return;
+            toggleSummFilter(el.getAttribute('data-f-type'), el.getAttribute('data-f-val'), el);
+        });
+    }
+}
+
 function updateSummary(projects) {
     const total = projects.length;
     const totalQty = projects.reduce((s,p)=>s+(parseInt(p.total_qty)||0),0);
@@ -1114,12 +1217,15 @@ function updateSummary(projects) {
             <div class="summary-stat"><div class="stat-number" style="color:#28a745;">${curr(totalAmt)}</div><div class="stat-label">Value</div></div>
         </div>`;
 
+    // With Priority clickable toggle
+    html += `<div class="summary-item summary-item-compact summ-toggle" data-f-type="prio" data-f-val="1"><span>⭐ With Priority</span><span class="value">${calFilters.prio ? 'ON' : 'OFF'}</span></div>`;
+
     // By Garment (pieces per garment type — per item, para hiwalay ang Jersey Short sa Polo)
     html += `<h6 style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;"><i class="fas fa-tshirt me-1"></i> By Garment</h6>`;
     const sortedGarbs = Object.keys(garb).sort((a,b) => garb[b]-garb[a]);
     sortedGarbs.forEach(pl => {
         const q = garb[pl];
-        html += `<div class="summary-item summary-item-compact"><span>${pl}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
+        html += `<div class="summary-item summary-item-compact summ-toggle" data-f-type="garments" data-f-val="${pl.replace(/"/g,'&quot;')}"><span>${pl}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
     });
 
     // By Fabric (pieces per fabric type)
@@ -1128,7 +1234,7 @@ function updateSummary(projects) {
         const sortedFabs = Object.keys(fab).sort((a,b) => fab[b]-fab[a]);
         sortedFabs.forEach(f => {
             const q = fab[f];
-            html += `<div class="summary-item summary-item-compact"><span>${f}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
+            html += `<div class="summary-item summary-item-compact summ-toggle" data-f-type="fabrics" data-f-val="${f.replace(/"/g,'&quot;')}"><span>${f}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
         });
     }
 
@@ -1138,7 +1244,7 @@ function updateSummary(projects) {
         const sortedParts = Object.keys(partb).sort((a,b) => partb[b]-partb[a]);
         sortedParts.forEach(pn => {
             const q = partb[pn];
-            html += `<div class="summary-item summary-item-compact"><span>${pn}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
+            html += `<div class="summary-item summary-item-compact summ-toggle" data-f-type="parts" data-f-val="${pn.replace(/"/g,'&quot;')}"><span>${pn}</span><span class="value">${q} pc${q>1?'s':''}</span></div>`;
         });
     }
 
