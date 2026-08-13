@@ -150,12 +150,14 @@
 <meta charset="UTF-8">
 <title>Print Order Slip — {{ $salesNumber }}</title>
 <style>
+    /* Page-break rules live OUTSIDE @media print because DomPDF ignores
+       rules inside the media query — without this, all items squeeze onto
+       one page and mockups get cut off. Each item = one full page. */
+    @page { size: A4 landscape; margin: 12mm 15mm; }
+    .no-print { display: none !important; }
+    .print-slip-item { position: static; width: 100%; max-width: 277mm; page-break-inside: avoid; }
     @media print {
-        @page { size: A4 landscape; margin: 12mm 15mm; }
         .no-print { display: none !important; }
-        .print-slip-item { position: static; width: 100%; max-width: 277mm; }
-        .print-slip-item { break-after: page; }
-        .print-slip-item:last-child { break-after: auto; }
     }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 20px; font-family: 'Courier New', monospace; }
@@ -170,7 +172,7 @@
     .print-slip .roster-table td { text-align: center; }
     .print-slip .parts-table td { padding: 1px 4px; }
     .print-slip .mockup-box { border: 1px dotted #999; min-height: 100px; display: flex; align-items: center; justify-content: center; }
-    .print-slip .mockup-box img { max-width: 100%; max-height: 180px; object-fit: contain; }
+    .print-slip .mockup-box img { max-width: 100%; max-height: 400px; object-fit: contain; }
     .product-selector { text-align: center; margin-bottom: 12px; }
     .product-selector button { padding: 4px 12px; margin: 0 2px; cursor: pointer; border: 1px solid #999; background: #fff; }
     .product-selector button.active { background: #000; color: #fff; border-color: #000; }
@@ -200,7 +202,7 @@
         $hasExcelHeaders = !empty($sd['excelHeaders']);
         $excelHeaders = $sd['excelHeaders'] ?? [];
     @endphp
-    <div class="print-slip-item" style="{{ $pdfMode ? '' : 'display: ' . ($sdIdx === 0 ? 'block' : 'none') }}">
+    <div class="print-slip-item" style="{{ $pdfMode ? ($sdIdx > 0 ? 'page-break-before: always;' : '') : 'display: ' . ($sdIdx === 0 ? 'block' : 'none') }}">
         <div class="print-slip">
             <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #000;padding-bottom:3px;">
                 <div style="font-size:12pt;font-weight:bold;">{{ $sd['garmentName'] ?: $sd['_itemName'] }}</div>
