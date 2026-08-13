@@ -1132,7 +1132,7 @@ public function details(Request $request, string $id)
             'updated_at' => now(),
         ]);
 
-        if ($request->ajax()) {
+        if ($request->ajax() || $request->expectsJson()) {
             return response()->json(['success' => true, 'feedback_id' => $feedback->id]);
         }
         return redirect()->back()->with('success', 'Production feedback sent.');
@@ -1162,7 +1162,7 @@ public function details(Request $request, string $id)
         $feedback->resolved_at = $status === 'resolved' ? now() : null;
         $feedback->save();
 
-        if ($request->ajax()) {
+        if ($request->ajax() || $request->expectsJson()) {
             return response()->json(['success' => true]);
         }
         return redirect()->back()->with('success', 'Feedback updated.');
