@@ -569,7 +569,9 @@
                                 @endfor
                             </select>
                             @if($sale->is_delayed)
-                            <span class="badge bg-danger mb-1" title="Marked delayed {{ $sale->delayed_at ? $sale->delayed_at->format('M d, Y H:i') : '' }}">⚠️ DELAYED</span><br>
+                            <a href="{{ route('sales.prototype.delay-review', $sale->id) }}" onclick="event.stopPropagation();" class="text-decoration-none" title="Review delay feedback (click to view)">
+                                <span class="badge bg-danger mb-1" title="Marked delayed {{ $sale->delayed_at ? $sale->delayed_at->format('M d, Y H:i') : '' }}">⚠️ DELAYED</span>
+                            </a><br>
                             @endif
                             <strong style="font-size:11px;">{{ $sale->sales_number }}</strong>
                             <div style="font-size:10px;color:#6c757d;white-space:nowrap;">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>

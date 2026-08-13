@@ -4406,9 +4406,67 @@ public function printSlip(string $id)
 
         $sale->is_delayed = true;
         $sale->delayed_at = now();
+        // Optional feedback/reason from the agent (customer feedback, reason for delay)
+        $feedback = trim((string) $request->input('feedback'));
+        if ($feedback !== '') {
+            $sale->delay_feedback = $feedback;
+            $sale->delay_feedback_updated_at = now();
+        }
         $sale->save();
 
         return response()->json(['success' => true, 'is_delayed' => true]);
+    }
+
+    /**
+     * Delay review page — manager/admin reviews the agent's delay feedback
+     * along with the project details.
+     */
+    public function delayReview($id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+            abort(403, 'Only managers can view delay reviews.');
+        }
+
+        $sale = \App\Models\PrototypeSale::with(['payments', 'refunds'])->findOrFail($id);
+
+        // Order items breakdown (same pattern as other views)
+        $items = [];
+        $services = json_decode($sale->services, true) ?: [];
+        foreach ($services as $s) {
+            if (is_string($s)) {
+                $items[] = ['name' => $s, 'qty' => 1];
+            } elseif (is_array($s)) {
+                $items[] = $s;
+            }
+        }
+
+        // Mockup thumbnail (main cover first)
+        $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+        $mainMockup = null;
+        foreach ($mockups as $m) {
+            if (is_array($m) && !empty($m['is_main'])) { $mainMockup = $m; break; }
+        }
+        if (!$mainMockup && !empty($mockups)) $mainMockup = $mockups[0];
+        $mainMockupUrl = is_string($mainMockup) ? $mainMockup : ($mainMockup['url'] ?? '');
+
+        // Stage colors (reuse same map as list view)
+        $stageColors = [
+            'FOR SAMPLE' => '#6f42c1',
+            'FOR APPROVAL' => '#fd7e14',
+            'FOR FORMAT' => '#0d6efd',
+            'PRINTING' => '#198754',
+            'PRESSING' => '#20c997',
+            'CUTTING' => '#6c757d',
+            'SEWING' => '#dc3545',
+            'QA' => '#ffc107',
+            'HOLD' => '#6c757d',
+            'DISPATCH' => '#0dcaf0',
+            'UNPAID' => '#d63384',
+            'DONE' => '#198754',
+        ];
+
+        return view('sales.prototype.delay-review', compact('sale', 'items', 'mainMockupUrl', 'stageColors'));
     }
 
     public function agentCreate()

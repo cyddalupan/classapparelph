@@ -779,6 +779,9 @@ Route::get('/inventorylist', function() {
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
 
+        // DELAY REVIEW route (manager/admin review of delayed sales feedback)
+        Route::get('/sales/prototype/{id}/delay-review', [App\Http\Controllers\PrototypeSalesController::class, 'delayReview'])->name('sales.prototype.delay-review');
+
         // ARCHIVE routes
         Route::get('/sales/prototype/archived', [App\Http\Controllers\PrototypeSalesController::class, 'archived'])->name('sales.prototype.archived');
         Route::post('/sales/prototype/{id}/archive', [App\Http\Controllers\PrototypeSalesController::class, 'archive'])->name('sales.prototype.archive');

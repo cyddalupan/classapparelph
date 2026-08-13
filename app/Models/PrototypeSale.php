@@ -51,6 +51,8 @@ class PrototypeSale extends Model
         'actual_completion_date',
         'is_delayed',
         'delayed_at',
+        'delay_feedback',
+        'delay_feedback_updated_at',
         'archived_at',
         'customer_notes',
         'internal_notes',
@@ -74,6 +76,7 @@ class PrototypeSale extends Model
         'actual_completion_date' => 'date',
         'is_delayed' => 'boolean',
         'delayed_at' => 'datetime',
+        'delay_feedback_updated_at' => 'datetime',
         'archived_at' => 'datetime',
     ];
 

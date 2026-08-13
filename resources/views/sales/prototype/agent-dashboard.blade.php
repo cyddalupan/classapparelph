@@ -537,6 +537,15 @@
                         <p class="mb-0">Sure ka bang <strong>delayed</strong> ang order na ito?</p>
                         <p class="text-muted small mb-0 mt-1">{{ $sale->sales_number }}</p>
                         <p class="text-danger small mt-2 mb-0">⚠️ Kapag na-confirm, lalabas ito bilang <strong>DELAYED</strong> sa unahan ng manager order list.</p>
+                        <hr>
+                        <label class="form-label fw-bold small"><i class="fas fa-comment-dots me-1"></i>Feedback / Reason (opsyonal pero recommended)</label>
+                        <textarea class="form-control form-control-sm delay-feedback" name="feedback" rows="2" placeholder="Hal. sabi ng customer... / dahil sa supplier... / revision needed..."></textarea>
+                        <div class="d-flex flex-wrap gap-1 mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary delay-quick" style="font-size:11px;">👤 Customer requested</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary delay-quick" style="font-size:11px;">📦 Supplier delay</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary delay-quick" style="font-size:11px;">🎨 Revision needed</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary delay-quick" style="font-size:11px;">🖨️ Printing issue</button>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -924,6 +933,19 @@ document.addEventListener('DOMContentLoaded', wirePayBalanceType);
 
 // Mark Delayed form — submit via AJAX, then refresh so the Delayed badge shows
 function wireDelayForms() {
+    // Quick-suggest buttons: append their label to the feedback textarea
+    document.querySelectorAll('.delay-quick').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var modal = btn.closest('.modal');
+            var ta = modal ? modal.querySelector('.delay-feedback') : null;
+            if (!ta) return;
+            var val = btn.textContent.trim().replace(/^[^\u1000-\uFFFF\w]+/, ''); // strip leading emoji
+            val = btn.textContent.trim();
+            var current = ta.value.trim();
+            ta.value = current ? current + '; ' + val : val;
+            ta.focus();
+        });
+    });
     document.querySelectorAll('.delay-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
