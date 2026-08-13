@@ -253,6 +253,9 @@
 .day-cell .day-total-2 {
     background: #f0932b;
 }
+.day-cell .day-total-3 {
+    background: #28a745;
+}
 .day-cell.today { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
 .day-cell.drag-over { border-color: #198754; box-shadow: 0 0 0 2.5px rgba(25,135,84,0.4); background: rgba(25,135,84,0.06); }
 .day-cell.today .day-number {
@@ -772,9 +775,10 @@ function renderWeek(monday, projects) {
         html += `<div class="day-head">`;
         html += `<div class="day-number">${d.getDate()}</div>`;
         if (dayProjects.length > 0) {
-            html += `<div class="day-totals" title="${GARMENT_GROUP1.join(' + ')} | Iba pang garments">`;
+            html += `<div class="day-totals" title="${GARMENT_GROUP1.join(' + ')} | ${GARMENT_GROUP2.join(' + ')} | Iba pang garments">`;
             html += `<span class="day-total day-total-1">${gt.g1}</span>`;
             html += `<span class="day-total day-total-2">${gt.g2}</span>`;
+            html += `<span class="day-total day-total-3">${gt.g3}</span>`;
             html += '</div>';
         }
         html += '</div>';
@@ -804,7 +808,7 @@ function renderWeek(monday, projects) {
                 const pt = getProjectGarmentTotals(p);
                 
                 html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
-                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" data-g1="${pt.g1}" data-g2="${pt.g2}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
+                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" data-g1="${pt.g1}" data-g2="${pt.g2}" data-g3="${pt.g3}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
                 }
@@ -1120,28 +1124,30 @@ var calFilters = { prio: false, garments: {}, fabrics: {}, parts: {} };
 
 // Extract per-project garment/fabric/parts lists (same logic as summary breakdown)
 var GARMENT_GROUP1 = ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'];
+var GARMENT_GROUP2 = ['JERSEY SHORT'];
 
-// Totals per day: Group 1 = the 3 shirt/jersey types above, Group 2 = all other garments
+// Totals per day: G1 = 3 shirt/jersey-up types, G2 = JERSEY SHORT, G3 = all other garments
 function getProjectGarmentTotals(p) {
-    var g1 = 0, g2 = 0;
+    var g1 = 0, g2 = 0, g3 = 0;
     (p.services || []).forEach(function(it) {
         var sf = it.sublimationForm || {};
         var g = (sf.garment && sf.garment.name) ? String(sf.garment.name).trim().toUpperCase() : '';
         if (!g) return;
         var qty = parseInt(it.quantity || it.qty || 1) || 1;
         if (GARMENT_GROUP1.indexOf(g) !== -1) g1 += qty;
-        else g2 += qty;
+        else if (GARMENT_GROUP2.indexOf(g) !== -1) g2 += qty;
+        else g3 += qty;
     });
-    return { g1: g1, g2: g2 };
+    return { g1: g1, g2: g2, g3: g3 };
 }
 
 function getGarmentTotals(projects) {
-    var g1 = 0, g2 = 0;
+    var g1 = 0, g2 = 0, g3 = 0;
     projects.forEach(function(p) {
         var t = getProjectGarmentTotals(p);
-        g1 += t.g1; g2 += t.g2;
+        g1 += t.g1; g2 += t.g2; g3 += t.g3;
     });
-    return { g1: g1, g2: g2 };
+    return { g1: g1, g2: g2, g3: g3 };
 }
 
 function getProjBreakdown(p) {
@@ -1209,16 +1215,19 @@ function getFilteredProjects() {
 // Recompute day badges from currently visible cards (follows active filters)
 function updateDayBadges() {
     document.querySelectorAll('#weekContainer .day-cell').forEach(function(cell) {
-        var t1 = 0, t2 = 0;
+        var t1 = 0, t2 = 0, t3 = 0;
         cell.querySelectorAll('.day-project').forEach(function(card) {
             if (card.style.display === 'none') return;
             t1 += parseInt(card.getAttribute('data-g1') || 0) || 0;
             t2 += parseInt(card.getAttribute('data-g2') || 0) || 0;
+            t3 += parseInt(card.getAttribute('data-g3') || 0) || 0;
         });
         var b1 = cell.querySelector('.day-total-1');
         var b2 = cell.querySelector('.day-total-2');
+        var b3 = cell.querySelector('.day-total-3');
         if (b1) b1.textContent = t1;
         if (b2) b2.textContent = t2;
+        if (b3) b3.textContent = t3;
     });
 }
 
