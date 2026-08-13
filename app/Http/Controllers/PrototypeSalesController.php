@@ -4398,7 +4398,7 @@ public function printSlip(string $id)
     public function salesDashboard(Request $request)
     {
         $user = auth()->user();
-        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+        if (!$user || (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
