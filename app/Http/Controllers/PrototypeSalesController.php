@@ -421,6 +421,11 @@ public function details(Request $request, string $id)
         $imgSections = [];
         $mockList = [];
         foreach ($mockups as $m) {
+
+        // Class Production Manager: Class department only
+        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+            return response()->json(['error' => 'Unauthorized access.'], 403);
+        }
             $url = is_string($m) ? $m : ($m['url'] ?? '');
             if ($url) $mockList[] = ['url' => $url, 'label' => '🎨 Mockup'];
         }
@@ -562,7 +567,7 @@ public function details(Request $request, string $id)
         // --- Comments (production-relevant) ---
         $comments = \DB::table('prototype_sale_comments')
             ->leftJoin('users', 'prototype_sale_comments.user_id', '=', 'users.id')
-            ->select('prototype_sale_comments.*', 'users.name as user_name')
+            ->select('prototype_sale_comments.*', 'users.name as user_name', 'users.position as user_position')
             ->where('prototype_sale_comments.sale_id', $id)
             ->orderBy('prototype_sale_comments.created_at', 'desc')
             ->get();
@@ -570,9 +575,14 @@ public function details(Request $request, string $id)
             $html .= '<div class="sale-detail-section">';
             $html .= '<h6><i class="fas fa-comments me-2"></i>Comments (' . $comments->count() . ')</h6>';
             foreach ($comments as $c) {
+                $userLabel = $c->user_name;
+                $firstName = $c->user_name ? trim(explode(' ', $c->user_name)[0]) : '';
+                if ($firstName) {
+                    $userLabel = $firstName . ($c->user_position ? ' - ' . $c->user_position : '');
+                }
                 $html .= '<div class="item-card" style="padding:8px 12px;margin-bottom:6px;">';
                 $html .= '<div class="d-flex justify-content-between">';
-                $html .= '<strong class="small">' . e($c->user_name ?? 'User #' . $c->user_id) . '</strong>';
+                $html .= '<strong class="small">' . e($userLabel ?? 'User #' . $c->user_id) . '</strong>';
                 $html .= '<small class="text-muted">' . \Carbon\Carbon::parse($c->created_at)->format('M d, g:i A') . '</small>';
                 $html .= '</div>';
                 $html .= '<div class="small mt-1">' . nl2br(e($c->comment)) . '</div>';
@@ -622,6 +632,10 @@ public function details(Request $request, string $id)
         $sale = \App\Models\PrototypeSale::find($id);
         if (!$sale) {
             abort(404);
+        }
+        // Class Production Manager: Class department only
+        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
         }
         // Attach department fields (view expects department_name/department_code)
         $department = \App\Models\SalesDepartment::find($sale->department_id);
@@ -684,7 +698,9 @@ public function details(Request $request, string $id)
             ->orderBy('created_at', 'desc')
             ->get();
         $currentUser = auth()->user();
-        $isManager = $currentUser && in_array($currentUser->role, ['admin', 'manager']);
+        $isManager = $currentUser && $currentUser->isManager();
+        // COO can give production feedback too (but is NOT a manager otherwise)
+        $canGiveFeedback = $currentUser && ($isManager || $currentUser->isCoo());
         
         // Determine if editing is allowed (not delivered/completed)
         $canEdit = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
@@ -705,7 +721,7 @@ public function details(Request $request, string $id)
             ->where('sale_id', $id)
             ->where('action', 'like', 'refund_%')
             ->join('users', 'prototype_sale_audit_logs.user_id', '=', 'users.id')
-            ->select('prototype_sale_audit_logs.*', 'users.name as user_name')
+            ->select('prototype_sale_audit_logs.*', 'users.name as user_name', 'users.position as user_position')
             ->orderBy('created_at', 'desc')
             ->get();
         
@@ -721,19 +737,32 @@ public function details(Request $request, string $id)
         $netPaid = $sale->net_paid;
         $balanceDue = $sale->balance_due_computed;
 
+        // Overpayment only exists when CONFIRMED (verified) money exceeds the total.
+        // Override the stored column: pending/reject_pending payments are not confirmed
+        // money yet, so no refund offer should appear until the payment is verified.
+        $overpayment = max($netPaid - (float) ($sale->total_amount ?? 0), 0);
+        $sale->overpayment = $overpayment;
+
         // Production feedback for this sale (visible to manager + assigned agent)
         $productionFeedbacks = \App\Models\ProductionFeedback::with(['fromUser', 'toUser'])
             ->where('sale_id', $id)
             ->orderBy('created_at', 'desc')
             ->get();
 
+        // Recipients available for manager/COO to direct feedback to (dropdown in the Give Feedback modal)
+        // Artists + Admin (C.E.O.) + COO + CPO can be tagged; the sale's own agent always receives feedback.
+        $artists = \App\Models\User::whereIn('role', ['artist', 'admin', 'coo', 'cpo', 'cmo'])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
-            'progressPercent', 'pendingChanges', 'isManager', 'canEdit',
+            'progressPercent', 'pendingChanges', 'isManager', 'canGiveFeedback', 'canEdit',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
-            'productionFeedbacks'
+            'productionFeedbacks', 'artists'
         ));
     }
 
@@ -884,7 +913,7 @@ public function details(Request $request, string $id)
         }
         
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['success' => false, 'message' => 'Only managers can approve changes.']);
         }
         
@@ -898,13 +927,15 @@ public function details(Request $request, string $id)
         $subtotal = $servicesAfter ? array_sum(array_column($servicesAfter, 'totalPrice')) : 0;
         $totalAmount = $subtotal; // no 12% tax per Andrew's rule
         
-        // Compute NET paid: verified payments minus completed refunds.
-        // (Previously used raw deposit_after, which ignored refunds and
-        //  caused phantom overpayments after a refund was completed.)
-        $totalPaid = \App\Models\PrototypePayment::where('prototype_sale_id', $change->sale_id)
-            ->whereNotIn('payment_status', ['rejected', 'reject_pending'])
-            ->sum('amount');
-        if ($totalPaid <= 0) {
+        // Compute NET paid: VERIFIED payments only minus completed refunds.
+        // (Pending/reject_pending/rejected payments are NOT confirmed money —
+        //  they must not create phantom overpayments or refund offers.)
+        $payments = \App\Models\PrototypePayment::where('prototype_sale_id', $change->sale_id)
+            ->get(['payment_status', 'amount']);
+        if ($payments->isNotEmpty()) {
+            $totalPaid = (float) $payments->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])->sum('amount');
+        } else {
+            // Legacy fallback: no payment records at all — use deposit_after as-is.
             $totalPaid = (float) ($change->deposit_after ?? 0);
         }
         $totalRefunded = \App\Models\PrototypeRefund::where('prototype_sale_id', $change->sale_id)
@@ -1001,7 +1032,7 @@ public function details(Request $request, string $id)
         }
         
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['success' => false, 'message' => 'Only managers can reject changes.']);
         }
         
@@ -1046,7 +1077,7 @@ public function details(Request $request, string $id)
     public function addComment(Request $request, string $id)
     {
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['success' => false, 'message' => 'Only managers can add comments.']);
         }
         
@@ -1086,14 +1117,20 @@ public function details(Request $request, string $id)
     public function storeProductionFeedback(Request $request, string $id)
     {
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
-            return response()->json(['success' => false, 'message' => 'Only managers can give production feedback.']);
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers and the COO can give production feedback.']);
         }
 
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
             abort(404);
         }
+
+        // Prod manager is Class-only
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
+
         if (!$sale->sales_agent_id) {
             return response()->json(['success' => false, 'message' => 'This sale has no assigned sales agent.']);
         }
@@ -1101,33 +1138,64 @@ public function details(Request $request, string $id)
         $request->validate([
             'category' => 'required|in:' . implode(',', array_keys(\App\Models\ProductionFeedback::CATEGORIES)),
             'message' => 'required|string|max:2000',
+            'to_user_id' => 'nullable|integer|exists:users,id',
         ]);
 
+        // Sales agent ALWAYS receives the feedback.
+        $agentId = (int) $sale->sales_agent_id;
+
+        // Optional artist to also involve (CC) — a copy goes to them too.
+        $artistId = null;
+        $artist = null;
+        if ($request->filled('to_user_id') && (int) $request->input('to_user_id') !== $agentId) {
+            $artist = \App\Models\User::find($request->input('to_user_id'));
+            if (!$artist || !in_array($artist->role, ['artist', 'admin', 'coo'])) {
+                return response()->json(['success' => false, 'message' => 'Selected recipient is invalid.']);
+            }
+            $artistId = $artist->id;
+        }
+
+        // 1) ONE feedback record for this action — primary recipient is the agent.
+        //    The tagged artist (if any) is stored as involved_user_id, so BOTH see
+        //    the same single feedback entry (no more duplicate records).
         $feedback = \App\Models\ProductionFeedback::create([
             'sale_id' => $id,
             'from_user_id' => $user->id,
-            'to_user_id' => $sale->sales_agent_id,
+            'to_user_id' => $agentId,
+            'involved_user_id' => $artistId,
             'category' => $request->category,
             'message' => $request->message,
             'status' => 'open',
         ]);
 
-        // Notify the agent
+        // Notification for the sales agent (always)
         \App\Models\SaleNotification::create([
             'sale_id' => $id,
             'from_user_id' => $user->id,
-            'to_user_id' => $sale->sales_agent_id,
+            'to_user_id' => $agentId,
             'type' => 'production_feedback',
             'title' => 'Production Feedback',
             'message' => 'You received production feedback: ' . (\App\Models\ProductionFeedback::CATEGORIES[$request->category] ?? $request->category) . ' — ' . substr($request->message, 0, 120) . (strlen($request->message) > 120 ? '...' : ''),
         ]);
 
-        // Audit log
+        // Notification for the involved artist too (if selected)
+        if ($artistId) {
+            \App\Models\SaleNotification::create([
+                'sale_id' => $id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $artistId,
+                'type' => 'production_feedback',
+                'title' => 'Production Feedback',
+                'message' => 'You received production feedback: ' . (\App\Models\ProductionFeedback::CATEGORIES[$request->category] ?? $request->category) . ' — ' . substr($request->message, 0, 120) . (strlen($request->message) > 120 ? '...' : ''),
+            ]);
+        }
+
+        // Audit log — mentions both recipients when an artist is involved
         \DB::table('prototype_sale_audit_logs')->insert([
             'sale_id' => $id,
             'user_id' => $user->id,
             'action' => 'production_feedback_added',
-            'description' => 'Manager gave production feedback to ' . ($sale->sales_agent_name ?? 'agent') . ': ' . substr($request->message, 0, 100),
+            'description' => 'Manager gave production feedback to ' . ($sale->sales_agent_name ?? 'agent') . ($artist ? ' and artist ' . $artist->name : '') . ': ' . substr($request->message, 0, 100),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -1146,7 +1214,7 @@ public function details(Request $request, string $id)
         $user = auth()->user();
         $feedback = \App\Models\ProductionFeedback::findOrFail($feedbackId);
 
-        $isManager = $user && in_array($user->role, ['admin', 'manager']);
+        $isManager = $user && $user->isManager();
         $isTargetAgent = $user && $feedback->to_user_id === $user->id;
         if (!$isManager && !$isTargetAgent) {
             return response()->json(['success' => false, 'message' => 'You cannot update this feedback.']);
@@ -1154,9 +1222,20 @@ public function details(Request $request, string $id)
 
         $request->validate([
             'status' => 'required|in:open,acknowledged,resolved',
+            'acknowledgement' => 'nullable|string|max:2000',
         ]);
 
         $status = $request->status;
+
+        // Resolving requires an acknowledgement note from the recipient
+        if ($status === 'resolved') {
+            $ack = trim((string) $request->input('acknowledgement', ''));
+            if ($ack === '') {
+                return response()->json(['success' => false, 'message' => 'Please leave an acknowledgement note before resolving.']);
+            }
+            $feedback->acknowledgement = $ack;
+        }
+
         $feedback->status = $status;
         $feedback->acknowledged_at = $status === 'acknowledged' || $status === 'resolved' ? now() : null;
         $feedback->resolved_at = $status === 'resolved' ? now() : null;
@@ -1174,23 +1253,46 @@ public function details(Request $request, string $id)
     public function productionFeedbackList(Request $request)
     {
         $user = auth()->user();
-        $isManager = $user && in_array($user->role, ['admin', 'manager']);
-        $isAgent = $user && !$isManager && ($user->isSalesAgent() || $user->isSalesRepresentative());
+        $isManager = $user && (in_array($user->role, ['admin', 'manager']) || $user->isProdManager());
+        $isArtist = $user && !$isManager && $user->isArtist();
+        $isAgent = $user && !$isManager && ($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isArtist() || $user->isCoo() || $user->isCpo() || $user->isCmo());
         if (!$isManager && !$isAgent) {
             abort(403);
         }
 
-        $query = \App\Models\ProductionFeedback::with(['sale', 'fromUser', 'toUser']);
+        // Class Production Manager: Class department feedback only
+        $isProdManager = $user && $user->isProdManager();
 
-        // Agents only see feedback addressed to them
-        if (!$isManager) {
-            $query->where('to_user_id', $user->id);
+        // COO: manager order list entry (no scope param) → sees ALL feedback like a manager.
+        // My Sales entry (?scope=mine) → only feedback addressed to him or created by him.
+        $ownOnly = $user && $user->isCoo() && $request->query('scope') === 'mine';
+        $canViewAll = $isManager || ($user && $user->isCoo() && !$ownOnly);
+
+        $query = \App\Models\ProductionFeedback::with(['sale', 'fromUser', 'toUser']);
+        if ($isProdManager) {
+            $query->whereHas('sale', function ($q) {
+                $q->where('department_id', 4);
+            });
+        }
+
+        // Non-managers see only their own feedback: addressed to them, or (for COO) created by them.
+        // Involved/tagged users (e.g. Artists) also see the same single feedback entry.
+        if (!$canViewAll) {
+            if ($user->isCoo()) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('to_user_id', $user->id)->orWhere('from_user_id', $user->id);
+                });
+            } else {
+                $query->where(function ($q) use ($user) {
+                    $q->where('to_user_id', $user->id)->orWhere('involved_user_id', $user->id);
+                });
+            }
         }
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-        if ($request->filled('agent_id') && $isManager) {
+        if ($request->filled('agent_id') && $canViewAll) {
             $query->where('to_user_id', $request->agent_id);
         }
         if ($request->filled('category')) {
@@ -1199,12 +1301,25 @@ public function details(Request $request, string $id)
 
         $feedbacks = $query->orderBy('created_at', 'desc')->paginate(25)->withQueryString();
 
-        $agents = \App\Models\User::whereIn('role', ['sales_agent', 'sales_representative'])->orderBy('name')->get();
+        $agents = \App\Models\User::whereIn('role', ['sales_agent', 'sales_representative', 'artist', 'admin', 'coo', 'cpo', 'cmo'])->orderBy('name')->get();
 
         // Status counts must match what THIS user actually sees (agents: own only, managers: + agent filter)
         $countQuery = \App\Models\ProductionFeedback::query();
-        if (!$isManager) {
-            $countQuery->where('to_user_id', $user->id);
+        if ($isProdManager) {
+            $countQuery->whereHas('sale', function ($q) {
+                $q->where('department_id', 4);
+            });
+        }
+        if (!$canViewAll) {
+            if ($user->isCoo()) {
+                $countQuery->where(function ($q) use ($user) {
+                    $q->where('to_user_id', $user->id)->orWhere('from_user_id', $user->id);
+                });
+            } else {
+                $countQuery->where(function ($q) use ($user) {
+                    $q->where('to_user_id', $user->id)->orWhere('involved_user_id', $user->id);
+                });
+            }
         } elseif ($request->filled('agent_id')) {
             $countQuery->where('to_user_id', $request->agent_id);
         }
@@ -1214,7 +1329,7 @@ public function details(Request $request, string $id)
         $statusCounts = $countQuery->selectRaw('status, count(*) as total')
             ->groupBy('status')->pluck('total', 'status')->toArray();
 
-        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'isManager'));
+        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'isManager', 'isArtist', 'canViewAll', 'ownOnly'));
     }
 
     /**
@@ -1291,7 +1406,8 @@ public function details(Request $request, string $id)
             ->join('users', 'prototype_sale_audit_logs.user_id', '=', 'users.id')
             ->select(
                 'prototype_sale_audit_logs.*',
-                'users.name as user_name'
+                'users.name as user_name',
+                'users.position as user_position'
             )
             ->orderBy('created_at', 'desc')
             ->get();
@@ -1790,7 +1906,12 @@ public function printSlip(string $id)
             abort(404);
         }
         
-        $services = json_decode($sale->services, true);
+                // Class Production Manager: only Class department sales (department_id = 4)
+        $user = auth()->user();
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
+$services = json_decode($sale->services, true);
         if (!is_array($services)) {
             $services = [];
         }
@@ -1900,7 +2021,12 @@ public function printSlip(string $id)
             abort(404);
         }
         
-        $services = json_decode($sale->services, true);
+                // Class Production Manager: only Class department sales (department_id = 4)
+        $user = auth()->user();
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
+$services = json_decode($sale->services, true);
         if (!is_array($services)) {
             $services = [];
         }
@@ -1952,7 +2078,12 @@ public function printSlip(string $id)
             return response()->json(['error' => 'Sale not found'], 404);
         }
 
-        $services = json_decode($sale->services, true) ?: [];
+                // Class Production Manager: only Class department sales (department_id = 4)
+        $user = auth()->user();
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
+$services = json_decode($sale->services, true) ?: [];
         $sublimationForm = null;
         foreach ($services as $item) {
             if (isset($item['sublimationForm'])) {
@@ -2125,7 +2256,12 @@ public function printSlip(string $id)
             return response()->json(['error' => 'Sale not found'], 404);
         }
         
-        // Get all approved changes for this sale that added products
+                // Class Production Manager: only Class department sales (department_id = 4)
+        $user = auth()->user();
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
+// Get all approved changes for this sale that added products
         $approvedChanges = \DB::table('prototype_sale_changes')
             ->where('sale_id', $id)
             ->where('status', 'approved')
@@ -2322,6 +2458,12 @@ public function printSlip(string $id)
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
             return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        // Class Production Manager: only Class department sales (department_id = 4)
+        $user = auth()->user();
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
         }
 
         $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
@@ -2545,6 +2687,13 @@ public function printSlip(string $id)
         $allowedDepts = array_keys($deptCodeMap);
         $activeDept = $department;
         
+        // Class Production Manager: forced to Class department only
+        $user = auth()->user();
+        if ($user && $user->isProdManager()) {
+            $allowedDepts = ['class'];
+            $activeDept = 'class';
+        }
+        
         // Default: show ALL departments (no filter) — for admin view
         $showAll = false;
         
@@ -2592,13 +2741,13 @@ public function printSlip(string $id)
             $query->where('department_id', $deptId);
         }
         
-        // Non-admin users only see their own sales
-        $user = auth()->user();
-        if (!$user || !$user->isAdmin()) {
+        // Non-admin users only see their own sales (admin & COO see everything)
+        // Prod Manager sees ALL Class sales (no agent scoping)
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isProdManager())) {
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         // Manager/admin can override photo-completeness restriction on moves
-        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isProdManager());
         
         $sales = $query->orderBy('created_at', 'desc')->paginate(100);
         
@@ -2631,7 +2780,7 @@ public function printSlip(string $id)
         
         // Determine which sales have approved additional products (via change requests)
         $approvedAdditions = [];
-        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+        if ($user && $user->isManager()) {
             $approvedChanges = \DB::table('prototype_sale_changes')
                 ->where('status', 'approved')
                 ->whereRaw('JSON_LENGTH(services_after) > JSON_LENGTH(services_before)')
@@ -2650,7 +2799,7 @@ public function printSlip(string $id)
         // (Add Product from the sales page creates a change request — both count)
         $pendingAddonSaleIds = [];
         $pendingAddonCount = 0;
-        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+        if ($user && $user->isManager()) {
             $pendingAddons = \DB::table('sale_addon_requests')
                 ->where('status', 'pending')
                 ->select('sale_id')
@@ -2743,10 +2892,16 @@ public function printSlip(string $id)
         ];
 
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn("status", ["confirmed", "in_production", "pending", "completed"]);
-        
-        // Non-admin users only see their own sales
+
+        // Class Production Manager: Class department only
         $user = auth()->user();
-        if (!$user || !$user->isAdmin()) {
+        if ($user && $user->isProdManager()) {
+            $query->where('department_id', 4);
+        }
+        
+        // Non-admin users only see their own sales (admin & COO see everything)
+        // Prod Manager sees ALL Class sales (no agent scoping)
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isProdManager())) {
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
@@ -2763,7 +2918,7 @@ public function printSlip(string $id)
         $pendingCounts = [];
         $totalPending = 0;
         $pendingChangesList = collect();
-        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+        if ($user && $user->isManager()) {
             $saleIds = $sales->pluck('id');
             $pendingRows = \DB::table('prototype_sale_changes')
                 ->where('status', 'pending')
@@ -2796,7 +2951,7 @@ public function printSlip(string $id)
         
         // Get last notification info per sale+type for cooldown display
         $lastNotifs = collect();
-        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+        if ($user && $user->isManager()) {
             $saleIds = $sales->pluck('id');
             $lastNotifs = \App\Models\SaleNotification::whereIn('sale_id', $saleIds)
                 ->orderBy('created_at', 'desc')
@@ -2815,7 +2970,7 @@ public function printSlip(string $id)
 
         // Open production feedback count GIVEN by this manager (badge on header button)
         $openFeedbackCount = 0;
-        if ($user && ($user->isAdmin() || $user->role === 'manager')) {
+        if ($user && $user->isManager()) {
             $openFeedbackCount = \App\Models\ProductionFeedback::where('from_user_id', $user->id)
                 ->where('status', 'open')->count();
         }
@@ -2849,7 +3004,7 @@ public function printSlip(string $id)
         // until both file screenshot + approved sample color are uploaded.
         $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $user = auth()->user();
-        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isProdManager());
         if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
             $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
             $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
@@ -2886,6 +3041,11 @@ public function printSlip(string $id)
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
+        // Class Production Manager: Class department only
+        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
         // PAYMENT LOCK (server-side): cannot mark as DONE/completed while there is a pending balance due
         $balanceDue = $sale->balance_due_computed;
         if ($request->kanban_status === 'completed' && $balanceDue > 0) {
@@ -2899,7 +3059,7 @@ public function printSlip(string $id)
         // until both file screenshot + approved sample color are uploaded.
         $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $user = auth()->user();
-        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager');
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isProdManager());
         if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
             $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
             $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
@@ -2915,6 +3075,20 @@ public function printSlip(string $id)
         $sale->kanban_status = $request->kanban_status;
         if ($request->filled('production_stage')) {
             $sale->production_stage = $request->production_stage;
+        } else {
+            // KEEP IN SYNC: kanban drags don't send a stage tag — derive it from the
+            // kanban status so the manager order list never drifts from the kanban column.
+            $stageFromKanban = [
+                'new'                => 'HOLD',
+                'sample_approval'    => 'FOR SAMPLE',
+                'design'             => 'FOR FORMAT',
+                'production'         => 'PRESSING',
+                'quality_check'      => 'QA',
+                'ready_for_delivery' => 'DISPATCH',
+                'delivered'          => 'UNPAID',
+                'completed'          => 'DONE',
+            ];
+            $sale->production_stage = $stageFromKanban[$request->kanban_status] ?? $sale->production_stage;
         }
         $sale->save();
 
@@ -2931,6 +3105,12 @@ public function printSlip(string $id)
         ]);
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // Class Production Manager: Class department only
+        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
         $sale->priority = $request->filled('priority') ? (int) $request->priority : null;
         $sale->save();
 
@@ -2947,6 +3127,12 @@ public function printSlip(string $id)
     public function calendar()
     {
         $departments = \DB::table('sales_departments')->where('is_active', true)->get();
+
+        // Class Production Manager: Class department only
+        $user = auth()->user();
+        if ($user && $user->isProdManager()) {
+            $departments = collect([(object) ['id' => 4, 'name' => 'Class', 'code' => 'class', 'is_active' => true]]);
+        }
 
         // Same production stage map + reverse map as the manager order list
         $prodStageMap = [
@@ -2983,13 +3169,20 @@ public function printSlip(string $id)
         $endDate = $request->end_date;
         $department = $request->department;
 
+        // Class Production Manager: forced to Class department
+        $user = auth()->user();
+        if ($user && $user->isProdManager()) {
+            $department = 'Class';
+        }
+
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed'])
             // Hide archived projects (consistent with kanban — archived = filed away)
             ->whereNull('archived_at');
         
-        // Non-admin users only see their own sales (consistent with manager list & kanban)
-        $user = auth()->user();
-        if (!$user || !$user->isAdmin()) {
+        // Non-admin users only see their own sales (admin & COO see everything — consistent with manager list & kanban)
+        // CPO/CMO/Sales Agents also see everything, but agent names/mockups are hidden in the formatted response
+        // Prod Manager sees ALL Class sales (no agent scoping)
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo() && !$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isProdManager())) {
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
@@ -3083,7 +3276,8 @@ public function printSlip(string $id)
             $dImgs = is_string($p->design_images) ? json_decode($p->design_images, true) : ($p->design_images ?? []);
             $hasPhotos = collect($dImgs)->contains('type', 'file_screenshot') && collect($dImgs)->contains('type', 'sample_color');
             $user = auth()->user();
-            $canOverrideStatus = $user && ($user->isAdmin() || $user->role === 'manager');
+            $canOverrideStatus = $user && $user->isManager();
+            $isRestrictedViewer = $user && ($user->isCpo() || $user->isCmo() || $user->isSalesAgent() || $user->isSalesRepresentative());
 
             return [
                 'id' => $p->id,
@@ -3102,10 +3296,10 @@ public function printSlip(string $id)
                 'services' => $items,
                 'services_raw' => $services,
                 'total_qty' => $totalQty,
-                'mockup_url' => $firstMockupUrl,
+                'mockup_url' => $isRestrictedViewer ? null : $firstMockupUrl,
                 'description' => $description,
                 'product_label' => $productLabel,
-                'sales_agent_name' => ($p->sales_agent_name ? trim(explode(' ', trim($p->sales_agent_name))[0]) : ''),
+                'sales_agent_name' => $isRestrictedViewer ? '' : ($p->sales_agent_name ? trim(explode(' ', trim($p->sales_agent_name))[0]) : ''),
                 'has_photos' => $hasPhotos,
                 'can_override' => $canOverrideStatus,
                 'date_needed' => $p->estimated_completion_date,
@@ -3128,7 +3322,7 @@ public function printSlip(string $id)
 
         // Managers/admins only
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['success' => false, 'message' => 'Only managers can archive projects.'], 403);
         }
 
@@ -3179,7 +3373,7 @@ public function printSlip(string $id)
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['success' => false, 'message' => 'Only managers can restore projects.'], 403);
         }
 
@@ -3208,9 +3402,9 @@ public function printSlip(string $id)
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
-        // Only managers/admins/staff can reschedule
+        // Only managers/admins/staff/prod_manager can reschedule
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager', 'staff'])) {
+        if (!$user || !($user->isManager() || $user->role === 'staff')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only managers can reschedule projects.',
@@ -3223,11 +3417,53 @@ public function printSlip(string $id)
         $sale->rescheduled_date = $newDate;
         $sale->save();
 
+        // Audit trail
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'rescheduled',
+            'description' => 'Project rescheduled from ' . ($originalDate ? \Carbon\Carbon::parse($originalDate)->format('M d, Y') : 'none') . ' to ' . \Carbon\Carbon::parse($newDate)->format('M d, Y') . ' on the calendar (original date kept).',
+            'details' => json_encode([
+                'from_date' => $originalDate,
+                'to_date' => $newDate,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => 'Project moved to ' . \Carbon\Carbon::parse($newDate)->format('M d, Y') . '. Original date (' . ($originalDate ? \Carbon\Carbon::parse($originalDate)->format('M d, Y') : 'none') . ') is kept.',
             'rescheduled_date' => $newDate,
             'original_date' => $originalDate,
+        ]);
+    }
+
+    /**
+     * Recompute sale-level deposit_paid/balance_due/overpayment from VERIFIED payments only.
+     * Called after payment status changes (reject/cancel/edit) so the stored overpayment
+     * never shows a refund offer for money that isn't confirmed yet.
+     */
+    protected function recalcSalePaymentTotals(int $saleId): void
+    {
+        $sale = \DB::table('prototype_sales')->find($saleId);
+        if (!$sale) {
+            return;
+        }
+        $totalVerified = \App\Models\PrototypePayment::where('prototype_sale_id', $saleId)
+            ->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+            ->sum('amount');
+        $totalRefunded = \App\Models\PrototypeRefund::where('prototype_sale_id', $saleId)
+            ->where('refund_status', 'completed')
+            ->sum('refund_amount');
+        $netPaid = max($totalVerified - $totalRefunded, 0);
+        $newBalanceDue = max((float) $sale->total_amount - $netPaid, 0);
+        $newOverpayment = $netPaid > (float) $sale->total_amount ? ($netPaid - (float) $sale->total_amount) : 0;
+        \DB::table('prototype_sales')->where('id', $saleId)->update([
+            'deposit_paid' => $totalVerified,
+            'balance_due' => $newBalanceDue,
+            'overpayment' => $newOverpayment,
+            'updated_at' => now(),
         ]);
     }
 
@@ -3244,6 +3480,14 @@ public function printSlip(string $id)
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
             return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        // Non-admin verifiers can only verify payments tagged to their own accounts
+        if (!auth()->user()->isAdmin() && $sale->payment_account_id) {
+            $accountOwner = \DB::table('payment_accounts')->where('id', $sale->payment_account_id)->value('user_id');
+            if (!(int) $accountOwner || (int) $accountOwner !== (int) auth()->id()) {
+                return response()->json(['error' => 'You can only verify payments for your own accounts.'], 403);
+            }
         }
 
         $action = $request->action;
@@ -3297,6 +3541,8 @@ public function printSlip(string $id)
                 'remarks' => $remark,
             ]);
 
+            $this->recalcSalePaymentTotals((int) $id);
+
             $msg = 'Rejection requested — waiting for a second verifier to confirm.';
         } elseif ($action === 'confirm_reject') {
             if (!$remark || !trim($remark)) {
@@ -3324,6 +3570,8 @@ public function printSlip(string $id)
                 'remarks' => $remark,
             ]);
 
+            $this->recalcSalePaymentTotals((int) $id);
+
             $msg = 'Rejection confirmed — payment is now rejected.';
         } elseif ($action === 'cancel_reject') {
             if ($sale->payment_status !== 'reject_pending') {
@@ -3347,6 +3595,8 @@ public function printSlip(string $id)
                 'action' => 'reject_cancelled',
                 'remarks' => $remark,
             ]);
+
+            $this->recalcSalePaymentTotals((int) $id);
 
             $msg = 'Rejection request cancelled — back to pending.';
         } elseif ($action === 'request_verify') {
@@ -3551,6 +3801,14 @@ public function printSlip(string $id)
             return response()->json(['error' => 'Sale not found'], 404);
         }
 
+        // Non-admin verifiers can only verify payments tagged to their own accounts
+        if (!auth()->user()->isAdmin() && $payment->payment_account_id) {
+            $accountOwner = \DB::table('payment_accounts')->where('id', $payment->payment_account_id)->value('user_id');
+            if (!(int) $accountOwner || (int) $accountOwner !== (int) auth()->id()) {
+                return response()->json(['error' => 'You can only verify payments for your own accounts.'], 403);
+            }
+        }
+
         $action = $request->action;
         $remark = $request->remark;
 
@@ -3627,6 +3885,8 @@ public function printSlip(string $id)
                 'remarks' => $remark,
             ]);
 
+            $this->recalcSalePaymentTotals((int) $saleId);
+
             $msg = 'Rejection requested — waiting for a second verifier to confirm.';
 
         } elseif ($action === 'confirm_reject') {
@@ -3655,6 +3915,8 @@ public function printSlip(string $id)
                 'remarks' => $remark,
             ]);
 
+            $this->recalcSalePaymentTotals((int) $saleId);
+
             $msg = 'Rejection confirmed — payment is now rejected.';
 
         } elseif ($action === 'cancel_reject') {
@@ -3679,6 +3941,8 @@ public function printSlip(string $id)
                 'action' => 'reject_cancelled',
                 'remarks' => $remark,
             ]);
+
+            $this->recalcSalePaymentTotals((int) $saleId);
 
             $msg = 'Rejection request cancelled — back to pending.';
 
@@ -3925,11 +4189,15 @@ public function printSlip(string $id)
      */
     public function paymentVerification()
     {
+        $verifierUser = auth()->user();
+        $ownAccountFilter = $verifierUser && !$verifierUser->isAdmin() ? $verifierUser->id : null;
+
         // Include initial deposits from prototype_sales that don't have matching prototype_payments yet
         $pendingPayments = \DB::table('prototype_payments')
             ->leftJoin('prototype_sales', 'prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
             ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as verifier', 'prototype_payments.verified_by', '=', 'verifier.id')
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
             ->select([
                 'prototype_payments.*',
                 'prototype_payments.id as payment_id',
@@ -3950,6 +4218,7 @@ public function printSlip(string $id)
         $initialDeposits = \DB::table('prototype_sales')
             ->leftJoin('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as verifier', 'prototype_sales.verified_by', '=', 'verifier.id')
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
             ->whereNotExists(function ($query) {
                 $query->select(\DB::raw(1))
                     ->from('prototype_payments')
@@ -4026,11 +4295,14 @@ public function printSlip(string $id)
                 'verifier.name as verified_by_name',
             ])
             ->whereIn('prototype_payments.payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
             ->orderBy('prototype_payments.verified_at', 'desc')
             ->limit(50)
             ->get();
 
-        $accounts = \App\Models\PaymentAccount::with('user')->where('is_active', true)->get();
+        $accounts = \App\Models\PaymentAccount::with('user')->where('is_active', true)
+            ->when($ownAccountFilter, fn($q) => $q->where('user_id', $ownAccountFilter))
+            ->get();
 
         // Pending rejections awaiting a second verifier (two-verifier approval)
         $pendingRejections = \DB::table('prototype_payments')
@@ -4038,6 +4310,7 @@ public function printSlip(string $id)
             ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as requester', 'prototype_payments.reject_requested_by', '=', 'requester.id')
             ->where('prototype_payments.payment_status', 'reject_pending')
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
             ->select([
                 'prototype_sales.id as sale_id',
                 'prototype_sales.sales_number',
@@ -4061,6 +4334,15 @@ public function printSlip(string $id)
                 ->leftJoin('users as requester', 'prototype_sales.reject_requested_by', '=', 'requester.id')
                 ->where('prototype_sales.payment_status', 'reject_pending')
                 ->whereNull('prototype_sales.deleted_at')
+                // Sale-level entries only for initial deposits — skip sales already showing
+                // a reject_pending entry at the payment level (prevents duplicates)
+                ->whereNotExists(function ($query) {
+                    $query->select(\DB::raw(1))
+                        ->from('prototype_payments')
+                        ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+                        ->where('prototype_payments.payment_status', 'reject_pending');
+                })
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
                 ->select([
                     'prototype_sales.id as sale_id',
                     'prototype_sales.sales_number',
@@ -4088,6 +4370,7 @@ public function printSlip(string $id)
             ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as requester', 'prototype_payments.edit_requested_by', '=', 'requester.id')
             ->where('prototype_payments.payment_status', 'edit_pending')
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
             ->select([
                 'prototype_sales.id as sale_id',
                 'prototype_sales.sales_number',
@@ -4115,6 +4398,15 @@ public function printSlip(string $id)
                 ->leftJoin('users as requester', 'prototype_sales.edit_requested_by', '=', 'requester.id')
                 ->where('prototype_sales.payment_status', 'edit_pending')
                 ->whereNull('prototype_sales.deleted_at')
+                // Sale-level entries only for initial deposits — skip sales already showing
+                // an edit_pending entry at the payment level (prevents duplicates)
+                ->whereNotExists(function ($query) {
+                    $query->select(\DB::raw(1))
+                        ->from('prototype_payments')
+                        ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+                        ->where('prototype_payments.payment_status', 'edit_pending');
+                })
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
                 ->select([
                     'prototype_sales.id as sale_id',
                     'prototype_sales.sales_number',
@@ -4304,6 +4596,14 @@ public function printSlip(string $id)
                 ->leftJoin('users as requester', 'prototype_sales.reject_requested_by', '=', 'requester.id')
                 ->where('prototype_sales.payment_status', 'reject_pending')
                 ->whereNull('prototype_sales.deleted_at')
+                // Sale-level entries only for initial deposits — skip sales already showing
+                // a reject_pending entry at the payment level (prevents duplicates)
+                ->whereNotExists(function ($query) {
+                    $query->select(\DB::raw(1))
+                        ->from('prototype_payments')
+                        ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+                        ->where('prototype_payments.payment_status', 'reject_pending');
+                })
                 ->select([
                     'prototype_sales.id as sale_id',
                     'prototype_sales.sales_number',
@@ -4358,6 +4658,14 @@ public function printSlip(string $id)
                 ->leftJoin('users as requester', 'prototype_sales.edit_requested_by', '=', 'requester.id')
                 ->where('prototype_sales.payment_status', 'edit_pending')
                 ->whereNull('prototype_sales.deleted_at')
+                // Sale-level entries only for initial deposits — skip sales already showing
+                // an edit_pending entry at the payment level (prevents duplicates)
+                ->whereNotExists(function ($query) {
+                    $query->select(\DB::raw(1))
+                        ->from('prototype_payments')
+                        ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
+                        ->where('prototype_payments.payment_status', 'edit_pending');
+                })
                 ->select([
                     'prototype_sales.id as sale_id',
                     'prototype_sales.sales_number',
@@ -4431,7 +4739,7 @@ public function printSlip(string $id)
     public function agentDashboard(Request $request)
     {
         $user = auth()->user();
-        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo()) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -4625,14 +4933,14 @@ public function printSlip(string $id)
     public function salesDashboard(Request $request)
     {
         $user = auth()->user();
-        if (!$user || (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin())) {
+        if (!$user || (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo())) {
             abort(403, 'Unauthorized access.');
         }
 
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds']);
 
-        // Scope: agents see only their own sales
-        if ($user->isSalesAgent() && !$user->isAdmin()) {
+        // Scope: agents/COO/CPO/CMO see only their own sales
+        if (($user->isSalesAgent() || $user->isCoo() || $user->isCpo() || $user->isCmo()) && !$user->isAdmin()) {
             $query->where('sales_agent_id', $user->id);
         }
 
@@ -4885,11 +5193,16 @@ public function printSlip(string $id)
     public function delayReview($id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
             abort(403, 'Only managers can view delay reviews.');
         }
 
         $sale = \App\Models\PrototypeSale::with(['payments', 'refunds'])->findOrFail($id);
+
+        // Class Production Manager: Class department only
+        if ($user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
+        }
 
         // Order items breakdown (same pattern as other views)
         $items = [];
@@ -4937,13 +5250,19 @@ public function printSlip(string $id)
     public function delayList()
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
             abort(403, 'Only managers can view the delay list.');
         }
 
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
-            ->where('is_delayed', 1)
-            ->orderByRaw('CASE WHEN delay_feedback IS NOT NULL AND delay_feedback != \'\' THEN 0 ELSE 1 END')
+            ->where('is_delayed', 1);
+
+        // Class Production Manager: Class department only
+        if ($user->isProdManager()) {
+            $query->where('department_id', 4);
+        }
+
+        $query->orderByRaw('CASE WHEN delay_feedback IS NOT NULL AND delay_feedback != \'\' THEN 0 ELSE 1 END')
             ->orderBy('delayed_at', 'desc');
 
         $sales = $query->paginate(100);
@@ -5154,13 +5473,18 @@ public function printSlip(string $id)
     public function submitRefund(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['success' => false, 'message' => 'Only managers can request refunds.']);
         }
 
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        // Prod manager is Class-only
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
         }
 
         // Check if refund already exists for this sale
@@ -5221,7 +5545,7 @@ public function printSlip(string $id)
     public function processRefund(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['success' => false, 'message' => 'Only managers can process refunds.']);
         }
 
@@ -5355,7 +5679,7 @@ public function printSlip(string $id)
     public function refundList(Request $request)
     {
         $user = auth()->user();
-        if (!$user || !in_array($user->role, ['admin', 'manager'])) {
+        if (!$user || !($user->isManager() || $user->isCoo() || $user->isCpo() || $user->isCmo())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5370,7 +5694,9 @@ public function printSlip(string $id)
                 'prototype_sales.total_amount',
                 'prototype_sales.deposit_paid',
                 'users.name as requested_by_name',
-                'acceptors.name as accepted_by_name'
+                'users.position as requested_by_position',
+                'acceptors.name as accepted_by_name',
+                'acceptors.position as accepted_by_position'
             );
 
         // Filter by status
@@ -5701,6 +6027,12 @@ public function printSlip(string $id)
         $sale = \App\Models\PrototypeSale::find($id);
         if (!$sale) {
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        // Class Production Manager: only Class department sales (department_id = 4)
+        $user = auth()->user();
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
         }
 
         $agentId = $sale->sales_agent_id;
