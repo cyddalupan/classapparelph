@@ -3269,7 +3269,27 @@ $services = json_decode($sale->services, true) ?: [];
                 }
             }
             if (!$productLabel) {
-                $productLabel = $description ? trim(explode(' + ', $description)[0]) : ($p->customer_name ?? '');
+                // Prefer a short readable label extracted from the raw service name
+                // e.g. "FS: MIKE/FS CC/WHITE ZIPPER/18 PCS/... - POLO ZIPPER (POLYDEX 180 GSM)" -> "POLO ZIPPER"
+                $shortLabel = '';
+                foreach ($services as $svc) {
+                    $rawName = is_array($svc) ? ($svc['name'] ?? '') : (is_string($svc) ? $svc : '');
+                    if (!$rawName) {
+                        continue;
+                    }
+                    $clean = $rawName;
+                    if (strpos($clean, ' - ') !== false) {
+                        $clean = trim(substr($clean, strrpos($clean, ' - ') + 3));
+                    }
+                    $clean = trim(preg_replace('/\s*\([^)]*\)/', '', $clean));
+                    $clean = trim(explode(' +', $clean)[0]);
+                    $clean = trim($clean, " -/");
+                    if ($clean !== '' && mb_strlen($clean) <= 60) {
+                        $shortLabel = $clean;
+                        break;
+                    }
+                }
+                $productLabel = $shortLabel ?: ($description ? trim(explode(' + ', $description)[0]) : ($p->customer_name ?? ''));
             }
 
             // Photo lock (same rule as manager order list): non-admin/manager cannot move to Design+ without photos
