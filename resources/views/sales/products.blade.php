@@ -14,7 +14,7 @@
             <p class="page-subtitle">Browse available products for sales</p>
         </div>
         <div class="page-header-actions">
-            <a href="{{ route('sales.create-quick') }}" class="btn btn-warning">
+            <a href="{{ route('sales.prototype.create') }}" class="btn btn-warning">
                 <i class="fas fa-plus-circle me-2"></i> Add Quick Sale
             </a>
         </div>
@@ -283,7 +283,7 @@
 function selectProduct(productName, price) {
     alert(`Selected: ${productName} (₱${price})\n\nThis product will be added to your quick sale form.`);
     // In a real app, this would redirect to the quick sale form with pre-filled data
-    window.location.href = "{{ route('sales.create-quick') }}";
+    window.location.href = "{{ route('sales.prototype.create') }}";
 }
 </script>
 @endpush

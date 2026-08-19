@@ -1,9 +1,11 @@
 <?php
 
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
 # API: Products for sales box (public)
 Route::get("/api/products-for-box/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getProductsForBox"])->name("product-pricing.api.products-for-box");
 Route::get("/api/filter-options/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getFilterOptions"])->name("product-pricing.api.filter-options");
 Route::get("/api/sublimation-prices", [App\Http\Controllers\PricingRulesController::class, 'getSublimationPrices'])->name('api.sublimation-prices');
+});
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ExpenseController;
@@ -22,11 +24,11 @@ Route::get('/dashboard', function () {
 })->middleware(['auth'])->name('dashboard');
 
 // TEST PAGE FOR DEBUGGING
-Route::get('/test-navigation', function () {
+Route::middleware(['auth'])->get('/test-navigation', function () {
     return view('test-navigation');
 })->name('test-navigation');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
     // INVENTORY CATEGORY SELECTION PAGE
     Route::get('/inventory/select-category', function () {
         // Log access for debugging
@@ -51,6 +53,7 @@ Route::middleware('auth')->group(function () {
     })->name('inventory.select-category-test');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
     // Printing Pricing Calculator
@@ -432,7 +435,7 @@ Route::get('/printing-calculator', function() {
                     'old_value' => $log->old_value,
                     'new_value' => $log->new_value,
                     'quantity' => $log->quantity,
-                    'user_name' => $log->user ? $log->user->name : 'System',
+                    'user_name' => $log->user ? $log->user->display_label : 'System',
                     'notes' => $log->notes,
                     'created_at' => $log->created_at->diffForHumans(),
                     'created_at_raw' => $log->created_at->toDateTimeString(),
@@ -569,21 +572,29 @@ Route::get('/printing-calculator', function() {
             return view('sales.pricing');
         })->name('sales.pricing');
         
+        // LEGACY quick-create flow — old page is broken (references removed routes / methods).
+        // Redirect to the current prototype create flow instead.
         Route::get('/sales/create-quick', function () {
             if (!Gate::allows('input-sales')) {
                 abort(403, 'Unauthorized access.');
             }
-            return view('sales.create-quick');
+            return redirect()->route('sales.prototype.create');
         })->name('sales.create-quick');
         
-        Route::post('/sales/quick-store', [App\Http\Controllers\SalesController::class, 'quickStore'])->name('sales.quick-store');
+        Route::post('/sales/quick-store', function () {
+            if (!Gate::allows('input-sales')) {
+                abort(403, 'Unauthorized access.');
+            }
+            return redirect()->route('sales.prototype.create')
+                ->with('error', 'The old quick-sale form is no longer available. Please use the new Add New Sale form.');
+        })->name('sales.quick-store');
     });
 });
 
 require __DIR__.'/auth.php';
 
 // DTF Routes
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
     Route::get('/dtf/create', [App\Http\Controllers\DtfController::class, 'create'])->name('dtf.create');
     Route::post('/dtf', [App\Http\Controllers\DtfController::class, 'store'])->name('dtf.store');
 });
@@ -622,6 +633,7 @@ Route::middleware(['auth'])->get('/inventory-style-test', function () {
 Route::middleware(['auth'])->get('/fixed-test', function () {
     return view('products.fixed-test');
 });
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
 Route::get('/test-modal', function() { return view('test'); });
 Route::get('/inventory-clean', function() { return view('inventory.create-clean'); });
 Route::post('/inventory/shirt-products', function(Request $request) {
@@ -674,6 +686,8 @@ Route::post('/inventory/shirt-products', function(Request $request) {
 Route::get('/inventorylist', function() {
     return view('inventory.create-clean');
 })->name('inventory.list');
+});
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
 
         // Customer API Routes for Prototype
         Route::get("/api/customers/check", function (\Illuminate\Http\Request $request) {
@@ -692,6 +706,12 @@ Route::get('/inventorylist', function() {
         
         Route::get("/api/customers/search", function (\Illuminate\Http\Request $request) {
             $query = \App\Models\Customer::active()->with('creator');
+
+            // COO/CPO/CMO/Sales Agents only see customers they created (since they also sell)
+            $u = auth()->user();
+            if ($u->isCoo() || $u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative()) {
+                $query->where('created_by', auth()->id());
+            }
             
             // Text search (keep using scopeSearch for fulltext) 
             if ($q = $request->query('q')) {
@@ -889,9 +909,10 @@ Route::get('/inventorylist', function() {
         Route::post('/sales/prototype/notifications/read-all', [App\Http\Controllers\PrototypeSalesController::class, 'notificationsReadAll'])->name('sales.prototype.notifications-read-all');
         Route::post('/sales/prototype/refund/{id}/process', [App\Http\Controllers\PrototypeSalesController::class, 'processRefund'])->name('sales.prototype.process-refund');
         Route::get('/sales/refunds', [App\Http\Controllers\PrototypeSalesController::class, 'refundList'])->name('sales.prototype.refunds');
+});
 
         // Department Inventory Management (iPrint & others)
-        Route::middleware(['auth'])->group(function () {
+        Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
             Route::get('/api/departments', [App\Http\Controllers\DepartmentInventoryController::class, 'departments'])->name('api.departments.list');
             Route::get('/api/department-inventory', [App\Http\Controllers\DepartmentInventoryController::class, 'departmentItems'])->name('api.department-inventory.items');
             Route::post('/api/department-inventory/assign', [App\Http\Controllers\DepartmentInventoryController::class, 'assign'])->name('api.department-inventory.assign');
@@ -899,7 +920,7 @@ Route::get('/inventorylist', function() {
         });
 
         // Procurement Ordering System
-        Route::middleware(['auth'])->group(function () {
+        Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
             Route::get('/procurement/dashboard', [App\Http\Controllers\ProcurementOrderController::class, 'dashboard'])->name('procurement.dashboard');
             Route::get('/procurement/orders', [App\Http\Controllers\ProcurementOrderController::class, 'index'])->name('procurement.orders.index');
             Route::get('/procurement/orders/create', [App\Http\Controllers\ProcurementOrderController::class, 'create'])->name('procurement.orders.create');

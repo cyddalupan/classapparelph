@@ -17,7 +17,7 @@
             <a href="{{ route('printing.pricing') }}" class="btn btn-primary me-2">
                 <i class="fas fa-calculator me-2"></i> Printing Calculator
             </a>
-            <a href="{{ route('sales.create-quick') }}" class="btn btn-warning">
+            <a href="{{ route('sales.prototype.create') }}" class="btn btn-warning">
                 <i class="fas fa-plus-circle me-2"></i> Add Quick Sale
             </a>
         </div>
@@ -299,7 +299,7 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <a href="{{ route('sales.create-quick') }}" class="btn btn-warning w-100">
+                    <a href="{{ route('sales.prototype.create') }}" class="btn btn-warning w-100">
                         <i class="fas fa-plus-circle me-2"></i>
                         Create Quick Sale
                     </a>
