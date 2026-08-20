@@ -46,14 +46,13 @@ class PrototypeSalesController extends Controller
             'marketplace' => 'nullable|string',
         ]);
         
-        // Use existing customer_id if provided, otherwise find/create
+        // Use existing customer_id if provided and still valid; otherwise fall back to phone lookup/create
+        // (stale customer_id from Smart Customer Detection must not block sale creation)
+        $customer = null;
         if ($request->customer_id) {
             $customer = \App\Models\Customer::find($request->customer_id);
-            if (!$customer) {
-                return back()->with('error', 'Customer not found. Please save customer first.');
-            }
-        } else {
-            // Find or create customer
+        }
+        if (!$customer) {
             $customer = \App\Models\Customer::firstOrCreate(
                 ['phone' => $request->customer_phone],
                 [
