@@ -564,7 +564,7 @@
                                     <span class="card-badge" style="background:#fff3cd;color:#856404;cursor:help;" title="May pending add-on request">🕐 Add-on</span>
                                 @endif
                                 @if(in_array($sale->id, $damageSaleIds ?? []))
-                                    <span class="card-badge" style="background:#dc3545;color:#fff;cursor:help;" title="May open damage report">⚠️ Damage</span>
+                                    <a href="{{ route('damage.index', ['sale_id' => $sale->id]) }}" class="card-badge" style="background:#dc3545;color:#fff;text-decoration:none;" title="May open damage report — i-click para makita">⚠️ Damage</a>
                                 @endif
                             </div>
 

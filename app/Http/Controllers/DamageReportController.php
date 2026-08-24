@@ -68,6 +68,9 @@ class DamageReportController extends Controller
         if ($request->filled('shop_id')) {
             $query->where('shop_id', $request->shop_id);
         }
+        if ($request->filled('sale_id')) {
+            $query->where('sale_id', $request->integer('sale_id'));
+        }
         if ($request->filled('q')) {
             $query->where(function ($q) use ($request) {
                 $q->where('report_no', 'like', '%' . $request->q . '%')
