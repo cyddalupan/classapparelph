@@ -474,6 +474,56 @@
                 @endif
             </div>
 
+            <!-- Damage Reports -->
+            <div class="detail-section mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="detail-title mb-0" style="border-bottom:none;padding-bottom:0;">
+                        <i class="fas fa-exclamation-triangle me-2" style="color:#dc3545;"></i>Damage Reports
+                    </h5>
+                    <a href="{{ route('damage.create', ['sale_id' => $sale->id]) }}" class="btn btn-sm" style="background:#dc3545;color:#fff;">
+                        <i class="fas fa-plus"></i> Report Damage
+                    </a>
+                </div>
+
+                @if(($damageReports ?? collect())->isEmpty())
+                <div class="text-muted py-2" style="font-size:13px;">
+                    <i class="fas fa-info-circle"></i> No damage reports for this sale.
+                </div>
+                @else
+                <div class="mt-2" style="max-height:320px;overflow-y:auto;">
+                    @foreach($damageReports as $dr)
+                    <div class="border rounded p-2 mb-2" style="border-color:#e5e7eb !important;font-size:13px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{{ route('damage.show', $dr->id) }}" class="fw-bold text-decoration-none" style="color:#dc3545;">{{ $dr->report_no }}</a>
+                                <span class="badge bg-{{ $dr->status === 'dismissed' ? 'secondary' : ($dr->status === 'contested' ? 'danger' : ($dr->status === 'resolved' ? 'success' : ($dr->status === 'acknowledged' ? 'primary' : ($dr->status === 'issued' ? 'warning' : 'info')))) }}">
+                                    {{ \App\Models\DamageReport::STATUSES[$dr->status] ?? $dr->status }}
+                                </span>
+                                <span class="badge bg-secondary">{{ $dr->shop->name ?? '' }}</span>
+                            </div>
+                            <small class="text-muted">{{ $dr->created_at->diffForHumans() }}</small>
+                        </div>
+                        <div class="mt-1">{{ \Illuminate\Support\Str::limit($dr->description, 120) }}</div>
+                        @if($dr->damage_amount !== null)
+                        <div class="mt-1 small">
+                            <span class="text-danger fw-bold">₱{{ number_format($dr->damage_amount, 2) }}</span>
+                            <span class="badge bg-danger ms-1">{{ $dr->points }} pt</span>
+                        </div>
+                        @endif
+                        @if($dr->accountableUsers->count() > 0)
+                        <div class="mt-1 small text-muted">
+                            <i class="fas fa-users me-1"></i>
+                            @foreach($dr->accountableUsers as $au)
+                                <span class="badge bg-{{ $au->acknowledge_status === 'acknowledged' ? 'success' : ($au->acknowledge_status === 'contested' ? 'danger' : 'warning') }} me-1">{{ $au->user->name }}</span>
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+
             <!-- Audit History -->
             <div class="detail-section mt-3">
                 <div class="d-flex justify-content-between align-items-center">

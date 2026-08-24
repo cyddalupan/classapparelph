@@ -757,13 +757,19 @@ public function details(Request $request, string $id)
             ->orderBy('name')
             ->get();
 
+        // Damage reports linked to this sale
+        $damageReports = \App\Models\DamageReport::with(['shop', 'reporter', 'accountableUsers.user'])
+            ->where('sale_id', $id)
+            ->orderByDesc('created_at')
+            ->get();
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
             'progressPercent', 'pendingChanges', 'isManager', 'canGiveFeedback', 'canEdit', 'canEditProdSlip',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
-            'productionFeedbacks', 'artists'
+            'productionFeedbacks', 'artists', 'damageReports'
         ));
     }
 
@@ -2828,11 +2834,19 @@ $services = json_decode($sale->services, true) ?: [];
             $pendingAddonSaleIds = array_values(array_unique(array_merge($pendingAddonSaleIds, $pendingChangeSaleIds)));
             $pendingAddonCount = count($pendingAddonSaleIds);
         }
+
+        // Sales with OPEN damage reports (badge on kanban card)
+        $damageSaleIds = \App\Models\DamageReport::whereNotNull('sale_id')
+            ->whereNotIn('status', ['resolved', 'dismissed'])
+            ->pluck('sale_id')
+            ->map(fn($id) => (int) $id)
+            ->all();
         
         return view('sales.prototype.kanban', compact(
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
             'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions',
-            'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount', 'archivedCount'
+            'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount', 'archivedCount',
+            'damageSaleIds'
         ));
     }
 

@@ -563,6 +563,9 @@
                                 @if(in_array($sale->id, $pendingAddonSaleIds ?? []))
                                     <span class="card-badge" style="background:#fff3cd;color:#856404;cursor:help;" title="May pending add-on request">🕐 Add-on</span>
                                 @endif
+                                @if(in_array($sale->id, $damageSaleIds ?? []))
+                                    <span class="card-badge" style="background:#dc3545;color:#fff;cursor:help;" title="May open damage report">⚠️ Damage</span>
+                                @endif
                             </div>
 
                             <div class="card-meta">

@@ -807,6 +807,33 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/sales/prototype/create', [App\Http\Controllers\PrototypeSalesController::class, 'create'])->name('sales.prototype.create');
         Route::post('/sales/prototype', [App\Http\Controllers\PrototypeSalesController::class, 'store'])->name('sales.prototype.store');
         
+        // DAMAGE REPORT SYSTEM
+        Route::get('/damage', [App\Http\Controllers\DamageReportController::class, 'index'])->name('damage.index');
+        Route::get('/damage/create', [App\Http\Controllers\DamageReportController::class, 'create'])->name('damage.create');
+        Route::post('/damage', [App\Http\Controllers\DamageReportController::class, 'store'])->name('damage.store');
+        Route::get('/damage/{report}', [App\Http\Controllers\DamageReportController::class, 'show'])->name('damage.show');
+        Route::post('/damage/{report}/update', [App\Http\Controllers\DamageReportController::class, 'update'])->name('damage.update');
+        Route::post('/damage/{report}/review', [App\Http\Controllers\DamageReportController::class, 'review'])->name('damage.review');
+        Route::post('/damage/{report}/acknowledge', [App\Http\Controllers\DamageReportController::class, 'acknowledge'])->name('damage.acknowledge');
+        Route::post('/damage/{report}/contest', [App\Http\Controllers\DamageReportController::class, 'contest'])->name('damage.contest');
+        Route::post('/damage/{report}/resolve', [App\Http\Controllers\DamageReportController::class, 'resolve'])->name('damage.resolve');
+        Route::post('/damage/{report}/dismiss', [App\Http\Controllers\DamageReportController::class, 'dismiss'])->name('damage.dismiss');
+        Route::post('/damage/{report}/comment', [App\Http\Controllers\DamageReportController::class, 'comment'])->name('damage.comment');
+        Route::get('/sales/prototype/search', function (\Illuminate\Http\Request $request) {
+            $q = trim($request->q ?? '');
+            if (strlen($q) < 4) {
+                return response()->json([]);
+            }
+            return response()->json(
+                \DB::table('prototype_sales')
+                    ->where('sales_number', 'like', '%' . $q . '%')
+                    ->orWhere('customer_name', 'like', '%' . $q . '%')
+                    ->orderByDesc('id')
+                    ->limit(10)
+                    ->get(['id', 'sales_number', 'customer_name'])
+            );
+        })->name('sales.prototype.search');
+        
         // Cart system
         Route::get('/sales/prototype/cart-create', [App\Http\Controllers\PrototypeSalesController::class, 'cartCreate'])->name('sales.prototype.cart-create');
         

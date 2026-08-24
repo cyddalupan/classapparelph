@@ -225,6 +225,10 @@
                             <i class="fas fa-tachometer-alt"></i>
                             <span class="nav-text">Dashboard</span>
                         </a>
+                        <a href="{{ route('damage.index') }}" class="nav-item {{ request()->routeIs('damage.*') ? 'active' : '' }}">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span class="nav-text">Damage Reports</span>
+                        </a>
                     </div>
 
                     @auth
