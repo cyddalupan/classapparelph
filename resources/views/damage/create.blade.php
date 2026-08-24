@@ -88,6 +88,11 @@
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label">Quantity Damaged <span class="text-danger">*</span></label>
+                            <input type="number" name="quantity" class="form-control" min="1" placeholder="Ilang piraso ang nadamage? e.g. 3" value="{{ old('quantity') }}" required>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">Description <span class="text-danger">*</span></label>
                             <textarea name="description" class="form-control" rows="4" placeholder="Ano ang nangyari? Saan? Sino ang involved (kung alam)?" required>{{ old('description') }}</textarea>
                         </div>

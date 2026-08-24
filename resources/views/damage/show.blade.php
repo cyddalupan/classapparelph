@@ -57,6 +57,13 @@
                         </div>
                         <div class="col-md-4"><small class="text-muted">Category</small><div class="fw-bold">{{ \App\Models\DamageReport::CATEGORIES[$report->category] ?? $report->category }}</div></div>
                     </div>
+                    @if($report->quantity !== null)
+                        <div class="row mb-3">
+                            <div class="col-md-4"><small class="text-muted">Quantity Damaged</small>
+                                <div class="fw-bold">{{ $report->quantity }} pc{{ $report->quantity > 1 ? 's' : '' }}</div>
+                            </div>
+                        </div>
+                    @endif
                     @if($report->damage_amount !== null)
                         <div class="row mb-3">
                             <div class="col-md-4"><small class="text-muted">Damage Amount</small>
@@ -170,6 +177,10 @@
                                     <input type="number" step="0.01" min="0" name="damage_amount" class="form-control form-control-sm" placeholder="0.00">
                                 </div>
                                 <div class="mb-2">
+                                    <label class="form-label small">Quantity Damaged</label>
+                                    <input type="number" min="1" name="quantity" class="form-control form-control-sm" value="{{ $report->quantity ?? '' }}" placeholder="Ilang pcs ang nadamage">
+                                </div>
+                                <div class="mb-2">
                                     <label class="form-label small">Severity</label>
                                     <select name="severity" class="form-select form-select-sm">
                                         @foreach(\App\Models\DamageReport::SEVERITIES as $val => $label)
@@ -245,6 +256,10 @@
                                         <option value="{{ $val }}" {{ $report->category === $val ? 'selected' : '' }}>{{ $label }}</option>
                                     @endforeach
                                 </select>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Quantity Damaged</label>
+                                <input type="number" min="1" name="quantity" class="form-control form-control-sm" value="{{ $report->quantity ?? '' }}" placeholder="Ilang pcs ang nadamage">
                             </div>
                             <div class="mb-2">
                                 <label class="form-label small">Description</label>

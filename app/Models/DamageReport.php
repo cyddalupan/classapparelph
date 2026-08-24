@@ -16,6 +16,7 @@ class DamageReport extends Model
         'severity',
         'status',
         'description',
+        'quantity',
         'damage_amount',
         'points',
         'evidence_path',
@@ -26,6 +27,7 @@ class DamageReport extends Model
 
     protected $casts = [
         'damage_amount' => 'float',
+        'quantity' => 'integer',
         'acknowledged_at' => 'datetime',
         'resolved_at' => 'datetime',
     ];

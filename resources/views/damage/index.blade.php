@@ -104,6 +104,9 @@
                                 <span>
                                     <span class="sev-dot sev-{{ $report->severity }}"></span>
                                     {{ ucfirst($report->severity) }}
+                                    @if($report->quantity !== null)
+                                        · <i class="fas fa-box-open"></i> {{ $report->quantity }} pc{{ $report->quantity > 1 ? 's' : '' }}
+                                    @endif
                                     @if($report->points > 0)
                                         · {{ $report->points }} pt{{ $report->points > 1 ? 's' : '' }}
                                     @endif

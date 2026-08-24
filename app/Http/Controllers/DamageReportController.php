@@ -102,6 +102,7 @@ class DamageReportController extends Controller
             'category' => 'required|string|max:50',
             'sale_id' => 'nullable|exists:prototype_sales,id',
             'evidence' => 'nullable|image|max:5120',
+            'quantity' => 'nullable|integer|min:1',
         ]);
 
         $reportNo = 'DMG-' . now()->format('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
@@ -122,6 +123,7 @@ class DamageReportController extends Controller
             'severity' => $request->severity,
             'status' => 'submitted',
             'description' => $request->description,
+            'quantity' => $request->filled('quantity') ? $request->integer('quantity') : null,
             'evidence_path' => $evidencePath,
         ]);
 
@@ -164,6 +166,7 @@ class DamageReportController extends Controller
             'category' => 'required|string|max:50',
             'sale_id' => 'nullable|exists:prototype_sales,id',
             'evidence' => 'nullable|image|max:5120',
+            'quantity' => 'nullable|integer|min:1',
         ]);
 
         $managedShop = $this->managedShop();
@@ -183,6 +186,7 @@ class DamageReportController extends Controller
             'severity' => $request->severity,
             'category' => $request->category,
             'sale_id' => $request->sale_id ?: null,
+            'quantity' => $request->filled('quantity') ? $request->integer('quantity') : null,
             'evidence_path' => $evidencePath,
             'status' => $report->status === 'submitted' ? 'under_review' : $report->status,
         ]);
@@ -211,6 +215,7 @@ class DamageReportController extends Controller
             'amounts' => 'nullable|array',
             'amounts.*' => 'nullable|numeric|min:0',
             'damage_amount' => 'nullable|numeric|min:0',
+            'quantity' => 'nullable|integer|min:1',
             'review_notes' => 'nullable|string|max:3000',
             'severity' => 'required|in:minor,major,critical',
             'category' => 'required|string|max:50',
@@ -225,6 +230,7 @@ class DamageReportController extends Controller
                 'severity' => $request->severity,
                 'points' => $points,
                 'damage_amount' => $request->filled('damage_amount') ? $request->damage_amount : null,
+                'quantity' => $request->filled('quantity') ? $request->integer('quantity') : $report->quantity,
                 'review_notes' => $request->review_notes,
                 'status' => 'issued',
             ]);
