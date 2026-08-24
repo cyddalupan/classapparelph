@@ -32,6 +32,24 @@
         </div>
     @endif
 
+    @if(($existingOpen ?? collect())->isNotEmpty())
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>May existing open report na para sa sale na ito</strong> — baka duplicate ito. I-check muna:
+            <ul class="mb-0 mt-2">
+                @foreach($existingOpen as $existing)
+                    <li>
+                        <a href="{{ route('damage.show', $existing->id) }}">{{ $existing->report_no }}</a>
+                        — {{ $existing->shop->name ?? 'Unknown Shop' }}
+                        @if($existing->quantity) · {{ $existing->quantity }} pc(s) @endif
+                        · <span class="badge bg-secondary">{{ \App\Models\DamageReport::STATUSES[$existing->status] ?? $existing->status }}</span>
+                    </li>
+                @endforeach
+            </ul>
+            <small class="d-block mt-2">Kung pareho lang ng incident, mas maganda mag-comment na lang sa existing report imbes na mag-file ng bago.</small>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('damage.store') }}" enctype="multipart/form-data" id="damageForm">
         @csrf
         <div class="row">

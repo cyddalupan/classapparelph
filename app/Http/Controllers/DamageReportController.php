@@ -90,7 +90,16 @@ class DamageReportController extends Controller
         $managedShop = $this->managedShop();
         $presetSaleId = $request->integer('sale_id') ?: null;
 
-        return view('damage.create', compact('shops', 'managedShop', 'presetSaleId'));
+        // Existing open reports for the pre-tagged sale (duplicate warning)
+        $existingOpen = $presetSaleId
+            ? DamageReport::with(['shop', 'reporter'])
+                ->where('sale_id', $presetSaleId)
+                ->whereIn('status', DamageReport::OPEN_STATUSES)
+                ->orderByDesc('created_at')
+                ->get()
+            : collect();
+
+        return view('damage.create', compact('shops', 'managedShop', 'presetSaleId', 'existingOpen'));
     }
 
     public function store(Request $request)
@@ -104,6 +113,19 @@ class DamageReportController extends Controller
             'evidence' => 'nullable|image|max:5120',
             'quantity' => 'nullable|integer|min:1',
         ]);
+
+        // Duplicate guard: same shop + same sale with an open report -> point to existing
+        if ($request->sale_id) {
+            $dup = DamageReport::where('shop_id', $request->shop_id)
+                ->where('sale_id', $request->sale_id)
+                ->whereIn('status', DamageReport::OPEN_STATUSES)
+                ->orderByDesc('created_at')
+                ->first();
+            if ($dup) {
+                return redirect()->route('damage.show', $dup->id)
+                    ->with('error', 'May existing open report na para sa sale na ito: <b>' . e($dup->report_no) . '</b>. I-comment na lang doon imbes na mag-file ng bago.');
+            }
+        }
 
         $reportNo = 'DMG-' . now()->format('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
 
@@ -164,9 +186,11 @@ class DamageReportController extends Controller
             'description' => 'required|string|max:5000',
             'severity' => 'required|in:minor,major,critical',
             'category' => 'required|string|max:50',
-            'sale_id' => 'nullable|exists:prototype_sales,id',
+            'sale_id' => 'required|exists:prototype_sales,id',
             'evidence' => 'nullable|image|max:5120',
             'quantity' => 'nullable|integer|min:1',
+        ], [
+            'sale_id.required' => 'Kailangang i-tag ang sales number bago ma-send sa review — para ma-trace ang damage at maiwasan ang duplicate reports.',
         ]);
 
         $managedShop = $this->managedShop();
@@ -208,6 +232,12 @@ class DamageReportController extends Controller
     public function review(Request $request, DamageReport $report)
     {
         abort_unless($this->isReviewer(), 403);
+
+        // Anti-duplicate: dapat may tagged sale number muna bago i-issue
+        if (!$report->sale_id) {
+            return redirect()->route('damage.show', $report->id)
+                ->with('error', 'Hindi pa pwedeng i-review: kailangan munang i-tag ng shop manager ang sales number para ma-trace ang damage.');
+        }
 
         $request->validate([
             'user_ids' => 'required|array|min:1',

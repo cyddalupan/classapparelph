@@ -34,7 +34,14 @@
 
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show">
-            {{ session('success') }}
+            {!! session('success') !!}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show">
+            {!! session('error') !!}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
@@ -236,10 +243,11 @@
                         <form method="POST" action="{{ route('damage.update', $report->id) }}" enctype="multipart/form-data">
                             @csrf
                             <div class="mb-2">
-                                <label class="form-label small">Tag Sale (Sales Number)</label>
-                                <input type="text" class="form-control form-control-sm" id="sale_search" value="{{ $report->sale->sales_number ?? '' }}" placeholder="Search sales number...">
+                                <label class="form-label small">Tag Sale (Sales Number) <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="sale_search" value="{{ $report->sale->sales_number ?? '' }}" placeholder="Search sales number..." {{ $report->sale_id ? '' : 'required' }}>
                                 <input type="hidden" name="sale_id" id="sale_id" value="{{ $report->sale_id }}">
                                 <div id="sale_result" class="mt-1"></div>
+                                <small class="text-muted">Kinakailangan bago ma-review — para ma-trace ang damage at maiwasan ang duplicate reports.</small>
                             </div>
                             <div class="mb-2">
                                 <label class="form-label small">Severity</label>

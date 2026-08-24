@@ -65,6 +65,14 @@ class DamageReport extends Model
         'dismissed' => 'Dismissed',
     ];
 
+    // Open (still active) statuses — used for duplicate detection
+    public const OPEN_STATUSES = ['submitted', 'under_review', 'issued', 'acknowledged', 'contested'];
+
+    public function isOpen()
+    {
+        return in_array($this->status, self::OPEN_STATUSES);
+    }
+
     public function shop()
     {
         return $this->belongsTo(SalesDepartment::class, 'shop_id');
@@ -93,10 +101,5 @@ class DamageReport extends Model
     public function comments()
     {
         return $this->hasMany(DamageReportComment::class)->orderBy('created_at');
-    }
-
-    public function isOpen()
-    {
-        return !in_array($this->status, ['resolved', 'dismissed']);
     }
 }
