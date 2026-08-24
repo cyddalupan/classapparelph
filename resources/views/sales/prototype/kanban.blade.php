@@ -422,9 +422,11 @@
 <div class="container-fluid px-4">
     <!-- Archive Link (top-right) -->
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        @if(!(auth()->user() && auth()->user()->isProdManager()))
         <a href="{{ route('sales.prototype.archived') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-weight:600;">
             📦 Archive <span class="badge bg-secondary ms-1" id="archiveCountBadge">{{ $archivedCount ?? 0 }}</span>
         </a>
+        @endif
     </div>
 
     <!-- Department Tabs (AJAX) -->
@@ -589,7 +591,7 @@
                                     <span>👤 {{ $sale->sales_agent_name }}</span>
                                 @endif
                             </div>
-                            @if($statusKey === 'completed')
+                            @if($statusKey === 'completed' && !(auth()->user() && auth()->user()->isProdManager()))
                                 <div style="margin-top:6px;">
                                     <button type="button" class="btn btn-sm btn-outline-secondary archive-btn" style="width:100%;font-size:10px;padding:2px 6px;" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number ?: $sale->id }}" onclick="event.stopPropagation();archiveSale(this)" title="Archive this completed project">📦 Archive</button>
                                 </div>
@@ -939,6 +941,8 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
 
     // Manager/admin can override the photo-completeness lock on card moves
     window.kanbanCanOverride = {{ $canOverride ? 'true' : 'false' }};
+    // Sales agents cannot edit the production slip (checkboxes/comments)
+    var psCanEdit = @json(!(auth()->user() && auth()->user()->isSalesAgent()));
 
     function showKanbanToast(msg) {
         var existing = document.getElementById('kanbanToast');
@@ -2581,9 +2585,11 @@ function renderProductionSlip(data) {
         }
     }
     html += '</div>';
+    if (psCanEdit) {
     html += '<div class="ps-comment-input">';
     html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
     html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    }
 
     html += '</div>'; // end .pslip
 
@@ -2970,9 +2976,11 @@ function renderProductionSlipHtml(data, showProductLabel) {
         }
     }
     html += '</div>';
+    if (psCanEdit) {
     html += '<div class="ps-comment-input">';
     html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
     html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    }
     html += '</div>';
 
     return html;
@@ -3063,6 +3071,7 @@ function toggleQaCheck(saleId, type, checked) {
 }
 
 function addComment(saleId) {
+    if (!psCanEdit) return;
     var input = document.getElementById('ps-comment-input-' + saleId);
     if (!input || !input.value.trim()) return;
     var text = input.value.trim();

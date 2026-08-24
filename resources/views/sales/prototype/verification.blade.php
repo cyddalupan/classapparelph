@@ -453,7 +453,7 @@
                             <option value="">Select Account</option>
                             @foreach($accounts as $account)
                                 <option value="{{ $account->id }}" data-user="{{ $account->user_id }}">
-                                    {{ $account->name }} @if($account->user) ({{ $account->user->name }}) @endif
+                                    {{ $account->name }} @if($account->user) ({{ $account->user->display_label }}) @endif
                                 </option>
                             @endforeach
                         </select>

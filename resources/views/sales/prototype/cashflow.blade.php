@@ -449,7 +449,7 @@
                                             @elseif($log->action === 'requested_verify')
                                                 <span class="badge bg-primary">?</span>
                                             @endif
-                                            <strong>{{ $log->user?->name ?? 'System' }}</strong>
+                                            <strong>{{ $log->user?->display_label ?? 'System' }}</strong>
                                             {{ ucfirst(str_replace('_', ' ', $log->action)) }}
                                         </div>
                                         <div class="audit-time">{{ $log->created_at->diffForHumans() }}</div>

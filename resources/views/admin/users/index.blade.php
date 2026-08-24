@@ -76,6 +76,15 @@
                 <div class="stat-label">Procurement</div>
             </div>
         </div>
+        <div class="stat-card {{ $roleFilter === 'artist' ? 'active' : '' }}" onclick="filterRole('artist')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #ec4899;">
+                <i class="fas fa-paint-brush"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['artist'] }}</div>
+                <div class="stat-label">Artists</div>
+            </div>
+        </div>
     </div>
 
     @if(session('success'))
@@ -162,7 +171,10 @@
                                         'sales_representative' => 'badge-purple',
                                         'staff' => 'badge-success',
                                         'procurement' => 'badge-warning',
+                                        'artist' => 'badge-pink',
                                         'customer' => 'badge-secondary',
+                                        'coo' => 'badge-dark',
+                                        'cpo' => 'badge-dark',
                                     ];
                                     $roleLabels = [
                                         'admin' => 'Admin',
@@ -170,7 +182,10 @@
                                         'sales_representative' => 'Sales Rep',
                                         'staff' => 'Staff',
                                         'procurement' => 'Procurement',
+                                        'artist' => 'Artist',
                                         'customer' => 'Customer',
+                                        'coo' => 'COO',
+                                        'cpo' => 'CPO',
                                     ];
                                 @endphp
                                 <span class="badge {{ $roleStyles[$u->role] ?? 'badge-secondary' }}">

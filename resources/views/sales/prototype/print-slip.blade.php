@@ -154,10 +154,14 @@
        rules inside the media query — without this, all items squeeze onto
        one page and mockups get cut off. Each item = one full page. */
     @page { size: A4 landscape; margin: 12mm 15mm; }
-    .no-print { display: none !important; }
     .print-slip-item { position: static; width: 100%; max-width: 277mm; page-break-inside: avoid; }
     @media print {
         .no-print { display: none !important; }
+        /* Browser print (non-PDF): force ALL items visible — the product
+           selector only shows item 0 on screen, but printing must include
+           every item, each starting on its own page. */
+        .print-slip-item { display: block !important; }
+        .print-slip-item + .print-slip-item { page-break-before: always; }
     }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 20px; font-family: 'Courier New', monospace; }

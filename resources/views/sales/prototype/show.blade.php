@@ -47,6 +47,25 @@
     .ps-comment-input { display:flex; gap:4px; margin-top:4px; }
     .ps-comment-input input { flex:1; border:1px solid #dee2e6; border-radius:4px; padding:6px 8px; font-size:12px; }
     .ps-comment-input button { padding:6px 12px; font-size:12px; background:#0d6efd; color:white; border:none; border-radius:4px; cursor:pointer; }
+    .ps-count-row { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; align-items:center; }
+    .ps-count-label { font-size:11px; color:#666; font-weight:600; margin-right:2px; }
+    .ps-count-btn { padding:3px 8px; font-size:11px; font-weight:600; border:1px solid #ced4da; border-radius:4px; background:#fff; color:#495057; cursor:pointer; line-height:1.4; }
+    .ps-count-btn b { margin-left:3px; color:#0d6efd; font-size:12px; }
+    .ps-count-btn.active { background:#0d6efd; color:#fff; border-color:#0d6efd; }
+    .ps-count-btn.active b { color:#fff; }
+    .ps-count-clear { padding:3px 8px; font-size:11px; border:1px dashed #ced4da; border-radius:4px; background:#f8f9fa; color:#999; cursor:pointer; margin-left:auto; }
+    .ps-comment-entry { padding:6px 8px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:12px; border-left:3px solid #0d6efd; line-height:1.4; display:flex; align-items:center; gap:6px; }
+    .ps-comment-text { flex:1; }
+    .ps-comment-check { background:#198754; color:#fff; border:none; border-radius:4px; width:22px; height:22px; font-size:14px; font-weight:700; line-height:1; cursor:pointer; vertical-align:middle; flex-shrink:0; }
+    .ps-comment-check:hover { background:#157347; }
+    .ps-comment-del { margin-left:auto; background:none; border:1px solid #dc3545; color:#dc3545; border-radius:4px; width:22px; height:22px; font-size:13px; font-weight:700; line-height:1; cursor:pointer; vertical-align:middle; flex-shrink:0; }
+    .ps-comment-del:hover { background:#dc3545; color:#fff; }
+    .ps-comment-history { margin-top:8px; border-top:1px dashed #dee2e6; padding-top:6px; }
+    .ps-comment-history-title { font-size:10px; color:#999; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+    .ps-comment-deleted { padding:5px 8px; margin-bottom:4px; background:#fafafa; border-radius:4px; font-size:11px; color:#adb5bd; border-left:3px solid #dc3545; line-height:1.4; }
+    .ps-comment-deleted .time { font-size:10px; color:#bbb; }
+    .ps-comment-done { padding:5px 8px; margin-bottom:4px; background:#f0fdf4; border-radius:4px; font-size:11px; color:#166534; border-left:3px solid #198754; line-height:1.4; }
+    .ps-comment-done .time { font-size:10px; color:#6aa57e; }
 </style>
 @endpush
 
@@ -386,7 +405,6 @@
                     </div>
                 </div>
                 
-                @if($isManager)
                 <div class="mt-3">
                     <form id="commentForm" method="POST" action="{{ route('sales.prototype.add-comment', $sale->id) }}">
                         @csrf
@@ -398,11 +416,6 @@
                         </button>
                     </form>
                 </div>
-                @else
-                <div class="alert alert-info mt-3 mb-0 py-2">
-                    <small><i class="fas fa-info-circle"></i> Only managers can add comments here.</small>
-                </div>
-                @endif
             </div>
 
             <!-- Production Feedback -->
@@ -411,7 +424,7 @@
                     <h5 class="detail-title mb-0" style="border-bottom:none;padding-bottom:0;">
                         <i class="fas fa-clipboard-check me-2" style="color:#d97706;"></i>Production Feedback
                     </h5>
-                    @if($isManager)
+                    @if($canGiveFeedback ?? $isManager)
                     <button class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="openFeedbackModal()">
                         <i class="fas fa-plus"></i> Give Feedback
                     </button>
@@ -432,12 +445,20 @@
                                     {{ ucfirst($fb->status) }}
                                 </span>
                                 <span class="badge bg-secondary">{{ \App\Models\ProductionFeedback::CATEGORIES[$fb->category] ?? $fb->category }}</span>
-                                <strong class="ms-1">{{ $fb->fromUser->name ?? 'Manager' }}</strong>
-                                <span class="text-muted">→ {{ $fb->toUser->name ?? 'Agent' }}</span>
+                                <strong class="ms-1">{{ $fb->fromUser->display_label ?? 'Manager' }}</strong>
+                                <span class="text-muted">→ @if($fb->toUser){{ $fb->toUser->display_label }}@else<span class="badge badge-danger" title="This user was deleted by a manager/admin."><i class="fas fa-user-slash me-1"></i>Deleted user</span>@endif</span>
+                                @if($fb->involvedUser)
+                                <span class="text-muted" style="color:#d97706;">+ {{ $fb->involvedUser->display_label }}</span>
+                                @endif
                             </div>
                             <small class="text-muted">{{ $fb->created_at->diffForHumans() }}</small>
                         </div>
                         <div class="mt-1">{{ $fb->message }}</div>
+                        @if($fb->acknowledgement)
+                        <div class="mt-1 p-2 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:12px;color:#166534;">
+                            <i class="fas fa-comment-dots me-1"></i><strong>Acknowledgement:</strong> {{ $fb->acknowledgement }}
+                        </div>
+                        @endif
                         @if($fb->status === 'open' && !$isManager && $fb->to_user_id === auth()->id())
                         <div class="mt-1">
                             <button class="btn btn-sm btn-outline-primary" onclick="updateFeedbackStatus({{ $fb->id }}, 'acknowledged')">Acknowledge</button>
@@ -527,7 +548,7 @@
                             <span class="badge bg-warning text-dark">Awaiting Approval</span>
                             <small class="text-muted ms-2">{{ \Carbon\Carbon::parse($change->created_at)->diffForHumans() }}</small>
                         </div>
-                        <small class="text-muted">by {{ \App\Models\User::find($change->submitted_by)?->name ?? 'Unknown' }}</small>
+                        <small class="text-muted">by {{ \App\Models\User::find($change->submitted_by)?->display_label ?? 'Unknown' }}</small>
                     </div>
                     
                     <p class="mb-2">{{ $change->change_summary }}</p>
@@ -756,7 +777,8 @@
                                     };
                                     $payBadge = match($pay->payment_status) {
                                         'verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified' => ['bg-success', '✓ Verified'],
-                                        'rejected', 'reject_pending' => ['bg-danger', '✗ Rejected'],
+                                        'rejected' => ['bg-danger', '✗ Rejected'],
+                                        'reject_pending' => ['bg-warning text-dark', '⏳ Rejection Pending'],
                                         'edit_pending' => ['bg-info', 'Edit Pending'],
                                         default => ['bg-warning text-dark', '⏳ Pending Verification']
                                     };
@@ -779,7 +801,7 @@
                                 @endif
                                 @if($pay->verified_by)
                                     <div class="small text-success mt-1">
-                                        <i class="fas fa-user-check me-1"></i>{{ \App\Models\User::find($pay->verified_by)?->name ?? 'Unknown' }}
+                                        <i class="fas fa-user-check me-1"></i>{{ \App\Models\User::find($pay->verified_by)?->display_label ?? 'Unknown' }}
                                         @if($pay->verified_at) · {{ \Carbon\Carbon::parse($pay->verified_at)->format('M d, g:i A') }} @endif
                                     </div>
                                 @endif
@@ -862,7 +884,7 @@
             @if($sale->verified_by)
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-user-check me-2"></i>Verified By</h5>
-                <div class="info-value">{{ \App\Models\User::find($sale->verified_by)?->name ?? 'Unknown' }}</div>
+                <div class="info-value">{{ \App\Models\User::find($sale->verified_by)?->display_label ?? 'Unknown' }}</div>
                 @if($sale->verified_at)
                     <div class="text-muted small">{{ \Carbon\Carbon::parse($sale->verified_at)->format('M d, Y g:i A') }}</div>
                 @endif
@@ -1129,6 +1151,27 @@
     </div>
 </div>
 
+<!-- Confirm Delete Comment Modal -->
+<div id="confirmDeleteCommentModal" class="cm-overlay" onclick="if(event.target===this)cancelDeleteComment()">
+    <div class="cm-modal" style="max-width:420px;">
+        <div class="cm-header">
+            <h4><i class="fas fa-trash-alt text-danger me-2"></i>Delete Comment</h4>
+            <button onclick="cancelDeleteComment()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body">
+            <p class="cm-body-text">Are you sure you want to delete this comment?</p>
+            <div class="cm-info-box">
+                <i class="fas fa-info-circle text-warning me-2"></i>
+                The comment will be removed from the list and recorded in the <strong>Deleted history</strong> below with your name and time.
+            </div>
+        </div>
+        <div class="cm-footer">
+            <button onclick="cancelDeleteComment()" class="cm-cancel-btn">No</button>
+            <button onclick="doDeleteComment()" class="cm-confirm-btn cm-reject"><i class="fas fa-trash-alt me-1"></i>Yes, Delete</button>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -1164,13 +1207,18 @@
                 if (data.logs && data.logs.length > 0) {
                     data.logs.forEach(function(log) {
                         var date = new Date(log.created_at);
+                        var userLabel = log.user_name || 'System';
+                        if (log.user_name) {
+                            var firstWord = log.user_name.trim().split(' ')[0];
+                            userLabel = firstWord + (log.user_position ? ' - ' + log.user_position : '');
+                        }
                         html += '<div class="d-flex gap-3 mb-3 pb-2 border-bottom">';
                         html += '<div class="text-center" style="min-width: 60px;">';
                         html += '<div class="small fw-bold">' + ('0' + date.getDate()).slice(-2) + '/' + ('0' + (date.getMonth()+1)).slice(-2) + '</div>';
                         html += '<div class="small text-muted">' + ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2) + '</div>';
                         html += '</div>';
                         html += '<div class="flex-grow-1">';
-                        html += '<div><strong>' + (log.user_name || 'System') + '</strong> <span class="badge bg-secondary text-uppercase" style="font-size: 0.65rem;">' + log.action.replace(/_/g, ' ') + '</span></div>';
+                        html += '<div><strong>' + userLabel + '</strong> <span class="badge bg-secondary text-uppercase" style="font-size: 0.65rem;">' + log.action.replace(/_/g, ' ') + '</span></div>';
                         html += '<div class="text-muted small">' + log.description + '</div>';
                         html += '</div></div>';
                     });
@@ -1266,10 +1314,15 @@
                         commentLogs.forEach(function(log) {
                             var date = new Date(log.created_at);
                             var dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+                            var userLabel = log.user_name || 'Manager';
+                            if (log.user_name) {
+                                var firstWord = log.user_name.trim().split(' ')[0];
+                                userLabel = firstWord + (log.user_position ? ' - ' + log.user_position : '');
+                            }
                             html += '<div class="d-flex gap-3 mb-3 pb-2 border-start border-primary ps-3">';
                             html += '<div class="flex-grow-1">';
-                            html += '<div class="d-flex justify-content-between"><strong>' + (log.user_name || 'Manager') + '</strong> <small class="text-muted">' + dateStr + '</small></div>';
-                            html += '<div class="mt-1">' + log.description.replace('Manager added a comment: ', '') + '</div>';
+                            html += '<div class="d-flex justify-content-between"><strong>' + userLabel + '</strong> <small class="text-muted">' + dateStr + '</small></div>';
+                            html += '<div class="mt-1">' + escHtml(log.description.replace(/^.* added a comment: /, '')) + '</div>';
                             html += '</div></div>';
                         });
                     } else {
@@ -1566,9 +1619,19 @@
             <button onclick="closeFeedbackModal()" class="cm-close">&times;</button>
         </div>
         <div class="cm-body">
-            <p class="cm-body-text">Feedback para sa sales agent — para sa production delay na dulot ng kulang na impormasyon o files.</p>
+            <p class="cm-body-text">Feedback para sa sales agent o artist — para sa production delay na dulot ng kulang na impormasyon o files.</p>
             <form id="feedbackForm">
                 @csrf
+                <div class="mb-2">
+                    <label style="font-weight:600;font-size:13px;">Include (optional)</label>
+                    <select name="to_user_id" class="form-control">
+                        <option value="">None — sales agent lang</option>
+                        @foreach($artists ?? [] as $recipient)
+                        <option value="{{ $recipient->id }}">{{ $recipient->role === 'artist' ? 'Artist — ' . $recipient->name : $recipient->display_label }}</option>
+                        @endforeach
+                    </select>
+                    <small class="text-muted">Kung may napiling tao, makakatanggap din siya ng kopya ng feedback — makakakuha pa rin ang sales agent.</small>
+                </div>
                 <div class="mb-2">
                     <label style="font-weight:600;font-size:13px;">Category</label>
                     <select name="category" class="form-control" required>
@@ -2266,6 +2329,22 @@ function doDeleteMockup(btn) {
 <script>
 // ===== Production Slip Modal (ported from kanban) =====
 var psSaleId = {{ $sale->id }};
+var psCanEdit = {{ $canEditProdSlip ? 'true' : 'false' }};
+var psCurrentUserName = @json(auth()->user()->name ?? '');
+
+function psItemChk(saleId, itemIdx, done) {
+    if (!psCanEdit) {
+        return '<input type="checkbox" class="chk" disabled ' + (done ? 'checked' : '') + '>';
+    }
+    return '<input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)">';
+}
+function psChk(saleId, itemIdx, field, checked) {
+    if (!psCanEdit) {
+        return '<input type="checkbox" disabled ' + (checked ? 'checked' : '') + '>';
+    }
+    return '<input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'' + field + '\', this.checked)" ' + (checked ? 'checked' : '') + '>';
+}
+
 
 function openProdSlipModal() {
     var modalEl = document.getElementById('prodSlipModal');
@@ -2440,7 +2519,7 @@ function renderProductionSlip(data) {
         var itemIdx = findItemIdx('part', row.part);
         var done = itemIdx >= 0 && items[itemIdx].status === 'done';
         html += '<tr' + (done ? ' class="done"' : '') + '>';
-        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+        html += '<td>' + psItemChk(saleId, itemIdx, done) + ' ' + escHtml(row.part) + '</td>';
         html += '<td>' + escHtml(row.detail) + '</td></tr>';
     });
     html += '</table>';
@@ -2451,7 +2530,7 @@ function renderProductionSlip(data) {
         var itemIdx = findItemIdx('part', row.part);
         var done = itemIdx >= 0 && items[itemIdx].status === 'done';
         html += '<tr' + (done ? ' class="done"' : '') + '>';
-        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+        html += '<td>' + psItemChk(saleId, itemIdx, done) + ' ' + escHtml(row.part) + '</td>';
         html += '<td>' + escHtml(row.detail) + '</td></tr>';
     });
     html += '</table>';
@@ -2536,9 +2615,9 @@ function renderProductionSlip(data) {
                 html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
                 html += '<td>' + (rosterItem.qty || 1) + '</td>';
             }
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
             html += '</tr>';
         });
         html += '</tbody></table>';
@@ -2552,9 +2631,9 @@ function renderProductionSlip(data) {
             html += '<tr' + (done ? ' class="done"' : '') + '>';
             html += '<td>' + escHtml(s.size || '') + '</td>';
             html += '<td>' + (s.quantity || 0) + '</td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
             html += '</tr>';
         });
         html += '</tbody></table>';
@@ -2572,21 +2651,7 @@ function renderProductionSlip(data) {
     html += '<div class="divider"></div>';
 
     // === COMMENTS (append-only) ===
-    html += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
-    html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
-    var comments = (chk.ga_notes || '').trim();
-    if (comments) {
-        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
-        if (Array.isArray(comments)) {
-            comments.forEach(function(c) {
-                html += '<div class="ps-comment-entry">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></div>';
-            });
-        }
-    }
-    html += '</div>';
-    html += '<div class="ps-comment-input">';
-    html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
-    html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    html += psCommentsHtml(saleId, chk);
 
     html += '</div>'; // end .pslip
 
@@ -2616,6 +2681,8 @@ function loadAdditionalProductionSlip(saleId) {
 
 function renderAdditionalProductionSlip(saleId, data) {
     var html = '';
+    var additionalCommentsMap = {};
+    try { additionalCommentsMap = JSON.parse(data.additional_comments || '{}'); } catch(e) { additionalCommentsMap = {}; }
     
     // Header banner
     html += '<div style="margin-bottom:16px;padding:12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;">'
@@ -2746,9 +2813,9 @@ function renderAdditionalProductionSlip(saleId, data) {
                         html += '<td>' + escHtml(r.size || '') + '</td>';
                         html += '<td style="text-align:center;">' + (r.qty || 1) + '</td>';
                     }
-                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'ga_done\', this.checked)"></td>';
-                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'qa1_done\', this.checked)"></td>';
-                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + ri + ', \'qa2_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, ri, 'ga_done', false) + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, ri, 'qa1_done', false) + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, ri, 'qa2_done', false) + '</td>';
                     html += '</tr>';
                 });
                 html += '</tbody></table>';
@@ -2760,9 +2827,9 @@ function renderAdditionalProductionSlip(saleId, data) {
                     html += '<tr>';
                     html += '<td>' + escHtml(s.size || '') + '</td>';
                     html += '<td style="text-align:center;">' + (s.qty || s.quantity || 0) + '</td>';
-                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'ga_done\', this.checked)"></td>';
-                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'qa1_done\', this.checked)"></td>';
-                    html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + si + ', \'qa2_done\', this.checked)"></td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, si, 'ga_done', false) + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, si, 'qa1_done', false) + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, si, 'qa2_done', false) + '</td>';
                     html += '</tr>';
                 });
                 html += '</tbody></table>';
@@ -2770,6 +2837,8 @@ function renderAdditionalProductionSlip(saleId, data) {
                 html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
             }
             html += '</td></tr></table>';
+            html += '<div class="divider"></div>';
+            html += psProjectCommentsHtml(saleId, prod.item_id, additionalCommentsMap);
             html += '</div>'; // end .pslip
         });
     } else {
@@ -2931,9 +3000,9 @@ function renderProductionSlipHtml(data, showProductLabel) {
                 html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
                 html += '<td>' + (rosterItem.qty || 1) + '</td>';
             }
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
             html += '</tr>';
         });
         html += '</tbody></table>';
@@ -2945,9 +3014,9 @@ function renderProductionSlipHtml(data, showProductLabel) {
             html += '<tr' + (done ? ' class="done"' : '') + '>';
             html += '<td>' + escHtml(s.size || '') + '</td>';
             html += '<td>' + (s.quantity || 0) + '</td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
             html += '</tr>';
         });
         html += '</tbody></table>';
@@ -2961,21 +3030,7 @@ function renderProductionSlipHtml(data, showProductLabel) {
     }
 
     html += '<div class="divider"></div>';
-    html += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
-    html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
-    var comments = (chk.ga_notes || '').trim();
-    if (comments) {
-        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
-        if (Array.isArray(comments)) {
-            comments.forEach(function(c) {
-                html += '<div class="ps-comment-entry">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></div>';
-            });
-        }
-    }
-    html += '</div>';
-    html += '<div class="ps-comment-input">';
-    html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
-    html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    html += psCommentsHtml(saleId, chk);
     html += '</div>';
 
     return html;
@@ -3063,12 +3118,328 @@ function toggleQaCheck(saleId, type, checked) {
     });
 }
 
+// Counter buttons for production slip comments (FRT/BCK/LS/RS)
+window.psCounts = window.psCounts || {};
+function bumpCount(saleId, code) {
+    if (!window.psCounts[saleId]) window.psCounts[saleId] = {FRT:0, BCK:0, LS:0, RS:0};
+    window.psCounts[saleId][code] = (window.psCounts[saleId][code] || 0) + 1;
+    var el = document.getElementById('ps-cnt-' + code + '-' + saleId);
+    if (el) {
+        el.textContent = window.psCounts[saleId][code];
+        el.closest('.ps-count-btn').classList.toggle('active', window.psCounts[saleId][code] > 0);
+    }
+}
+function resetCounts(saleId) {
+    if (window.psCounts[saleId]) {
+        ['FRT','BCK','LS','RS'].forEach(function(code) {
+            window.psCounts[saleId][code] = 0;
+            var el = document.getElementById('ps-cnt-' + code + '-' + saleId);
+            if (el) {
+                el.textContent = '0';
+                el.closest('.ps-count-btn').classList.remove('active');
+            }
+        });
+    }
+}
+
+// Render the full comments section (list + done/deleted history + input) for a production slip
+function psCommentsHtml(saleId, chk) {
+    var h = '';
+    var comments = (chk.ga_notes || '').trim();
+    var active = [];
+    var done = [];
+    var deleted = [];
+    if (comments) {
+        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
+        if (Array.isArray(comments)) {
+            comments.forEach(function(c, idx) {
+                if (c && c.deleted) deleted.push({c: c, idx: idx});
+                else if (c && c.done) done.push({c: c, idx: idx});
+                else active.push({c: c, idx: idx});
+            });
+        }
+    }
+    h += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
+    h += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
+    active.forEach(function(o) {
+        var c = o.c;
+        h += '<div class="ps-comment-entry">';
+        if (psCanEdit) {
+            h += '<button type="button" class="ps-comment-check" onclick="markCommentDone(' + saleId + ',' + o.idx + ')" title="Mark backjob as done (QA)">✓</button>';
+        }
+        h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
+        if (psCanEdit) {
+            h += '<button type="button" class="ps-comment-del" onclick="askDeleteComment(' + saleId + ',' + o.idx + ')" title="Delete comment">✕</button>';
+        }
+        h += '</div>';
+    });
+    h += '</div>';
+    if (done.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
+        done.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (deleted.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">🗑 Deleted history</div>';
+        deleted.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-deleted">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— deleted by ' + escHtml(c.deleted_by || '?') + ' at ' + escHtml(c.deleted_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (psCanEdit) {
+        h += '<div class="ps-comment-input">';
+        h += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Comment note (e.g. ANDREA)..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
+        h += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+        h += '<div class="ps-count-row">';
+        h += '<span class="ps-count-label">Parts:</span>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(' + saleId + ',\'FRT\')" title="Click to count Front">FRT <b id="ps-cnt-FRT-' + saleId + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(' + saleId + ',\'BCK\')" title="Click to count Back">BCK <b id="ps-cnt-BCK-' + saleId + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(' + saleId + ',\'LS\')" title="Click to count Left Sleeve">LS <b id="ps-cnt-LS-' + saleId + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(' + saleId + ',\'RS\')" title="Click to count Right Sleeve">RS <b id="ps-cnt-RS-' + saleId + '">0</b></button>';
+        h += '<button type="button" class="ps-count-clear" onclick="resetCounts(' + saleId + ')" title="Reset counts">↺</button>';
+        h += '</div>';
+    }
+    return h;
+}
+
+// Render comments section for a specific additional project card
+function psProjectCommentsHtml(saleId, itemId, map) {
+    var h = '';
+    var key = saleId + '_' + itemId;
+    var comments = (map && map[String(itemId)]) || [];
+    if (!Array.isArray(comments)) comments = [];
+    var active = [];
+    var done = [];
+    var deleted = [];
+    comments.forEach(function(c, idx) {
+        if (c && c.deleted) deleted.push({c: c, idx: idx});
+        else if (c && c.done) done.push({c: c, idx: idx});
+        else active.push({c: c, idx: idx});
+    });
+    var idArg = "'" + String(itemId).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+    h += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
+    h += '<div id="ps-proj-comments-' + key + '" class="ps-comment-list">';
+    active.forEach(function(o) {
+        var c = o.c;
+        h += '<div class="ps-comment-entry">';
+        if (psCanEdit) {
+            h += '<button type="button" class="ps-comment-check" onclick="markProjectCommentDone(' + saleId + ',' + idArg + ',' + o.idx + ')" title="Mark backjob as done (QA)">✓</button>';
+        }
+        h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
+        if (psCanEdit) {
+            h += '<button type="button" class="ps-comment-del" onclick="askDeleteComment(' + saleId + ',' + o.idx + ',' + idArg + ')" title="Delete comment">✕</button>';
+        }
+        h += '</div>';
+    });
+    h += '</div>';
+    if (done.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
+        done.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (deleted.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">🗑 Deleted history</div>';
+        deleted.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-deleted">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— deleted by ' + escHtml(c.deleted_by || '?') + ' at ' + escHtml(c.deleted_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (psCanEdit) {
+        h += '<div class="ps-comment-input">';
+        h += '<input type="text" id="ps-proj-input-' + key + '" placeholder="Comment note (e.g. ANDREA)..." onkeydown="if(event.key===\'Enter\')addProjectComment(' + saleId + ',' + idArg + ')">';
+        h += '<button onclick="addProjectComment(' + saleId + ',' + idArg + ')">Send</button></div>';
+        h += '<div class="ps-count-row">';
+        h += '<span class="ps-count-label">Parts:</span>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'FRT\')" title="Click to count Front">FRT <b id="ps-cnt-FRT-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'BCK\')" title="Click to count Back">BCK <b id="ps-cnt-BCK-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'LS\')" title="Click to count Left Sleeve">LS <b id="ps-cnt-LS-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'RS\')" title="Click to count Right Sleeve">RS <b id="ps-cnt-RS-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-clear" onclick="resetCounts(\'' + key + '\')" title="Reset counts">↺</button>';
+        h += '</div>';
+    }
+    return h;
+}
+
+// Delete comment: ask confirmation, then mark as deleted with who/when
+var psDeletePending = null;
+function askDeleteComment(saleId, idx, itemId) {
+    psDeletePending = {saleId: saleId, idx: idx, itemId: itemId || null};
+    var modal = document.getElementById('confirmDeleteCommentModal');
+    if (modal) modal.style.display = 'flex';
+}
+function cancelDeleteComment() {
+    psDeletePending = null;
+    var modal = document.getElementById('confirmDeleteCommentModal');
+    if (modal) modal.style.display = 'none';
+}
+function doDeleteComment() {
+    if (!psDeletePending) return;
+    var saleId = psDeletePending.saleId;
+    var idx = psDeletePending.idx;
+    var itemId = psDeletePending.itemId;
+    psDeletePending = null;
+    var modal = document.getElementById('confirmDeleteCommentModal');
+    if (modal) modal.style.display = 'none';
+
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (itemId) {
+            // Per-project comment (additional production slip)
+            var map = {};
+            try { map = JSON.parse(data.checklist.additional_comments || '{}'); } catch(e) { map = {}; }
+            var comments = map[String(itemId)] || [];
+            if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+            var now = new Date();
+            var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+            comments[idx].deleted = true;
+            comments[idx].deleted_by = window.psCurrentUserName || 'Unknown';
+            comments[idx].deleted_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+            map[String(itemId)] = comments;
+            return fetch('/api/production/checklist/' + saleId + '/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+                },
+                body: JSON.stringify({additional_comments: JSON.stringify(map)})
+            });
+        }
+        var comments = [];
+        try { comments = JSON.parse(data.checklist.ga_notes || '[]'); } catch(e) {}
+        if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        comments[idx].deleted = true;
+        comments[idx].deleted_by = window.psCurrentUserName || 'Unknown';
+        comments[idx].deleted_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({ga_notes: JSON.stringify(comments)})
+        });
+    })
+    .then(function(r) { return r ? r.json() : null; })
+    .then(function(data) {
+        if (data && data.success) {
+            refreshPsComments(saleId);
+        } else if (data) {
+            showToast('Failed to delete comment.', 'danger');
+        }
+    })
+    .catch(function(err) { console.error('Failed to delete comment', err); });
+}
+function refreshPsComments(saleId) {
+    // Re-render whichever slip body is currently showing this sale
+    var prodBody = document.getElementById('modalProdSlipBody');
+    var addBody = document.getElementById('modalAddProdSlipBody');
+    if (prodBody && prodBody.dataset.saleId == saleId && prodBody.style.display !== 'none') {
+        loadProductionSlip(saleId);
+    } else if (addBody && addBody.dataset.saleId == saleId && addBody.style.display !== 'none') {
+        loadAdditionalProductionSlip(saleId);
+    } else {
+        loadProductionSlip(saleId);
+        loadAdditionalProductionSlip(saleId);
+    }
+}
+
+// QA: mark a comment's backjob as done (moves to Done history with who/when)
+function markCommentDone(saleId, idx) {
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var comments = [];
+        try { comments = JSON.parse(data.checklist.ga_notes || '[]'); } catch(e) {}
+        if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        comments[idx].done = true;
+        comments[idx].done_by = window.psCurrentUserName || 'Unknown';
+        comments[idx].done_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({ga_notes: JSON.stringify(comments)})
+        });
+    })
+    .then(function(r) { return r ? r.json() : null; })
+    .then(function(data) {
+        if (data && data.success) {
+            refreshPsComments(saleId);
+        } else if (data) {
+            showToast('Failed to update comment.', 'danger');
+        }
+    })
+    .catch(function(err) { console.error('Failed to mark comment done', err); });
+}
+
+// QA: mark a project comment's backjob as done (Additional tab per-project)
+function markProjectCommentDone(saleId, itemId, idx) {
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var map = {};
+        try { map = JSON.parse(data.checklist.additional_comments || '{}'); } catch(e) { map = {}; }
+        var comments = map[String(itemId)] || [];
+        if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        comments[idx].done = true;
+        comments[idx].done_by = window.psCurrentUserName || 'Unknown';
+        comments[idx].done_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        map[String(itemId)] = comments;
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({additional_comments: JSON.stringify(map)})
+        });
+    })
+    .then(function(r) { return r ? r.json() : null; })
+    .then(function(data) {
+        if (data && data.success) {
+            refreshPsComments(saleId);
+        } else if (data) {
+            showToast('Failed to update comment.', 'danger');
+        }
+    })
+    .catch(function(err) { console.error('Failed to mark project comment done', err); });
+}
+
 function addComment(saleId) {
     var input = document.getElementById('ps-comment-input-' + saleId);
-    if (!input || !input.value.trim()) return;
-    var text = input.value.trim();
+    if (!input) return;
+    var note = input.value.trim();
+    var counts = (window.psCounts && window.psCounts[saleId]) || {};
+    var labels = {FRT:'FRONT', BCK:'BACK', LS:'LEFTSLEEVE', RS:'RIGHTSLEEVE'};
+    var parts = [];
+    ['FRT','BCK','LS','RS'].forEach(function(code) {
+        if (counts[code] > 0) parts.push(counts[code] + ' ' + labels[code]);
+    });
+    var text;
+    if (note && parts.length) text = note + ' - ' + parts.join(', ');
+    else if (note) text = note;
+    else if (parts.length) text = parts.join(', ');
+    else return; // nothing to send
     input.value = '';
     input.disabled = true;
+    resetCounts(saleId);
 
     // Get current checklist to append to existing comments
     fetch('/api/production/checklist/' + saleId)
@@ -3117,6 +3488,76 @@ function addComment(saleId) {
     });
 }
 
+// Add a comment to a specific additional project card (Additional tab)
+function addProjectComment(saleId, itemId) {
+    var key = saleId + '_' + itemId;
+    var input = document.getElementById('ps-proj-input-' + key);
+    if (!input) return;
+    var note = input.value.trim();
+    var counts = (window.psCounts && window.psCounts[key]) || {};
+    var labels = {FRT:'FRONT', BCK:'BACK', LS:'LEFTSLEEVE', RS:'RIGHTSLEEVE'};
+    var parts = [];
+    ['FRT','BCK','LS','RS'].forEach(function(code) {
+        if (counts[code] > 0) parts.push(counts[code] + ' ' + labels[code]);
+    });
+    var text;
+    if (note && parts.length) text = note + ' - ' + parts.join(', ');
+    else if (note) text = note;
+    else if (parts.length) text = parts.join(', ');
+    else return; // nothing to send
+    input.value = '';
+    input.disabled = true;
+    resetCounts(key);
+
+    // Get current checklist to append to this project's comments
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var map = {};
+        try { map = JSON.parse(data.checklist.additional_comments || '{}'); } catch(e) { map = {}; }
+        var existing = map[String(itemId)] || [];
+        if (!Array.isArray(existing)) existing = [];
+
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        existing.push({text: text, at: ts});
+        map[String(itemId)] = existing;
+
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({additional_comments: JSON.stringify(map)})
+        });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // Add comment to the list without reloading
+            var list = document.getElementById('ps-proj-comments-' + key);
+            if (list) {
+                var entry = document.createElement('div');
+                entry.className = 'ps-comment-entry';
+                var now = new Date();
+                var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+                var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+                entry.innerHTML = escHtml(text) + ' <span class="time">' + ts + '</span>';
+                list.appendChild(entry);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to add project comment', err);
+    })
+    .finally(function() {
+        if (input) input.disabled = false;
+    });
+}
+
 
 function escHtml(str) {
     if (!str) return '';
@@ -3133,6 +3574,7 @@ function submitFeedback() {
     var form = document.getElementById('feedbackForm');
     var cat = form.querySelector('[name=category]').value;
     var msg = form.querySelector('[name=message]').value.trim();
+    var toUser = form.querySelector('[name=to_user_id]') ? form.querySelector('[name=to_user_id]').value : '';
     if (!msg) { alert('Please enter a message.'); return; }
     var btn = event.target;
     btn.disabled = true;
@@ -3143,7 +3585,7 @@ function submitFeedback() {
             'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
             'Accept': 'application/json'
         },
-        body: JSON.stringify({category: cat, message: msg})
+        body: JSON.stringify({category: cat, message: msg, to_user_id: toUser})
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -3158,6 +3600,13 @@ function submitFeedback() {
     .catch(function() { alert('Request failed.'); btn.disabled = false; });
 }
 function updateFeedbackStatus(feedbackId, status) {
+    var ack = '';
+    if (status === 'resolved') {
+        ack = prompt('Mag-iwan ng acknowledgement note bago i-resolve ang feedback:');
+        if (ack === null) return; // cancelled
+        ack = ack.trim();
+        if (!ack) { alert('Kailangan ng acknowledgement note para i-resolve.'); return; }
+    }
     fetch('{{ route('sales.prototype.production-feedback.status', 'FEEDBACK_ID') }}'.replace('FEEDBACK_ID', feedbackId), {
         method: 'POST',
         headers: {
@@ -3165,7 +3614,7 @@ function updateFeedbackStatus(feedbackId, status) {
             'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
             'Accept': 'application/json'
         },
-        body: JSON.stringify({status: status})
+        body: JSON.stringify({status: status, acknowledgement: ack})
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {

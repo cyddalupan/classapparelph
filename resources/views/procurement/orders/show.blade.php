@@ -14,7 +14,7 @@
                     @if($order->supplier)
                         &middot; <i class="fas fa-store me-1"></i>{{ $order->supplier->name }}
                     @endif
-                    &middot; {{ $order->creator?->name ?? 'Unknown' }}
+                    &middot; {{ $order->creator?->display_label ?? 'Unknown' }}
                 </p>
             </div>
             <div class="d-flex gap-2 align-items-center">
@@ -42,7 +42,7 @@
         <div class="alert alert-success d-flex align-items-center gap-2 py-2 mb-2">
             <i class="fas fa-check-circle fa-lg"></i>
             <div>
-                <strong>✅ Verified</strong> by <strong>{{ $order->verifier?->name ?? 'Manager' }}</strong>
+                <strong>✅ Verified</strong> by <strong>{{ $order->verifier?->display_label ?? 'Manager' }}</strong>
                 ({{ $order->verified_at->format('M d, Y h:i A') }})
                 <br><small>Verification done — procurement can now mark as Completed to update inventory.</small>
             </div>
@@ -458,7 +458,7 @@
                                 <strong>{{ $n->title }}</strong>
                                 @if($n->message)<p class="mb-0 small text-muted">{{ $n->message }}</p>@endif
                                 <small class="text-muted">
-                                    From {{ $n->fromUser?->name }} → {{ $n->toUser?->name }}
+                                    From {{ $n->fromUser?->display_label }} → {{ $n->toUser?->display_label }}
                                     &middot; {{ $n->created_at->diffForHumans() }}
                                 </small>
                             </div>
@@ -493,7 +493,7 @@
                         <div class="list-group-item py-3 border-bottom">
                             <div class="d-flex justify-content-between align-items-start mb-1">
                                 <div class="d-flex align-items-center gap-1">
-                                    <strong class="small">{{ $remark->user?->name ?? 'Unknown' }}</strong>
+                                    <strong class="small">{{ $remark->user?->display_label ?? 'Unknown' }}</strong>
                                     <span class="badge bg-{{ $remark->type === 'issue' ? 'danger' : ($remark->type === 'shortage' ? 'warning' : ($remark->type === 'damage' ? 'dark' : 'secondary')) }} rounded-pill" style="font-size:9px;">
                                         {{ ucfirst($remark->type) }}
                                     </span>
@@ -528,8 +528,8 @@
                     <div class="mb-1"><strong>Total Items:</strong> {{ $order->items->sum('quantity_ordered') }}</div>
                     @if($order->submitted_at)<div class="mb-1"><strong>Submitted:</strong> {{ $order->submitted_at->format('M d, Y h:i A') }}</div>@endif
                     @if($order->ordered_at)<div class="mb-1"><strong>Ordered:</strong> {{ $order->ordered_at->format('M d, Y h:i A') }}</div>@endif
-                    @if($order->received_at)<div class="mb-1"><strong>Delivery Received:</strong> {{ $order->received_at->format('M d, Y h:i A') }} <span class="text-muted">({{ $order->receiver?->name ?? '' }})</span></div>@endif
-                    @if($order->verified_at)<div class="mb-1"><strong>Verified by Manager:</strong> {{ $order->verified_at->format('M d, Y h:i A') }} <span class="text-muted">({{ $order->verifier?->name ?? '' }})</span></div>@endif
+                    @if($order->received_at)<div class="mb-1"><strong>Delivery Received:</strong> {{ $order->received_at->format('M d, Y h:i A') }} <span class="text-muted">({{ $order->receiver?->display_label ?? '' }})</span></div>@endif
+                    @if($order->verified_at)<div class="mb-1"><strong>Verified by Manager:</strong> {{ $order->verified_at->format('M d, Y h:i A') }} <span class="text-muted">({{ $order->verifier?->display_label ?? '' }})</span></div>@endif
                     @if($order->notes)
                     <hr class="my-2">
                     <div><strong>Notes:</strong><br>{{ $order->notes }}</div>

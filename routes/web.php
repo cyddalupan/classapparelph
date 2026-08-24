@@ -445,9 +445,7 @@ Route::get('/printing-calculator', function() {
         return response()->json($logs);
     })->name('api.inventory.activity');
     
-    Route::get('/production', function () {
-        return view('production.tracking');
-    })->name('production.tracking');
+    Route::get('/production', [App\Http\Controllers\PrototypeSalesController::class, 'productionDashboard'])->name('production.tracking');
     
     Route::get('/reports', function () {
         return view('reports.index');
@@ -829,6 +827,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/sales/prototype/calendar', [App\Http\Controllers\PrototypeSalesController::class, 'calendar'])->name('sales.prototype.calendar');
         Route::post('/sales/prototype/calendar-data', [App\Http\Controllers\PrototypeSalesController::class, 'calendarData'])->name('sales.prototype.calendar-data');
         Route::post('/sales/prototype/{id}/reschedule', [App\Http\Controllers\PrototypeSalesController::class, 'reschedule'])->name('sales.prototype.reschedule');
+        Route::post('/sales/prototype/{id}/request-time', [App\Http\Controllers\PrototypeSalesController::class, 'requestTime'])->name('sales.prototype.request-time');
+        Route::post('/sales/prototype/request-time-all', [App\Http\Controllers\PrototypeSalesController::class, 'requestTimeAll'])->name('sales.prototype.request-time-all');
 
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
@@ -838,6 +838,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
 
         // DELAY LIST route — all delayed sales in one page (with or without feedback)
         Route::get('/sales/prototype/delays', [App\Http\Controllers\PrototypeSalesController::class, 'delayList'])->name('sales.prototype.delays');
+
+        // BACKJOB LIST route — all pending backjob comments from production slips
+        Route::get('/sales/prototype/backjobs', [App\Http\Controllers\PrototypeSalesController::class, 'backjobList'])->name('sales.prototype.backjobs');
 
         // ARCHIVE routes
         Route::get('/sales/prototype/archived', [App\Http\Controllers\PrototypeSalesController::class, 'archived'])->name('sales.prototype.archived');
@@ -864,6 +867,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // ======== Agent Routes (Sales Team Dashboard & Simplified Sales) ========
         Route::get('/sales/team', [App\Http\Controllers\PrototypeSalesController::class, 'agentDashboard'])->middleware('auth')->name('sales.team.dashboard');
         Route::post('/sales/team/{id}/delay', [App\Http\Controllers\PrototypeSalesController::class, 'markDelayed'])->middleware('auth')->name('sales.team.delay');
+        Route::post('/sales/team/{id}/submit-time', [App\Http\Controllers\PrototypeSalesController::class, 'submitTime'])->middleware('auth')->name('sales.team.submit-time');
         Route::get('/sales/prototype/agent/create', [App\Http\Controllers\PrototypeSalesController::class, 'agentCreate'])->name('sales.prototype.agent.create');
         Route::post('/sales/prototype/agent', [App\Http\Controllers\PrototypeSalesController::class, 'agentStore'])->name('sales.prototype.agent.store');
         Route::get('/sales/prototype/{id}/agent/payment', [App\Http\Controllers\PrototypeSalesController::class, 'agentAddPayment'])->name('sales.prototype.agent.payment');

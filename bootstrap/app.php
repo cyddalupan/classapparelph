@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'staff' => \App\Http\Middleware\StaffMiddleware::class,
+            'coo.access' => \App\Http\Middleware\CheckCooAccess::class,
+            'cpo.access' => \App\Http\Middleware\CheckCpoAccess::class,
+            'cmo.access' => \App\Http\Middleware\CheckCmoAccess::class,
+            'prodmanager.access' => \App\Http\Middleware\CheckProdManagerClassAccess::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             '/api/production/*',

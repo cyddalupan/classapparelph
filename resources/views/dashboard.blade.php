@@ -7,7 +7,7 @@
                 <i class="fas fa-tachometer-alt"></i>
                 Dashboard
             </h1>
-            <p class="page-subtitle">Welcome back, {{ Auth::user()->name }}! Here's what's happening with your business.</p>
+            <p class="page-subtitle">Welcome back, {{ Auth::user()->first_name }}! Here's what's happening with your business.</p>
         </div>
     </x-slot>
 

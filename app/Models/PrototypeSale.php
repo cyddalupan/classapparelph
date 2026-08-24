@@ -53,6 +53,9 @@ class PrototypeSale extends Model
         'delayed_at',
         'delay_feedback',
         'delay_feedback_updated_at',
+        'time_requested_at',
+        'time_requested_by',
+        'needed_by',
         'archived_at',
         'customer_notes',
         'internal_notes',
@@ -76,6 +79,7 @@ class PrototypeSale extends Model
         'actual_completion_date' => 'date',
         'is_delayed' => 'boolean',
         'delayed_at' => 'datetime',
+        'needed_by' => 'datetime',
         'delay_feedback_updated_at' => 'datetime',
         'archived_at' => 'datetime',
     ];
@@ -111,19 +115,21 @@ class PrototypeSale extends Model
     }
 
     /**
-     * Total paid from payments table (excluding rejected), fallback to legacy deposit_paid column.
+     * Total paid from payments table (excluding rejected/reject_pending),
+     * fallback to legacy deposit_paid column ONLY when there are no payment records.
      */
     public function getTotalPaidAttribute()
     {
-        if ($this->relationLoaded('payments')) {
-            $paid = $this->payments->whereNotIn('payment_status', ['rejected', 'reject_pending'])->sum('amount');
-        } else {
-            $paid = $this->payments()->whereNotIn('payment_status', ['rejected', 'reject_pending'])->sum('amount');
+        $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
+
+        // If the sale has payment records at all, use only verified/paid statuses.
+        // Rejected or reject_pending payments do NOT count as paid.
+        if ($payments->isNotEmpty()) {
+            return (float) $payments->whereNotIn('payment_status', ['rejected', 'reject_pending', 'edit_pending'])->sum('amount');
         }
-        if ($paid <= 0) {
-            return (float) ($this->deposit_paid ?? 0);
-        }
-        return (float) $paid;
+
+        // Legacy fallback: no payment records — use the deposit_paid column as-is.
+        return (float) ($this->deposit_paid ?? 0);
     }
 
     /**

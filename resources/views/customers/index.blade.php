@@ -146,7 +146,7 @@
                                 </span>
                             </td>
                             <td><small>{{ $customer->last_order_date ? $customer->last_order_date->format('M d, Y') : 'N/A' }}</small></td>
-                            <td><small>{{ $customer->creator ? $customer->creator->name : '—' }}</small></td>
+                            <td><small>{{ $customer->creator ? $customer->creator->display_label : '—' }}</small></td>
                             <td>
                                 <div class="btn-group btn-group-sm">
                                     <a href="{{ route('customers.show', $customer->id) }}" class="btn btn-outline-primary" title="View Details">

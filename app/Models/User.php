@@ -34,6 +34,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'commission_rate',
         'hire_date',
         'supervisor',
+        'avatar',
+        'position',
     ];
 
     /**
@@ -113,11 +115,91 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Check if user has artist role
+     */
+    public function isArtist(): bool
+    {
+        return $this->role === 'artist';
+    }
+
+    /**
+     * Check if user has COO role
+     */
+    public function isCoo(): bool
+    {
+        return $this->role === 'coo';
+    }
+
+    /**
+     * Check if user has CPO role
+     */
+    public function isCpo(): bool
+    {
+        return $this->role === 'cpo';
+    }
+
+    public function isCmo(): bool
+    {
+        return $this->role === 'cmo';
+    }
+
+    public function isProdManager(): bool
+    {
+        return $this->role === 'prod_manager';
+    }
+
+    /**
+     * Manager-level access: admins, 'manager' role, and production managers.
+     * Used by add-on approval, change/reprocess approval, refunds, etc.
+     */
+    public function isManager(): bool
+    {
+        return in_array($this->role, ['admin', 'manager', 'prod_manager']);
+    }
+
+    /**
+     * Get the user's avatar URL (or null when none uploaded).
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        return $this->avatar ? asset('storage/' . $this->avatar) : null;
+    }
+
+    /**
+     * Get the user's first name (first word of the full name).
+     */
+    public function getFirstNameAttribute(): string
+    {
+        return trim(explode(' ', $this->name)[0]) ?: $this->name;
+    }
+
+    /**
+     * Get the display name: position (e.g. C.E.O.) when set, otherwise the name.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->position ?: $this->name;
+    }
+
+    /**
+     * Get a short label: "First Name - Position" (e.g. Andrew - C.E.O.)
+     * when a position is set, otherwise the full name. Used in comments,
+     * creation info and notifications so the full name isn't shown.
+     */
+    public function getDisplayLabelAttribute(): string
+    {
+        if ($this->position) {
+            return $this->first_name . ' - ' . $this->position;
+        }
+        return $this->name;
+    }
+
+    /**
      * Check if user can input sales
      */
     public function canInputSales(): bool
     {
-        return in_array($this->role, ['admin', 'staff', 'sales_agent', 'sales_representative']);
+        return in_array($this->role, ['admin', 'staff', 'sales_agent', 'sales_representative', 'coo', 'cpo', 'cmo']);
     }
 
     /**

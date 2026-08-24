@@ -28,7 +28,7 @@ class SaleAddonController extends Controller
     public function allPending()
     {
         $user = auth()->user();
-        $isManager = $user && ($user->isAdmin() || $user->role === 'manager');
+        $isManager = $user && $user->isManager();
 
         // ── Add-on requests ──
         $query = DB::table('sale_addon_requests')
@@ -38,6 +38,11 @@ class SaleAddonController extends Controller
         // Non-managers only see pending add-ons on their own sales
         if (!$isManager) {
             $query->where('prototype_sales.sales_agent_id', $user ? $user->id : -1);
+        }
+
+        // Prod manager is Class-only
+        if ($user && $user->isProdManager()) {
+            $query->where('prototype_sales.department_id', 4);
         }
 
         $requests = $query->select(
@@ -66,6 +71,11 @@ class SaleAddonController extends Controller
             $changeQuery->where('prototype_sales.sales_agent_id', $user ? $user->id : -1);
         }
 
+        // Prod manager is Class-only
+        if ($user && $user->isProdManager()) {
+            $changeQuery->where('prototype_sales.department_id', 4);
+        }
+
         $changes = $changeQuery->select(
                 'prototype_sale_changes.id as change_id',
                 'prototype_sale_changes.sale_id',
@@ -76,7 +86,9 @@ class SaleAddonController extends Controller
                 'prototype_sales.sales_number',
                 'prototype_sales.customer_name',
                 'prototype_sales.kanban_status',
-                'users.name as submitted_by_name'
+                'users.name as submitted_by_name',
+                
+                'users.position as submitted_by_position'
             )
             ->orderBy('prototype_sale_changes.created_at', 'desc')
             ->get();
@@ -92,7 +104,7 @@ class SaleAddonController extends Controller
                 'change_summary' => $c->change_summary,
                 'total_before' => (float) $c->total_before,
                 'total_after' => (float) $c->total_after,
-                'requested_by' => $c->submitted_by_name ?? 'Agent',
+                'requested_by' => ($fn = trim(explode(' ', ($c->submitted_by_name ?? ''))[0])) ? $fn . ($c->submitted_by_position ? ' - ' . $c->submitted_by_position : '') : ($c->submitted_by_name ?? 'Agent'),
                 'created_at' => $c->created_at,
                 'age_hours' => round((now()->timestamp - strtotime($c->created_at)) / 3600, 1),
             ];
@@ -111,7 +123,7 @@ class SaleAddonController extends Controller
     public function pendingCount()
     {
         $user = auth()->user();
-        $isManager = $user && ($user->isAdmin() || $user->role === 'manager');
+        $isManager = $user && $user->isManager();
 
         $query = DB::table('sale_addon_requests')
             ->join('prototype_sales', 'sale_addon_requests.sale_id', '=', 'prototype_sales.id')
@@ -119,6 +131,10 @@ class SaleAddonController extends Controller
 
         if (!$isManager) {
             $query->where('prototype_sales.sales_agent_id', $user ? $user->id : -1);
+        }
+
+        if ($user && $user->isProdManager()) {
+            $query->where('prototype_sales.department_id', 4);
         }
 
         $addonCount = $query->count();
@@ -130,6 +146,10 @@ class SaleAddonController extends Controller
 
         if (!$isManager) {
             $changeQuery->where('prototype_sales.sales_agent_id', $user ? $user->id : -1);
+        }
+
+        if ($user && $user->isProdManager()) {
+            $changeQuery->where('prototype_sales.department_id', 4);
         }
 
         return response()->json(['count' => $addonCount + $changeQuery->count()]);
@@ -174,7 +194,7 @@ class SaleAddonController extends Controller
     public function approve(Request $request, int $requestId)
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['error' => 'Unauthorized: admin/manager only'], 403);
         }
 
@@ -186,6 +206,11 @@ class SaleAddonController extends Controller
         $sale = DB::table('prototype_sales')->find($addon->sale_id);
         if (!$sale) {
             return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        // Prod manager is Class-only
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
         }
 
         // Get existing services
@@ -271,13 +296,23 @@ class SaleAddonController extends Controller
     public function reject(Request $request, int $requestId)
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager')) {
+        if (!$user || !$user->isManager()) {
             return response()->json(['error' => 'Unauthorized: admin/manager only'], 403);
         }
 
         $addon = DB::table('sale_addon_requests')->find($requestId);
         if (!$addon || $addon->status !== 'pending') {
             return response()->json(['error' => 'Request not found or already processed'], 404);
+        }
+
+        $sale = DB::table('prototype_sales')->find($addon->sale_id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        // Prod manager is Class-only
+        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
         }
 
         DB::table('sale_addon_requests')

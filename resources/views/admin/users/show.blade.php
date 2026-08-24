@@ -39,6 +39,8 @@
                         'staff' => 'Staff',
                         'procurement' => 'Procurement',
                         'customer' => 'Customer',
+                        'coo' => 'COO',
+                        'cpo' => 'CPO',
                     ];
                 @endphp
                 <span class="role-badge {{ $user->role }}">{{ $roleLabels[$user->role] ?? ucfirst($user->role) }}</span>

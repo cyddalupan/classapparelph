@@ -40,6 +40,7 @@ class AdminUserController extends Controller
             'sales_representative' => User::where('role', 'sales_representative')->count(),
             'staff' => User::where('role', 'staff')->count(),
             'procurement' => User::where('role', 'procurement')->count(),
+            'artist' => User::where('role', 'artist')->count(),
             'customer' => User::where('role', 'customer')->count(),
         ];
 
@@ -65,7 +66,8 @@ class AdminUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement'],
+            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo'],
+            'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'employee_id' => ['nullable', 'string', 'max:50', 'unique:users'],
             'department' => ['nullable', 'string', 'max:100'],
@@ -80,6 +82,7 @@ class AdminUserController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'position' => $request->position,
             'phone' => $request->phone,
             'employee_id' => $request->employee_id,
             'department' => $request->department,
@@ -134,7 +137,8 @@ class AdminUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement'],
+            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo'],
+            'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'employee_id' => ['nullable', 'string', 'max:50', 'unique:users,employee_id,'.$user->id],
             'department' => ['nullable', 'string', 'max:100'],
@@ -149,6 +153,7 @@ class AdminUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'role' => $request->role,
+            'position' => $request->position,
             'phone' => $request->phone,
             'employee_id' => $request->employee_id,
             'department' => $request->department,

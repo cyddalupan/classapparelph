@@ -698,6 +698,8 @@ public function details(Request $request, string $id)
             ->get();
         $currentUser = auth()->user();
         $isManager = $currentUser && $currentUser->isManager();
+        // Sales agents can view the production slip but cannot modify it (checklist, GA/QA boxes, comments)
+        $canEditProdSlip = $currentUser && !$currentUser->isSalesAgent();
         // COO can give production feedback too (but is NOT a manager otherwise)
         $canGiveFeedback = $currentUser && ($isManager || $currentUser->isCoo());
         
@@ -758,7 +760,7 @@ public function details(Request $request, string $id)
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
-            'progressPercent', 'pendingChanges', 'isManager', 'canGiveFeedback', 'canEdit',
+            'progressPercent', 'pendingChanges', 'isManager', 'canGiveFeedback', 'canEdit', 'canEditProdSlip',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists'
@@ -1076,8 +1078,8 @@ public function details(Request $request, string $id)
     public function addComment(Request $request, string $id)
     {
         $user = auth()->user();
-        if (!$user || !$user->isManager()) {
-            return response()->json(['success' => false, 'message' => 'Only managers can add comments.']);
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Please log in to add comments.']);
         }
         
         $request->validate([
@@ -1097,7 +1099,7 @@ public function details(Request $request, string $id)
             'sale_id' => $id,
             'user_id' => $user->id,
             'action' => 'comment_added',
-            'description' => 'Manager added a comment: ' . substr($request->comment, 0, 100) . (strlen($request->comment) > 100 ? '...' : ''),
+            'description' => ($user->name ?? 'User') . ' added a comment: ' . substr($request->comment, 0, 100) . (strlen($request->comment) > 100 ? '...' : ''),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -2212,6 +2214,7 @@ $services = json_decode($sale->services, true) ?: [];
                 'ga_done' => $checklist->ga_done,
                 'ga_done_at' => $checklist->ga_done_at ? $checklist->ga_done_at->toISOString() : null,
                 'ga_notes' => $checklist->ga_notes,
+                'additional_comments' => $checklist->additional_comments,
                 'qa1_done' => $checklist->qa1_done,
                 'qa1_done_at' => $checklist->qa1_done_at ? $checklist->qa1_done_at->toISOString() : null,
                 'qa1_notes' => $checklist->qa1_notes,
@@ -2423,6 +2426,7 @@ $services = json_decode($sale->services, true) ?: [];
             }
             
             $productCards[] = [
+                'item_id' => $itemId,
                 'name' => $name,
                 'quantity' => $qty,
                 'totalPrice' => $price,
@@ -2443,12 +2447,15 @@ $services = json_decode($sale->services, true) ?: [];
         $customerName = $sale->customer_name ?? '';
         $agentName = $sale->sales_agent_name ?? '';
         
+        $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
+        
         return response()->json([
             'has_additional' => count($productCards) > 0,
             'products' => $productCards,
             'sales_number' => $salesNumber,
             'customer_name' => $customerName,
             'agent' => $agentName,
+            'additional_comments' => $checklist ? ($checklist->additional_comments ?? '{}') : '{}',
         ]);
     }
     
@@ -2463,6 +2470,11 @@ $services = json_decode($sale->services, true) ?: [];
         $user = auth()->user();
         if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
+        }
+
+        // Sales agents can view the production slip but cannot modify it (checklist items, GA/QA boxes, comments)
+        if ($user && $user->isSalesAgent()) {
+            return response()->json(['error' => 'Sales agents cannot modify the production slip.'], 403);
         }
 
         $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
@@ -2514,6 +2526,9 @@ $services = json_decode($sale->services, true) ?: [];
         }
         if (array_key_exists('ga_notes', $input)) {
             $checklist->ga_notes = $input['ga_notes'];
+        }
+        if (array_key_exists('additional_comments', $input)) {
+            $checklist->additional_comments = $input['additional_comments'];
         }
 
         if (isset($input['qa1_done'])) {
@@ -2909,6 +2924,18 @@ $services = json_decode($sale->services, true) ?: [];
             ->orderBy('priority', 'asc')
             ->orderBy("created_at", "desc")
             ->paginate(50);
+
+        // Priorities already in use (unique prio enforcement) — same scope as the list
+        $usedPrioQuery = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
+            ->whereNull('deleted_at')
+            ->whereNotNull('priority');
+        if ($user && $user->isProdManager()) {
+            $usedPrioQuery->where('department_id', 4);
+        }
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isProdManager())) {
+            $usedPrioQuery->where('sales_agent_id', $user ? $user->id : null);
+        }
+        $usedPriorities = $usedPrioQuery->pluck('sales_number', 'priority')->toArray();
         
         // Determine if current user is an agent-type user
         $isAgent = $user && !$user->isAdmin() && ($user->isSalesAgent() || $user->isSalesRepresentative());
@@ -2974,11 +3001,50 @@ $services = json_decode($sale->services, true) ?: [];
                 ->where('status', 'open')->count();
         }
 
+        // ⚠️ Delay count — same scope as delayList()
+        $delayCount = \App\Models\PrototypeSale::where('is_delayed', 1);
+        if ($user && $user->isProdManager()) {
+            $delayCount->where('department_id', 4);
+        }
+        $delayCount = $delayCount->count();
+
+        // 🔧 Backjob count — same FIFO logic as backjobList():
+        // main slip counts once if it has any active comment;
+        // each additional project counts once if it has an active comment.
+        $backjobCount = 0;
+        $bjChecklists = \App\Models\ProductionChecklist::where(function ($q) {
+            $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
+              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '');
+        })->get();
+        foreach ($bjChecklists as $chk) {
+            $bjSale = \DB::table('prototype_sales')->find($chk->sale_id);
+            if (!$bjSale) continue;
+            if ($user && $user->isProdManager() && (int) $bjSale->department_id !== 4) continue;
+
+            $bjMain = json_decode($chk->ga_notes ?? '', true) ?: [];
+            if (is_array($bjMain)) {
+                foreach ($bjMain as $c) {
+                    if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; break; }
+                }
+            }
+
+            $bjAdd = json_decode($chk->additional_comments ?? '', true) ?: [];
+            if (is_array($bjAdd)) {
+                foreach ($bjAdd as $itemId => $comments) {
+                    if (!is_array($comments)) continue;
+                    foreach ($comments as $c) {
+                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; break; }
+                    }
+                }
+            }
+        }
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
             "departmentLabels", "departmentColors", "isAgent",
             "pendingCounts", "totalPending", "pendingChangesList",
-            "lastNotifs", "openFeedbackCount"
+            "lastNotifs", "openFeedbackCount", "usedPriorities",
+            "delayCount", "backjobCount"
         ));
     }
 
@@ -3108,6 +3174,22 @@ $services = json_decode($sale->services, true) ?: [];
         // Class Production Manager: Class department only
         if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        // Unique priority enforcement: a priority number can only be used by ONE sale at a time
+        if ($request->filled('priority')) {
+            $prio = (int) $request->priority;
+            $holder = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
+                ->whereNull('deleted_at')
+                ->where('priority', $prio)
+                ->where('id', '!=', $sale->id)
+                ->first();
+            if ($holder) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Prio ' . $prio . ' ay nagamit na sa ' . $holder->sales_number . ' (' . ($holder->customer_name ?: 'no customer') . '). Alisin muna ang tag doon bago gamitin dito.',
+                ], 422);
+            }
         }
 
         $sale->priority = $request->filled('priority') ? (int) $request->priority : null;
@@ -4793,6 +4875,59 @@ $services = json_decode($sale->services, true) ?: [];
             $query->where('kanban_status', $request->kanban_status);
         }
 
+        // Department/shop filter
+        if ($request->filled('department')) {
+            $query->where('department_name', $request->department);
+        }
+
+        // Production stage counts for quick-view chips (computed BEFORE the stage filter narrows the list,
+        // so all stage counts stay visible; respects search/date/payment/kanban/department/services filters)
+        $stageRows = (clone $query)->get(['id', 'production_stage', 'kanban_status', 'services', 'time_requested_at', 'needed_by']);
+        if ($request->filled('services')) {
+            $serviceFilter = $request->services;
+            $stageRows = $stageRows->filter(function ($sale) use ($serviceFilter) {
+                $items = is_array($sale->services) ? $sale->services : (json_decode($sale->services, true) ?: []);
+                foreach ($items as $item) {
+                    if (($item['name'] ?? '') === $serviceFilter) {
+                        return true;
+                    }
+                }
+                return false;
+            })->values();
+        }
+        $prodStageCounts = [];
+        foreach ($stageRows as $sale) {
+            $stage = $sale->production_stage ?: (match ($sale->kanban_status ?? 'new') {
+                'new' => 'HOLD',
+                'sample_approval' => 'FOR SAMPLE',
+                'design' => 'FOR FORMAT',
+                'production' => 'PRINTING',
+                'quality_check' => 'QA',
+                'ready_for_delivery' => 'DISPATCH',
+                'delivered' => 'UNPAID',
+                'completed' => 'DONE',
+                default => 'HOLD',
+            });
+            $prodStageCounts[$stage] = ($prodStageCounts[$stage] ?? 0) + 1;
+        }
+
+        // Time Request counts for quick-view buttons (computed BEFORE the time_request filter narrows the list,
+        // so all counts stay visible; respects search/date/payment/kanban/department/services/production_stage filters)
+        $timeRequestCounts = [
+            'pending' => 0,
+            'set' => 0,
+            'none' => 0,
+        ];
+        foreach ($stageRows as $sale) {
+            if (!empty($sale->needed_by)) {
+                $timeRequestCounts['set']++;
+            } elseif (!empty($sale->time_requested_at)) {
+                $timeRequestCounts['pending']++;
+            } else {
+                $timeRequestCounts['none']++;
+            }
+        }
+
         // Production stage filter — matches actual production_stage OR the stage derived from kanban status
         if ($request->filled('production_stage')) {
             $stageFilter = $request->production_stage;
@@ -4824,11 +4959,41 @@ $services = json_decode($sale->services, true) ?: [];
             $query->where('department_name', $request->department);
         }
 
+        // Time Request filter: pending (may request, wala pang set na oras), set (may needed_by na), none (walang request)
+        if ($request->filled('time_request')) {
+            $timeFilter = $request->time_request;
+            if ($timeFilter === 'pending') {
+                $query->whereNotNull('time_requested_at')->whereNull('needed_by');
+            } elseif ($timeFilter === 'set') {
+                $query->whereNotNull('needed_by');
+            } elseif ($timeFilter === 'none') {
+                $query->whereNull('time_requested_at')->whereNull('needed_by');
+            }
+        }
+
         // Completed sales sink to the bottom; newest first within each group, so the very bottom = oldest dates
-        $sales = $query
-            ->orderByRaw("CASE WHEN kanban_status = 'completed' THEN 1 ELSE 0 END")
-            ->orderBy('created_at', 'desc')
-            ->get();
+        // Sort by days left (due date) or by needed-by date/time when requested — toggle asc/desc via sort & dir params
+        $sort = $request->get('sort');
+        $dir = strtolower($request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        if ($sort === 'days_left') {
+            $sales = $query
+                ->orderByRaw("CASE WHEN kanban_status IN ('ready_for_delivery','delivered','completed') THEN 1 ELSE 0 END")
+                ->orderByRaw("COALESCE(rescheduled_date, estimated_completion_date) IS NULL")
+                ->orderByRaw("COALESCE(rescheduled_date, estimated_completion_date) " . $dir)
+                ->get();
+        } elseif ($sort === 'needed_by') {
+            // Date & Time sort — by the agent-set needed_by time; sales without a set time sink to the bottom
+            $sales = $query
+                ->orderByRaw("CASE WHEN kanban_status IN ('ready_for_delivery','delivered','completed') THEN 1 ELSE 0 END")
+                ->orderByRaw('needed_by IS NULL')
+                ->orderByRaw('needed_by ' . $dir)
+                ->get();
+        } else {
+            $sales = $query
+                ->orderByRaw("CASE WHEN kanban_status = 'completed' THEN 1 ELSE 0 END")
+                ->orderBy('created_at', 'desc')
+                ->get();
+        }
 
         // Services filter (services is a JSON array of items, so filter the collection)
         if ($request->filled('services')) {
@@ -4874,7 +5039,7 @@ $services = json_decode($sale->services, true) ?: [];
             ->toArray();
 
         // Preserve filter state for the view
-        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department', 'search', 'services', 'production_stage']);
+        $filters = $request->only(['date_from', 'date_to', 'payment_status', 'kanban_status', 'department', 'search', 'services', 'production_stage', 'time_request', 'sort', 'dir']);
 
         // Totals summary: pieces, value, collected (net of refunds), balance
         $totalPieces = 0;
@@ -4942,7 +5107,7 @@ $services = json_decode($sale->services, true) ?: [];
                 && $n->is_read == false;
         })->values();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions'));
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions', 'prodStageCounts', 'timeRequestCounts'));
     }
 
     /**
@@ -5206,6 +5371,141 @@ $services = json_decode($sale->services, true) ?: [];
     }
 
     /**
+     * Bulk request: manager enables the Set Time button for ALL sales that are
+     * due within 1 day (or overdue) across all agents' My Sales dashboards.
+     */
+    public function requestTimeAll(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
+            abort(403, 'Only managers can request times.');
+        }
+
+        $query = \App\Models\PrototypeSale::whereNull('deleted_at')
+            ->whereNotNull('sales_agent_id')
+            ->whereNotNull(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'))
+            ->where(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'), '<=', now()->addDay())
+            ->whereNotIn('kanban_status', ['ready_for_delivery', 'delivered', 'completed']);
+
+        // Class Production Manager: Class department only
+        if ($user->isProdManager()) {
+            $query->where('department_id', 4);
+        }
+
+        $sales = $query->get();
+        $count = 0;
+        foreach ($sales as $sale) {
+            $sale->time_requested_at = now();
+            $sale->time_requested_by = $user->id;
+            $sale->save();
+
+            // Notify the agent only if there's no pending time_request for this sale
+            $already = \App\Models\SaleNotification::where('sale_id', $sale->id)
+                ->where('type', 'time_request')
+                ->where('to_user_id', $sale->sales_agent_id)
+                ->whereNull('response')
+                ->exists();
+            if (!$already) {
+                \App\Models\SaleNotification::create([
+                    'sale_id' => $sale->id,
+                    'from_user_id' => $user->id,
+                    'to_user_id' => $sale->sales_agent_id,
+                    'type' => 'time_request',
+                    'is_urgent' => true,
+                    'reminder_count' => 1,
+                    'title' => '⏰ Set needed time: ' . $sale->sales_number,
+                    'message' => 'Pakiset kung anong oras kailangan ang project (due within 1 day). I-click ang Set Time sa My Sales.',
+                ]);
+            }
+            $count++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $count . ' sale(s) enabled for time setting. ✅',
+            'count' => $count,
+        ]);
+    }
+
+    /**
+     * Manager requests the sales agent to set a needed-by time for the project.
+     * Creates a notification to the agent so they know to set the time in My Sales.
+     */
+    public function requestTime(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
+            abort(403, 'Only managers can request a time.');
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // Class Production Manager: Class department only
+        if ($user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale->time_requested_at = now();
+        $sale->time_requested_by = $user->id;
+        $sale->save();
+
+        // Notify the sales agent (if the sale has one)
+        if ($sale->sales_agent_id) {
+            \App\Models\SaleNotification::create([
+                'sale_id' => $sale->id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $sale->sales_agent_id,
+                'type' => 'time_request',
+                'is_urgent' => true,
+                'reminder_count' => 1,
+                'title' => '⏰ Set needed time: ' . $sale->sales_number,
+                'message' => 'Pakiset kung anong oras kailangan ang project. I-click ang Set Time sa My Sales.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Time request sent to the sales agent. ✅',
+        ]);
+    }
+
+    /**
+     * Sales agent sets the needed-by time for the project (from My Sales).
+     */
+    public function submitTime(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale = \App\Models\PrototypeSale::where('sales_agent_id', $user->id)->findOrFail($id);
+
+        $request->validate([
+            'needed_by' => 'required|date',
+        ]);
+
+        $sale->needed_by = \Carbon\Carbon::parse($request->needed_by);
+        $sale->save();
+
+        // Mark any pending time_request notifications as responded
+        \App\Models\SaleNotification::where('sale_id', $sale->id)
+            ->where('type', 'time_request')
+            ->where('to_user_id', $user->id)
+            ->whereNull('response')
+            ->update([
+                'response' => 'Agent set needed time to ' . $sale->needed_by->format('M d, Y g:i A'),
+                'responded_at' => now(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Needed time saved! ✅',
+            'needed_by' => $sale->needed_by->format('M d, Y g:i A'),
+        ]);
+    }
+
+    /**
      * Delay review page — manager/admin reviews the agent's delay feedback
      * along with the project details.
      */
@@ -5287,6 +5587,368 @@ $services = json_decode($sale->services, true) ?: [];
         $sales = $query->paginate(100);
 
         return view('sales.prototype.delay-list', compact('sales'));
+    }
+
+    /**
+     * Backjob List — all sales with ACTIVE (pending) backjob comments from
+     * production slips (main slip ga_notes + per-project additional_comments).
+     * Looks like the manager order list so managers can see who still needs backjobs.
+     */
+    public function backjobList()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
+            abort(403, 'Only managers can view the backjob list.');
+        }
+
+        $departmentLabels = [
+            1 => "iPrint",
+            2 => "Consol",
+            3 => "Cinco",
+            4 => "Class",
+            5 => "MTO",
+            6 => "Other",
+        ];
+
+        // All checklists that have any backjob comments
+        $checklists = \App\Models\ProductionChecklist::where(function ($q) {
+            $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
+              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '');
+        })->get();
+
+        // Build one row per ACTIVE backjob comment (not done, not deleted)
+        $rows = [];
+        $mockupCache = [];
+        $getMockup = function ($sale) use (&$mockupCache) {
+            if (isset($mockupCache[$sale->id])) return $mockupCache[$sale->id];
+            $mockups = is_string($sale->mockup_images ?? null) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+            $mainMockup = null;
+            if (is_array($mockups)) {
+                foreach ($mockups as $m) {
+                    if (is_array($m) && !empty($m['is_main'])) { $mainMockup = $m; break; }
+                }
+                if (!$mainMockup && !empty($mockups)) $mainMockup = $mockups[0];
+            }
+            $url = $mainMockup ? (is_string($mainMockup) ? $mainMockup : ($mainMockup['url'] ?? '')) : '';
+            $mockupCache[$sale->id] = $url;
+            return $url;
+        };
+        foreach ($checklists as $chk) {
+            $sale = \DB::table('prototype_sales')->find($chk->sale_id);
+            if (!$sale) continue;
+
+            // Class Production Manager: Class department only
+            if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+                continue;
+            }
+
+            // Main slip comments (ga_notes) — show only the FIRST active (FIFO)
+            $mainNotes = [];
+            try { $mainNotes = json_decode($chk->ga_notes ?? '', true) ?: []; } catch (\Exception $e) { $mainNotes = []; }
+            if (is_array($mainNotes)) {
+                foreach ($mainNotes as $c) {
+                    if (!is_array($c)) continue;
+                    if (!empty($c['deleted']) || !empty($c['done'])) continue;
+                    // First active comment found → this is the current backjob
+                    $rows[] = [
+                        'sale_id' => $chk->sale_id,
+                        'sales_number' => $sale->sales_number,
+                        'customer' => $sale->customer_name,
+                        'agent' => $sale->sales_agent_name,
+                        'department_id' => $sale->department_id,
+                        'project' => 'Main Production Slip',
+                        'text' => $c['text'] ?? '',
+                        'at' => $c['at'] ?? '',
+                        'done' => false,
+                        'mockup_url' => $getMockup($sale),
+                        'priority' => $sale->priority ?? '',
+                        'needed_by' => $sale->needed_by ?? '',
+                    ];
+                    break; // FIFO: only the earliest pending comment per section
+                }
+            }
+
+            // Per-project comments (additional_comments keyed by item id)
+            $addMap = [];
+            try { $addMap = json_decode($chk->additional_comments ?? '', true) ?: []; } catch (\Exception $e) { $addMap = []; }
+            if (is_array($addMap)) {
+                // Resolve item id → project name from sale services
+                $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+                $nameById = [];
+                foreach ((array) $svcItems as $svc) {
+                    if (is_array($svc) && !empty($svc['id'])) {
+                        $nameById[(string) $svc['id']] = $svc['name'] ?? 'Additional Project';
+                    }
+                }
+                // Per-project mockup: try the additional item's own mockup, fall back to sale mockup
+                $mockupByItem = [];
+                foreach ((array) $svcItems as $svc) {
+                    if (!is_array($svc) || empty($svc['id'])) continue;
+                    $sf = $svc['sublimationForm'] ?? [];
+                    $mock = $sf['mockup'] ?? $sf['mockupData'] ?? $sf['mockupUrl'] ?? null;
+                    if ($mock) {
+                        $mockupByItem[(string) $svc['id']] = is_string($mock) ? $mock : (is_array($mock) && !empty($mock[0]['url']) ? $mock[0]['url'] : '');
+                    }
+                }
+                foreach ($addMap as $itemId => $comments) {
+                    if (!is_array($comments)) continue;
+                    $projName = $nameById[(string) $itemId] ?? 'Additional Project';
+                    $projMockup = $mockupByItem[(string) $itemId] ?? $getMockup($sale);
+                    foreach ($comments as $c) {
+                        if (!is_array($c)) continue;
+                        if (!empty($c['deleted']) || !empty($c['done'])) continue;
+                        // First active comment for this project → current backjob
+                        $rows[] = [
+                            'sale_id' => $chk->sale_id,
+                            'sales_number' => $sale->sales_number,
+                            'customer' => $sale->customer_name,
+                            'agent' => $sale->sales_agent_name,
+                            'department_id' => $sale->department_id,
+                            'project' => $projName,
+                            'text' => $c['text'] ?? '',
+                            'at' => $c['at'] ?? '',
+                            'done' => false,
+                            'mockup_url' => $projMockup,
+                            'priority' => $sale->priority ?? '',
+                            'needed_by' => $sale->needed_by ?? '',
+                        ];
+                        break; // FIFO: only the earliest pending comment per project
+                    }
+                }
+            }
+        }
+
+        // Sort: newest backjob comment first
+        usort($rows, function ($a, $b) {
+            return strcmp($b['at'], $a['at']);
+        });
+
+        // Attach sale created date for display
+        foreach ($rows as $i => $r) {
+            $s = \DB::table('prototype_sales')->select('created_at', 'status', 'kanban_status')->find($r['sale_id']);
+            $rows[$i]['created_at'] = $s->created_at ?? null;
+            $rows[$i]['status'] = $s->status ?? '';
+            $rows[$i]['kanban_status'] = $s->kanban_status ?? '';
+        }
+
+        return view('sales.prototype.backjob-list', compact('rows', 'departmentLabels'));
+    }
+
+    /**
+     * Production Dashboard — live Class production overview.
+     * Pulls together manager-list, kanban, calendar, delay, backjob & feedback data
+     * for the Production (Class) dashboard. Prod managers see Class only.
+     */
+    public function productionDashboard(Request $request)
+    {
+        $user = auth()->user();
+
+        // ---- Filters (date range, kanban status, search) ----
+        $filters = [
+            'date_from' => $request->date_from ?? '',
+            'date_to'   => $request->date_to ?? '',
+            'kanban'    => $request->kanban ?? '',
+            'search'    => trim($request->search ?? ''),
+        ];
+
+        // Scope: Prod Manager → Class only; Admin/COO/Manager → all departments
+        $deptFilter = function ($q) use ($user, $filters) {
+            $q->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+              ->whereNull('archived_at');
+            if ($user && $user->isProdManager()) {
+                $q->where('department_id', 4);
+            }
+            if (!empty($filters['date_from'])) {
+                $q->where('created_at', '>=', $filters['date_from'] . ' 00:00:00');
+            }
+            if (!empty($filters['date_to'])) {
+                $q->where('created_at', '<=', $filters['date_to'] . ' 23:59:59');
+            }
+            if (!empty($filters['kanban'])) {
+                $q->where('kanban_status', $filters['kanban']);
+            }
+            if (!empty($filters['search'])) {
+                $q->where(function ($sq) use ($filters) {
+                    $sq->where('sales_number', 'like', '%' . $filters['search'] . '%')
+                       ->orWhere('customer_name', 'like', '%' . $filters['search'] . '%')
+                       ->orWhere('sales_agent_name', 'like', '%' . $filters['search'] . '%');
+                });
+            }
+        };
+
+        // ---- KPI: total orders & revenue (same scope as manager list) ----
+        $kpiQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($kpiQuery);
+        $kpiSales = $kpiQuery->get(['id', 'total_amount', 'created_at']);
+        $totalOrders = $kpiSales->count();
+        $totalRevenue = $kpiSales->sum('total_amount');
+
+        // ---- Kanban status counts ----
+        $kanbanOrder = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        $kanbanLabels = [
+            'new'                => 'New',
+            'sample_approval'    => 'Sample/Approval',
+            'design'             => 'Design',
+            'production'         => 'Production',
+            'quality_check'      => 'Quality Check',
+            'ready_for_delivery' => 'Ready for Delivery',
+            'delivered'          => 'Delivered',
+            'completed'          => 'Completed',
+        ];
+        $kanbanCounts = [];
+        foreach ($kanbanOrder as $k) { $kanbanCounts[$k] = 0; }
+        $kbQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($kbQuery);
+        foreach ($kbQuery->get(['kanban_status'])->groupBy('kanban_status') as $k => $grp) {
+            if (isset($kanbanCounts[$k])) $kanbanCounts[$k] = $grp->count();
+        }
+        $kanbanTotal = array_sum($kanbanCounts);
+
+        // ---- Production stages (same map as manager list) ----
+        $stageLabels = [
+            'FOR SAMPLE'   => 'Sample/Approval',
+            'FOR APPROVAL' => 'Sample/Approval',
+            'FOR FORMAT'   => 'Design',
+            'PRINTING'     => 'Design',
+            'PRESSING'     => 'Production',
+            'CUTTING'      => 'Production',
+            'SEWING'       => 'Production',
+            'QA'           => 'Quality Check',
+            'HOLD'         => 'Hold',
+            'DISPATCH'     => 'Ready for Delivery',
+            'UNPAID'       => 'Delivered',
+            'DONE'         => 'Completed',
+        ];
+        $stageCounts = [];
+        $stageQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($stageQuery);
+        foreach ($stageQuery->get(['production_stage'])->groupBy('production_stage') as $st => $grp) {
+            $label = $stageLabels[$st] ?? ($st ?: 'No Stage');
+            $stageCounts[$label] = ($stageCounts[$label] ?? 0) + $grp->count();
+        }
+        arsort($stageCounts);
+
+        // ---- Delayed count ----
+        $delayedQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($delayedQuery);
+        $delayedCount = $delayedQuery->where('is_delayed', 1)->count();
+
+        // ---- Priority count ----
+        $prioQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($prioQuery);
+        $prioCount = $prioQuery->whereNotNull('priority')->where('priority', '>', 0)->count();
+
+        // ---- Needed-by / due soon (calendar data) ----
+        $dueQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($dueQuery);
+        $dueSales = $dueQuery->whereNotNull('needed_by')
+            ->orderBy('needed_by', 'asc')
+            ->get(['id', 'sales_number', 'customer_name', 'needed_by', 'kanban_status', 'priority', 'is_delayed']);
+        $upcomingDue = $dueSales->filter(fn ($s) => $s->needed_by >= now()->startOfDay())->take(8);
+        $overdueDue = $dueSales->filter(fn ($s) => $s->needed_by < now()->startOfDay());
+        $dueCount = $dueSales->count();
+
+        // ---- Open production feedbacks ----
+        $fbQuery = \DB::table('production_feedbacks')->where('status', 'open');
+        if ($user && $user->isProdManager()) {
+            $fbQuery->whereIn('sale_id', \DB::table('prototype_sales')->where('department_id', 4)->pluck('id'));
+        }
+        $openFeedbackCount = $fbQuery->count();
+
+        // ---- Active backjobs (pending comments) ----
+        $checklists = \App\Models\ProductionChecklist::where(function ($q) {
+            $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
+              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '');
+        })->get();
+        $backjobCount = 0;
+        foreach ($checklists as $chk) {
+            $sale = \DB::table('prototype_sales')->select('department_id')->find($chk->sale_id);
+            if (!$sale) continue;
+            if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) continue;
+            $active = 0;
+            $mainNotes = json_decode($chk->ga_notes ?? '', true) ?: [];
+            foreach ((array) $mainNotes as $c) {
+                if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $active++; break; }
+            }
+            if (!$active) {
+                $addMap = json_decode($chk->additional_comments ?? '', true) ?: [];
+                foreach ((array) $addMap as $comments) {
+                    foreach ((array) $comments as $c) {
+                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $active++; break; }
+                    }
+                    if ($active) break;
+                }
+            }
+            $backjobCount += $active;
+        }
+
+        // ---- Pending change requests & addon requests ----
+        $pendingChanges = 0;
+        $pendingAddons = 0;
+        if ($user && $user->isManager()) {
+            $saleIds = \App\Models\PrototypeSale::query();
+            $deptFilter($saleIds);
+            $saleIds = $saleIds->pluck('id');
+            $pendingChanges = \DB::table('prototype_sale_changes')->where('status', 'pending')->whereIn('sale_id', $saleIds)->count();
+            $pendingAddons = \DB::table('sale_addon_requests')->where('status', 'pending')->whereIn('sale_id', $saleIds)->count();
+        }
+
+        // ---- Recent orders ----
+        $recentQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($recentQuery);
+        $recentSales = $recentQuery->orderBy('created_at', 'desc')
+            ->limit(8)
+            ->get(['id', 'sales_number', 'customer_name', 'created_at', 'total_amount', 'kanban_status', 'priority', 'is_delayed', 'needed_by']);
+
+        // ---- Chart data: daily orders & revenue trend (last 14 days) ----
+        $trendQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($trendQuery);
+        $trendSales = $trendQuery->where('created_at', '>=', now()->subDays(13)->startOfDay())
+            ->get(['id', 'total_amount', 'created_at']);
+        $trendByDay = [];
+        for ($i = 13; $i >= 0; $i--) {
+            $day = now()->subDays($i)->format('Y-m-d');
+            $trendByDay[$day] = ['label' => now()->subDays($i)->format('M d'), 'orders' => 0, 'revenue' => 0];
+        }
+        foreach ($trendSales as $s) {
+            $day = $s->created_at->format('Y-m-d');
+            if (isset($trendByDay[$day])) {
+                $trendByDay[$day]['orders'] += 1;
+                $trendByDay[$day]['revenue'] += (float) $s->total_amount;
+            }
+        }
+        $trendLabels = array_column($trendByDay, 'label');
+        $trendOrders = array_column($trendByDay, 'orders');
+        $trendRevenue = array_map(fn ($v) => round($v, 2), array_column($trendByDay, 'revenue'));
+
+        // ---- Chart data: kanban distribution (pie) ----
+        $pieLabels = [];
+        $pieValues = [];
+        $pieColors = [];
+        $pieColorMap = ['new' => '#94a3b8', 'sample_approval' => '#f43f5e', 'design' => '#8b5cf6', 'production' => '#3b82f6', 'quality_check' => '#f59e0b', 'ready_for_delivery' => '#10b981', 'delivered' => '#14b8a6', 'completed' => '#22c55e'];
+        foreach ($kanbanCounts as $key => $cnt) {
+            if ($cnt > 0) {
+                $pieLabels[] = $kanbanLabels[$key] ?? ucfirst($key);
+                $pieValues[] = $cnt;
+                $pieColors[] = $pieColorMap[$key] ?? '#94a3b8';
+            }
+        }
+
+        // ---- Chart data: production stages (bar) ----
+        $stageLabels = array_keys($stageCounts);
+        $stageValues = array_values($stageCounts);
+
+        $isProdManager = $user && $user->isProdManager();
+
+        return view('production.tracking', compact(
+            'totalOrders', 'totalRevenue', 'kanbanCounts', 'kanbanLabels', 'kanbanTotal',
+            'stageCounts', 'delayedCount', 'prioCount', 'dueCount', 'upcomingDue', 'overdueDue',
+            'openFeedbackCount', 'backjobCount', 'pendingChanges', 'pendingAddons',
+            'recentSales', 'isProdManager', 'filters',
+            'trendLabels', 'trendOrders', 'trendRevenue',
+            'pieLabels', 'pieValues', 'pieColors',
+            'stageLabels', 'stageValues'
+        ));
     }
 
     public function agentCreate()

@@ -12,8 +12,15 @@ class CustomerController extends Controller
     // Show customer list page
     public function index()
     {
-        $customers = Customer::with('creator')
-            ->orderBy('total_spent', 'desc')
+        $query = Customer::with('creator');
+
+        // COO/CPO/CMO/Sales Agents only see customers they created (since they also sell)
+        $u = auth()->user();
+        if ($u->isCoo() || $u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative()) {
+            $query->where('created_by', auth()->id());
+        }
+
+        $customers = $query->orderBy('total_spent', 'desc')
             ->paginate(20);
 
         // Outstanding balance per customer (how much is still collectible)
@@ -32,6 +39,14 @@ class CustomerController extends Controller
     public function show($id)
     {
         $customer = Customer::with('creator')->findOrFail($id);
+
+        // CPO/CMO/Sales Agents only see customers they created (since they also sell)
+        $u = auth()->user();
+        if ($u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative()) {
+            if ($customer->created_by !== auth()->id()) {
+                abort(403, 'Unauthorized access.');
+            }
+        }
         
         // Get orders from prototype_sales table
         $orders = DB::table('prototype_sales')
@@ -102,6 +117,7 @@ class CustomerController extends Controller
                 'address' => $request->address,
                 'company' => $request->company,
                 'customer_tier' => 'bronze',
+                'created_by' => auth()->id(),
                 'total_orders' => 0,
                 'total_spent' => 0,
                 'average_order_value' => 0,

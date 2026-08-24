@@ -168,9 +168,13 @@
 
                 <!-- User Profile -->
                 <div class="sidebar-user">
-                    <div class="user-avatar">
+                    <div class="user-avatar clickable-avatar" title="Click to change profile picture" onclick="event.stopPropagation(); document.getElementById('avatarInput').click();">
                         @auth
+                        @if(Auth::user()->avatar_url)
+                        <img src="{{ Auth::user()->avatar_url }}" alt="{{ Auth::user()->name }}">
+                        @else
                         {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                        @endif
                         @else
                         G
                         @endauth
@@ -178,13 +182,17 @@
                     <div class="user-info">
                         <div class="user-name">
                             @auth
-                            {{ Auth::user()->name }}
+                            @if(Auth::user()->isAdmin())
+                            <i class="fas fa-crown user-name-icon"></i>
+                            @endif
+                            {{ Auth::user()->first_name }}
                             @else
                             Guest
                             @endauth
                         </div>
                         <div class="user-role">
                             @auth
+                                @if(!Auth::user()->position)
                                 @if(Auth::user()->isAdmin())
                                 <span class="role-badge admin">Administrator</span>
                                 @elseif(Auth::user()->isSalesAgent())
@@ -193,10 +201,13 @@
                                 <span class="role-badge sales-rep">Sales Representative</span>
                                 @elseif(Auth::user()->isStaff())
                                 <span class="role-badge staff">Staff</span>
+                                @elseif(Auth::user()->isArtist())
+                                <span class="role-badge artist">Artist</span>
                                 @elseif(Auth::user()->isCustomer())
                                 <span class="role-badge customer">Customer</span>
                                 @else
                                 <span class="role-badge user">User</span>
+                                @endif
                                 @endif
                             @else
                             <span class="role-badge user">Guest</span>
@@ -217,8 +228,153 @@
                     </div>
 
                     @auth
+                    @if(Auth::user()->isProdManager())
+                    <!-- Class Production Manager Navigation -->
+                    <div class="nav-section">
+                        <div class="nav-section-title">Production</div>
+                        <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
+                            <i class="fas fa-cogs"></i>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
+                            <i class="fas fa-columns"></i>
+                            <span class="nav-text">Kanban Board</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
+                            <i class="fas fa-list"></i>
+                            <span class="nav-text">Manager List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span class="nav-text">Calendar</span>
+                        </a>
+                    </div>
+                    @endif
+                    @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo())
+                    <div class="nav-section">
+                        <div class="nav-section-title">Business</div>
+                        <a href="{{ route('customers.index') }}" class="nav-item {{ request()->routeIs('customers.*') ? 'active' : '' }}">
+                            <i class="fas fa-users"></i>
+                            <span class="nav-text">Customers</span>
+                        </a>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Production</div>
+                        <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
+                            <i class="fas fa-cogs"></i>
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                        @if(Auth::user()->isCpo() || Auth::user()->isCmo())
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-columns"></i>
+                            <span class="nav-text">Kanban Board</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-list"></i>
+                            <span class="nav-text">Manager List</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        @else
+                        <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
+                            <i class="fas fa-columns"></i>
+                            <span class="nav-text">Kanban Board</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
+                            <i class="fas fa-list"></i>
+                            <span class="nav-text">Manager List</span>
+                        </a>
+                        @endif
+                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span class="nav-text">Calendar</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.refunds') }}" class="nav-item {{ request()->routeIs('sales.prototype.refunds') ? 'active' : '' }}">
+                            <i class="fas fa-undo-alt"></i>
+                            <span class="nav-text">Refunds</span>
+                        </a>
+                        <a href="{{ route('sales.verification') }}" class="nav-item {{ request()->routeIs('sales.verification') ? 'active' : '' }}">
+                            <i class="fas fa-check-circle"></i>
+                            <span class="nav-text">Payment Verification</span>
+                        </a>
+                        <a href="{{ route('sales.cash-flow') }}" class="nav-item {{ request()->routeIs('sales.cash-flow') ? 'active' : '' }}">
+                            <i class="fas fa-chart-line"></i>
+                            <span class="nav-text">Cash Flow</span>
+                        </a>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Supplies</div>
+                        @if(Auth::user()->isCmo())
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-boxes"></i>
+                            <span class="nav-text">Inventory Management</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        @else
+                        <a href="{{ route('inventory.unified') }}" class="nav-item {{ request()->routeIs('inventory.unified') ? 'active' : '' }}">
+                            <i class="fas fa-boxes"></i>
+                            <span class="nav-text">Inventory Management</span>
+                        </a>
+                        @endif
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">My Sales</div>
+                        <a href="{{ route('sales.team.dashboard') }}" class="nav-item {{ request()->routeIs('sales.team.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-th-list"></i>
+                            <span class="nav-text">My Sales Dashboard</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.create') }}" class="nav-item {{ request()->routeIs('sales.prototype.create') ? 'active' : '' }}">
+                            <i class="fas fa-plus-circle"></i>
+                            <span class="nav-text">Add New Sale</span>
+                        </a>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Design</div>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-paint-brush"></i>
+                            <span class="nav-text">Design Studio</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Analytics</div>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-chart-line"></i>
+                            <span class="nav-text">Analytics</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-file-alt"></i>
+                            <span class="nav-text">Reports</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Finance</div>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-chart-pie"></i>
+                            <span class="nav-text">Finance Dashboard</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <span class="nav-text">Expenses</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-chart-line"></i>
+                            <span class="nav-text">Sales</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            <span class="nav-text">Financial Reports</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                    </div>
+                    @else
                     <!-- Show Business Operations only for NON-SALES AGENTS -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager())
                     <!-- Business Operations (orders, pricing, customers, production — hidden from procurement) -->
                     <div class="nav-section">
                         <div class="nav-section-title">Business</div>
@@ -243,7 +399,7 @@
                     @endif
 
                     <!-- Production Section -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager())
                     <div class="nav-section">
                         <div class="nav-section-title">Production</div>
                         <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
@@ -279,7 +435,7 @@
                     @endif
 
                     <!-- Inventory Management (visible to all including procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager())
                     <div class="nav-section">
                         <div class="nav-section-title">Supplies</div>
                         <a href="{{ route('inventory.unified') }}" class="nav-item {{ request()->routeIs('inventory.unified') ? 'active' : '' }}">
@@ -304,8 +460,45 @@
                     </div>
                     @endif
 
+                    <!-- Sales Agent: Business / Production / Design (own-customer scoping, CPO-style calendar) -->
+                    @if(Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
+                    <div class="nav-section">
+                        <div class="nav-section-title">Business</div>
+                        <a href="{{ route('customers.index') }}" class="nav-item {{ request()->routeIs('customers.*') ? 'active' : '' }}">
+                            <i class="fas fa-users"></i>
+                            <span class="nav-text">Customers</span>
+                        </a>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Production</div>
+                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span class="nav-text">Calendar</span>
+                        </a>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Design</div>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-paint-brush"></i>
+                            <span class="nav-text">Design Studio</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                    </div>
+                    @endif
+
+                    <!-- Artist Navigation (Only for Artists) -->
+                    @if(Auth::user()->isArtist())
+                    <div class="nav-section">
+                        <div class="nav-section-title">My Work</div>
+                        <a href="{{ route('sales.prototype.production-feedback.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.production-feedback.list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-check"></i>
+                            <span class="nav-text">Production Feedback</span>
+                        </a>
+                    </div>
+                    @endif
+
                     <!-- Design & Analytics (hidden from procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager())
                     <div class="nav-section">
                         <div class="nav-section-title">Design</div>
                         <a href="{{ route('design.studio') }}" class="nav-item {{ request()->routeIs('design.*') ? 'active' : '' }}">
@@ -328,7 +521,7 @@
                     @endif
 
                     <!-- Finance (visible to all including procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager())
                     <div class="nav-section">
                         <div class="nav-section-title">Finance</div>
                         <a href="{{ route('finance.dashboard') }}" class="nav-item {{ request()->routeIs('finance.dashboard') ? 'active' : '' }}">
@@ -372,14 +565,23 @@
                     </div>
                     @endif
                     @endif
+                    @endif
 
                     <!-- User Account -->
                     <div class="nav-section">
                         <div class="nav-section-title">Account</div>
+                        @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo() || Auth::user()->isProdManager() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-user"></i>
+                            <span class="nav-text">Profile</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        @else
                         <a href="{{ route('profile.edit') }}" class="nav-item {{ request()->routeIs('profile.*') ? 'active' : '' }}">
                             <i class="fas fa-user"></i>
                             <span class="nav-text">Profile</span>
                         </a>
+                        @endif
                         <form method="POST" action="{{ route('logout') }}" class="logout-form">
                             @csrf
                             <button type="submit" class="nav-item logout-btn">
@@ -452,7 +654,7 @@
                                         <a href="{{ route('sales.verification') }}" class="text-decoration-none d-block py-1" style="border-bottom:1px dashed #dbeafe;">
                                             <div class="small"><strong>{{ $sv->title }}</strong>@if($sv->reminder_count > 1) <span class="badge bg-primary" style="font-size:9px;">Request #{{ $sv->reminder_count }}</span>@endif</div>
                                             <div class="small text-muted text-truncate">{{ $sv->message }}</div>
-                                            <small class="text-muted" style="font-size:10px;">{{ $sv->fromUser?->name }} &middot; {{ $sv->created_at->diffForHumans() }}</small>
+                                            <small class="text-muted" style="font-size:10px;">{{ $sv->fromUser?->display_label }} &middot; {{ $sv->created_at->diffForHumans() }}</small>
                                         </a>
                                         @endforeach
                                         <a href="{{ route('sales.verification') }}" class="small text-primary text-decoration-none d-block mt-1">Go to Payment Verification &rarr;</a>
@@ -476,7 +678,7 @@
                                                 <span class="badge bg-{{ $n->type === 'urgent' ? 'danger' : ($n->type === 'reminder' ? 'warning' : 'info') }} me-1" style="font-size:9px;">{{ ucfirst($n->type) }}</span>
                                                 <strong class="small">{{ $n->title }}</strong>
                                                 @if($n->message)<p class="mb-0 small text-muted text-truncate">{{ $n->message }}</p>@endif
-                                                <small class="text-muted" style="font-size:10px;">{{ $n->fromUser?->name }} &middot; {{ $n->created_at->diffForHumans() }}</small>
+                                                <small class="text-muted" style="font-size:10px;">{{ $n->fromUser?->display_label }} &middot; {{ $n->created_at->diffForHumans() }}</small>
                                             </div>
                                             <form method="POST" action="{{ route('procurement.notifications.read', $n->id) }}" class="d-inline ms-1">
                                                 @csrf @method('PUT')
@@ -506,17 +708,25 @@
                         <!-- User Menu -->
                         <div class="user-menu">
                             <button class="user-menu-toggle" onclick="toggleUserMenu()">
-                                <div class="user-avatar-small">
+                                <div class="user-avatar-small clickable-avatar" title="Click to change profile picture" onclick="event.stopPropagation(); document.getElementById('avatarInput').click();">
+                                    @if(Auth::user()->avatar_url)
+                                    <img src="{{ Auth::user()->avatar_url }}" alt="{{ Auth::user()->name }}">
+                                    @else
                                     {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                                    @endif
                                 </div>
-                                <span class="user-name-short">{{ Auth::user()->name }}</span>
+                                <span class="user-name-short">@if(Auth::user()->position){{ Auth::user()->position }}@elseif(Auth::user()->isAdmin())Administrator@elseif(Auth::user()->isSalesAgent())Sales Agent@elseif(Auth::user()->isSalesRepresentative())Sales Representative@elseif(Auth::user()->isStaff())Staff@elseif(Auth::user()->isArtist())Artist@elseif(Auth::user()->isCustomer())Customer@else{{ Auth::user()->first_name }}@endif</span>
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                             
                             <div class="user-menu-dropdown" id="userMenu">
                                 <div class="user-menu-header">
-                                    <div class="user-avatar-medium">
+                                    <div class="user-avatar-medium clickable-avatar" title="Click to change profile picture" onclick="event.stopPropagation(); document.getElementById('avatarInput').click();">
+                                        @if(Auth::user()->avatar_url)
+                                        <img src="{{ Auth::user()->avatar_url }}" alt="{{ Auth::user()->name }}">
+                                        @else
                                         {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
+                                        @endif
                                     </div>
                                     <div>
                                         <div class="user-name-medium">{{ Auth::user()->name }}</div>
@@ -598,6 +808,19 @@
                     userMenu.style.display = 'none';
                 }
             });
+
+            // Avatar click-to-upload: auto-submit when a file is selected
+            function setupAvatarUpload() {
+                const avatarForm = document.getElementById('avatarUploadForm');
+                const avatarInput = document.getElementById('avatarInput');
+                if (!avatarForm || !avatarInput) return;
+                avatarInput.addEventListener('change', function() {
+                    if (this.files && this.files.length > 0) {
+                        avatarForm.submit();
+                    }
+                });
+            }
+            document.addEventListener('DOMContentLoaded', setupAvatarUpload);
 
             // Initialize sidebar state from localStorage
             document.addEventListener('DOMContentLoaded', function() {
@@ -694,6 +917,14 @@
         <!-- Bootstrap 5 JavaScript Bundle with Popper -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
         
+        <!-- Hidden avatar upload form (triggered by clicking the avatar box) -->
+        @auth
+        <form id="avatarUploadForm" action="{{ route('profile.avatar.update') }}" method="POST" enctype="multipart/form-data" style="display:none;">
+            @csrf
+            <input type="file" name="avatar" id="avatarInput" accept="image/*">
+        </form>
+        @endauth
+
         @stack('scripts')
     </body>
 </html>

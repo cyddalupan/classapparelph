@@ -41,7 +41,7 @@
         <div>
             <h2 style="font-weight:700;color:#1e293b;"><i class="fas fa-clipboard-check me-2" style="color:#d97706;"></i>Production Feedback</h2>
             <p class="text-muted mb-0" style="font-size:13px;">
-                @if($isManager)
+                @if($canViewAll ?? $isManager)
                 Lahat ng feedback na binigay sa mga sales agents — para ma-track ang production delays dulot ng kulang na impormasyon.
                 @else
                 Feedback mula sa manager tungkol sa production delays — i-check at i-resolve para magpatuloy ang production.
@@ -49,7 +49,7 @@
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ $isManager ? route('sales.prototype.dashboard') : route('sales.team.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <a href="{{ $isManager ? route('sales.prototype.dashboard') : (($isArtist ?? false) ? route('dashboard') : (($canViewAll ?? false) ? route('sales.prototype.list') : route('sales.team.dashboard'))) }}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-arrow-left me-1"></i> Back
             </a>
         </div>
@@ -64,11 +64,11 @@
     </div>
 
     <!-- Filters -->
-    @if($isManager)
+    @if($canViewAll ?? $isManager)
     <form method="GET" class="row g-2 mb-3">
         <div class="col-auto">
             <select name="agent_id" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="">All agents</option>
+                <option value="">All agents / artists</option>
                 @foreach($agents as $agent)
                 <option value="{{ $agent->id }}" {{ request('agent_id') == $agent->id ? 'selected' : '' }}>{{ $agent->name }}</option>
                 @endforeach
@@ -95,8 +95,8 @@
                     <th>Category</th>
                     <th>Feedback</th>
                     <th>Status</th>
-                    @if($isManager)
-                    <th>Agent</th>
+                    @if($canViewAll ?? $isManager)
+                    <th>Recipient</th>
                     @endif
                     <th>Date</th>
                     <th>Action</th>
@@ -134,23 +134,54 @@
                         </td>
                         <td style="max-width:280px;">
                             <div style="font-size:12px;line-height:1.35;overflow:hidden;text-overflow:ellipsis;" title="{{ $fb->message }}">{{ \Illuminate\Support\Str::limit($fb->message, 80) }}</div>
-                            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">from {{ $fb->fromUser->name ?? 'Manager' }}</div>
+                            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">from {{ $fb->fromUser?->display_label ?? 'Manager' }}
+                            @php
+                                // Dynamic "Involved" — depends on who's viewing:
+                                // Agent views → the tagged Artist shows as Involved.
+                                // Artist views → the Agent shows as Involved.
+                                $involvedLabel = null;
+                                if ($fb->involved_user_id) {
+                                    if (auth()->id() === (int) $fb->involved_user_id) {
+                                        $involvedLabel = $fb->toUser?->display_label; // artist sees the agent
+                                    } else {
+                                        $involvedLabel = $fb->involvedUser?->display_label; // agent/manager sees the artist
+                                    }
+                                }
+                            @endphp
+                            @if($involvedLabel)
+                                <span style="color:#d97706;"> • Involved: {{ $involvedLabel }}</span>
+                            @endif
+                            </div>
                         </td>
                         <td>
                             <span class="badge" style="background:{{ $fb->status === 'resolved' ? '#059669' : ($fb->status === 'acknowledged' ? '#2563eb' : '#d97706') }};color:#fff;">{{ ucfirst($fb->status) }}</span>
                             @if($fb->resolved_at)
                             <div style="font-size:10px;color:#94a3b8;margin-top:2px;">{{ $fb->resolved_at->diffForHumans() }}</div>
                             @endif
+                            @if($fb->acknowledgement)
+                            <div style="font-size:10px;color:#059669;margin-top:3px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $fb->acknowledgement }}">
+                                <i class="fas fa-comment-dots me-1"></i>{{ $fb->acknowledgement }}
+                            </div>
+                            @endif
                         </td>
-                        @if($isManager)
-                        <td style="white-space:nowrap;">{{ $fb->toUser->name ?? '—' }}</td>
+                        @if($canViewAll ?? $isManager)
+                        <td style="white-space:nowrap;">
+                            @if($fb->toUser)
+                                {{ $fb->toUser->display_label }}
+                            @else
+                                <span class="badge badge-danger" title="This user was deleted by a manager/admin."><i class="fas fa-user-slash me-1"></i>Deleted user</span>
+                            @endif
+                            @if($fb->involvedUser)
+                                <div style="font-size:10px;color:#d97706;">+ {{ $fb->involvedUser->display_label }}</div>
+                            @endif
+                        </td>
                         @endif
                         <td style="white-space:nowrap;font-size:12px;">{{ $fb->created_at->format('M d, Y') }}<div style="font-size:10px;color:#94a3b8;">{{ $fb->created_at->format('h:i A') }}</div></td>
                         <td onclick="event.stopPropagation();">
+                            @if($fb->status !== 'resolved' && ($isManager || $fb->to_user_id === (auth()->id() ?? 0) || $fb->involved_user_id === (auth()->id() ?? 0)))
                             @if($fb->status === 'open' && !$isManager)
                             <button class="btn btn-sm btn-outline-primary" onclick="updateFeedback({{ $fb->id }}, 'acknowledged')">Acknowledge</button>
                             @endif
-                            @if($fb->status !== 'resolved')
                             <button class="btn btn-sm btn-outline-success" onclick="updateFeedback({{ $fb->id }}, 'resolved')">Resolve</button>
                             @endif
                         </td>
@@ -176,6 +207,13 @@
 @push('scripts')
 <script>
 function updateFeedback(feedbackId, status) {
+    var ack = '';
+    if (status === 'resolved') {
+        ack = prompt('Mag-iwan ng acknowledgement note bago i-resolve ang feedback:');
+        if (ack === null) return; // cancelled
+        ack = ack.trim();
+        if (!ack) { alert('Kailangan ng acknowledgement note para i-resolve.'); return; }
+    }
     fetch('{{ route('sales.prototype.production-feedback.status', 'FEEDBACK_ID') }}'.replace('FEEDBACK_ID', feedbackId), {
         method: 'POST',
         headers: {
@@ -183,7 +221,7 @@ function updateFeedback(feedbackId, status) {
             'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
             'Accept': 'application/json'
         },
-        body: JSON.stringify({status: status})
+        body: JSON.stringify({status: status, acknowledgement: ack})
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {

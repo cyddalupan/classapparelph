@@ -550,13 +550,21 @@
 
                 <!-- Department Tabs -->
                 <div class="dept-tabs" id="deptTabs">
+                    @if(!(auth()->user() && auth()->user()->isProdManager()))
                     <button class="dept-tab all-tab active" data-dept="all" onclick="filterDept('all')">All</button>
+                    @endif
+                    @if(!(auth()->user() && auth()->user()->isProdManager()))
                     <button class="dept-tab" data-dept="iPrint" onclick="filterDept('iPrint')" style="border-color:#0d6efd;color:#0d6efd;"><i class="fas fa-print"></i> iPrint</button>
+                    @endif
+                    @if(!(auth()->user() && auth()->user()->isProdManager()))
                     <button class="dept-tab" data-dept="Consol" onclick="filterDept('Consol')" style="border-color:#198754;color:#198754;"><i class="fas fa-layer-group"></i> Consol</button>
-                    <button class="dept-tab" data-dept="Class" onclick="filterDept('Class')" style="border-color:#6f42c1;color:#6f42c1;"><i class="fas fa-tshirt"></i> Class</button>
+                    @endif
+                    <button class="dept-tab @if(!(auth()->user() && auth()->user()->isProdManager()))@else active @endif" data-dept="Class" onclick="filterDept('Class')" style="border-color:#6f42c1;color:#6f42c1;"><i class="fas fa-tshirt"></i> Class</button>
+                    @if(!(auth()->user() && auth()->user()->isProdManager()))
                     <button class="dept-tab" data-dept="Cinco" onclick="filterDept('Cinco')" style="border-color:#dc3545;color:#dc3545;"><i class="fas fa-star"></i> Cinco</button>
                     <button class="dept-tab" data-dept="MTO" onclick="filterDept('MTO')" style="border-color:#fd7e14;color:#fd7e14;"><i class="fas fa-ruler-combined"></i> MTO</button>
                     <button class="dept-tab" data-dept="Other" onclick="filterDept('Other')" style="border-color:#6c757d;color:#6c757d;"><i class="fas fa-ellipsis-h"></i> Other</button>
+                    @endif
                 </div>
 
                 <!-- Date Range Picker -->
@@ -676,6 +684,9 @@ const dc = {'iPrint':'#0d6efd','Consol':'#198754','Cinco':'#dc3545','Class':'#6f
 // Same production stage map as manager order list (stage → kanban status)
 const PROD_STAGE_MAP = @json($prodStageMap);
 const STATUS_TO_STAGE = @json($statusToStage);
+// Sales Agents/Reps: read-only calendar — no prices, no card dragging
+const IS_SALES_AGENT = @json(auth()->user() && (auth()->user()->isSalesAgent() || auth()->user()->isSalesRepresentative()));
+const psCanEdit = !IS_SALES_AGENT;
 const STAGE_COLORS = {
     'FOR SAMPLE': '#fd7e14', 'FOR APPROVAL': '#fd7e14',
     'FOR FORMAT': '#0d6efd', 'PRINTING': '#0d6efd',
@@ -823,7 +834,7 @@ function renderWeek(monday, projects) {
                 const pt = getProjectGarmentTotals(p);
                 
                 html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
-                    draggable="true" data-id="${p.id}" data-prio="${p.priority || ''}" data-g1="${pt.g1}" data-g2="${pt.g2}" data-g3="${pt.g3}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="showDetail(${p.id})" title="${name} - ${curr(amt)}">`;
+                    draggable="${IS_SALES_AGENT ? 'false' : 'true'}" data-id="${p.id}" data-prio="${p.priority || ''}" data-g1="${pt.g1}" data-g2="${pt.g2}" data-g3="${pt.g3}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="showDetail(${p.id})" title="${name}${IS_SALES_AGENT ? '' : ' - ' + curr(amt)}">`;
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
                 }
@@ -851,20 +862,24 @@ function renderWeek(monday, projects) {
                 } else if (p.payment_status === 'rejected') {
                     html += `<span class="dp-status" style="color:#842029;font-weight:600;">❌</span>`;
                 }
-                html += `<span class="dp-amount">${curr(amt)}</span>`;
+                if (!IS_SALES_AGENT) {
+                    html += `<span class="dp-amount">${curr(amt)}</span>`;
+                }
                 html += `</div>`;
-                // Production stage tagging (same rules as manager order list)
+                // Production stage tagging (same rules as manager order list) — hidden for sales agents/reps
                 const curStage = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
                 // Photo lock — same rule as manager order list: locked for EVERYONE (incl. admin/manager) when photos missing
                 const lockedNoPhotos = !p.has_photos;
-                let stageOpts = '';
-                Object.keys(PROD_STAGE_MAP).forEach(function(st) {
-                    const stStatus = PROD_STAGE_MAP[st];
-                    let dis = '';
-                    if (stStatus === 'completed' && parseFloat(p.balance_due) > 0) dis = 'disabled';
-                    stageOpts += `<option value="${st}" data-status="${stStatus}" ${st === curStage ? 'selected' : ''} ${dis}>${st}</option>`;
-                });
-                html += `<select class="dp-stage-select" data-sale-id="${p.id}" data-current="${curStage}" ${lockedNoPhotos ? 'disabled' : ''} title="${lockedNoPhotos ? '🔒 Kulang photos (File Screenshot / Sample Color) — i-move sa kanban board' : 'Production status → kanban'}" onclick="event.stopPropagation()" style="${lockedNoPhotos ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : ''}">${stageOpts}</select>`;
+                if (!IS_SALES_AGENT) {
+                    let stageOpts = '';
+                    Object.keys(PROD_STAGE_MAP).forEach(function(st) {
+                        const stStatus = PROD_STAGE_MAP[st];
+                        let dis = '';
+                        if (stStatus === 'completed' && parseFloat(p.balance_due) > 0) dis = 'disabled';
+                        stageOpts += `<option value="${st}" data-status="${stStatus}" ${st === curStage ? 'selected' : ''} ${dis}>${st}</option>`;
+                    });
+                    html += `<select class="dp-stage-select" data-sale-id="${p.id}" data-current="${curStage}" ${lockedNoPhotos ? 'disabled' : ''} title="${lockedNoPhotos ? '🔒 Kulang photos (File Screenshot / Sample Color) — i-move sa kanban board' : 'Production status → kanban'}" onclick="event.stopPropagation()" style="${lockedNoPhotos ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : ''}">${stageOpts}</select>`;
+                }
                 html += `</div>`;
             });
         }
@@ -978,6 +993,7 @@ let dragSaleId = null;
 let dragSaleFromDate = null;
 
 document.addEventListener('dragstart', function(e) {
+    if (IS_SALES_AGENT) return;
     const card = e.target.closest('.day-project');
     if (!card) return;
     dragSaleId = card.getAttribute('data-id');
@@ -998,6 +1014,7 @@ document.addEventListener('dragend', function(e) {
 });
 
 document.addEventListener('dragover', function(e) {
+    if (IS_SALES_AGENT) return;
     const cell = e.target.closest('.day-cell');
     if (!cell || !dragSaleId) return;
     e.preventDefault();
@@ -1007,6 +1024,7 @@ document.addEventListener('dragover', function(e) {
 });
 
 document.addEventListener('drop', function(e) {
+    if (IS_SALES_AGENT) return;
     const cell = e.target.closest('.day-cell');
     if (!cell || !dragSaleId) return;
     e.preventDefault();
@@ -1335,7 +1353,7 @@ function updateSummary(projects) {
         <div class="d-flex justify-content-around mb-3 pb-2 border-bottom">
             <div class="summary-stat"><div class="stat-number">${total}</div><div class="stat-label">Projects</div></div>
             <div class="summary-stat"><div class="stat-number" style="color:#667eea;">${totalQty}</div><div class="stat-label">Pieces</div></div>
-            <div class="summary-stat"><div class="stat-number" style="color:#28a745;">${curr(totalAmt)}</div><div class="stat-label">Value</div></div>
+            ${IS_SALES_AGENT ? '' : `<div class="summary-stat"><div class="stat-number" style="color:#28a745;">${curr(totalAmt)}</div><div class="stat-label">Value</div></div>`}
         </div>`;
 
     // With Priority clickable toggle
@@ -1804,9 +1822,11 @@ function renderProductionSlip(data) {
         }
     }
     html += '</div>';
+    if (psCanEdit) {
     html += '<div class="ps-comment-input">';
     html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
     html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    }
 
     html += '</div>'; // end .pslip
 
@@ -2193,9 +2213,11 @@ function renderProductionSlipHtml(data, showProductLabel) {
         }
     }
     html += '</div>';
+    if (psCanEdit) {
     html += '<div class="ps-comment-input">';
     html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
     html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+    }
     html += '</div>';
 
     return html;
@@ -2284,6 +2306,7 @@ function toggleQaCheck(saleId, type, checked) {
 }
 
 function addComment(saleId) {
+    if (!psCanEdit) return;
     var input = document.getElementById('ps-comment-input-' + saleId);
     if (!input || !input.value.trim()) return;
     var text = input.value.trim();

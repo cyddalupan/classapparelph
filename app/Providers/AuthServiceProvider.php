@@ -28,11 +28,11 @@ class AuthServiceProvider extends ServiceProvider
         });
 
         Gate::define('access-staff', function ($user) {
-            return $user->isStaff() || $user->isAdmin();
+            return $user->isStaff() || $user->isAdmin() || $user->isCoo();
         });
 
         Gate::define('access-customer', function ($user) {
-            return $user->isCustomer() || $user->isStaff() || $user->isAdmin();
+            return $user->isCustomer() || $user->isStaff() || $user->isAdmin() || $user->isCoo();
         });
 
         // Business-specific permissions
@@ -41,11 +41,11 @@ class AuthServiceProvider extends ServiceProvider
         });
 
         Gate::define('manage-production', function ($user) {
-            return $user->isStaff() || $user->isAdmin();
+            return $user->isStaff() || $user->isAdmin() || $user->isCoo();
         });
 
         Gate::define('manage-inventory', function ($user) {
-            return $user->isStaff() || $user->isAdmin();
+            return $user->isStaff() || $user->isAdmin() || $user->isCoo();
         });
 
         Gate::define('manage-users', function ($user) {
@@ -70,7 +70,7 @@ class AuthServiceProvider extends ServiceProvider
 
         // Sales Agent permissions
         Gate::define('access-sales-agent', function ($user) {
-            return $user->isSalesAgent() || $user->isSalesRepresentative() || $user->isStaff() || $user->isAdmin();
+            return $user->isSalesAgent() || $user->isSalesRepresentative() || $user->isStaff() || $user->isAdmin() || $user->isCoo();
         });
 
         Gate::define('input-sales', function ($user) {

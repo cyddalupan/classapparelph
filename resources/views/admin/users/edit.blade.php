@@ -77,6 +77,11 @@
                         </div>
 
                         <div class="form-group">
+                            <label for="position">Position / Title</label>
+                            <input type="text" id="position" name="position" class="form-control @error('position') is-invalid @enderror"
+                                   value="{{ old('position', $user->position) }}" placeholder="e.g., C.E.O., Manager, Owner">
+                            @error('position') <span class="invalid-feedback">{{ $message }}</span> @enderror
+
                             <label for="role">User Role <span class="required">*</span></label>
                             <select id="role" name="role" class="form-control @error('role') is-invalid @enderror" required onchange="toggleRoleFields()">
                                 <option value="admin" {{ $user->role === 'admin' ? 'selected' : '' }}>Administrator</option>
@@ -84,6 +89,8 @@
                                 <option value="sales_representative" {{ $user->role === 'sales_representative' ? 'selected' : '' }}>Sales Representative</option>
                                 <option value="staff" {{ $user->role === 'staff' ? 'selected' : '' }}>Staff</option>
                                 <option value="procurement" {{ $user->role === 'procurement' ? 'selected' : '' }}>Procurement</option>
+                                <option value="artist" {{ $user->role === 'artist' ? 'selected' : '' }}>Artist</option>
+                                <option value="coo" {{ $user->role === 'coo' ? 'selected' : '' }}>C.O.O.</option>
                             </select>
                             @error('role') <span class="invalid-feedback">{{ $message }}</span> @enderror
                         </div>

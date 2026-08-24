@@ -16,8 +16,12 @@
 .filter-group input:focus,
 .filter-group select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
 .filter-group.search-field { grid-column: span 2; }
-.filter-actions { display: flex; gap: 0.5rem; align-items: center; padding-bottom: 1px; justify-content: flex-end; }
+.filter-actions { display: flex; gap: 0.5rem; align-items: center; padding-bottom: 1px; justify-content: flex-end; grid-column: 1 / -1; }
 .filter-actions .action-btn { padding: 0.45rem 1rem; }
+.stage-count-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 1rem; padding-top: 0.9rem; border-top: 1px dashed #e2e8f0; }
+.stage-count-title { font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.15rem; }
+.stage-chip { display: inline-flex; align-items: center; padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; border: 1.5px solid; background: white; text-decoration: none; transition: all 0.15s; }
+.stage-chip:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
 .active-filter-count { display: inline-flex; align-items: center; gap: 0.3rem; background: #eef2ff; color: #4f46e5; padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
 
 /* Pipeline Legend */
@@ -52,7 +56,18 @@
 /* Sale Card */
 .sale-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 1.25rem; overflow: hidden; transition: box-shadow 0.2s; }
 .sale-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+@keyframes pulse-warn {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.45); }
+    50% { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+}
+
 .sale-card-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 0.5rem; }
+.sale-main-info { display: flex; align-items: center; gap: 0.85rem; min-width: 0; }
+.sale-mockup-thumb { position: relative; width: 64px; height: 56px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; cursor: pointer; flex-shrink: 0; background: #f8fafc; }
+.sale-mockup-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+.sale-mockup-thumb:hover img { transform: scale(1.08); }
+.sale-mockup-zoom { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,0.45); color: #fff; font-size: 0.85rem; opacity: 0; transition: opacity 0.2s; }
+.sale-mockup-thumb:hover .sale-mockup-zoom { opacity: 1; }
 .sale-number { font-weight: 700; color: #3b82f6; font-size: 0.9rem; }
 .sale-title { font-weight: 700; color: #1e293b; font-size: 0.95rem; line-height: 1.3; }
 .sale-customer { font-weight: 600; color: #1e293b; }
@@ -141,7 +156,7 @@
                     <a href="{{ route('sales.prototype.show', $notif->sale_id) }}" onclick="{{ ($notif->is_urgent && ($notif->reminder_count ?? 1) >= 2 && !$notif->response) ? 'return openUrgentById(' . $notif->id . ')' : 'markNotifRead(' . $notif->id . ')' }}" style="display:block;padding:12px 16px;border-bottom:1px solid #f1f5f9;text-decoration:none;background:{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }};border-left:{{ $notif->is_urgent ? '3px solid #dc2626' : '3px solid transparent' }};" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='{{ $notif->is_urgent ? '#fef2f2' : ($notif->is_read ? '#fff' : '#eff6ff') }}'">
                         <div style="font-size:13px;font-weight:600;color:{{ $notif->is_urgent ? '#dc2626' : '#1e293b' }};">{{ $notif->title }}</div>
                         <div style="font-size:12px;color:#64748b;margin-top:2px;">{{ $notif->message }}</div>
-                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">from {{ $notif->fromUser->name ?? 'Manager' }} • {{ $notif->created_at->diffForHumans() }}{{ $notif->reminder_count > 1 ? ' • Reminder #' . $notif->reminder_count : '' }}</div>
+                        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">from {{ $notif->fromUser?->display_label ?? 'Manager' }} • {{ $notif->created_at->diffForHumans() }}{{ $notif->reminder_count > 1 ? ' • Reminder #' . $notif->reminder_count : '' }}</div>
                     </a>
                     @empty
                     <div style="padding:24px;text-align:center;color:#94a3b8;font-size:13px;">No notifications yet 🎉</div>
@@ -152,7 +167,7 @@
             <a href="{{ route('sales.prototype.dashboard') }}" class="action-btn" title="Sales Dashboard">
                 <i class="fas fa-chart-line"></i> Sales Dashboard
             </a>
-            <a href="{{ route('sales.prototype.production-feedback.list') }}" class="action-btn" title="Production Feedback" style="border-color:#d97706;color:#d97706;">
+            <a href="{{ route('sales.prototype.production-feedback.list', ['scope' => 'mine']) }}" class="action-btn" title="Production Feedback" style="border-color:#d97706;color:#d97706;">
                 <i class="fas fa-clipboard-check"></i> Production Feedback
             </a>
             <a href="{{ route('sales.prototype.create') }}" class="action-btn primary">
@@ -247,6 +262,23 @@
                 </select>
             </div>
             <div class="filter-actions">
+                @php
+                    // Preserve current filters while toggling days-left sort
+                    $sortBase = collect($filters)->except(['sort', 'dir'])->filter(function ($v) { return $v !== '' && $v !== null; })->all();
+                    $curSort = $filters['sort'] ?? '';
+                    $curDir  = $filters['dir'] ?? 'asc';
+                    $nextDir = ($curSort === 'days_left' && $curDir === 'asc') ? 'desc' : 'asc';
+                    $sortUrl = route('sales.team.dashboard', array_merge($sortBase, ['sort' => 'days_left', 'dir' => $nextDir]));
+                    // Date & Time sort — toggle needed_by asc/desc (default asc)
+                    $nextTimeDir = ($curSort === 'needed_by' && $curDir === 'asc') ? 'desc' : 'asc';
+                    $timeSortUrl = route('sales.team.dashboard', array_merge($sortBase, ['sort' => 'needed_by', 'dir' => $nextTimeDir]));
+                @endphp
+                <a href="{{ $sortUrl }}" class="action-btn {{ $curSort === 'days_left' ? 'primary' : '' }}" title="Sort by days left (due date)">
+                    <i class="fas fa-sort-amount-{{ $curSort === 'days_left' && $curDir === 'desc' ? 'down' : 'up' }}"></i> Days Left {{ $curSort === 'days_left' ? ($curDir === 'asc' ? '↑' : '↓') : '' }}
+                </a>
+                <a href="{{ $timeSortUrl }}" class="action-btn {{ $curSort === 'needed_by' ? 'primary' : '' }}" title="Sort by Date & Time (needed by)">
+                    <i class="fas fa-sort-amount-{{ $curSort === 'needed_by' && $curDir === 'desc' ? 'down' : 'up' }}"></i> Date &amp; Time {{ $curSort === 'needed_by' ? ($curDir === 'asc' ? '↑' : '↓') : '' }}
+                </a>
                 <button type="submit" class="action-btn primary">
                     <i class="fas fa-filter"></i> Apply
                 </button>
@@ -255,6 +287,49 @@
                 </a>
             </div>
         </form>
+        @if(!empty($prodStageCounts) || $sales->count() > 0)
+        @php
+            // Preserve current filters (except production_stage) when clicking a stage chip
+            $stageBase = collect($filters)->except(['production_stage'])->filter(function ($v) { return $v !== '' && $v !== null; })->all();
+            $curStage = $filters['production_stage'] ?? '';
+            $stageChipColors = [
+                'HOLD' => '#dc2626',
+                'FOR SAMPLE' => '#f59e0b',
+                'FOR APPROVAL' => '#f59e0b',
+                'FOR FORMAT' => '#8b5cf6',
+                'PRINTING' => '#3b82f6',
+                'PRESSING' => '#0ea5e9',
+                'CUTTING' => '#14b8a6',
+                'SEWING' => '#10b981',
+                'QA' => '#6366f1',
+                'DISPATCH' => '#64748b',
+                'UNPAID' => '#ef4444',
+                'DONE' => '#22c55e',
+            ];
+        @endphp
+        <div class="stage-count-row">
+            <span class="stage-count-title"><i class="fas fa-layer-group"></i> Production Status:</span>
+            @php
+                // Time Request quick buttons — count ng pending (may request si Manager, wala pang set na time) at set (may needed time na)
+                $trBase = collect($filters)->except(['time_request'])->filter(function ($v) { return $v !== '' && $v !== null; })->all();
+                $curTr = $filters['time_request'] ?? '';
+            @endphp
+            <a href="{{ route('sales.team.dashboard', array_merge($trBase, ['time_request' => 'pending'])) }}" class="stage-chip {{ $curTr === 'pending' ? 'active' : '' }}" style="border-color:#dc2626;color:#dc2626;{{ $curTr === 'pending' ? 'background:#dc2626;color:#fff;' : '' }}" title="May request si Manager pero wala pang set na time — i-click para i-filter">⏰ Need Time ({{ $timeRequestCounts['pending'] }})</a>
+            <a href="{{ route('sales.team.dashboard', array_merge($trBase, ['time_request' => 'set'])) }}" class="stage-chip {{ $curTr === 'set' ? 'active' : '' }}" style="border-color:#22c55e;color:#22c55e;{{ $curTr === 'set' ? 'background:#22c55e;color:#fff;' : '' }}" title="May set na time na — i-click para i-filter">✅ Time Done ({{ $timeRequestCounts['set'] }})</a>
+            <a href="{{ route('sales.team.dashboard', $stageBase) }}" class="stage-chip {{ $curStage === '' ? 'active' : '' }}" style="{{ $curStage === '' ? 'background:#334155;border-color:#334155;color:#fff;' : '' }}">All ({{ array_sum($prodStageCounts) }})</a>
+            @foreach($prodStageOptions as $stageKey => $stageLabel)
+                @if(isset($prodStageCounts[$stageKey]) && $prodStageCounts[$stageKey] > 0)
+                @php
+                    $chipColor = $stageChipColors[$stageKey] ?? '#475569';
+                    $isActive = $curStage === $stageKey;
+                @endphp
+                <a href="{{ route('sales.team.dashboard', array_merge($stageBase, ['production_stage' => $stageKey])) }}" class="stage-chip {{ $isActive ? 'active' : '' }}" style="{{ $isActive ? 'background:' . $chipColor . ';border-color:' . $chipColor . ';color:#fff;' : 'border-color:' . $chipColor . ';color:' . $chipColor . ';' }}">
+                    {{ $stageLabel }} ({{ $prodStageCounts[$stageKey] }})
+                </a>
+                @endif
+            @endforeach
+        </div>
+        @endif
     </div>
 
     <!-- Stats -->
@@ -302,6 +377,25 @@
     @forelse($sales as $sale)
     <div class="sale-card">
         <div class="sale-card-header">
+            @php
+                // Main mockup thumbnail — same logic as the show page (is_main first, else first image)
+                $allMockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+                $mainMockupUrl = null;
+                foreach ((array)$allMockups as $m) {
+                    if (is_array($m) && !empty($m['is_main']) && !empty($m['url'])) { $mainMockupUrl = $m['url']; break; }
+                }
+                if (!$mainMockupUrl && !empty($allMockups)) {
+                    $first = is_array($allMockups[0]) ? ($allMockups[0]['url'] ?? null) : $allMockups[0];
+                    $mainMockupUrl = $first ?: null;
+                }
+            @endphp
+            <div class="sale-main-info">
+                @if($mainMockupUrl)
+                <div class="sale-mockup-thumb" onclick="showMockup('{{ $mainMockupUrl }}')" title="Click to view mockup">
+                    <img src="{{ $mainMockupUrl }}" alt="Mockup" loading="lazy">
+                    <span class="sale-mockup-zoom"><i class="fas fa-search-plus"></i></span>
+                </div>
+                @endif
             <div>
                 @php
                     // Build descriptive title from services (same as manager order list)
@@ -322,6 +416,7 @@
                         — {{ $sale->customer_name }}
                     @endif
                 </div>
+            </div>
             </div>
             <div>
                 <span class="sale-date" title="Date needed — {{ $sale->rescheduled_date ? 'rescheduled from ' . \Carbon\Carbon::parse($sale->estimated_completion_date)->format('M d, Y') : 'estimated completion date' }}">
@@ -481,6 +576,17 @@
             <a href="{{ route('sales.prototype.show', $sale->id) }}" class="action-btn">
                 <i class="fas fa-eye"></i> View Details
             </a>
+            @if(!empty($sale->time_requested_at))
+                @if(!empty($sale->needed_by))
+                    <button type="button" class="action-btn" style="border-color:#10b981;color:#10b981;line-height:1.3;" data-bs-toggle="modal" data-bs-target="#timeModal{{ $sale->id }}" title="Needed time set — click to change">
+                        <i class="fas fa-calendar-day"></i> {{ \Carbon\Carbon::parse($sale->needed_by)->format('M d, Y') }}<br><i class="fas fa-clock"></i> {{ \Carbon\Carbon::parse($sale->needed_by)->format('g:i A') }}
+                    </button>
+                @else
+                    <button type="button" class="action-btn primary" style="animation:pulse-warn 1.5s infinite;" data-bs-toggle="modal" data-bs-target="#timeModal{{ $sale->id }}" title="Manager asked: what time is this project needed?">
+                        <i class="fas fa-clock"></i> Set Time ⏰
+                    </button>
+                @endif
+            @endif
             @if(($sale->balance_due_computed ?? 0) > 0)
             <button type="button" class="action-btn primary" data-bs-toggle="modal" data-bs-target="#payBalanceModal{{ $sale->id }}">
                 <i class="fas fa-money-bill-wave"></i> Pay Balance
@@ -556,6 +662,47 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-danger"><i class="fas fa-check"></i> Yes, Delayed</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Set Needed Time Modal (manager requested) -->
+    @if(!empty($sale->time_requested_at))
+    <div class="modal fade" id="timeModal{{ $sale->id }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" action="{{ route('sales.team.submit-time', $sale->id) }}" class="time-form">
+                    @csrf
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-clock text-primary me-2"></i>Set Needed Time</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-1">Anong oras kailangan ang project na ito?</p>
+                        <p class="text-muted small mb-0">{{ $sale->sales_number }}</p>
+                        @if(!empty($sale->needed_by))
+                            <p class="text-success small mt-2 mb-0"><i class="fas fa-check-circle"></i> Kasalukuyang set: <strong>{{ \Carbon\Carbon::parse($sale->needed_by)->format('M d, Y') }}</strong> · <strong>{{ \Carbon\Carbon::parse($sale->needed_by)->format('g:i A') }}</strong> — pwede mong palitan.</p>
+                        @endif
+                        <hr>
+                        <label class="form-label fw-bold small"><i class="fas fa-calendar-alt me-1"></i>Date &amp; Time Needed</label>
+                        <div class="d-flex gap-2">
+                            <div style="flex:1;">
+                                <label class="form-label small text-muted mb-1">📅 Date</label>
+                                <input type="date" name="needed_date" class="form-control" value="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d') : \Carbon\Carbon::now()->addDay()->format('Y-m-d') }}" required>
+                            </div>
+                            <div style="flex:1;">
+                                <label class="form-label small text-muted mb-1">🕐 Time</label>
+                                <input type="time" name="needed_time" class="form-control" value="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('H:i') : '17:00' }}" required>
+                            </div>
+                        </div>
+                        <small class="text-muted">Piliin ang araw at oras kung kailan dapat handa ang project.</small>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Save Time</button>
                     </div>
                 </form>
             </div>
@@ -716,7 +863,7 @@ $urgentQueueJs = $urgentNotifications->map(function ($n) {
         'sale_number' => $n->sale->sales_number ?? ('Sale #' . $n->sale_id),
         'title' => $n->title,
         'message' => $n->message,
-        'from' => $n->fromUser->name ?? 'Manager',
+        'from' => $n->fromUser->display_label ?? 'Manager',
         'reminder_count' => $n->reminder_count ?? 1,
         'time' => $n->created_at ? $n->created_at->diffForHumans() : '',
     ];
@@ -866,13 +1013,15 @@ function markAllRead() {
     });
 }
 
-    fetch('{{ route('sales.prototype.notifications-read-all') }}', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json'
-        }
-    }).then(function() { location.reload(); });
+function showMockup(src) {
+    const win = window.open('', '_blank', 'width=800,height=900');
+    if (!win) { alert('Popup blocked. Please allow popups to view mockups.'); return; }
+    win.document.write(`
+        <html><head><title>Mockup Preview</title>
+        <style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;}
+        img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,0.4);}</style>
+        </head><body><img src="${src}" alt="Mockup"/></body></html>
+    `);
 }
 
 function showScreenshot(path) {
@@ -941,6 +1090,8 @@ function showToastMsg(msg, type) {
     container.appendChild(el);
     setTimeout(function() { el.remove(); }, 4000);
 }
+// Alias: the time-form/delay handlers call showToast() — point it to showToastMsg()
+window.showToast = window.showToast || showToastMsg;
 
 // Auto-set payment_type: fullpayment when amount >= remaining, else additional
 function wirePayBalanceType() {
@@ -1002,6 +1153,51 @@ function wireDelayForms() {
                 showToast('Network error', 'error');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-check"></i> Yes, Delayed';
+            });
+        });
+    });
+    document.querySelectorAll('.time-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var dateVal = form.querySelector('input[name="needed_date"]');
+            var timeVal = form.querySelector('input[name="needed_time"]');
+            if (dateVal && timeVal && (!dateVal.value || !timeVal.value)) {
+                showToast('Piliin ang date at time', 'error');
+                return;
+            }
+            var btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            var fd = new FormData(form);
+            if (dateVal && timeVal) {
+                // Combine date + time into the needed_by field the server expects
+                fd.delete('needed_date');
+                fd.delete('needed_time');
+                fd.append('needed_by', dateVal.value + ' ' + timeVal.value);
+            }
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': form.querySelector('input[name="_token"]') ? form.querySelector('input[name="_token"]').value : '',
+                    'Accept': 'application/json'
+                },
+                body: fd
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showToast('✅ ' + (data.message || 'Needed time saved!'));
+                    setTimeout(function() { location.reload(); }, 800);
+                } else {
+                    showToast('Error: ' + (data.message || 'unknown'), 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Save Time';
+                }
+            })
+            .catch(function() {
+                showToast('Network error', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Save Time';
             });
         });
     });

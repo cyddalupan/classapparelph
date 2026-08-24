@@ -16,6 +16,7 @@ class ProductionFeedback extends Model
         'to_user_id',
         'category',
         'message',
+        'acknowledgement',
         'status',
         'acknowledged_at',
         'resolved_at',
@@ -48,5 +49,14 @@ class ProductionFeedback extends Model
     public function toUser()
     {
         return $this->belongsTo(User::class, 'to_user_id');
+    }
+
+    /**
+     * The user involved/tagged alongside the primary recipient
+     * (e.g. an Artist tagged when giving feedback to an Agent).
+     */
+    public function involvedUser()
+    {
+        return $this->belongsTo(User::class, 'involved_user_id');
     }
 }

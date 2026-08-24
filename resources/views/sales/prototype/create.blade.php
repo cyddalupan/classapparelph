@@ -123,6 +123,31 @@
         box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         border-color: #667eea;
     }
+
+    /* Disabled / Coming Soon boxes */
+    .product-box.disabled {
+        filter: grayscale(1);
+        opacity: 0.55;
+        cursor: not-allowed;
+        pointer-events: none;
+        border-color: #d0d0d0 !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+    .soon-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #6c757d;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        z-index: 2;
+    }
     
     .product-icon {
         color: #667eea;
@@ -401,8 +426,9 @@
             <div class="row g-4" id="productBoxesContainer">
                 <!-- Box 1: Garment Printing -->
                 <div class="col-md-6 col-lg-4">
-                    <div class="product-box card h-100" data-product-type="garment" data-department="iprint">
+                    <div class="product-box card h-100 disabled" data-product-type="garment" data-department="iprint">
                         <div class="card-body text-center">
+                            <span class="soon-badge">Soon</span>
                             <div class="product-icon mb-3">
                                 <i class="fas fa-tshirt fa-3x text-primary"></i>
                             </div>
@@ -417,8 +443,9 @@
                 
                 <!-- Box 2: Tarpaulin -->
                 <div class="col-md-6 col-lg-4">
-                    <div class="product-box card h-100" data-product-type="tarpaulin" data-department="consol">
+                    <div class="product-box card h-100 disabled" data-product-type="tarpaulin" data-department="consol">
                         <div class="card-body text-center">
+                            <span class="soon-badge">Soon</span>
                             <div class="product-icon mb-3">
                                 <i class="fas fa-image fa-3x text-info"></i>
                             </div>
@@ -433,8 +460,9 @@
                 
                 <!-- Box 3: Embroidery -->
                 <div class="col-md-6 col-lg-4">
-                    <div class="product-box card h-100" data-product-type="embroidery" data-department="cinco">
+                    <div class="product-box card h-100 disabled" data-product-type="embroidery" data-department="cinco">
                         <div class="card-body text-center">
+                            <span class="soon-badge">Soon</span>
                             <div class="product-icon mb-3">
                                 <i class="fas fa-thread fa-3x text-warning"></i>
                             </div>
@@ -465,8 +493,9 @@
                 
                 <!-- Box 5: Sewing -->
                 <div class="col-md-6 col-lg-4">
-                    <div class="product-box card h-100" data-product-type="sewing" data-department="class">
+                    <div class="product-box card h-100 disabled" data-product-type="sewing" data-department="class">
                         <div class="card-body text-center">
+                            <span class="soon-badge">Soon</span>
                             <div class="product-icon mb-3">
                                 <i class="fas fa-sewing-machine fa-3x text-success"></i>
                             </div>
@@ -481,8 +510,9 @@
                 
                 <!-- Box 6: Design -->
                 <div class="col-md-6 col-lg-4">
-                    <div class="product-box card h-100" data-product-type="design" data-department="iprint">
+                    <div class="product-box card h-100 disabled" data-product-type="design" data-department="iprint">
                         <div class="card-body text-center">
+                            <span class="soon-badge">Soon</span>
                             <div class="product-icon mb-3">
                                 <i class="fas fa-pencil-ruler fa-3x text-primary"></i>
                             </div>
@@ -605,7 +635,7 @@
                             @foreach($paymentAccounts as $account)
                                 <option value="{{ $account->id }}" data-user="{{ $account->user_id }}">
                                     {{ $account->name }} @if($account->user)
-                                        ({{ $account->user->name }})
+                                        ({{ $account->user->display_label }})
                                     @endif
                                 </option>
                             @endforeach
@@ -2270,6 +2300,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Helper: enable/disable payment-detail fields (used for P.O. — no payment now)
+    // Note: payment screenshot stays ENABLED for P.O. — used to attach the complete PO form
+    function setPaymentDetailsDisabled(disabled) {
+        var acc = document.getElementById('payment_account_id');
+        var date = document.getElementById('payment_date');
+        var ref = document.getElementById('reference_number');
+        [acc, date, ref].forEach(function(el) { if (el) el.disabled = disabled; });
+        var ownerSection = document.getElementById('paymentOwnerSection');
+        if (ownerSection) ownerSection.style.opacity = disabled ? '0.5' : '1';
+        if (disabled) {
+            if (acc) acc.value = '';
+            if (date) date.value = '';
+            if (ref) ref.value = '';
+        }
+    }
+
     // Listen for payment type radio changes
     document.querySelectorAll('input[name="payment_type"]').forEach(function(radio) {
         radio.addEventListener('change', function(e) {
@@ -2289,6 +2335,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 poSection.style.display = 'none';
                 if (poRef) poRef.disabled = true;
                 if (hiddenType) hiddenType.value = 'downpayment';
+                setPaymentDetailsDisabled(false);
             } else if (this.value === 'fullpayment') {
                 amtInput.disabled = false;
                 amtInput.value = grandTotal.toFixed(2);
@@ -2297,6 +2344,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 poSection.style.display = 'none';
                 if (poRef) poRef.disabled = true;
                 if (hiddenType) hiddenType.value = 'fullpayment';
+                setPaymentDetailsDisabled(false);
             } else if (this.value === 'po') {
                 amtInput.disabled = true;
                 amtInput.value = 0;
@@ -2305,6 +2353,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 poSection.style.display = 'block';
                 if (poRef) poRef.disabled = false;
                 if (hiddenType) hiddenType.value = 'po';
+                setPaymentDetailsDisabled(true);
             }
             if (hiddenAmt) hiddenAmt.value = amtInput.value || 0;
         });
@@ -2636,26 +2685,26 @@ document.addEventListener('DOMContentLoaded', function() {
             var paymentType = document.querySelector('input[name="payment_type"]:checked');
             var paymentTypeVal = paymentType ? paymentType.value : '';
             
-            // Payment Received By must be selected
+            // Payment Received By must be selected (skip for P.O. — no payment now)
             var paymentAccount = document.getElementById('payment_account_id').value;
-            if (!paymentAccount) {
+            if (paymentTypeVal !== 'po' && !paymentAccount) {
                 e.preventDefault();
                 showToast('<strong>Step 3 — Payment:</strong> Select who received the payment', 'error');
                 document.getElementById('paymentOwnerSection')?.scrollIntoView({behavior: 'smooth', block: 'center'});
                 return;
             }
             
-            // Payment Date required
+            // Payment Date required (skip for P.O.)
             var paymentDate = document.getElementById('payment_date').value.trim();
-            if (!paymentDate) {
+            if (paymentTypeVal !== 'po' && !paymentDate) {
                 e.preventDefault();
                 showToast('<strong>Step 3 — Payment:</strong> Enter a Payment Date', 'error');
                 return;
             }
             
-            // Reference Number required
+            // Reference Number required (skip for P.O.)
             var refNum = document.getElementById('reference_number').value.trim();
-            if (!refNum) {
+            if (paymentTypeVal !== 'po' && !refNum) {
                 e.preventDefault();
                 showToast('<strong>Step 3 — Payment:</strong> Enter a Reference Number', 'error');
                 return;
@@ -2681,7 +2730,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Validate payment screenshot (always required)
+            // Validate payment screenshot (always required: payment proof OR complete PO form)
             var psInput = document.getElementById('payment_screenshot');
             if (!psInput || !psInput.files || psInput.files.length === 0) {
                 e.preventDefault();

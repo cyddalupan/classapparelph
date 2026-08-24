@@ -80,9 +80,9 @@
                     </div>
                     <div class="d-flex flex-wrap gap-3 small text-muted">
                         <span><i class="fas fa-tag me-1"></i>{{ ucfirst(str_replace('_', ' ', $refund->refund_reason)) }}</span>
-                        <span><i class="fas fa-user me-1"></i>Requested by: {{ $refund->requested_by_name }}</span>
+                        <span><i class="fas fa-user me-1"></i>Requested by: {{ ($fn = trim(explode(' ', ($refund->requested_by_name ?? ''))[0])) ? $fn . ($refund->requested_by_position ? ' - ' . $refund->requested_by_position : '') : $refund->requested_by_name }}</span>
                         @if($refund->accepted_by_name)
-                            <span><i class="fas fa-hand-paper me-1"></i>Accepted by: {{ $refund->accepted_by_name }}</span>
+                            <span><i class="fas fa-hand-paper me-1"></i>Accepted by: {{ ($fn = trim(explode(' ', ($refund->accepted_by_name ?? ''))[0])) ? $fn . ($refund->accepted_by_position ? ' - ' . $refund->accepted_by_position : '') : $refund->accepted_by_name }}</span>
                         @endif
                         <span><i class="fas fa-calendar me-1"></i>{{ \Carbon\Carbon::parse($refund->created_at)->format('M d, Y') }}</span>
                         @if($refund->refund_method)
@@ -136,7 +136,7 @@
                                 </button>
                             @else
                                 <span class="text-muted small">
-                                    <i class="fas fa-lock me-1"></i>Accepted by {{ $refund->accepted_by_name ?? 'another manager' }}
+                                    <i class="fas fa-lock me-1"></i>Accepted by {{ ($fn = trim(explode(' ', ($refund->accepted_by_name ?? ''))[0])) ? $fn . ($refund->accepted_by_position ? ' - ' . $refund->accepted_by_position : '') : ($refund->accepted_by_name ?? 'another manager') }}
                                 </span>
                             @endif
                         @endif

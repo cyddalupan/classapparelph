@@ -12,6 +12,7 @@ class ProductionChecklist extends Model
         'ga_done',
         'ga_done_at',
         'ga_notes',
+        'additional_comments',
         'qa1_done',
         'qa1_done_at',
         'qa1_notes',

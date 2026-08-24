@@ -380,6 +380,16 @@
     .pending-modal-item:hover .pending-item-arrow {
         color: #0d6efd;
     }
+    /* Priority select — grey out taken numbers */
+    .prio-select option:disabled {
+        color: #b0b7c0;
+        background: #f1f3f5;
+        font-weight: 400;
+    }
+    .prio-select option[data-taken="1"] {
+        color: #b0b7c0;
+        background: #f1f3f5;
+    }
 </style>
 @endpush
 
@@ -405,10 +415,18 @@
             </div>
         </div>
         <div class="list-actions">
+            @if(!$isAgent && auth()->user() && auth()->user()->isManager())
+            <button class="btn" id="requestTimeAllBtn" onclick="requestTimeAll()" style="background:#0d6efd;color:#fff;" title="Enable the Set Time button for ALL sales due within 1 day (or overdue) in every agent's My Sales">
+                ⏰ Request Time (due ≤1d)
+            </button>
+            @endif
             <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-kanban">📊 Kanban Board</a>
-            <a href="{{ route('sales.prototype.delays') }}" class="btn btn-delays" style="background:#dc3545;color:#fff;">⚠️ Delay List</a>
+            <a href="{{ route('sales.prototype.delays') }}" class="btn btn-delays" style="background:#dc3545;color:#fff;">⚠️ Delay List @if(($delayCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#dc3545;">{{ $delayCount }}</span>@endif</a>
+            <a href="{{ route('sales.prototype.backjobs') }}" class="btn" style="background:#6d28d9;color:#fff;">🔧 Backjob List @if(($backjobCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#6d28d9;">{{ $backjobCount }}</span>@endif</a>
             <a href="{{ route('sales.prototype.production-feedback.list') }}" class="btn" style="background:#d97706;color:#fff;">📋 Production Feedback @if(($openFeedbackCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#d97706;">{{ $openFeedbackCount }}</span>@endif</a>
+            @if(!(auth()->user() && auth()->user()->isProdManager()))
             <a href="{{ route('sales.prototype.create') }}" class="btn btn-new-order">➕ New Order</a>
+            @endif
             @if(isset($totalPending) && $totalPending > 0)
                 <button class="btn btn-pending-hdr" id="pendingToggleBtn" onclick="showPendingModal()" style="position:relative;">
                     🔔 Add-ons <span class="pending-count-badge">{{ $totalPending }}</span>
@@ -466,6 +484,25 @@
             <option value="">All Photos</option>
             <option value="missing">⚠️ Missing Photos</option>
             <option value="complete">📄🎨 Complete</option>
+        </select>
+        <select id="timeReqFilter" onchange="filterTable()" title="Filter by Set Time status">
+            <option value="">All Set Time</option>
+            <option value="requested">⏰ Requested (Waiting)</option>
+            <option value="set">✅ Time Set</option>
+            <option value="none">— No Request</option>
+        </select>
+        <select id="timeSort" onchange="sortByNeededTime()" title="Sort by Set Time (ascending/descending)" style="max-width:190px;">
+            <option value="">Sort: Default</option>
+            <option value="asc">⏫ Set Time: Earliest First</option>
+            <option value="desc">⏬ Set Time: Latest First</option>
+        </select>
+        <select id="daysLeftFilter" onchange="filterTable()" title="Filter by due date / days left">
+            <option value="">All Days Left</option>
+            <option value="overdue">🔴 Overdue</option>
+            <option value="today">⏰ Due Today</option>
+            <option value="soon">🟠 Due in 1-3 Days</option>
+            <option value="later">🟢 Due in 4+ Days</option>
+            <option value="none">— No Due Date</option>
         </select>
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetFilters()" title="Reset all filters">↺ Reset</button>
         <span class="text-muted" style="font-size:13px;">{{ $sales->total() }} orders</span>
@@ -559,15 +596,34 @@
                         $photoCooldown = $photoLastAt && $photoLastAt->diffInHours(now()) < 24;
                         $photoMinAgo = $photoLastAt ? (int) $photoLastAt->diffInMinutes(now()) : 0;
                         $photoAgoText = $photoMinAgo < 60 ? $photoMinAgo . 'm ago' : round($photoMinAgo / 60) . 'h ago';
-                        $canOverride = auth()->user() && (auth()->user()->isAdmin() || auth()->user()->role === 'manager');
+                        $canOverride = auth()->user() && auth()->user()->isManager();
                         $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+
+                        // Days-left bucket for the filter (same logic as the due badge)
+                        $dlStageLabel = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD');
+                        $dlStage = $prodStageMap[$dlStageLabel] ?? $dlStageLabel;
+                        $dlHidden = ['ready_for_delivery', 'delivered', 'completed'];
+                        $dlDate = (!in_array($dlStage, $dlHidden)) ? ($sale->rescheduled_date ?: $sale->estimated_completion_date) : null;
+                        $daysLeftBucket = 'none';
+                        if ($dlDate) {
+                            $dlCarbon = \Carbon\Carbon::parse($dlDate)->startOfDay();
+                            $dlLeft = (int) now()->startOfDay()->diffInDays($dlCarbon, false);
+                            if ($dlLeft < 0) $daysLeftBucket = 'overdue';
+                            elseif ($dlLeft === 0) $daysLeftBucket = 'today';
+                            elseif ($dlLeft <= 3) $daysLeftBucket = 'soon';
+                            else $daysLeftBucket = 'later';
+                        }
                     @endphp
-                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" data-time-req="{{ !empty($sale->needed_by) ? 'set' : (!empty($sale->time_requested_at) ? 'requested' : 'none') }}" data-needed-by="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d H:i:s') : '' }}" data-days-left="{{ $daysLeftBucket }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
                         <td style="max-width:130px;">
-                            <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:80px;padding:1px 4px;margin-bottom:3px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}">
+                            <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:80px;padding:1px 4px;margin-bottom:3px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}" title="Priority tag — nagamit na sa ibang order ang may (Taken)">
                                 <option value="" {{ !$sale->priority ? 'selected' : '' }}>Prio —</option>
                                 @for($i = 1; $i <= 10; $i++)
-                                <option value="{{ $i }}" {{ $sale->priority === $i ? 'selected' : '' }}>Prio {{ $i }}</option>
+                                @php
+                                    // Disable priority numbers already used by OTHER sales (unique prio per number)
+                                    $prioTaken = isset($usedPriorities[$i]) && $usedPriorities[$i] !== $sale->sales_number;
+                                @endphp
+                                <option value="{{ $i }}" {{ $sale->priority === $i ? 'selected' : '' }} {{ $prioTaken ? 'disabled' : '' }}>{{ $prioTaken ? 'Prio ' . $i . ' (Taken)' : 'Prio ' . $i }}</option>
                                 @endfor
                             </select>
                             @if($sale->is_delayed)
@@ -672,7 +728,9 @@
                                 @endif
                             @endif
                             <div style="margin-top:2px;">
-                                @if(($sale->total_refunded ?? 0) > 0 && ($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
+                                @if($sale->payment_status === 'reject_pending')
+                                    <span class="badge bg-danger" title="Rejection requested — waiting for second verifier">⏳ Rejection Pending</span>
+                                @elseif(($sale->total_refunded ?? 0) > 0 && ($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
                                     <span class="badge bg-info text-dark">↩ Refunded</span>
                                 @elseif(($sale->balance_due_computed ?? 0) > 0 && ($sale->net_paid ?? 0) > 0)
                                     <span class="badge bg-warning text-dark" title="May natitira pang bayad: ₱{{ number_format($sale->balance_due_computed, 2) }}">⚠️ Balance</span>
@@ -714,14 +772,36 @@
                             </span>
                         </td>
                         <td>{{ $sale->customer_name ?: '—' }}</td>
-                        <td style="font-size:12px;color:#6c757d;">{{ $sale->sales_agent_name ?: '—' }}</td>
+                        <td style="font-size:12px;color:#6c757d;">
+                            {{ $sale->sales_agent_name ?: '—' }}
+                            @if(!$isAgent && auth()->user() && auth()->user()->isManager())
+                                <div style="margin-top:4px;">
+                                    @if(!empty($sale->needed_by))
+                                        <span class="badge bg-success d-inline-flex flex-column align-items-start" style="line-height:1.25;" title="Sales agent set the needed time">
+                                            <span style="font-size:10px;"><i class="fas fa-calendar-day"></i> {{ \Carbon\Carbon::parse($sale->needed_by)->format('M d, Y') }}</span>
+                                            <span style="font-size:10px;"><i class="fas fa-clock"></i> {{ \Carbon\Carbon::parse($sale->needed_by)->format('g:i A') }}</span>
+                                        </span>
+                                    @elseif(!empty($sale->time_requested_at))
+                                        <span class="badge bg-warning text-dark" title="Requested — waiting for agent to set time">
+                                            <i class="fas fa-hourglass-half"></i> Waiting…
+                                        </span>
+                                    @else
+                                        <button type="button" class="btn btn-sm btn-outline-primary time-req-btn" style="padding:1px 8px;font-size:11px;" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" onclick="event.stopPropagation();requestTime(this)" title="Ask the sales agent what time the project is needed">
+                                            <i class="fas fa-clock"></i> Request Time
+                                        </button>
+                                    @endif
+                                </div>
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr>
                         <td colspan="12" style="text-align:center;padding:40px;color:#6c757d;">
                             No orders found.
                             <br><br>
+                            @if(!(auth()->user() && auth()->user()->isProdManager()))
                             <a href="{{ route('sales.prototype.create') }}" class="btn btn-primary">➕ Create First Order</a>
+                            @endif
                         </td>
                     </tr>
                 @endforelse
@@ -744,6 +824,70 @@ function showPendingModal() {
 }
 function closePendingModal() {
     document.getElementById('pendingModal').style.display = 'none';
+}
+
+function requestTime(btn) {
+    var saleId = btn.getAttribute('data-sale-id');
+    var saleNumber = btn.getAttribute('data-sale-number');
+    if (!confirm('I-request ang needed time para sa ' + saleNumber + '? Ma-notify ang sales agent na mag-set ng oras sa My Sales.')) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    fetch('{{ route('sales.prototype.request-time', ':ID') }}'.replace(':ID', saleId), {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({})
+    }).then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
+      .then(function(res) {
+        if (res.ok && res.d.success) {
+            btn.outerHTML = '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half"></i> Waiting…</span>';
+            alert(res.d.message);
+        } else {
+            alert(res.d.message || 'Request failed.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-clock"></i> Request Time';
+        }
+      })
+      .catch(function() {
+        alert('Request failed. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-clock"></i> Request Time';
+      });
+}
+
+function requestTimeAll() {
+    var btn = document.getElementById('requestTimeAllBtn');
+    if (!confirm('I-enable ang Set Time button para sa LAHAT ng sales na due within 1 day (o overdue)? Magagawa ng mga sales agent na mag-set ng date at oras sa My Sales nila.')) return;
+    btn.disabled = true;
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enabling...';
+    fetch('{{ route('sales.prototype.request-time-all') }}', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({})
+    }).then(function(r) { return r.json().then(function(d) { return { ok: r.ok, d: d }; }); })
+      .then(function(res) {
+        if (res.ok && res.d.success) {
+            alert(res.d.message);
+            location.reload();
+        } else {
+            alert(res.d.message || 'Request failed.');
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+      })
+      .catch(function() {
+        alert('Request failed. Please try again.');
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      });
 }
 
 function notifyAgent(btn) {
@@ -869,6 +1013,16 @@ function filterTable() {
         var photoStatus = row.getAttribute('data-photos') || '';
         var photoMatch = !photo || photoStatus === photo;
         
+        // Set Time filter: row has data-time-req attribute (none/requested/set)
+        var timeReq = row.getAttribute('data-time-req') || '';
+        var timeReqFilterVal = document.getElementById('timeReqFilter').value;
+        var timeReqMatch = !timeReqFilterVal || timeReq === timeReqFilterVal;
+        
+        // Days Left filter: row has data-days-left attribute (overdue/today/soon/later/none)
+        var daysLeft = row.getAttribute('data-days-left') || '';
+        var daysLeftVal = document.getElementById('daysLeftFilter').value;
+        var daysLeftMatch = !daysLeftVal || daysLeft === daysLeftVal;
+        
         // Date filter: row has data-date attribute (YYYY-MM-DD)
         var rowDate = row.getAttribute('data-date') || '';
         var dateMatch = true;
@@ -885,7 +1039,31 @@ function filterTable() {
         
         var searchMatch = !search || text.indexOf(search) !== -1;
         
-        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && photoMatch && dateMatch && stageMatch && prioMatch && searchMatch) ? '' : 'none';
+        row.style.display = (deptMatch && statusMatch && paymentMatch && agentMatch && photoMatch && dateMatch && stageMatch && prioMatch && searchMatch && timeReqMatch && daysLeftMatch) ? '' : 'none';
+    });
+}
+
+// Sort table rows by needed-by time (Set Time) — ascending or descending
+function sortByNeededTime() {
+    var dir = document.getElementById('timeSort').value;
+    var tbody = document.querySelector('#orderTable tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr')).filter(function(row) {
+        return !row.querySelector('td[colspan]');
+    });
+    
+    rows.sort(function(a, b) {
+        var ta = a.getAttribute('data-needed-by') || '';
+        var tb = b.getAttribute('data-needed-by') || '';
+        // Rows without a set time always sink to the bottom
+        if (!ta && !tb) return 0;
+        if (!ta) return 1;
+        if (!tb) return -1;
+        if (dir === 'desc') return ta < tb ? 1 : (ta > tb ? -1 : 0);
+        return ta < tb ? -1 : (ta > tb ? 1 : 0);
+    });
+    
+    rows.forEach(function(row) {
+        tbody.appendChild(row);
     });
 }
 
@@ -907,7 +1085,7 @@ function populateAgentFilter() {
 }
 
 function resetFilters() {
-    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter'].forEach(function(id) {
+    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter', 'timeReqFilter', 'timeSort', 'daysLeftFilter'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
     document.getElementById('prioFilter').checked = false;
