@@ -112,6 +112,8 @@ class DamageReportController extends Controller
             'sale_id' => 'nullable|exists:prototype_sales,id',
             'evidence' => 'nullable|image|max:5120',
             'quantity' => 'nullable|integer|min:1',
+            'involved_position' => 'nullable|string|max:100',
+            'involved_name' => 'nullable|string|max:255',
         ]);
 
         // Duplicate guard: same shop + same sale with an open report -> point to existing
@@ -146,6 +148,8 @@ class DamageReportController extends Controller
             'status' => 'submitted',
             'description' => $request->description,
             'quantity' => $request->filled('quantity') ? $request->integer('quantity') : null,
+            'involved_position' => $request->involved_position ?: null,
+            'involved_name' => $request->involved_name ?: null,
             'evidence_path' => $evidencePath,
         ]);
 
@@ -189,6 +193,8 @@ class DamageReportController extends Controller
             'sale_id' => 'required|exists:prototype_sales,id',
             'evidence' => 'nullable|image|max:5120',
             'quantity' => 'nullable|integer|min:1',
+            'involved_position' => 'nullable|string|max:100',
+            'involved_name' => 'nullable|string|max:255',
         ], [
             'sale_id.required' => 'Kailangang i-tag ang sales number bago ma-send sa review — para ma-trace ang damage at maiwasan ang duplicate reports.',
         ]);
@@ -211,6 +217,8 @@ class DamageReportController extends Controller
             'category' => $request->category,
             'sale_id' => $request->sale_id ?: null,
             'quantity' => $request->filled('quantity') ? $request->integer('quantity') : null,
+            'involved_position' => $request->involved_position ?: null,
+            'involved_name' => $request->involved_name ?: null,
             'evidence_path' => $evidencePath,
             'status' => $report->status === 'submitted' ? 'under_review' : $report->status,
         ]);

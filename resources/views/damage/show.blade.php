@@ -69,6 +69,14 @@
                             <div class="col-md-4"><small class="text-muted">Quantity Damaged</small>
                                 <div class="fw-bold">{{ $report->quantity }} pc{{ $report->quantity > 1 ? 's' : '' }}</div>
                             </div>
+                            @if($report->involved_position || $report->involved_name)
+                                <div class="col-md-8"><small class="text-muted">Involved</small>
+                                    <div class="fw-bold">
+                                        {{ $report->involved_name ?: '—' }}
+                                        @if($report->involved_position)<span class="badge bg-secondary ms-1">{{ $report->involved_position }}</span>@endif
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     @endif
                     @if($report->damage_amount !== null)
@@ -268,6 +276,19 @@
                             <div class="mb-2">
                                 <label class="form-label small">Quantity Damaged</label>
                                 <input type="number" min="1" name="quantity" class="form-control form-control-sm" value="{{ $report->quantity ?? '' }}" placeholder="Ilang pcs ang nadamage">
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Involved Position <span class="text-muted">(kung alam)</span></label>
+                                <input type="text" name="involved_position" class="form-control form-control-sm" list="positionSuggestions" value="{{ $report->involved_position ?? '' }}" placeholder="e.g. Presser, Sewer, Cutter">
+                                <datalist id="positionSuggestions">
+                                    @foreach(['Presser', 'Sewer', 'Cutter', 'Production Staff', 'Sales Agent', 'Quality Checker', 'Encoder', 'Driver', 'Other'] as $pos)
+                                        <option value="{{ $pos }}"></option>
+                                    @endforeach
+                                </datalist>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Involved Person <span class="text-muted">(kung kilala)</span></label>
+                                <input type="text" name="involved_name" class="form-control form-control-sm" value="{{ $report->involved_name ?? '' }}" placeholder="Pangalan ng involved (optional)">
                             </div>
                             <div class="mb-2">
                                 <label class="form-label small">Description</label>

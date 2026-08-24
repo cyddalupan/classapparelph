@@ -110,6 +110,22 @@
                             <input type="number" name="quantity" class="form-control" min="1" placeholder="Ilang piraso ang nadamage? e.g. 3" value="{{ old('quantity') }}" required>
                         </div>
 
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Involved Position <span class="text-muted">(kung alam)</span></label>
+                                <input type="text" name="involved_position" class="form-control" list="positionSuggestions" placeholder="e.g. Presser, Sewer, Cutter" value="{{ old('involved_position') }}">
+                                <datalist id="positionSuggestions">
+                                    @foreach(['Presser', 'Sewer', 'Cutter', 'Production Staff', 'Sales Agent', 'Quality Checker', 'Encoder', 'Driver', 'Other'] as $pos)
+                                        <option value="{{ $pos }}"></option>
+                                    @endforeach
+                                </datalist>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Involved Person <span class="text-muted">(kung kilala)</span></label>
+                                <input type="text" name="involved_name" class="form-control" placeholder="Pangalan ng involved (optional)" value="{{ old('involved_name') }}">
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">Description <span class="text-danger">*</span></label>
                             <textarea name="description" class="form-control" rows="4" placeholder="Ano ang nangyari? Saan? Sino ang involved (kung alam)?" required>{{ old('description') }}</textarea>

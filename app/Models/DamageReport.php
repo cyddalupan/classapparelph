@@ -17,6 +17,8 @@ class DamageReport extends Model
         'status',
         'description',
         'quantity',
+        'involved_position',
+        'involved_name',
         'damage_amount',
         'points',
         'evidence_path',
