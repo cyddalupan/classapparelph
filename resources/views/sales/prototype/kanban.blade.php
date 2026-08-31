@@ -415,6 +415,155 @@
 
     #modalProdSlipBody { max-height:70vh; overflow-y:auto; }
     #modalAddProdSlipBody { max-height:70vh; overflow-y:auto; }
+.cm-overlay {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(3px);
+    align-items: center;
+    justify-content: center;
+    animation: cmFadeIn 0.2s;
+}
+@keyframes cmFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.cm-modal {
+    background: #fff;
+    max-width: 480px;
+    width: 90%;
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+    animation: cmSlideUp 0.25s ease-out;
+}
+@keyframes cmSlideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.cm-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid #eee;
+}
+.cm-header h4 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+}
+.cm-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+    padding: 0 4px;
+}
+.cm-close:hover { color: #333; }
+.cm-body {
+    padding: 24px;
+}
+.cm-body-text {
+    margin: 0 0 16px;
+    font-size: 15px;
+    color: #333;
+    line-height: 1.5;
+}
+.cm-info-box {
+    background: #f0f7ff;
+    border-left: 4px solid #0d6efd;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.4;
+}
+.cm-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #eee;
+    background: #fafafa;
+}
+.cm-cancel-btn {
+    padding: 8px 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    color: #555;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.cm-cancel-btn:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
+}
+.cm-confirm-btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #fff;
+    transition: all 0.15s;
+    min-width: 130px;
+}
+.cm-confirm-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+.cm-approve {
+    background: #198754;
+}
+.cm-approve:hover:not(:disabled) {
+    background: #157347;
+}
+.cm-reject {
+    background: #dc3545;
+}
+.cm-reject:hover:not(:disabled) {
+    background: #bb2d3b;
+}
+.cm-reject-input-group {
+    margin-top: 8px;
+}
+.cm-reason-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    font-size: 14px;
+    resize: vertical;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.cm-reason-input:focus {
+    outline: none;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
+}
+.cm-char-hint {
+    font-size: 12px;
+    color: #999;
+    margin-top: 6px;
+    text-align: right;
+}
+.cm-char-count {
+    font-weight: 600;
+}
+
 </style>
 @endpush
 
@@ -929,6 +1078,26 @@
 
 @include('partials.sublimation-show-modal')
 
+<div id="confirmDeleteCommentModal" class="cm-overlay" onclick="if(event.target===this)cancelDeleteComment()">
+    <div class="cm-modal" style="max-width:420px;">
+        <div class="cm-header">
+            <h4><i class="fas fa-trash-alt text-danger me-2"></i>Delete Comment</h4>
+            <button onclick="cancelDeleteComment()" class="cm-close">&times;</button>
+        </div>
+        <div class="cm-body">
+            <p class="cm-body-text">Are you sure you want to delete this comment?</p>
+            <div class="cm-info-box">
+                <i class="fas fa-info-circle text-warning me-2"></i>
+                The comment will be removed from the list and recorded in the <strong>Deleted history</strong> below with your name and time.
+            </div>
+        </div>
+        <div class="cm-footer">
+            <button onclick="cancelDeleteComment()" class="cm-cancel-btn">No</button>
+            <button onclick="doDeleteComment()" class="cm-confirm-btn cm-reject"><i class="fas fa-trash-alt me-1"></i>Yes, Delete</button>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -945,7 +1114,9 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
     // Manager/admin can override the photo-completeness lock on card moves
     window.kanbanCanOverride = {{ $canOverride ? 'true' : 'false' }};
     // Sales agents cannot edit the production slip (checkboxes/comments)
-    var psCanEdit = @json(!(auth()->user() && auth()->user()->isSalesAgent()));
+    // NOTE: must be on window — global helper functions below (outside this IIFE) reference psCanEdit
+    window.psCanEdit = @json(!(auth()->user() && auth()->user()->isSalesAgent()));
+    window.psCurrentUserName = @json(auth()->user()->name ?? '');
 
     function showKanbanToast(msg) {
         var existing = document.getElementById('kanbanToast');
@@ -2363,42 +2534,33 @@ function loadProductionSlip(saleId) {
 
 function renderProductionSlip(data) {
     var chk = data.checklist || {};
-    var slip = data.slip || {};
     var saleId = chk.sale_id || 0;
     var items = chk.items || [];
-    var partRows = slip.partRows || [];
-    var allRosters = slip.allRosters || [];
-    var sizes = slip.sizes || [];
-    var hasRoster = slip.hasRoster || false;
-    var mockupImages = slip.mockupImages || [];
-    var mainMockup = null;
-    for (var mi = 0; mi < mockupImages.length; mi++) {
-        if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
+    var slips = (data.slips && data.slips.length) ? data.slips : (data.slip ? [data.slip] : []);
+    if (!slips.length) slips = [{}];
+
+    // Helper: product index of a checklist item (legacy items default to 0)
+    function itemProduct(it) {
+        return (it && it.product !== undefined && it.product !== null) ? it.product : 0;
     }
-    if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
-    var firstMockup = mainMockup;
-    var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
 
-    // Split parts into two columns
-    var splitMid = Math.ceil(partRows.length / 2);
-    var leftParts = partRows.slice(0, splitMid);
-    var rightParts = partRows.slice(splitMid);
-
-    // Helper: find item index by type and label match
-    function findItemIdx(type, matchStr) {
+    // Helper: find item index by type and label match (scoped to a product)
+    function findItemIdx(type, matchStr, product) {
+        var prod = (product === undefined || product === null) ? 0 : product;
         for (var i = 0; i < items.length; i++) {
-            if (items[i].type === type && items[i].label.indexOf(matchStr) >= 0) {
+            if (items[i].type === type && itemProduct(items[i]) === prod && items[i].label.indexOf(matchStr) >= 0) {
                 return i;
             }
         }
         return -1;
     }
 
-    // Helper: find nth item of a type
-    function findNthItemIdx(type, n) {
+    // Helper: find nth item of a type (scoped to a product)
+    function findNthItemIdx(type, n, product) {
+        var prod = (product === undefined || product === null) ? 0 : product;
         var count = 0;
         for (var i = 0; i < items.length; i++) {
-            if (items[i].type === type) {
+            if (items[i].type === type && itemProduct(items[i]) === prod) {
                 if (count === n) return i;
                 count++;
             }
@@ -2409,189 +2571,213 @@ function renderProductionSlip(data) {
     var html = '';
     html += '<div class="pslip" id="pslipContent">';
 
-    // Title
-    html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
-    if (slip.salesNumber) {
-        html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
-    }
-    html += '<div class="divider"></div>';
+    // Per-product comments map (keyed by item id) — like the additional slip
+    var productCommentsMap = {};
+    try { productCommentsMap = JSON.parse(chk.product_comments || '{}'); } catch(e) { productCommentsMap = {}; }
+    var legacyComments = [];
+    try { legacyComments = JSON.parse(chk.ga_notes || '[]'); } catch(e) { legacyComments = []; }
 
-    // Top: 2 columns — Info (33%) | Parts (67%)
-    html += '<table><tr>';
-    html += '<td style="width:33%;vertical-align:top;" class="no-border">';
-    var infoFields = [
-        ['PROJECT:', slip.projectName],
-        ['DESCRIPTION:', slip.description],
-        ['FABRIC:', slip.fabric],
-        ['DESIGNER:', slip.designer],
-        ['QTY:', slip.totalQty + ' PCS'],
-        ['DATE NEEDED:', slip.dateNeeded],
-        ['AGENT:', slip.agent],
-        ['CUSTOMER:', slip.customer],
-    ];
-    infoFields.forEach(function(f) {
-        html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + f[0] + '</td><td>' + escHtml(f[1] || '') + '</td></tr></table>';
-    });
-    html += '</td>';
-
-    // Parts column (67%)
-    html += '<td style="width:67%;vertical-align:top;">';
-    html += '<div style="width:100%;">';
-    // Left parts
-    html += '<table style="width:49%;float:left;">';
-    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
-    leftParts.forEach(function(row) {
-        var itemIdx = findItemIdx('part', row.part);
-        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-        html += '<tr' + (done ? ' class="done"' : '') + '>';
-        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
-        html += '<td>' + escHtml(row.detail) + '</td></tr>';
-    });
-    html += '</table>';
-    // Right parts
-    html += '<table style="width:49%;float:right;">';
-    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
-    rightParts.forEach(function(row) {
-        var itemIdx = findItemIdx('part', row.part);
-        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-        html += '<tr' + (done ? ' class="done"' : '') + '>';
-        html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
-        html += '<td>' + escHtml(row.detail) + '</td></tr>';
-    });
-    html += '</table>';
-    html += '<div style="clear:both;"></div>';
-    html += '</div></td>';
-    html += '</tr></table>';
-
-    html += '<div class="divider"></div>';
-
-    // Bottom: Mock-up (30%) | Name List (70%)
-    html += '<table><tr>';
-    html += '<td style="width:30%;vertical-align:top" class="no-border">';
-    html += '<div class="section-title">MOCK UP</div>';
-    html += '<div class="mockup-box">';
-    if (firstMockupUrl) {
-        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
-    } else {
-        html += '<span>MOCK UP HERE</span>';
-    }
-    html += '</div>';
-    html += '</td>';
-    html += '<td style="width:70%;vertical-align:top" class="no-border">';
-    html += '<div class="section-title">NAME LIST</div>';
-    // Check if ANY roster entry has Excel columns data
-    var hasExcelCols = false;
-    var allColHeaders = [];
-    var isArrFormat = false;
-    allRosters.forEach(function(r) {
-        if (r.columns) {
-            hasExcelCols = true;
-            // Detect format: array of [header,value] pairs vs object
-            if (!isArrFormat && Array.isArray(r.columns) && r.columns.length > 0 && Array.isArray(r.columns[0])) {
-                isArrFormat = true;
-            }
-            if (isArrFormat) {
-                // Array of pairs: [["BACK NAMES","dfsdf"], ["SIZE","XL"], ...]
-                r.columns.forEach(function(pair) {
-                    if (allColHeaders.indexOf(pair[0]) < 0) allColHeaders.push(pair[0]);
-                });
-            } else {
-                // Object format (backward compat): {"BACK NAMES":"dfsdf", "SIZE":"XL", ...}
-                Object.keys(r.columns).forEach(function(h) {
-                    if (allColHeaders.indexOf(h) < 0) allColHeaders.push(h);
-                });
-            }
+    slips.forEach(function(slip, pIdx) {
+        var product = (slip.product !== undefined && slip.product !== null) ? slip.product : pIdx;
+        var partRows = slip.partRows || [];
+        var allRosters = slip.allRosters || [];
+        var sizes = slip.sizes || [];
+        var hasRoster = slip.hasRoster || false;
+        var mockupImages = slip.mockupImages || [];
+        var mainMockup = null;
+        for (var mi = 0; mi < mockupImages.length; mi++) {
+            if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
         }
-    });
-    // Helper: get column value from whichever format
-    function getColVal(cols, hdr) {
-        if (!cols) return '';
-        if (isArrFormat && Array.isArray(cols)) {
-            for (var ci = 0; ci < cols.length; ci++) {
-                if (cols[ci][0] === hdr) return cols[ci][1];
-            }
-            return '';
+        if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
+        var firstMockup = mainMockup;
+        var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
+        if (!firstMockupUrl && slip.mockupUrl) firstMockupUrl = slip.mockupUrl;
+
+        // Split parts into two columns
+        var splitMid = Math.ceil(partRows.length / 2);
+        var leftParts = partRows.slice(0, splitMid);
+        var rightParts = partRows.slice(splitMid);
+
+        // Card container when there are multiple products
+        if (slips.length > 1) {
+            html += '<div class="pslip-card" style="margin-bottom:16px;' + (pIdx > 0 ? 'border-top:2px dashed #999;padding-top:12px;' : '') + '">';
+            html += '<div style="background:#eef4ff;border:1px solid #b6d4fe;border-radius:6px;padding:4px 10px;margin-bottom:10px;font-weight:bold;font-size:11pt;">' + escHtml(slip.itemName || ('Product ' + (pIdx + 1))) + '</div>';
         }
-        return cols[hdr] || '';
-    }
-    if (hasRoster && allRosters.length > 0) {
-        html += '<table class="roster-table">';
-        html += '<thead><tr><th>#</th>';
-        if (hasExcelCols) {
-            // Excel-imported: use ALL original column headers
-            allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+
+        // Title
+        html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
+        if (slip.salesNumber) {
+            html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
+        }
+        html += '<div class="divider"></div>';
+
+        // Top: 2 columns — Info (33%) | Parts (67%)
+        html += '<table><tr>';
+        html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+        var infoFields = [
+            ['PROJECT:', slip.projectName],
+            ['DESCRIPTION:', slip.description],
+            ['FABRIC:', slip.fabric],
+            ['DESIGNER:', slip.designer],
+            ['QTY:', slip.totalQty + ' PCS'],
+            ['DATE NEEDED:', slip.dateNeeded],
+            ['AGENT:', slip.agent],
+            ['CUSTOMER:', slip.customer],
+        ];
+        infoFields.forEach(function(f) {
+            html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + f[0] + '</td><td>' + escHtml(f[1] || '') + '</td></tr></table>';
+        });
+        html += '</td>';
+
+        // Parts column (67%)
+        html += '<td style="width:67%;vertical-align:top;">';
+        html += '<div style="width:100%;">';
+        // Left parts
+        html += '<table style="width:49%;float:left;">';
+        html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+        leftParts.forEach(function(row) {
+            var itemIdx = findItemIdx('part', row.part, product);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+            html += '<td>' + escHtml(row.detail) + '</td></tr>';
+        });
+        html += '</table>';
+        // Right parts
+        html += '<table style="width:49%;float:right;">';
+        html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+        rightParts.forEach(function(row) {
+            var itemIdx = findItemIdx('part', row.part, product);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td><input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)"> ' + escHtml(row.part) + '</td>';
+            html += '<td>' + escHtml(row.detail) + '</td></tr>';
+        });
+        html += '</table>';
+        html += '<div style="clear:both;"></div>';
+        html += '</div></td>';
+        html += '</tr></table>';
+
+        html += '<div class="divider"></div>';
+
+        // Bottom: Mock-up (30%) | Name List (70%)
+        html += '<table><tr>';
+        html += '<td style="width:30%;vertical-align:top" class="no-border">';
+        html += '<div class="section-title">MOCK UP</div>';
+        html += '<div class="mockup-box">';
+        if (firstMockupUrl) {
+            html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
         } else {
-            // No Excel columns: use standard hardcoded headers
-            html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+            html += '<span>MOCK UP HERE</span>';
         }
-        html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
-        html += '<tbody>';
-        allRosters.forEach(function(rosterItem, idx) {
-            var itemIdx = findNthItemIdx('roster', idx);
-            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-            html += '<tr' + (done ? ' class="done"' : '') + '>';
-            html += '<td>' + (idx + 1) + '</td>';
-            if (hasExcelCols) {
-                allColHeaders.forEach(function(h) {
-                    html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
-                });
-            } else {
-                html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
-                html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
-                html += '<td>' + (rosterItem.qty || 1) + '</td>';
+        html += '</div>';
+        html += '</td>';
+        html += '<td style="width:70%;vertical-align:top" class="no-border">';
+        html += '<div class="section-title">NAME LIST</div>';
+        // Check if ANY roster entry has Excel columns data
+        var hasExcelCols = false;
+        var allColHeaders = [];
+        var isArrFormat = false;
+        allRosters.forEach(function(r) {
+            if (r.columns) {
+                hasExcelCols = true;
+                // Detect format: array of [header,value] pairs vs object
+                if (!isArrFormat && Array.isArray(r.columns) && r.columns.length > 0 && Array.isArray(r.columns[0])) {
+                    isArrFormat = true;
+                }
+                if (isArrFormat) {
+                    // Array of pairs: [["BACK NAMES","dfsdf"], ["SIZE","XL"], ...]
+                    r.columns.forEach(function(pair) {
+                        if (allColHeaders.indexOf(pair[0]) < 0) allColHeaders.push(pair[0]);
+                    });
+                } else {
+                    // Object format (backward compat): {"BACK NAMES":"dfsdf", "SIZE":"XL", ...}
+                    Object.keys(r.columns).forEach(function(h) {
+                        if (allColHeaders.indexOf(h) < 0) allColHeaders.push(h);
+                    });
+                }
             }
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
-            html += '</tr>';
         });
-        html += '</tbody></table>';
-    } else if (sizes.length > 0) {
-        html += '<table class="roster-table">';
-        html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
-        html += '<tbody>';
-        sizes.forEach(function(s, idx) {
-            var itemIdx = findNthItemIdx('size', idx);
-            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-            html += '<tr' + (done ? ' class="done"' : '') + '>';
-            html += '<td>' + escHtml(s.size || '') + '</td>';
-            html += '<td>' + (s.quantity || 0) + '</td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
-            html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-    } else {
-        html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
-    }
-    html += '</td>';
-    html += '</tr></table>';
-
-    // Notes from sale
-    if (slip.notes) {
-        html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
-    }
-
-    html += '<div class="divider"></div>';
-
-    // === COMMENTS (append-only) ===
-    html += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
-    html += '<div id="ps-comments-' + saleId + '" class="ps-comment-list">';
-    var comments = (chk.ga_notes || '').trim();
-    if (comments) {
-        try { comments = JSON.parse(comments); } catch(e) { comments = []; }
-        if (Array.isArray(comments)) {
-            comments.forEach(function(c) {
-                html += '<div class="ps-comment-entry">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></div>';
-            });
+        // Helper: get column value from whichever format
+        function getColVal(cols, hdr) {
+            if (!cols) return '';
+            if (isArrFormat && Array.isArray(cols)) {
+                for (var ci = 0; ci < cols.length; ci++) {
+                    if (cols[ci][0] === hdr) return cols[ci][1];
+                }
+                return '';
+            }
+            return cols[hdr] || '';
         }
-    }
-    html += '</div>';
-    if (psCanEdit) {
-    html += '<div class="ps-comment-input">';
-    html += '<input type="text" id="ps-comment-input-' + saleId + '" placeholder="Add a comment..." onkeydown="if(event.key===\'Enter\')addComment(' + saleId + ')">';
-    html += '<button onclick="addComment(' + saleId + ')">Send</button></div>';
+        if (hasRoster && allRosters.length > 0) {
+            html += '<table class="roster-table">';
+            html += '<thead><tr><th>#</th>';
+            if (hasExcelCols) {
+                // Excel-imported: use ALL original column headers
+                allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+            } else {
+                // No Excel columns: use standard hardcoded headers
+                html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+            }
+            html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+            html += '<tbody>';
+            allRosters.forEach(function(rosterItem, idx) {
+                var itemIdx = findNthItemIdx('roster', idx, product);
+                var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+                html += '<tr' + (done ? ' class="done"' : '') + '>';
+                html += '<td>' + (idx + 1) + '</td>';
+                if (hasExcelCols) {
+                    allColHeaders.forEach(function(h) {
+                        html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
+                    });
+                } else {
+                    html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
+                    html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
+                    html += '<td>' + (rosterItem.qty || 1) + '</td>';
+                }
+                html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+                html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+                html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        } else if (sizes.length > 0) {
+            html += '<table class="roster-table">';
+            html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+            html += '<tbody>';
+            sizes.forEach(function(s, idx) {
+                var itemIdx = findNthItemIdx('size', idx, product);
+                var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+                html += '<tr' + (done ? ' class="done"' : '') + '>';
+                html += '<td>' + escHtml(s.size || '') + '</td>';
+                html += '<td>' + (s.quantity || s.qty || 0) + '</td>';
+                html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
+                html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
+                html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        } else {
+            html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+        }
+        html += '</td>';
+        html += '</tr></table>';
+
+        // Notes from sale
+        if (slip.notes) {
+            html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
+        }
+
+        // Per-product comments (main slip) — like the additional production slip
+        html += psProductCommentsHtml(saleId, slip.itemId, productCommentsMap, legacyComments);
+
+        if (slips.length > 1) {
+            html += '</div>'; // end product card
+        }
+    });
+
+    if (!slips.length) {
+        html += psProductCommentsHtml(saleId, null, {}, legacyComments);
     }
 
     html += '</div>'; // end .pslip
@@ -2659,7 +2845,7 @@ function renderAdditionalProductionSlip(saleId, data) {
                 ['DESCRIPTION:', prod.description],
                 ['FABRIC:', prod.fabric],
                 ['DESIGNER:', prod.designer],
-                ['QTY:', (prod.quantity || 0) + ' PCS'],
+                ['QTY:', (prod.quantity || prod.qty || 0) + ' PCS'],
                 ['DATE NEEDED:', fmtDate(prod.dateNeeded)],
                 ['AGENT:', data.agent || ''],
                 ['CUSTOMER:', data.customer_name || '']
@@ -2950,7 +3136,7 @@ function renderProductionSlipHtml(data, showProductLabel) {
             var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
             html += '<tr' + (done ? ' class="done"' : '') + '>';
             html += '<td>' + escHtml(s.size || '') + '</td>';
-            html += '<td>' + (s.quantity || 0) + '</td>';
+            html += '<td>' + (s.quantity || s.qty || 0) + '</td>';
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'ga_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].ga_done) ? 'checked' : '') + '></td>';
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa1_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa1_done) ? 'checked' : '') + '></td>';
             html += '<td style="text-align:center;"><input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'qa2_done\', this.checked)" ' + ((items[itemIdx] && items[itemIdx].qa2_done) ? 'checked' : '') + '></td>';
@@ -3128,6 +3314,308 @@ function addComment(saleId) {
     });
 }
 
+function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
+    var h = '';
+    var key;
+    var comments;
+    if (itemId === null || itemId === undefined) {
+        // No product items — fall back to legacy sale-level ga_notes (read-only)
+        comments = legacyComments || [];
+        key = saleId + '_legacy';
+        if (!comments.length) return h;
+    } else {
+        key = saleId + '_' + itemId;
+        comments = (map && map[String(itemId)]) || [];
+    }
+    if (!Array.isArray(comments)) comments = [];
+    var isLegacy = (itemId === null || itemId === undefined);
+    var active = [];
+    var done = [];
+    var deleted = [];
+    comments.forEach(function(c, idx) {
+        if (c && c.deleted) deleted.push({c: c, idx: idx});
+        else if (c && c.done) done.push({c: c, idx: idx});
+        else active.push({c: c, idx: idx});
+    });
+    var idArg = "'" + String(itemId).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+    h += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
+    h += '<div id="ps-prod-comments-' + key + '" class="ps-comment-list">';
+    active.forEach(function(o) {
+        var c = o.c;
+        h += '<div class="ps-comment-entry">';
+        if (psCanEdit && !isLegacy) {
+            h += '<button type="button" class="ps-comment-check" onclick="markProductCommentDone(' + saleId + ',' + idArg + ',' + o.idx + ')" title="Mark backjob as done (QA)">✓</button>';
+        }
+        h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
+        if (psCanEdit && !isLegacy) {
+            h += '<button type="button" class="ps-comment-del" onclick="askDeleteComment(' + saleId + ',' + o.idx + ',' + idArg + ',\'product\')" title="Delete comment">✕</button>';
+        }
+        h += '</div>';
+    });
+    h += '</div>';
+    if (done.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
+        done.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (deleted.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">🗑 Deleted history</div>';
+        deleted.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-deleted">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— deleted by ' + escHtml(c.deleted_by || '?') + ' at ' + escHtml(c.deleted_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (psCanEdit && !isLegacy) {
+        h += '<div class="ps-comment-input">';
+        h += '<input type="text" id="ps-prod-input-' + key + '" placeholder="Comment note (e.g. ANDREA)..." onkeydown="if(event.key===\'Enter\')addProductComment(' + saleId + ',' + idArg + ')">';
+        h += '<button onclick="addProductComment(' + saleId + ',' + idArg + ')">Send</button></div>';
+        h += '<div class="ps-count-row">';
+        h += '<span class="ps-count-label">Parts:</span>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'FRT\')" title="Click to count Front">FRT <b id="ps-cnt-FRT-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'BCK\')" title="Click to count Back">BCK <b id="ps-cnt-BCK-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'LS\')" title="Click to count Left Sleeve">LS <b id="ps-cnt-LS-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'RS\')" title="Click to count Right Sleeve">RS <b id="ps-cnt-RS-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-clear" onclick="resetCounts(\'' + key + '\')" title="Reset counts">↺</button>';
+        h += '</div>';
+    }
+    return h;
+}
+
+// Delete comment: ask confirmation, then mark as deleted with who/when
+var psDeletePending = null;
+function askDeleteComment(saleId, idx, itemId, kind) {
+    psDeletePending = {saleId: saleId, idx: idx, itemId: itemId || null, kind: kind || 'main'};
+    var modal = document.getElementById('confirmDeleteCommentModal');
+    if (modal) modal.style.display = 'flex';
+}
+function cancelDeleteComment() {
+    psDeletePending = null;
+    var modal = document.getElementById('confirmDeleteCommentModal');
+    if (modal) modal.style.display = 'none';
+}
+function doDeleteComment() {
+    if (!psDeletePending) return;
+    var saleId = psDeletePending.saleId;
+    var idx = psDeletePending.idx;
+    var itemId = psDeletePending.itemId;
+    var kind = psDeletePending.kind || 'main';
+    psDeletePending = null;
+    var modal = document.getElementById('confirmDeleteCommentModal');
+    if (modal) modal.style.display = 'none';
+
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (kind === 'product') {
+            // Per-product comment (main production slip, keyed by item id)
+            var map = {};
+            try { map = JSON.parse(data.checklist.product_comments || '{}'); } catch(e) { map = {}; }
+            var comments = map[String(itemId)] || [];
+            if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+            var now = new Date();
+            var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+            comments[idx].deleted = true;
+            comments[idx].deleted_by = window.psCurrentUserName || 'Unknown';
+            comments[idx].deleted_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+            map[String(itemId)] = comments;
+            return fetch('/api/production/checklist/' + saleId + '/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+                },
+                body: JSON.stringify({product_comments: JSON.stringify(map)})
+            });
+        }
+        if (itemId) {
+            // Per-project comment (additional production slip)
+            var map = {};
+            try { map = JSON.parse(data.checklist.additional_comments || '{}'); } catch(e) { map = {}; }
+            var comments = map[String(itemId)] || [];
+            if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+            var now = new Date();
+            var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+            comments[idx].deleted = true;
+            comments[idx].deleted_by = window.psCurrentUserName || 'Unknown';
+            comments[idx].deleted_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+            map[String(itemId)] = comments;
+            return fetch('/api/production/checklist/' + saleId + '/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+                },
+                body: JSON.stringify({additional_comments: JSON.stringify(map)})
+            });
+        }
+        var comments = [];
+        try { comments = JSON.parse(data.checklist.ga_notes || '[]'); } catch(e) {}
+        if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        comments[idx].deleted = true;
+        comments[idx].deleted_by = window.psCurrentUserName || 'Unknown';
+        comments[idx].deleted_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({ga_notes: JSON.stringify(comments)})
+        });
+    })
+    .then(function(r) { return r ? r.json() : null; })
+    .then(function(data) {
+        if (data && data.success) {
+            refreshPsComments(saleId);
+        } else if (data) {
+            showToast('Failed to delete comment.', 'danger');
+        }
+    })
+    .catch(function(err) { console.error('Failed to delete comment', err); });
+}
+function refreshPsComments(saleId) {
+    // Re-render whichever slip body is currently showing this sale
+    var prodBody = document.getElementById('modalProdSlipBody');
+    if (prodBody && prodBody.dataset.saleId == saleId) {
+        loadProductionSlip(saleId);
+    } else {
+        loadProductionSlip(saleId);
+    }
+}
+
+// QA: mark a product comment's backjob as done (Main slip per-product)
+function markProductCommentDone(saleId, itemId, idx) {
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var map = {};
+        try { map = JSON.parse(data.checklist.product_comments || '{}'); } catch(e) { map = {}; }
+        var comments = map[String(itemId)] || [];
+        if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        comments[idx].done = true;
+        comments[idx].done_by = window.psCurrentUserName || 'Unknown';
+        comments[idx].done_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        map[String(itemId)] = comments;
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({product_comments: JSON.stringify(map)})
+        });
+    })
+    .then(function(r) { return r ? r.json() : null; })
+    .then(function(data) {
+        if (data && data.success) {
+            refreshPsComments(saleId);
+        } else if (data) {
+            showToast('Failed to update comment.', 'danger');
+        }
+    })
+    .catch(function(err) { console.error('Failed to mark product comment done', err); });
+}
+
+// Add a comment to a specific product card (Main production slip, per-product)
+function addProductComment(saleId, itemId) {
+    var key = saleId + '_' + itemId;
+    var input = document.getElementById('ps-prod-input-' + key);
+    if (!input) return;
+    var note = input.value.trim();
+    var counts = (window.psCounts && window.psCounts[key]) || {};
+    var labels = {FRT:'FRONT', BCK:'BACK', LS:'LEFTSLEEVE', RS:'RIGHTSLEEVE'};
+    var parts = [];
+    ['FRT','BCK','LS','RS'].forEach(function(code) {
+        if (counts[code] > 0) parts.push(counts[code] + ' ' + labels[code]);
+    });
+    var text;
+    if (note && parts.length) text = note + ' - ' + parts.join(', ');
+    else if (note) text = note;
+    else if (parts.length) text = parts.join(', ');
+    else return; // nothing to send
+    input.value = '';
+    input.disabled = true;
+    resetCounts(key);
+
+    // Get current checklist to append to this product's comments
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var map = {};
+        try { map = JSON.parse(data.checklist.product_comments || '{}'); } catch(e) { map = {}; }
+        var existing = map[String(itemId)] || [];
+        if (!Array.isArray(existing)) existing = [];
+
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        existing.push({text: text, at: ts});
+        map[String(itemId)] = existing;
+
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({product_comments: JSON.stringify(map)})
+        });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // Add comment to the list without reloading
+            var list = document.getElementById('ps-prod-comments-' + key);
+            if (list) {
+                var entry = document.createElement('div');
+                entry.className = 'ps-comment-entry';
+                var now = new Date();
+                var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+                var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+                entry.innerHTML = escHtml(text) + ' <span class="time">' + ts + '</span>';
+                list.appendChild(entry);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to add product comment', err);
+    })
+    .finally(function() {
+        if (input) input.disabled = false;
+    });
+}
+
+window.psCounts = window.psCounts || {};
+function bumpCount(saleId, code) {
+    if (!window.psCounts[saleId]) window.psCounts[saleId] = {FRT:0, BCK:0, LS:0, RS:0};
+    window.psCounts[saleId][code] = (window.psCounts[saleId][code] || 0) + 1;
+    var el = document.getElementById('ps-cnt-' + code + '-' + saleId);
+    if (el) {
+        el.textContent = window.psCounts[saleId][code];
+        el.closest('.ps-count-btn').classList.toggle('active', window.psCounts[saleId][code] > 0);
+    }
+}
+function resetCounts(saleId) {
+    if (window.psCounts[saleId]) {
+        ['FRT','BCK','LS','RS'].forEach(function(code) {
+            window.psCounts[saleId][code] = 0;
+            var el = document.getElementById('ps-cnt-' + code + '-' + saleId);
+            if (el) {
+                el.textContent = '0';
+                el.closest('.ps-count-btn').classList.remove('active');
+            }
+        });
+    }
+}
 
 function escHtml(str) {
     if (!str) return '';

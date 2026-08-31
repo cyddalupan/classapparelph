@@ -4665,6 +4665,32 @@ var garmentSpecMap = {
             { id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
         ]
     },
+    'polo-zipper-cc': {
+        nameKeywords: ['POLO ZIPPER CC'],
+        fields: [
+            { id: 'spec_collar', label: 'Collar', type: 'select', options: ['REGULAR SUBLI PRINT', 'SPECIAL SUBLI PRINT'] },
+            { id: 'spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
+    'polo-button-cc': {
+        nameKeywords: ['POLO BUTTON CC'],
+        fields: [
+            { id: 'spec_collar', label: 'Collar', type: 'select', options: ['REGULAR SUBLI PRINT', 'SPECIAL SUBLI PRINT'] },
+            { id: 'spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
     polo: {
         nameKeywords: ['POLO'],
         fields: [
@@ -4841,7 +4867,7 @@ window.sublimation_renderSpecs = function () {
         }
         
         // Add polo conditional fields (button/zipper)
-        if (groupKey === 'polo') {
+        if (groupKey === 'polo' || groupKey === 'polo-zipper-cc' || groupKey === 'polo-button-cc') {
             var isButton = upperName.indexOf('BUTTON') !== -1;
             if (isButton) {
                 html += '<div class="d-flex align-items-center mb-2 p-2 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;" id="specRow_spec_buttonColor">';

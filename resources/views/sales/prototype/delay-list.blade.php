@@ -182,6 +182,13 @@
                 if (!$mainMockup && !empty($mockups)) $mainMockup = $mockups[0];
                 $mockupUrl = is_string($mainMockup) ? $mainMockup : ($mainMockup['url'] ?? '');
                 $balanceDue = $sale->balance_due_computed ?? ($sale->balance_due ?? 0);
+                $rvStatus = $sale->delay_review_status;
+                $rvBadge = match ($rvStatus) {
+                    'acknowledged' => ['👀 Acknowledged', '#f59e0b'],
+                    'resolved' => ['✅ Resolved', '#22c55e'],
+                    'dismissed' => ['❌ Dismissed', '#6c757d'],
+                    default => null,
+                };
             @endphp
             <div class="col-md-6 col-xl-4 d-flex">
                 <div class="dl-card w-100 {{ $hasFeedback ? 'has-feedback' : 'no-feedback' }}" data-fb="{{ $hasFeedback ? 'has' : 'none' }}">
@@ -195,6 +202,9 @@
                         @endif
                         @if($sale->priority)
                             <span class="dl-prio-chip" style="position:absolute;top:10px;right:10px;">🚩 Prio {{ $sale->priority }}</span>
+                        @endif
+                        @if($rvBadge)
+                            <span style="position:absolute;bottom:10px;left:10px;background:{{ $rvBadge[1] }};color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;">{{ $rvBadge[0] }}</span>
                         @endif
                     </div>
 

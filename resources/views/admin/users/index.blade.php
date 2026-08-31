@@ -85,6 +85,15 @@
                 <div class="stat-label">Artists</div>
             </div>
         </div>
+        <div class="stat-card {{ $roleFilter === 'ga' ? 'active' : '' }}" onclick="filterRole('ga')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #0ea5e9;">
+                <i class="fas fa-palette"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['ga'] }}</div>
+                <div class="stat-label">GA/Agents</div>
+            </div>
+        </div>
     </div>
 
     @if(session('success'))
@@ -172,6 +181,7 @@
                                         'staff' => 'badge-success',
                                         'procurement' => 'badge-warning',
                                         'artist' => 'badge-pink',
+                                        'ga' => 'badge-info',
                                         'customer' => 'badge-secondary',
                                         'coo' => 'badge-dark',
                                         'cpo' => 'badge-dark',
@@ -183,6 +193,7 @@
                                         'staff' => 'Staff',
                                         'procurement' => 'Procurement',
                                         'artist' => 'Artist',
+                                        'ga' => 'GA/Agent',
                                         'customer' => 'Customer',
                                         'coo' => 'COO',
                                         'cpo' => 'CPO',

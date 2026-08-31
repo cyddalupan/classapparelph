@@ -3049,7 +3049,7 @@ $services = json_decode($sale->services, true);
     public function gaOrderList()
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager() || $user->isCoo())) {
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isCoo() || $user->isQa())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -3109,6 +3109,9 @@ $services = json_decode($sale->services, true);
         $sales = \App\Models\PrototypeSale::with(['payments', 'refunds'])
             ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
             ->whereNull('archived_at')
+            ->when($user && $user->isClassScoped(), function ($query) {
+                $query->where('department_id', 4);
+            })
             ->whereIn('production_stage', ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING'])
             ->when(filled($q), function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
@@ -3730,11 +3733,14 @@ $services = json_decode($sale->services, true);
     public function assignGa(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager())) {
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isQa())) {
             abort(403, 'Unauthorized access.');
         }
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
         $stage = $request->get('stage', '');
         $targetUserId = (int) $request->get('user_id', 0);
 
@@ -3809,11 +3815,14 @@ $services = json_decode($sale->services, true);
     public function unassignGa(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager())) {
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isQa())) {
             abort(403, 'Unauthorized access.');
         }
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
         $stage = $request->get('stage', '');
 
         $assignment = \App\Models\GaAssignment::where('prototype_sale_id', $sale->id)
@@ -3850,11 +3859,14 @@ $services = json_decode($sale->services, true);
     public function completeGa(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager())) {
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isQa())) {
             abort(403, 'Unauthorized access.');
         }
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
         $stage = $request->get('stage', '');
 
         $allowedStages = ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING'];
@@ -5815,14 +5827,14 @@ $services = json_decode($sale->services, true);
     public function salesDashboard(Request $request)
     {
         $user = auth()->user();
-        if (!$user || (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo())) {
+        if (!$user || (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo() && !$user->isQa())) {
             abort(403, 'Unauthorized access.');
         }
 
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds']);
 
         // Scope: agents/COO/CPO/CMO see only their own sales
-        if (($user->isSalesAgent() || $user->isCoo() || $user->isCpo() || $user->isCmo()) && !$user->isAdmin()) {
+        if (($user->isSalesAgent() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isQa()) && !$user->isAdmin()) {
             $query->where('sales_agent_id', $user->id);
         }
 
@@ -6371,7 +6383,7 @@ $services = json_decode($sale->services, true);
     public function agentDelays()
     {
         $user = auth()->user();
-        if (!$user || !($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa())) {
+        if (!$user || !($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa() || $user->isQa())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -6379,7 +6391,7 @@ $services = json_decode($sale->services, true);
             ->where('is_delayed', 1);
 
         // Agents/COO/CPO/CMO see only their own delays
-        if (($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa()) && !$user->isAdmin()) {
+        if (($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa() || $user->isQa()) && !$user->isAdmin()) {
             $query->where('sales_agent_id', $user->id);
         }
 

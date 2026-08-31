@@ -102,7 +102,7 @@
                         <select id="payment_account_id" name="payment_account_id" class="form-control @error('payment_account_id') is-invalid @enderror" required>
                             <option value="">Select account...</option>
                             @foreach(\App\Models\PaymentAccount::where('is_active', true)->get() as $acct)
-                                <option value="{{ $acct->id }}" {{ old('payment_account_id') == $acct->id ? 'selected' : '' }}>{{ $acct->name }}</option>
+                                <option value="{{ $acct->id }}" {{ old('payment_account_id') == $acct->id ? 'selected' : '' }}>{{ $acct->name }} @if($acct->user) ({{ $acct->user->display_label }}) @endif</option>
                             @endforeach
                         </select>
                         @error('payment_account_id') <span class="invalid-feedback">{{ $message }}</span> @enderror

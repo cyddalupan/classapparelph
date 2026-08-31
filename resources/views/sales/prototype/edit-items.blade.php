@@ -103,7 +103,7 @@
                                         <div class="text-muted small">
                                             Sizes:
                                             @foreach($sizes as $s)
-                                                {{ $s['size'] }} ({{ $s['quantity'] }}x @ ₱{{ number_format($s['price'], 2) }})
+                                                {{ $s['size'] }} ({{ $s['quantity'] ?? $s['qty'] ?? 0 }}x @ ₱{{ number_format($s['price'] ?? 0, 2) }})
                                                 @if(!$loop->last) | @endif
                                             @endforeach
                                         </div>

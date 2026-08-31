@@ -53,6 +53,10 @@ class PrototypeSale extends Model
         'delayed_at',
         'delay_feedback',
         'delay_feedback_updated_at',
+        'delay_review_status',
+        'delay_review_notes',
+        'delay_reviewed_by',
+        'delay_reviewed_at',
         'time_requested_at',
         'time_requested_by',
         'needed_by',
@@ -81,6 +85,7 @@ class PrototypeSale extends Model
         'delayed_at' => 'datetime',
         'needed_by' => 'datetime',
         'delay_feedback_updated_at' => 'datetime',
+        'delay_reviewed_at' => 'datetime',
         'archived_at' => 'datetime',
     ];
 

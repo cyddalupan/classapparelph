@@ -77,7 +77,7 @@
             <p class="text-muted mb-0">{{ $sale->customer_name }}</p>
         </div>
         <div class="d-flex gap-2">
-            @if($canEdit)
+            @if($canEdit && !$isGa)
             <button type="button" class="btn btn-success" onclick="openSubAddProductModal()">
                 <i class="fas fa-plus-circle"></i> Add Product
             </button>
@@ -85,7 +85,7 @@
             @php
                 $canReprocess = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
             @endphp
-            @if($canEdit && $canReprocess)
+            @if($canEdit && $canReprocess && !$isGa)
             <button type="button" class="btn btn-warning" onclick="openSubReprocessModal()">
                 <i class="fas fa-sync-alt"></i> Reprocess Order
             </button>
@@ -119,6 +119,7 @@
                     </a>
                 @endforeach
                 </small>
+                @if(!$isGa)
                 <div class="mt-2 p-2 bg-white bg-opacity-25 rounded small">
                     <strong>Overall Transaction Total:</strong>
                     <span class="ms-2">₱{{ number_format($overallGroupTotal, 2) }}</span>
@@ -129,6 +130,7 @@
                     <strong>Balance Due:</strong>
                     <span class="ms-2">₱{{ number_format($overallGroupBalance, 2) }}</span>
                 </div>
+                @endif
             </div>
         </div>
     </div>
@@ -148,7 +150,7 @@
                         <div class="info-label">Sales Number</div>
                         <div class="info-value">{{ $sale->sales_number }}</div>
                     </div>
-                    @if($sale->customer_phone)
+                    @if(!$isGa && $sale->customer_phone)
                     <div>
                         <div class="info-label">Phone</div>
                         <div class="info-value">{{ $sale->customer_phone }}</div>
@@ -183,7 +185,8 @@
                 @endif
             </div>
 
-            <!-- Order Items -->
+            <!-- Order Items (hidden for GA) -->
+            @if(!$isGa)
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-box me-2"></i>Order Items</h5>
                 @if($services && count($services) > 0)
@@ -274,6 +277,7 @@
                     <p class="text-muted mb-0">No items found.</p>
                 @endif
             </div>
+            @endif
 
             <!-- Mockups / Main Cover -->
             <div class="detail-section mt-3">
@@ -459,9 +463,13 @@
                             <i class="fas fa-comment-dots me-1"></i><strong>Acknowledgement:</strong> {{ $fb->acknowledgement }}
                         </div>
                         @endif
-                        @if($fb->status === 'open' && !$isManager && $fb->to_user_id === auth()->id())
+                        @if($fb->status === 'open' && !$canGiveFeedback && ($fb->to_user_id === auth()->id() || $fb->involved_user_id === auth()->id()))
                         <div class="mt-1">
                             <button class="btn btn-sm btn-outline-primary" onclick="updateFeedbackStatus({{ $fb->id }}, 'acknowledged')">Acknowledge</button>
+                        </div>
+                        @endif
+                        @if($fb->status === 'acknowledged' && $canGiveFeedback)
+                        <div class="mt-1">
                             <button class="btn btn-sm btn-outline-success" onclick="updateFeedbackStatus({{ $fb->id }}, 'resolved')">Mark Resolved</button>
                         </div>
                         @endif
@@ -473,6 +481,8 @@
                 </div>
                 @endif
             </div>
+
+            
 
             <!-- Damage Reports -->
             <div class="detail-section mt-3">
@@ -524,7 +534,8 @@
                 @endif
             </div>
 
-            <!-- Audit History -->
+            <!-- Audit History (hidden for GA) -->
+            @if(!$isGa)
             <div class="detail-section mt-3">
                 <div class="d-flex justify-content-between align-items-center">
                     <h5 class="detail-title mb-0" style="border-bottom: none; padding-bottom: 0;">
@@ -538,6 +549,7 @@
                     <p class="text-muted text-center py-3">Loading...</p>
                 </div>
             </div>
+            @endif
         </div>
 
         <div class="col-lg-4">
@@ -706,7 +718,8 @@
             </div>
             @endif
 
-            <!-- Payment Info -->
+            <!-- Payment Info (hidden for GA) -->
+            @if(!$isGa)
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-credit-card me-2"></i>Payment</h5>
                 <div class="mb-2">
@@ -809,9 +822,33 @@
                 </div>
                 @endif
             </div>
+            @endif
 
-            <!-- Payment History (individual payments) -->
-            @if(isset($payments) && $payments->count() > 0)
+            <!-- P.O. (Purchase Order) info — no downpayment, PO reference + form photo -->
+            @if(($sale->payment_status ?? '') === 'po' || ($sale->po_reference ?? null))
+            <div class="detail-section border-start border-4 border-info">
+                <h5 class="detail-title"><i class="fas fa-file-invoice me-2"></i>P.O. (Purchase Order)</h5>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="small text-muted">No downpayment required</div>
+                        @if($sale->po_reference)
+                            <div class="fw-bold mt-1"><i class="fas fa-hashtag me-1"></i>{{ $sale->po_reference }}</div>
+                        @endif
+                        @if(($sale->payment_status ?? '') === 'po')
+                            <span class="badge bg-info text-dark mt-1">📄 P.O.</span>
+                        @endif
+                    </div>
+                    @if($sale->payment_screenshot_path)
+                        <div class="ms-2">
+                            <img src="{{ $sale->payment_screenshot_path }}" alt="P.O. form" class="rounded" style="width:80px;height:80px;object-fit:cover;cursor:pointer;border:1px solid #ccc;" onclick="openLightbox('{{ $sale->payment_screenshot_path }}')">
+                        </div>
+                    @endif
+                </div>
+            </div>
+            @endif
+
+            <!-- Payment History (individual payments) — hidden for GA -->
+            @if(!$isGa && isset($payments) && $payments->count() > 0)
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-receipt me-2"></i>Payment History ({{ $payments->count() }})</h5>
                 @foreach($payments as $pay)
@@ -867,8 +904,8 @@
             </div>
             @endif
 
-            <!-- Refund History (all refunds incl. completed) -->
-            @if(isset($refunds) && $refunds->count() > 0)
+            <!-- Refund History (all refunds incl. completed) — hidden for GA -->
+            @if(!$isGa && isset($refunds) && $refunds->count() > 0)
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-undo-alt me-2"></i>Refund History ({{ $refunds->count() }})</h5>
                 @foreach($refunds as $refund)
@@ -968,6 +1005,7 @@
                     </a>
                 @endforeach
                 </small>
+                @if(!$isGa)
                 <div class="mt-2 p-2 bg-white bg-opacity-25 rounded small">
                     <strong>Overall Transaction Total:</strong>
                     <span class="ms-2">₱{{ number_format($overallGroupTotal, 2) }}</span>
@@ -978,6 +1016,7 @@
                     <strong>Balance Due:</strong>
                     <span class="ms-2">₱{{ number_format($overallGroupBalance, 2) }}</span>
                 </div>
+                @endif
             </div>
         </div>
     </div>
@@ -2488,42 +2527,33 @@ function loadProductionSlip(saleId) {
 
 function renderProductionSlip(data) {
     var chk = data.checklist || {};
-    var slip = data.slip || {};
     var saleId = chk.sale_id || 0;
     var items = chk.items || [];
-    var partRows = slip.partRows || [];
-    var allRosters = slip.allRosters || [];
-    var sizes = slip.sizes || [];
-    var hasRoster = slip.hasRoster || false;
-    var mockupImages = slip.mockupImages || [];
-    var mainMockup = null;
-    for (var mi = 0; mi < mockupImages.length; mi++) {
-        if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
+    var slips = (data.slips && data.slips.length) ? data.slips : (data.slip ? [data.slip] : []);
+    if (!slips.length) slips = [{}];
+
+    // Helper: product index of a checklist item (legacy items default to 0)
+    function itemProduct(it) {
+        return (it && it.product !== undefined && it.product !== null) ? it.product : 0;
     }
-    if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
-    var firstMockup = mainMockup;
-    var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
 
-    // Split parts into two columns
-    var splitMid = Math.ceil(partRows.length / 2);
-    var leftParts = partRows.slice(0, splitMid);
-    var rightParts = partRows.slice(splitMid);
-
-    // Helper: find item index by type and label match
-    function findItemIdx(type, matchStr) {
+    // Helper: find item index by type and label match (scoped to a product)
+    function findItemIdx(type, matchStr, product) {
+        var prod = (product === undefined || product === null) ? 0 : product;
         for (var i = 0; i < items.length; i++) {
-            if (items[i].type === type && items[i].label.indexOf(matchStr) >= 0) {
+            if (items[i].type === type && itemProduct(items[i]) === prod && items[i].label.indexOf(matchStr) >= 0) {
                 return i;
             }
         }
         return -1;
     }
 
-    // Helper: find nth item of a type
-    function findNthItemIdx(type, n) {
+    // Helper: find nth item of a type (scoped to a product)
+    function findNthItemIdx(type, n, product) {
+        var prod = (product === undefined || product === null) ? 0 : product;
         var count = 0;
         for (var i = 0; i < items.length; i++) {
-            if (items[i].type === type) {
+            if (items[i].type === type && itemProduct(items[i]) === prod) {
                 if (count === n) return i;
                 count++;
             }
@@ -2534,174 +2564,214 @@ function renderProductionSlip(data) {
     var html = '';
     html += '<div class="pslip" id="pslipContent">';
 
-    // Title
-    html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
-    if (slip.salesNumber) {
-        html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
-    }
-    html += '<div class="divider"></div>';
+    // Per-product comments map (keyed by item id) — like the additional slip
+    var productCommentsMap = {};
+    try { productCommentsMap = JSON.parse(chk.product_comments || '{}'); } catch(e) { productCommentsMap = {}; }
+    var legacyComments = [];
+    try { legacyComments = JSON.parse(chk.ga_notes || '[]'); } catch(e) { legacyComments = []; }
 
-    // Top: 2 columns — Info (33%) | Parts (67%)
-    html += '<table><tr>';
-    html += '<td style="width:33%;vertical-align:top;" class="no-border">';
-    var infoFields = [
-        ['PROJECT:', slip.projectName],
-        ['DESCRIPTION:', slip.description],
-        ['FABRIC:', slip.fabric],
-        ['DESIGNER:', slip.designer],
-        ['QTY:', slip.totalQty + ' PCS'],
-        ['DATE NEEDED:', slip.dateNeeded],
-        ['AGENT:', slip.agent],
-        ['CUSTOMER:', slip.customer],
-    ];
-    infoFields.forEach(function(f) {
-        html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + f[0] + '</td><td>' + escHtml(f[1] || '') + '</td></tr></table>';
-    });
-    html += '</td>';
-
-    // Parts column (67%)
-    html += '<td style="width:67%;vertical-align:top;">';
-    html += '<div style="width:100%;">';
-    // Left parts
-    html += '<table style="width:49%;float:left;">';
-    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
-    leftParts.forEach(function(row) {
-        var itemIdx = findItemIdx('part', row.part);
-        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-        html += '<tr' + (done ? ' class="done"' : '') + '>';
-        html += '<td>' + psItemChk(saleId, itemIdx, done) + ' ' + escHtml(row.part) + '</td>';
-        html += '<td>' + escHtml(row.detail) + '</td></tr>';
-    });
-    html += '</table>';
-    // Right parts
-    html += '<table style="width:49%;float:right;">';
-    html += '<tr><th>Part</th><th>Color/Details</th></tr>';
-    rightParts.forEach(function(row) {
-        var itemIdx = findItemIdx('part', row.part);
-        var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-        html += '<tr' + (done ? ' class="done"' : '') + '>';
-        html += '<td>' + psItemChk(saleId, itemIdx, done) + ' ' + escHtml(row.part) + '</td>';
-        html += '<td>' + escHtml(row.detail) + '</td></tr>';
-    });
-    html += '</table>';
-    html += '<div style="clear:both;"></div>';
-    html += '</div></td>';
-    html += '</tr></table>';
-
-    html += '<div class="divider"></div>';
-
-    // Bottom: Mock-up (30%) | Name List (70%)
-    html += '<table><tr>';
-    html += '<td style="width:30%;vertical-align:top" class="no-border">';
-    html += '<div class="section-title">MOCK UP</div>';
-    html += '<div class="mockup-box">';
-    if (firstMockupUrl) {
-        html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
-    } else {
-        html += '<span>MOCK UP HERE</span>';
-    }
-    html += '</div>';
-    html += '</td>';
-    html += '<td style="width:70%;vertical-align:top" class="no-border">';
-    html += '<div class="section-title">NAME LIST</div>';
-    // Check if ANY roster entry has Excel columns data
-    var hasExcelCols = false;
-    var allColHeaders = [];
-    var isArrFormat = false;
-    allRosters.forEach(function(r) {
-        if (r.columns) {
-            hasExcelCols = true;
-            // Detect format: array of [header,value] pairs vs object
-            if (!isArrFormat && Array.isArray(r.columns) && r.columns.length > 0 && Array.isArray(r.columns[0])) {
-                isArrFormat = true;
-            }
-            if (isArrFormat) {
-                // Array of pairs: [["BACK NAMES","dfsdf"], ["SIZE","XL"], ...]
-                r.columns.forEach(function(pair) {
-                    if (allColHeaders.indexOf(pair[0]) < 0) allColHeaders.push(pair[0]);
-                });
-            } else {
-                // Object format (backward compat): {"BACK NAMES":"dfsdf", "SIZE":"XL", ...}
-                Object.keys(r.columns).forEach(function(h) {
-                    if (allColHeaders.indexOf(h) < 0) allColHeaders.push(h);
-                });
-            }
+    slips.forEach(function(slip, pIdx) {
+        var product = (slip.product !== undefined && slip.product !== null) ? slip.product : pIdx;
+        var partRows = slip.partRows || [];
+        var allRosters = slip.allRosters || [];
+        var sizes = slip.sizes || [];
+        var hasRoster = slip.hasRoster || false;
+        var mockupImages = slip.mockupImages || [];
+        var mainMockup = null;
+        for (var mi = 0; mi < mockupImages.length; mi++) {
+            if (mockupImages[mi] && typeof mockupImages[mi] === 'object' && mockupImages[mi].is_main) { mainMockup = mockupImages[mi]; break; }
         }
-    });
-    // Helper: get column value from whichever format
-    function getColVal(cols, hdr) {
-        if (!cols) return '';
-        if (isArrFormat && Array.isArray(cols)) {
-            for (var ci = 0; ci < cols.length; ci++) {
-                if (cols[ci][0] === hdr) return cols[ci][1];
-            }
-            return '';
+        if (!mainMockup && mockupImages.length > 0) mainMockup = mockupImages[0];
+        var firstMockup = mainMockup;
+        var firstMockupUrl = firstMockup ? (typeof firstMockup === 'string' ? firstMockup : (firstMockup.url || null)) : null;
+        if (!firstMockupUrl && slip.mockupUrl) firstMockupUrl = slip.mockupUrl;
+
+        // Split parts into two columns
+        var splitMid = Math.ceil(partRows.length / 2);
+        var leftParts = partRows.slice(0, splitMid);
+        var rightParts = partRows.slice(splitMid);
+
+        // Card container when there are multiple products
+        if (slips.length > 1) {
+            html += '<div class="pslip-card" style="margin-bottom:16px;' + (pIdx > 0 ? 'border-top:2px dashed #999;padding-top:12px;' : '') + '">';
+            html += '<div style="background:#eef4ff;border:1px solid #b6d4fe;border-radius:6px;padding:4px 10px;margin-bottom:10px;font-weight:bold;font-size:11pt;">' + escHtml(slip.itemName || ('Product ' + (pIdx + 1))) + '</div>';
         }
-        return cols[hdr] || '';
-    }
-    if (hasRoster && allRosters.length > 0) {
-        html += '<table class="roster-table">';
-        html += '<thead><tr><th>#</th>';
-        if (hasExcelCols) {
-            // Excel-imported: use ALL original column headers
-            allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+
+        // Title
+        html += '<h1>CUSTOMER FORM SPECIFICATIONS</h1>';
+        if (slip.salesNumber) {
+            html += '<div style="text-align:center;font-size:9pt;margin-bottom:2px;">' + escHtml(slip.salesNumber) + '</div>';
+        }
+        html += '<div class="divider"></div>';
+
+        // Top: 2 columns — Info (33%) | Parts (67%)
+        html += '<table><tr>';
+        html += '<td style="width:33%;vertical-align:top;" class="no-border">';
+        var infoFields = [
+            ['PROJECT:', slip.projectName],
+            ['DESCRIPTION:', slip.description],
+            ['FABRIC:', slip.fabric],
+            ['DESIGNER:', slip.designer],
+            ['QTY:', slip.totalQty + ' PCS'],
+            ['DATE NEEDED:', slip.dateNeeded],
+            ['AGENT:', slip.agent],
+            ['CUSTOMER:', slip.customer],
+        ];
+        infoFields.forEach(function(f) {
+            html += '<table style="width:100%;"><tr><td class="field-label" style="width:100px;">' + f[0] + '</td><td>' + escHtml(f[1] || '') + '</td></tr></table>';
+        });
+        html += '</td>';
+
+        // Parts column (67%)
+        html += '<td style="width:67%;vertical-align:top;">';
+        html += '<div style="width:100%;">';
+        // Left parts
+        html += '<table style="width:49%;float:left;">';
+        html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+        leftParts.forEach(function(row) {
+            var itemIdx = findItemIdx('part', row.part, product);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + psItemChk(saleId, itemIdx, done) + ' ' + escHtml(row.part) + '</td>';
+            html += '<td>' + escHtml(row.detail) + '</td></tr>';
+        });
+        html += '</table>';
+        // Right parts
+        html += '<table style="width:49%;float:right;">';
+        html += '<tr><th>Part</th><th>Color/Details</th></tr>';
+        rightParts.forEach(function(row) {
+            var itemIdx = findItemIdx('part', row.part, product);
+            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+            html += '<tr' + (done ? ' class="done"' : '') + '>';
+            html += '<td>' + psItemChk(saleId, itemIdx, done) + ' ' + escHtml(row.part) + '</td>';
+            html += '<td>' + escHtml(row.detail) + '</td></tr>';
+        });
+        html += '</table>';
+        html += '<div style="clear:both;"></div>';
+        html += '</div></td>';
+        html += '</tr></table>';
+
+        html += '<div class="divider"></div>';
+
+        // Bottom: Mock-up (30%) | Name List (70%)
+        html += '<table><tr>';
+        html += '<td style="width:30%;vertical-align:top" class="no-border">';
+        html += '<div class="section-title">MOCK UP</div>';
+        html += '<div class="mockup-box">';
+        if (firstMockupUrl) {
+            html += '<img src="' + escHtml(firstMockupUrl) + '" alt="mockup" style="cursor:pointer;" onclick="window.openLightbox(\'' + escHtml(firstMockupUrl) + '\')" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<span>MOCK UP HERE</span>\'">';
         } else {
-            // No Excel columns: use standard hardcoded headers
-            html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+            html += '<span>MOCK UP HERE</span>';
         }
-        html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
-        html += '<tbody>';
-        allRosters.forEach(function(rosterItem, idx) {
-            var itemIdx = findNthItemIdx('roster', idx);
-            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-            html += '<tr' + (done ? ' class="done"' : '') + '>';
-            html += '<td>' + (idx + 1) + '</td>';
-            if (hasExcelCols) {
-                allColHeaders.forEach(function(h) {
-                    html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
-                });
-            } else {
-                html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
-                html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
-                html += '<td>' + (rosterItem.qty || 1) + '</td>';
+        html += '</div>';
+        html += '</td>';
+        html += '<td style="width:70%;vertical-align:top" class="no-border">';
+        html += '<div class="section-title">NAME LIST</div>';
+        // Check if ANY roster entry has Excel columns data
+        var hasExcelCols = false;
+        var allColHeaders = [];
+        var isArrFormat = false;
+        allRosters.forEach(function(r) {
+            if (r.columns) {
+                hasExcelCols = true;
+                // Detect format: array of [header,value] pairs vs object
+                if (!isArrFormat && Array.isArray(r.columns) && r.columns.length > 0 && Array.isArray(r.columns[0])) {
+                    isArrFormat = true;
+                }
+                if (isArrFormat) {
+                    // Array of pairs: [["BACK NAMES","dfsdf"], ["SIZE","XL"], ...]
+                    r.columns.forEach(function(pair) {
+                        if (allColHeaders.indexOf(pair[0]) < 0) allColHeaders.push(pair[0]);
+                    });
+                } else {
+                    // Object format (backward compat): {"BACK NAMES":"dfsdf", "SIZE":"XL", ...}
+                    Object.keys(r.columns).forEach(function(h) {
+                        if (allColHeaders.indexOf(h) < 0) allColHeaders.push(h);
+                    });
+                }
             }
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
-            html += '</tr>';
         });
-        html += '</tbody></table>';
-    } else if (sizes.length > 0) {
-        html += '<table class="roster-table">';
-        html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
-        html += '<tbody>';
-        sizes.forEach(function(s, idx) {
-            var itemIdx = findNthItemIdx('size', idx);
-            var done = itemIdx >= 0 && items[itemIdx].status === 'done';
-            html += '<tr' + (done ? ' class="done"' : '') + '>';
-            html += '<td>' + escHtml(s.size || '') + '</td>';
-            html += '<td>' + (s.quantity || 0) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-    } else {
-        html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+        // Helper: get column value from whichever format
+        function getColVal(cols, hdr) {
+            if (!cols) return '';
+            if (isArrFormat && Array.isArray(cols)) {
+                for (var ci = 0; ci < cols.length; ci++) {
+                    if (cols[ci][0] === hdr) return cols[ci][1];
+                }
+                return '';
+            }
+            return cols[hdr] || '';
+        }
+        if (hasRoster && allRosters.length > 0) {
+            html += '<table class="roster-table">';
+            html += '<thead><tr><th>#</th>';
+            if (hasExcelCols) {
+                // Excel-imported: use ALL original column headers
+                allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
+            } else {
+                // No Excel columns: use standard hardcoded headers
+                html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
+            }
+            html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+            html += '<tbody>';
+            allRosters.forEach(function(rosterItem, idx) {
+                var itemIdx = findNthItemIdx('roster', idx, product);
+                var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+                html += '<tr' + (done ? ' class="done"' : '') + '>';
+                html += '<td>' + (idx + 1) + '</td>';
+                if (hasExcelCols) {
+                    allColHeaders.forEach(function(h) {
+                        html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
+                    });
+                } else {
+                    html += '<td>' + escHtml(rosterItem.name || '') + (rosterItem.number ? ' - ' + rosterItem.number : '') + '</td>';
+                    html += '<td>' + escHtml(rosterItem.size || '') + '</td>';
+                    html += '<td>' + (rosterItem.qty || 1) + '</td>';
+                }
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        } else if (sizes.length > 0) {
+            html += '<table class="roster-table">';
+            html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
+            html += '<tbody>';
+            sizes.forEach(function(s, idx) {
+                var itemIdx = findNthItemIdx('size', idx, product);
+                var done = itemIdx >= 0 && items[itemIdx].status === 'done';
+                html += '<tr' + (done ? ' class="done"' : '') + '>';
+                html += '<td>' + escHtml(s.size || '') + '</td>';
+                html += '<td>' + (s.quantity || s.qty || 0) + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        } else {
+            html += '<div style="text-align:center;padding:8px;font-size:9pt;color:#999;">No items</div>';
+        }
+        html += '</td>';
+        html += '</tr></table>';
+
+        // Notes from sale
+        if (slip.notes) {
+            html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
+        }
+
+        // Per-product comments (main slip) — like the additional production slip
+        html += psProductCommentsHtml(saleId, slip.itemId, productCommentsMap, legacyComments);
+
+        if (slips.length > 1) {
+            html += '</div>'; // end product card
+        }
+    });
+
+    if (!slips.length) {
+        html += psProductCommentsHtml(saleId, null, {}, legacyComments);
     }
-    html += '</td>';
-    html += '</tr></table>';
-
-    // Notes from sale
-    if (slip.notes) {
-        html += '<div style="margin-top:6px;font-size:11pt;text-align:left;border-top:1px solid #000;padding:6px 8px;background:#fffbe6;border-left:3px solid #f0ad4e;line-height:1.5;">📝 ' + escHtml(slip.notes) + '</div>';
-    }
-
-    html += '<div class="divider"></div>';
-
-    // === COMMENTS (append-only) ===
-    html += psCommentsHtml(saleId, chk);
 
     html += '</div>'; // end .pslip
 
@@ -2770,7 +2840,7 @@ function renderAdditionalProductionSlip(saleId, data) {
                 ['DESCRIPTION:', prod.description],
                 ['FABRIC:', prod.fabric],
                 ['DESIGNER:', prod.designer],
-                ['QTY:', (prod.quantity || 0) + ' PCS'],
+                ['QTY:', (prod.quantity || prod.qty || 0) + ' PCS'],
                 ['DATE NEEDED:', fmtDate(prod.dateNeeded)],
                 ['AGENT:', data.agent || ''],
                 ['CUSTOMER:', data.customer_name || '']
@@ -3063,7 +3133,7 @@ function renderProductionSlipHtml(data, showProductLabel) {
             var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
             html += '<tr' + (done ? ' class="done"' : '') + '>';
             html += '<td>' + escHtml(s.size || '') + '</td>';
-            html += '<td>' + (s.quantity || 0) + '</td>';
+            html += '<td>' + (s.quantity || s.qty || 0) + '</td>';
             html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
             html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
             html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
@@ -3257,6 +3327,77 @@ function psCommentsHtml(saleId, chk) {
 }
 
 // Render comments section for a specific additional project card
+function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
+    var h = '';
+    var key;
+    var comments;
+    if (itemId === null || itemId === undefined) {
+        // No product items — fall back to legacy sale-level ga_notes (read-only)
+        comments = legacyComments || [];
+        key = saleId + '_legacy';
+        if (!comments.length) return h;
+    } else {
+        key = saleId + '_' + itemId;
+        comments = (map && map[String(itemId)]) || [];
+    }
+    if (!Array.isArray(comments)) comments = [];
+    var isLegacy = (itemId === null || itemId === undefined);
+    var active = [];
+    var done = [];
+    var deleted = [];
+    comments.forEach(function(c, idx) {
+        if (c && c.deleted) deleted.push({c: c, idx: idx});
+        else if (c && c.done) done.push({c: c, idx: idx});
+        else active.push({c: c, idx: idx});
+    });
+    var idArg = "'" + String(itemId).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+    h += '<div style="margin-top:10px;"><strong style="font-size:11pt;">Comments</strong></div>';
+    h += '<div id="ps-prod-comments-' + key + '" class="ps-comment-list">';
+    active.forEach(function(o) {
+        var c = o.c;
+        h += '<div class="ps-comment-entry">';
+        if (psCanEdit && !isLegacy) {
+            h += '<button type="button" class="ps-comment-check" onclick="markProductCommentDone(' + saleId + ',' + idArg + ',' + o.idx + ')" title="Mark backjob as done (QA)">✓</button>';
+        }
+        h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
+        if (psCanEdit && !isLegacy) {
+            h += '<button type="button" class="ps-comment-del" onclick="askDeleteComment(' + saleId + ',' + o.idx + ',' + idArg + ',\'product\')" title="Delete comment">✕</button>';
+        }
+        h += '</div>';
+    });
+    h += '</div>';
+    if (done.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
+        done.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (deleted.length) {
+        h += '<div class="ps-comment-history"><div class="ps-comment-history-title">🗑 Deleted history</div>';
+        deleted.forEach(function(o) {
+            var c = o.c;
+            h += '<div class="ps-comment-deleted">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— deleted by ' + escHtml(c.deleted_by || '?') + ' at ' + escHtml(c.deleted_at || '') + '</span></div>';
+        });
+        h += '</div>';
+    }
+    if (psCanEdit && !isLegacy) {
+        h += '<div class="ps-comment-input">';
+        h += '<input type="text" id="ps-prod-input-' + key + '" placeholder="Comment note (e.g. ANDREA)..." onkeydown="if(event.key===\'Enter\')addProductComment(' + saleId + ',' + idArg + ')">';
+        h += '<button onclick="addProductComment(' + saleId + ',' + idArg + ')">Send</button></div>';
+        h += '<div class="ps-count-row">';
+        h += '<span class="ps-count-label">Parts:</span>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'FRT\')" title="Click to count Front">FRT <b id="ps-cnt-FRT-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'BCK\')" title="Click to count Back">BCK <b id="ps-cnt-BCK-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'LS\')" title="Click to count Left Sleeve">LS <b id="ps-cnt-LS-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-btn" onclick="bumpCount(\'' + key + '\',\'RS\')" title="Click to count Right Sleeve">RS <b id="ps-cnt-RS-' + key + '">0</b></button>';
+        h += '<button type="button" class="ps-count-clear" onclick="resetCounts(\'' + key + '\')" title="Reset counts">↺</button>';
+        h += '</div>';
+    }
+    return h;
+}
+
 function psProjectCommentsHtml(saleId, itemId, map) {
     var h = '';
     var key = saleId + '_' + itemId;
@@ -3320,8 +3461,8 @@ function psProjectCommentsHtml(saleId, itemId, map) {
 
 // Delete comment: ask confirmation, then mark as deleted with who/when
 var psDeletePending = null;
-function askDeleteComment(saleId, idx, itemId) {
-    psDeletePending = {saleId: saleId, idx: idx, itemId: itemId || null};
+function askDeleteComment(saleId, idx, itemId, kind) {
+    psDeletePending = {saleId: saleId, idx: idx, itemId: itemId || null, kind: kind || 'main'};
     var modal = document.getElementById('confirmDeleteCommentModal');
     if (modal) modal.style.display = 'flex';
 }
@@ -3335,6 +3476,7 @@ function doDeleteComment() {
     var saleId = psDeletePending.saleId;
     var idx = psDeletePending.idx;
     var itemId = psDeletePending.itemId;
+    var kind = psDeletePending.kind || 'main';
     psDeletePending = null;
     var modal = document.getElementById('confirmDeleteCommentModal');
     if (modal) modal.style.display = 'none';
@@ -3342,6 +3484,27 @@ function doDeleteComment() {
     fetch('/api/production/checklist/' + saleId)
     .then(function(r) { return r.json(); })
     .then(function(data) {
+        if (kind === 'product') {
+            // Per-product comment (main production slip, keyed by item id)
+            var map = {};
+            try { map = JSON.parse(data.checklist.product_comments || '{}'); } catch(e) { map = {}; }
+            var comments = map[String(itemId)] || [];
+            if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+            var now = new Date();
+            var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+            comments[idx].deleted = true;
+            comments[idx].deleted_by = window.psCurrentUserName || 'Unknown';
+            comments[idx].deleted_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+            map[String(itemId)] = comments;
+            return fetch('/api/production/checklist/' + saleId + '/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+                },
+                body: JSON.stringify({product_comments: JSON.stringify(map)})
+            });
+        }
         if (itemId) {
             // Per-project comment (additional production slip)
             var map = {};
@@ -3435,6 +3598,41 @@ function markCommentDone(saleId, idx) {
         }
     })
     .catch(function(err) { console.error('Failed to mark comment done', err); });
+}
+
+// QA: mark a project comment's backjob as done (Additional tab per-project)
+function markProductCommentDone(saleId, itemId, idx) {
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var map = {};
+        try { map = JSON.parse(data.checklist.product_comments || '{}'); } catch(e) { map = {}; }
+        var comments = map[String(itemId)] || [];
+        if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        comments[idx].done = true;
+        comments[idx].done_by = window.psCurrentUserName || 'Unknown';
+        comments[idx].done_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        map[String(itemId)] = comments;
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({product_comments: JSON.stringify(map)})
+        });
+    })
+    .then(function(r) { return r ? r.json() : null; })
+    .then(function(data) {
+        if (data && data.success) {
+            refreshPsComments(saleId);
+        } else if (data) {
+            showToast('Failed to update comment.', 'danger');
+        }
+    })
+    .catch(function(err) { console.error('Failed to mark product comment done', err); });
 }
 
 // QA: mark a project comment's backjob as done (Additional tab per-project)
@@ -3532,6 +3730,76 @@ function addComment(saleId) {
     })
     .catch(function(err) {
         console.error('Failed to add comment', err);
+    })
+    .finally(function() {
+        if (input) input.disabled = false;
+    });
+}
+
+// Add a comment to a specific product card (Main production slip, per-product)
+function addProductComment(saleId, itemId) {
+    var key = saleId + '_' + itemId;
+    var input = document.getElementById('ps-prod-input-' + key);
+    if (!input) return;
+    var note = input.value.trim();
+    var counts = (window.psCounts && window.psCounts[key]) || {};
+    var labels = {FRT:'FRONT', BCK:'BACK', LS:'LEFTSLEEVE', RS:'RIGHTSLEEVE'};
+    var parts = [];
+    ['FRT','BCK','LS','RS'].forEach(function(code) {
+        if (counts[code] > 0) parts.push(counts[code] + ' ' + labels[code]);
+    });
+    var text;
+    if (note && parts.length) text = note + ' - ' + parts.join(', ');
+    else if (note) text = note;
+    else if (parts.length) text = parts.join(', ');
+    else return; // nothing to send
+    input.value = '';
+    input.disabled = true;
+    resetCounts(key);
+
+    // Get current checklist to append to this product's comments
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var map = {};
+        try { map = JSON.parse(data.checklist.product_comments || '{}'); } catch(e) { map = {}; }
+        var existing = map[String(itemId)] || [];
+        if (!Array.isArray(existing)) existing = [];
+
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        existing.push({text: text, at: ts});
+        map[String(itemId)] = existing;
+
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({product_comments: JSON.stringify(map)})
+        });
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // Add comment to the list without reloading
+            var list = document.getElementById('ps-prod-comments-' + key);
+            if (list) {
+                var entry = document.createElement('div');
+                entry.className = 'ps-comment-entry';
+                var now = new Date();
+                var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+                var ts = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+                entry.innerHTML = escHtml(text) + ' <span class="time">' + ts + '</span>';
+                list.appendChild(entry);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+    })
+    .catch(function(err) {
+        console.error('Failed to add product comment', err);
     })
     .finally(function() {
         if (input) input.disabled = false;
@@ -3651,11 +3919,11 @@ function submitFeedback() {
 }
 function updateFeedbackStatus(feedbackId, status) {
     var ack = '';
-    if (status === 'resolved') {
-        ack = prompt('Mag-iwan ng acknowledgement note bago i-resolve ang feedback:');
+    if (status === 'acknowledged') {
+        ack = prompt('Mag-iwan ng acknowledgement note bago i-acknowledge ang feedback:');
         if (ack === null) return; // cancelled
         ack = ack.trim();
-        if (!ack) { alert('Kailangan ng acknowledgement note para i-resolve.'); return; }
+        if (!ack) { alert('Kailangan ng acknowledgement note para i-acknowledge.'); return; }
     }
     fetch('{{ route('sales.prototype.production-feedback.status', 'FEEDBACK_ID') }}'.replace('FEEDBACK_ID', feedbackId), {
         method: 'POST',

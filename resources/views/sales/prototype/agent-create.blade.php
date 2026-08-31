@@ -111,6 +111,7 @@
                             <option value="gcash" {{ old('payment_method') === 'gcash' ? 'selected' : '' }}>GCash</option>
                             <option value="bank_transfer" {{ old('payment_method') === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
                             <option value="check" {{ old('payment_method') === 'check' ? 'selected' : '' }}>Check</option>
+                            <option value="po" {{ old('payment_method') === 'po' ? 'selected' : '' }}>P.O. (Purchase Order)</option>
                         </select>
                     </div>
                 </div>
@@ -121,6 +122,21 @@
                         <input type="file" id="payment_screenshot" name="payment_screenshot" class="form-control-file @error('payment_screenshot') is-invalid @enderror" accept="image/*">
                         @error('payment_screenshot') <span class="invalid-feedback">{{ $message }}</span> @enderror
                         <small class="text-muted">Upload proof of payment (optional)</small>
+                    </div>
+                </div>
+
+                <div id="poFields" class="form-row" style="display:none;">
+                    <div class="form-group">
+                        <label for="po_reference">P.O. Reference # <span class="required">*</span></label>
+                        <input type="text" id="po_reference" name="po_reference" class="form-control @error('po_reference') is-invalid @enderror" value="{{ old('po_reference') }}" placeholder="Enter P.O. number">
+                        @error('po_reference') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        <small class="text-muted">Purchase Order — no downpayment needed</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="po_screenshot">P.O. Form Photo <span class="required">*</span></label>
+                        <input type="file" id="po_screenshot" name="payment_screenshot" class="form-control-file @error('payment_screenshot') is-invalid @enderror" accept="image/*">
+                        @error('payment_screenshot') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                        <small class="text-muted">Upload the P.O. form/photo (required)</small>
                     </div>
                 </div>
 
@@ -215,8 +231,40 @@ select.form-control {
 function togglePaymentFields() {
     const method = document.getElementById('payment_method').value;
     const fields = document.getElementById('paymentFields');
-    fields.style.display = (method && method !== 'cash') ? 'block' : 'none';
+    const poFields = document.getElementById('poFields');
+    fields.style.display = (method && method !== 'cash' && method !== 'po') ? 'block' : 'none';
+    poFields.style.display = (method === 'po') ? 'block' : 'none';
+    if (method === 'po') {
+        const deposit = document.getElementById('deposit_paid');
+        if (deposit) { deposit.value = '0'; deposit.disabled = true; }
+    } else {
+        const deposit = document.getElementById('deposit_paid');
+        if (deposit) { deposit.disabled = false; }
+    }
 }
+
+// On submit: for PO, require po_reference + P.O. photo, and force deposit to 0
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.agent-sale-form');
+    if (!form) return;
+    form.addEventListener('submit', function(e) {
+        const method = document.getElementById('payment_method').value;
+        if (method === 'po') {
+            const ref = document.getElementById('po_reference').value.trim();
+            if (!ref) {
+                e.preventDefault();
+                alert('Please enter the P.O. Reference #.');
+                return;
+            }
+            const photo = document.getElementById('po_screenshot');
+            if (!photo || !photo.files || photo.files.length === 0) {
+                e.preventDefault();
+                alert('Please attach the P.O. form photo.');
+                return;
+            }
+        }
+    });
+});
 </script>
 @endpush
 @endsection

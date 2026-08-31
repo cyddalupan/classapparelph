@@ -427,6 +427,32 @@ var sub_garmentSpecMap = {
             { id: 'sub_spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
         ]
     },
+    'polo-zipper-cc': {
+        nameKeywords: ['POLO ZIPPER CC'],
+        fields: [
+            { id: 'sub_spec_collar', label: 'Collar', type: 'select', options: ['REGULAR SUBLI PRINT', 'SPECIAL SUBLI PRINT'] },
+            { id: 'sub_spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'sub_spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'sub_spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'sub_spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'sub_spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'sub_spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'sub_spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
+    'polo-button-cc': {
+        nameKeywords: ['POLO BUTTON CC'],
+        fields: [
+            { id: 'sub_spec_collar', label: 'Collar', type: 'select', options: ['REGULAR SUBLI PRINT', 'SPECIAL SUBLI PRINT'] },
+            { id: 'sub_spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
+            { id: 'sub_spec_neckTape', label: 'Neck Tape', type: 'select', options: ['NO DESIGN (STANDARD)', 'WITH DESIGN (FROM CLIENT)'], autoAddon: { 'WITH DESIGN (FROM CLIENT)': 27 } },
+            { id: 'sub_spec_sizeLabel', label: 'Size Label', type: 'select', options: ['YES', 'NO'] },
+            { id: 'sub_spec_slit', label: 'Slit', type: 'select', options: ['YES', 'NO'], autoAddon: { 'YES': 29 } },
+            { id: 'sub_spec_pocket', label: 'Pocket', type: 'select', options: ['NO', 'ONE POCKET', 'TWO POCKETS'], autoAddon: { 'ONE POCKET': 30, 'TWO POCKETS': 39 } },
+            { id: 'sub_spec_armsleeve', label: 'Armsleeve', type: 'select', options: ['SHORTSLEEVE', 'LONGSLEEVE'], autoAddon: { 'LONGSLEEVE': 28 } },
+            { id: 'sub_spec_shoulder', label: 'Shoulder', type: 'select', options: ['REGULAR', 'RAGLAN'], autoAddon: { 'RAGLAN': 33 } }
+        ]
+    },
     polo: {
         nameKeywords: ['POLO'],
         fields: [

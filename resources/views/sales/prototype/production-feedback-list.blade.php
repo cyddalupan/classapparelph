@@ -178,10 +178,11 @@
                         @endif
                         <td style="white-space:nowrap;font-size:12px;">{{ $fb->created_at->format('M d, Y') }}<div style="font-size:10px;color:#94a3b8;">{{ $fb->created_at->format('h:i A') }}</div></td>
                         <td onclick="event.stopPropagation();">
-                            @if($fb->status !== 'resolved' && ($isManager || $fb->to_user_id === (auth()->id() ?? 0) || $fb->involved_user_id === (auth()->id() ?? 0)))
-                            @if($fb->status === 'open' && !$isManager)
+                            @php $isFbRecipient = ($fb->to_user_id === (auth()->id() ?? 0) || $fb->involved_user_id === (auth()->id() ?? 0)); @endphp
+                            @if($fb->status === 'open' && $isFbRecipient)
                             <button class="btn btn-sm btn-outline-primary" onclick="updateFeedback({{ $fb->id }}, 'acknowledged')">Acknowledge</button>
                             @endif
+                            @if($fb->status === 'acknowledged' && ($canResolve ?? false))
                             <button class="btn btn-sm btn-outline-success" onclick="updateFeedback({{ $fb->id }}, 'resolved')">Resolve</button>
                             @endif
                         </td>
@@ -208,11 +209,11 @@
 <script>
 function updateFeedback(feedbackId, status) {
     var ack = '';
-    if (status === 'resolved') {
-        ack = prompt('Mag-iwan ng acknowledgement note bago i-resolve ang feedback:');
+    if (status === 'acknowledged') {
+        ack = prompt('Mag-iwan ng acknowledgement note bago i-acknowledge ang feedback:');
         if (ack === null) return; // cancelled
         ack = ack.trim();
-        if (!ack) { alert('Kailangan ng acknowledgement note para i-resolve.'); return; }
+        if (!ack) { alert('Kailangan ng acknowledgement note para i-acknowledge.'); return; }
     }
     fetch('{{ route('sales.prototype.production-feedback.status', 'FEEDBACK_ID') }}'.replace('FEEDBACK_ID', feedbackId), {
         method: 'POST',

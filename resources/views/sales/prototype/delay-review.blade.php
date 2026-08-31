@@ -34,6 +34,65 @@
                 </div>
             </div>
 
+            <!-- MANAGER REVIEW FORM -->
+            <div class="card shadow-sm mb-3" style="border-left:4px solid #0d6efd;">
+                <div class="card-header bg-white fw-bold"><i class="fas fa-clipboard-check me-2 text-primary"></i>Review ng Manager / COO / CEO</div>
+                <div class="card-body">
+                    @if($sale->delay_review_status)
+                    <div class="p-3 rounded mb-3" style="background:#f0f9ff;border:1px solid #bae6fd;">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span class="fw-bold">
+                                @php
+                                    $rv = [
+                                        'acknowledged' => ['Acknowledged', '#f59e0b'],
+                                        'resolved' => ['Resolved', '#22c55e'],
+                                        'dismissed' => ['Dismissed', '#ef4444'],
+                                    ];
+                                    $rvLabel = $rv[$sale->delay_review_status][0] ?? $sale->delay_review_status;
+                                    $rvColor = $rv[$sale->delay_review_status][1] ?? '#64748b';
+                                @endphp
+                                <span class="badge" style="background:{{ $rvColor }};color:#fff;">@if($sale->delay_review_status === 'dismissed')❌ @elseif($sale->delay_review_status === 'resolved')✅ @else👀 @endif{{ $rvLabel }}</span>
+                            </span>
+                            @if($sale->delay_reviewed_at)
+                            <small class="text-muted"><i class="far fa-clock me-1"></i>Ni-review {{ \Carbon\Carbon::parse($sale->delay_reviewed_at)->format('M d, Y h:i A') }}</small>
+                            @endif
+                        </div>
+                        @if($sale->delay_review_notes)
+                            <p class="mb-1 mt-2" style="white-space:pre-wrap;">{{ $sale->delay_review_notes }}</p>
+                        @endif
+                        @if($sale->delay_reviewed_by)
+                            <small class="text-muted">— {{ \App\Models\User::find($sale->delay_reviewed_by)?->display_label ?? 'Reviewer' }}</small>
+                        @endif
+                    </div>
+                    @endif
+
+                    @if(session('success'))
+                        <div class="alert alert-success py-2">{{ session('success') }}</div>
+                    @endif
+                    @if(session('error'))
+                        <div class="alert alert-danger py-2">{{ session('error') }}</div>
+                    @endif
+
+                    <form method="POST" action="{{ route('sales.prototype.delay-review.submit', $sale->id) }}">
+                        @csrf
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small"><i class="fas fa-flag me-1"></i>Review Status</label>
+                            <select name="delay_review_status" class="form-select form-select-sm" required>
+                                <option value="">— Pumili ng status —</option>
+                                <option value="acknowledged" {{ $sale->delay_review_status === 'acknowledged' ? 'selected' : '' }}>👀 Acknowledged — nakita ko na, i-monitor lang</option>
+                                <option value="resolved" {{ $sale->delay_review_status === 'resolved' ? 'selected' : '' }}>✅ Resolved — naayos na / inaayos na</option>
+                                <option value="dismissed" {{ $sale->delay_review_status === 'dismissed' ? 'selected' : '' }}>❌ Dismissed — hindi valid / hindi itutuloy ang delay</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small"><i class="fas fa-sticky-note me-1"></i>Notes (opsyonal pero recommended)</label>
+                            <textarea class="form-control form-control-sm" name="delay_review_notes" rows="3" placeholder="Hal. i-follow up sa printing, i-prioritize na lang, hindi ito kasalanan ng agent...">{{ $sale->delay_review_notes }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane me-1"></i>I-save ang Review</button>
+                    </form>
+                </div>
+            </div>
+
             <!-- PROJECT INFO -->
             <div class="card shadow-sm">
                 <div class="card-header bg-white fw-bold"><i class="fas fa-info-circle me-2"></i>Project Information</div>

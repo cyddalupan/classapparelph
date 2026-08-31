@@ -57,6 +57,12 @@ class CheckProdManagerClassAccess
         'sales.prototype.calendar-data',
         'sales.prototype.reschedule',
 
+        // Nav: Production → GA Order List (view + assign/unassign/complete GA jobs)
+        'sales.prototype.ga-order-list',
+        'sales.prototype.ga-assign',
+        'sales.prototype.ga-unassign',
+        'sales.prototype.ga-complete',
+
         // Feedback & delays for Class sales (explicitly allowed by Andrew)
         'sales.prototype.production-feedback.list',
         'sales.prototype.production-feedback.store',

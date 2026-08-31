@@ -19,6 +19,9 @@
         font-weight: 600;
         border-bottom: 2px solid #dee2e6;
         white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 5;
     }
     .pipeline-table td {
         padding: 12px;
@@ -540,7 +543,7 @@
     @endif
 
     <!-- Table -->
-    <div style="overflow-x:auto;">
+    <div style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 460px);">
         <table class="pipeline-table" id="orderTable">
             <thead>
                 <tr>
@@ -702,11 +705,13 @@
                             @endif
                             @if(!$allPhotos)
                                 <div style="margin-top:3px;">
+                                    @if(!(auth()->user() && auth()->user()->isQa()))
                                     @if($photoCooldown)
                                         <span class="badge bg-secondary" title="Last notified {{ $photoLastAt->diffForHumans() }}">🔔 {{ $photoAgoText }}</span>
                                         <button type="button" class="btn btn-sm btn-danger notify-btn" style="width:26px;height:26px;padding:0;font-size:14px;line-height:1;border-radius:5px;margin-left:4px;display:inline-flex;align-items:center;justify-content:center;" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>
                                     @else
                                         <button type="button" class="btn btn-sm btn-outline-warning notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="photo_reminder" title="Notify agent to upload photos{{ $photoCount > 1 ? ' (reminder #'.$photoCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $photoCount > 1 ? '×'.$photoCount : '' }}</button>
+                                    @endif
                                     @endif
                                 </div>
                             @endif
@@ -723,11 +728,13 @@
                             @endphp
                             @if(($sale->balance_due_computed ?? 0) > 0)
                                 <span class="badge bg-danger">₱{{ number_format($sale->balance_due_computed, 2) }}</span>
+                                @if(!(auth()->user() && auth()->user()->isQa()))
                                 @if($payCooldown)
                                     <span class="badge bg-secondary" title="Last notified {{ $payLastAt->diffForHumans() }}">🔔 {{ $payAgoText }}</span>
                                     <button type="button" class="btn btn-sm btn-danger notify-btn" style="width:26px;height:26px;padding:0;font-size:14px;line-height:1;border-radius:5px;margin-left:4px;display:inline-flex;align-items:center;justify-content:center;" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>
                                 @else
                                     <button type="button" class="btn btn-sm btn-outline-danger notify-btn" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number }}" data-type="payment_reminder" title="Notify agent to collect payment{{ $payCount > 1 ? ' (reminder #'.$payCount.')' : '' }}" onclick="event.stopPropagation();notifyAgent(this)">🔔{{ $payCount > 1 ? '×'.$payCount : '' }}</button>
+                                @endif
                                 @endif
                             @endif
                             <div style="margin-top:2px;">

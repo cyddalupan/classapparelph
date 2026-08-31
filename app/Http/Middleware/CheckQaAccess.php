@@ -50,6 +50,9 @@ class CheckQaAccess
         // Audit history (read-only logs, used by show page comments/audit section)
         'sales.prototype.audit-history',
 
+        // Pending add-on count badge (kanban/card headers)
+        'sales.prototype.addon.pending-count',
+
         // Production checklist & additional production slip (used inside calendar/kanban modals)
         'api.production.checklist.get',
         'api.production.checklist.save',
@@ -57,6 +60,9 @@ class CheckQaAccess
 
         // Nav: Production → Manager List (Class only, scoped in controller)
         'sales.prototype.list',
+
+        // Nav: Production → Backjob List (Class only, scoped in controller)
+        'sales.prototype.backjobs',
 
         // Nav: Production → Calendar (VIEW ONLY — NO reschedule/drag)
         'sales.prototype.calendar',
@@ -82,6 +88,13 @@ class CheckQaAccess
 
         // Nav: My Sales → My Sales Dashboard, Add New Sale
         'sales.team.dashboard',
+        'sales.prototype.dashboard',
+
+        // My Sales → My Delays (own delays only, scoped in controller)
+        'sales.team.delays',
+
+        // My Sales → Production Feedback list (own/Class feedback, scoped in controller)
+        'sales.prototype.production-feedback.list',
         'sales.prototype.create',
         'sales.prototype.store',
         'sales.prototype.agent.payment',

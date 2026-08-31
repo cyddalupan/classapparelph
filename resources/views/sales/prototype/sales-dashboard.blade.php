@@ -36,6 +36,10 @@
     .progress { height: 6px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
     .progress-bar { border-radius: 999px; }
     .badge-soft { font-size: .72rem; font-weight: 600; padding: .25rem .6rem; border-radius: 999px; }
+    .stage-count-row { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 1rem; padding-top: 0.9rem; border-top: 1px dashed #e2e8f0; }
+    .stage-count-title { font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.15rem; }
+    .stage-chip { display: inline-flex; align-items: center; padding: 0.3rem 0.7rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; border: 1.5px solid; background: white; text-decoration: none; transition: all 0.15s; }
+    .stage-chip:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
 </style>
 
 <div class="page-header">
@@ -145,6 +149,47 @@
         </div>
     </div>
 </div>
+
+<!-- PRODUCTION STATUS -->
+@if(!empty($prodStageCounts))
+@php
+    // Preserve current filters (except production_stage) when clicking a stage chip
+    $stageBase = collect($filters)->except(['production_stage'])->filter(function ($v) { return $v !== '' && $v !== null; })->all();
+    $curStage = $filters['production_stage'] ?? '';
+    $stageChipColors = [
+        'HOLD' => '#dc2626',
+        'FOR SAMPLE' => '#f59e0b',
+        'FOR APPROVAL' => '#f59e0b',
+        'FOR FORMAT' => '#8b5cf6',
+        'PRINTING' => '#3b82f6',
+        'PRESSING' => '#0ea5e9',
+        'CUTTING' => '#14b8a6',
+        'SEWING' => '#10b981',
+        'QA' => '#6366f1',
+        'DISPATCH' => '#64748b',
+        'UNPAID' => '#ef4444',
+        'DONE' => '#22c55e',
+    ];
+@endphp
+<div class="chart-card">
+    <h6><i class="fas fa-layer-group me-2" style="color:#8b5cf6;"></i>Production Status ng mga Project</h6>
+    <div class="stage-count-row" style="margin-top:0.5rem;padding-top:0.5rem;border-top:none;">
+        <span class="stage-count-title">Status:</span>
+        <a href="{{ route('sales.prototype.dashboard', $stageBase) }}" class="stage-chip {{ $curStage === '' ? 'active' : '' }}" style="{{ $curStage === '' ? 'background:#334155;border-color:#334155;color:#fff;' : 'border-color:#334155;color:#334155;' }}">All ({{ array_sum($prodStageCounts) }})</a>
+        @foreach($prodStageOptions as $stageKey => $stageLabel)
+            @if(isset($prodStageCounts[$stageKey]) && $prodStageCounts[$stageKey] > 0)
+            @php
+                $chipColor = $stageChipColors[$stageKey] ?? '#475569';
+                $isActive = $curStage === $stageKey;
+            @endphp
+            <a href="{{ route('sales.prototype.dashboard', array_merge($stageBase, ['production_stage' => $stageKey])) }}" class="stage-chip {{ $isActive ? 'active' : '' }}" style="{{ $isActive ? 'background:' . $chipColor . ';border-color:' . $chipColor . ';color:#fff;' : 'border-color:' . $chipColor . ';color:' . $chipColor . ';' }}">
+                {{ $stageLabel }} ({{ $prodStageCounts[$stageKey] }})
+            </a>
+            @endif
+        @endforeach
+    </div>
+</div>
+@endif
 
 <!-- CHARTS -->
 <div class="row g-3 mt-1">

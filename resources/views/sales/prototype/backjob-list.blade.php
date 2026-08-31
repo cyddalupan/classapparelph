@@ -163,9 +163,14 @@
             </div>
         </div>
         <div class="list-actions">
-            <a href="{{ route('sales.prototype.list') }}" class="btn" style="background:#0d6efd;color:#fff;">📋 Manager Order List</a>
-            <a href="{{ route('sales.prototype.kanban') }}" class="btn" style="background:#6f42c1;color:#fff;">📊 Kanban Board</a>
-            <a href="{{ route('sales.prototype.delays') }}" class="btn" style="background:#dc3545;color:#fff;">⚠️ Delay List</a>
+            @if(auth()->user() && auth()->user()->isGa())
+                <a href="{{ route('sales.prototype.ga-order-list') }}" class="btn" style="background:#6f42c1;color:#fff;">🎨 GA Job List</a>
+                <a href="{{ route('sales.prototype.ga-dashboard') }}" class="btn" style="background:#0dcaf0;color:#fff;">📊 GA Dashboard</a>
+            @else
+                <a href="{{ route('sales.prototype.list') }}" class="btn" style="background:#0d6efd;color:#fff;">📋 Manager Order List</a>
+                <a href="{{ route('sales.prototype.kanban') }}" class="btn" style="background:#6f42c1;color:#fff;">📊 Kanban Board</a>
+                <a href="{{ route('sales.prototype.delays') }}" class="btn" style="background:#dc3545;color:#fff;">⚠️ Delay List</a>
+            @endif
         </div>
     </div>
 

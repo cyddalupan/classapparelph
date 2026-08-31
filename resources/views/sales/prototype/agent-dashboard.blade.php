@@ -104,6 +104,7 @@
 .payment-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
 .payment-badge.verified { background: #dcfce7; color: #16a34a; }
 .payment-badge.pending { background: #fef3c7; color: #d97706; }
+.payment-badge.po { background: #e0f2fe; color: #0369a1; }
 .payment-badge.unpaid { background: #fee2e2; color: #dc2626; }
 
 /* Sale card footer / actions */
@@ -167,6 +168,9 @@
             <a href="{{ route('sales.prototype.dashboard') }}" class="action-btn" title="Sales Dashboard">
                 <i class="fas fa-chart-line"></i> Sales Dashboard
             </a>
+            <a href="{{ route('sales.team.delays') }}" class="action-btn" title="My Delays — lahat ng delay na na-report mo at ang review ng manager" style="border-color:#dc3545;color:#dc3545;">
+                <i class="fas fa-exclamation-triangle"></i> My Delays
+            </a>
             <a href="{{ route('sales.prototype.production-feedback.list', ['scope' => 'mine']) }}" class="action-btn" title="Production Feedback" style="border-color:#d97706;color:#d97706;">
                 <i class="fas fa-clipboard-check"></i> Production Feedback
             </a>
@@ -215,6 +219,7 @@
                 <select id="payment_status" name="payment_status">
                     <option value="">All</option>
                     <option value="pending" {{ ($filters['payment_status'] ?? '') === 'pending' ? 'selected' : '' }}>Pending</option>
+                    <option value="po" {{ ($filters['payment_status'] ?? '') === 'po' ? 'selected' : '' }}>P.O. (No Downpayment)</option>
                     <option value="verified" {{ ($filters['payment_status'] ?? '') === 'verified' ? 'selected' : '' }}>Verified</option>
                     <option value="down_payment_verified" {{ ($filters['payment_status'] ?? '') === 'down_payment_verified' ? 'selected' : '' }}>Down Payment Verified</option>
                     <option value="additional_payment_verified" {{ ($filters['payment_status'] ?? '') === 'additional_payment_verified' ? 'selected' : '' }}>Additional Verified</option>
@@ -500,6 +505,7 @@
                             $pBadge  = match($pStatus) {
                                 'verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified' => 'verified',
                                 'pending'  => 'pending',
+                                'po'       => 'po',
                                 'rejected', 'reject_pending' => 'unpaid',
                                 'edit_pending' => 'pending',
                                 default    => 'unpaid',
@@ -510,6 +516,7 @@
                                 'additional_payment_verified' => 'Additional Verified',
                                 'full_payment_verified'     => 'Full Payment Verified',
                                 'pending'                   => 'Pending Verification',
+                                'po'                        => 'P.O. — No Downpayment',
                                 'rejected'                  => 'Rejected',
                                 'reject_pending'            => 'Rejection Pending',
                                 'edit_pending'              => 'Edit Pending',
@@ -518,6 +525,7 @@
                             $pIcon = match($pStatus) {
                                 'verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified' => 'fa-check-circle',
                                 'pending', 'reject_pending', 'edit_pending' => 'fa-clock',
+                                'po' => 'fa-file-invoice',
                                 'rejected' => 'fa-times-circle',
                                 default    => 'fa-times-circle',
                             };
@@ -592,9 +600,9 @@
                 <i class="fas fa-money-bill-wave"></i> Pay Balance
             </button>
             @endif
-            @if($sale->payment_status === 'pending' && $sale->payment_screenshot_path)
+            @if(in_array($sale->payment_status ?? '', ['pending', 'po']) && $sale->payment_screenshot_path)
             <button class="action-btn" onclick="showScreenshot('{{ $sale->payment_screenshot_path }}')">
-                <i class="fas fa-image"></i> View Proof
+                <i class="fas fa-image"></i> {{ $sale->payment_status === 'po' ? 'View P.O. Form' : 'View Proof' }}
             </button>
             @endif
             @if(in_array($sale->payment_status ?? '', ['pending', 'reject_pending', 'edit_pending']))

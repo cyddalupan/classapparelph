@@ -280,6 +280,10 @@
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
                         </a>
+                        <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
+                            <i class="fas fa-tools"></i>
+                            <span class="nav-text">Backjob List</span>
+                        </a>
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>
                             <span class="nav-text">Calendar</span>
