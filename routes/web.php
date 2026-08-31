@@ -1,6 +1,6 @@
 <?php
 
-Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
 # API: Products for sales box (public)
 Route::get("/api/products-for-box/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getProductsForBox"])->name("product-pricing.api.products-for-box");
 Route::get("/api/filter-options/{boxType}", [App\Http\Controllers\ProductPricingController::class, "getFilterOptions"])->name("product-pricing.api.filter-options");
@@ -21,14 +21,14 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth'])->name('dashboard');
+})->middleware(['auth', 'qa.access'])->name('dashboard');
 
 // TEST PAGE FOR DEBUGGING
 Route::middleware(['auth'])->get('/test-navigation', function () {
     return view('test-navigation');
 })->name('test-navigation');
 
-Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
     // INVENTORY CATEGORY SELECTION PAGE
     Route::get('/inventory/select-category', function () {
         // Log access for debugging
@@ -592,7 +592,7 @@ Route::get('/printing-calculator', function() {
 require __DIR__.'/auth.php';
 
 // DTF Routes
-Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
     Route::get('/dtf/create', [App\Http\Controllers\DtfController::class, 'create'])->name('dtf.create');
     Route::post('/dtf', [App\Http\Controllers\DtfController::class, 'store'])->name('dtf.store');
 });
@@ -631,7 +631,7 @@ Route::middleware(['auth'])->get('/inventory-style-test', function () {
 Route::middleware(['auth'])->get('/fixed-test', function () {
     return view('products.fixed-test');
 });
-Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
 Route::get('/test-modal', function() { return view('test'); });
 Route::get('/inventory-clean', function() { return view('inventory.create-clean'); });
 Route::post('/inventory/shirt-products', function(Request $request) {
@@ -685,7 +685,7 @@ Route::get('/inventorylist', function() {
     return view('inventory.create-clean');
 })->name('inventory.list');
 });
-Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
+Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
 
         // Customer API Routes for Prototype
         Route::get("/api/customers/check", function (\Illuminate\Http\Request $request) {
@@ -819,6 +819,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/damage/{report}/resolve', [App\Http\Controllers\DamageReportController::class, 'resolve'])->name('damage.resolve');
         Route::post('/damage/{report}/dismiss', [App\Http\Controllers\DamageReportController::class, 'dismiss'])->name('damage.dismiss');
         Route::post('/damage/{report}/comment', [App\Http\Controllers\DamageReportController::class, 'comment'])->name('damage.comment');
+
+        Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
+        
         Route::get('/sales/prototype/search', function (\Illuminate\Http\Request $request) {
             $q = trim($request->q ?? '');
             if (strlen($q) < 4) {
@@ -833,7 +836,6 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
                     ->get(['id', 'sales_number', 'customer_name'])
             );
         })->name('sales.prototype.search');
-        
         // Cart system
         Route::get('/sales/prototype/cart-create', [App\Http\Controllers\PrototypeSalesController::class, 'cartCreate'])->name('sales.prototype.cart-create');
         
@@ -860,8 +862,18 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
 
+        // GA ORDER LIST route — read-only, only orders tagged FOR SAMPLE / FOR APPROVAL / FOR FORMAT / PRINTING
+        Route::get('/sales/prototype/ga-order-list', [App\Http\Controllers\PrototypeSalesController::class, 'gaOrderList'])->name('sales.prototype.ga-order-list');
+
+        // GA DASHBOARD route — performance breakdown per GA / stage / month (counted when tagged SEWING+)
+        Route::get('/sales/prototype/ga-dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'gaDashboard'])->name('sales.prototype.ga-dashboard');
+
         // DELAY REVIEW route (manager/admin review of delayed sales feedback)
         Route::get('/sales/prototype/{id}/delay-review', [App\Http\Controllers\PrototypeSalesController::class, 'delayReview'])->name('sales.prototype.delay-review');
+        Route::post('/sales/prototype/{id}/delay-review', [App\Http\Controllers\PrototypeSalesController::class, 'submitDelayReview'])->name('sales.prototype.delay-review.submit');
+
+        // MY DELAYS route — compiles all delays reported by the logged-in agent
+        Route::get('/sales/team/delays', [App\Http\Controllers\PrototypeSalesController::class, 'agentDelays'])->middleware('auth')->name('sales.team.delays');
 
         // DELAY LIST route — all delayed sales in one page (with or without feedback)
         Route::get('/sales/prototype/delays', [App\Http\Controllers\PrototypeSalesController::class, 'delayList'])->name('sales.prototype.delays');
@@ -878,6 +890,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
         Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
         Route::post('/sales/prototype/{id}/priority', [App\Http\Controllers\PrototypeSalesController::class, 'updatePriority'])->name('sales.prototype.priority');
+        Route::post('/sales/prototype/{id}/ga-assign', [App\Http\Controllers\PrototypeSalesController::class, 'assignGa'])->name('sales.prototype.ga-assign');
+        Route::post('/sales/prototype/{id}/ga-unassign', [App\Http\Controllers\PrototypeSalesController::class, 'unassignGa'])->name('sales.prototype.ga-unassign');
+        Route::post('/sales/prototype/{id}/ga-complete', [App\Http\Controllers\PrototypeSalesController::class, 'completeGa'])->name('sales.prototype.ga-complete');
 
         Route::get('/sales/prototype/dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'salesDashboard'])->name('sales.prototype.dashboard');
         Route::get('/sales/prototype/{id}/details', [App\Http\Controllers\PrototypeSalesController::class, 'details'])->name('sales.prototype.details');
@@ -943,7 +958,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
 });
 
         // Department Inventory Management (iPrint & others)
-        Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
+        Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
             Route::get('/api/departments', [App\Http\Controllers\DepartmentInventoryController::class, 'departments'])->name('api.departments.list');
             Route::get('/api/department-inventory', [App\Http\Controllers\DepartmentInventoryController::class, 'departmentItems'])->name('api.department-inventory.items');
             Route::post('/api/department-inventory/assign', [App\Http\Controllers\DepartmentInventoryController::class, 'assign'])->name('api.department-inventory.assign');
@@ -951,7 +966,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         });
 
         // Procurement Ordering System
-        Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access'])->group(function () {
+        Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
             Route::get('/procurement/dashboard', [App\Http\Controllers\ProcurementOrderController::class, 'dashboard'])->name('procurement.dashboard');
             Route::get('/procurement/orders', [App\Http\Controllers\ProcurementOrderController::class, 'index'])->name('procurement.orders.index');
             Route::get('/procurement/orders/create', [App\Http\Controllers\ProcurementOrderController::class, 'create'])->name('procurement.orders.create');

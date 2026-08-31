@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'cpo.access' => \App\Http\Middleware\CheckCpoAccess::class,
             'cmo.access' => \App\Http\Middleware\CheckCmoAccess::class,
             'prodmanager.access' => \App\Http\Middleware\CheckProdManagerClassAccess::class,
+            'qa.access' => \App\Http\Middleware\CheckQaAccess::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             '/api/production/*',

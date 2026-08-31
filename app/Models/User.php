@@ -123,6 +123,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Check if user has GA (Graphic Artist / GA Agent) role
+     */
+    public function isGa(): bool
+    {
+        return $this->role === 'ga';
+    }
+
+    /**
      * Check if user has COO role
      */
     public function isCoo(): bool
@@ -146,6 +154,26 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isProdManager(): bool
     {
         return $this->role === 'prod_manager';
+    }
+
+    /**
+     * Check if user has QA (Quality Assurance / Sales Agent) role.
+     * QA is configured like the Class Production Manager but with
+     * restricted features (no dashboard, delay list, feedback list,
+     * bell buttons, reprocess/add-on approval, refunds, calendar drag).
+     */
+    public function isQa(): bool
+    {
+        return $this->role === 'qa';
+    }
+
+    /**
+     * Class-department-scoped roles: prod_manager + QA.
+     * Both see ONLY the Class department (department_id = 4) sales.
+     */
+    public function isClassScoped(): bool
+    {
+        return $this->role === 'prod_manager' || $this->role === 'qa';
     }
 
     /**

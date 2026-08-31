@@ -421,9 +421,11 @@
             </button>
             @endif
             <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-kanban">📊 Kanban Board</a>
+            @if(!(auth()->user() && auth()->user()->isQa()))
             <a href="{{ route('sales.prototype.delays') }}" class="btn btn-delays" style="background:#dc3545;color:#fff;">⚠️ Delay List @if(($delayCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#dc3545;">{{ $delayCount }}</span>@endif</a>
             <a href="{{ route('sales.prototype.backjobs') }}" class="btn" style="background:#6d28d9;color:#fff;">🔧 Backjob List @if(($backjobCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#6d28d9;">{{ $backjobCount }}</span>@endif</a>
             <a href="{{ route('sales.prototype.production-feedback.list') }}" class="btn" style="background:#d97706;color:#fff;">📋 Production Feedback @if(($openFeedbackCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#d97706;">{{ $openFeedbackCount }}</span>@endif</a>
+            @endif
             @if(!(auth()->user() && auth()->user()->isProdManager()))
             <a href="{{ route('sales.prototype.create') }}" class="btn btn-new-order">➕ New Order</a>
             @endif
@@ -474,6 +476,7 @@
             <option value="paid">✅ Paid</option>
             <option value="refunded">↩ Refunded</option>
             <option value="pending">⏳ Pending</option>
+            <option value="po">📄 P.O. (No Downpayment)</option>
             <option value="rejected">❌ Rejected</option>
             <option value="balance">⚠️ With Balance Due</option>
         </select>
@@ -728,7 +731,15 @@
                                 @endif
                             @endif
                             <div style="margin-top:2px;">
-                                @if($sale->payment_status === 'reject_pending')
+                                @if($sale->payment_status === 'po')
+                                    <span class="badge bg-info text-dark" title="Purchase Order — no downpayment">📄 P.O.</span>
+                                    @if($sale->po_reference)
+                                        <div class="small" style="color:#0c5460;">P.O. #{{ $sale->po_reference }}</div>
+                                    @endif
+                                    @if($sale->payment_screenshot_path)
+                                        <img src="{{ $sale->payment_screenshot_path }}" alt="P.O. form" style="width:44px;height:44px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid #ccc;margin-top:3px;" onclick="window.open('{{ $sale->payment_screenshot_path }}','_blank')">
+                                    @endif
+                                @elseif($sale->payment_status === 'reject_pending')
                                     <span class="badge bg-danger" title="Rejection requested — waiting for second verifier">⏳ Rejection Pending</span>
                                 @elseif(($sale->total_refunded ?? 0) > 0 && ($sale->balance_due_computed ?? 0) <= 0 && ($sale->net_paid ?? 0) > 0)
                                     <span class="badge bg-info text-dark">↩ Refunded</span>

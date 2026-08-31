@@ -123,6 +123,10 @@ class PrototypeSalesController extends Controller
         $overallTotal = $request->total_amount ?: 0;
         $overallDeposit = $request->deposit_paid ?: 0;
         
+        // PO (purchase order) handling: no payment now, only PO reference + PO form photo
+        $isPo = ($request->payment_type === 'po');
+        $poReference = $isPo ? ($request->po_reference ?: null) : null;
+        
         // Generate base sales number
         $baseUid = strtoupper(uniqid());
         $isMultiDept = count($deptGroups) > 1;
@@ -246,12 +250,13 @@ class PrototypeSalesController extends Controller
                 'total_amount' => $deptTotal,
                 'deposit_paid' => $deptDeposit,
                 'balance_due' => $balanceDue,
-                'payment_method' => $request->payment_method ?: 'cash',
+                'payment_method' => $isPo ? 'po' : ($request->payment_method ?: 'cash'),
                 'payment_owner' => $request->payment_owner ?: ($request->payment_account_id ? \App\Models\PaymentAccount::find($request->payment_account_id)?->name : 'company'),
-                'payment_account_id' => $request->payment_account_id ?: null,
-                'payment_date' => $request->payment_date ?: null,
-                'reference_number' => $request->reference_number ?: null,
-                'payment_status' => 'pending',
+                'payment_account_id' => $isPo ? null : ($request->payment_account_id ?: null),
+                'payment_date' => $isPo ? null : ($request->payment_date ?: null),
+                'reference_number' => $isPo ? null : ($request->reference_number ?: null),
+                'po_reference' => $poReference,
+                'payment_status' => $isPo ? 'po' : 'pending',
                 'payment_screenshot_path' => $paymentScreenshotPath,
                 'customer_notes' => $request->customer_notes,
                 'internal_notes' => $request->internal_notes,
@@ -422,7 +427,7 @@ public function details(Request $request, string $id)
         foreach ($mockups as $m) {
 
         // Class Production Manager: Class department only
-        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+        if (auth()->user() && auth()->user()->isClassScoped() && (int) $sale->department_id !== 4) {
             return response()->json(['error' => 'Unauthorized access.'], 403);
         }
             $url = is_string($m) ? $m : ($m['url'] ?? '');
@@ -633,7 +638,7 @@ public function details(Request $request, string $id)
             abort(404);
         }
         // Class Production Manager: Class department only
-        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+        if (auth()->user() && auth()->user()->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Unauthorized access.');
         }
         // Attach department fields (view expects department_name/department_code)
@@ -698,10 +703,12 @@ public function details(Request $request, string $id)
             ->get();
         $currentUser = auth()->user();
         $isManager = $currentUser && $currentUser->isManager();
+        // GA role: simplified read-only view (no phone, payments, order items, audit history)
+        $isGa = $currentUser && $currentUser->isGa();
         // Sales agents can view the production slip but cannot modify it (checklist, GA/QA boxes, comments)
         $canEditProdSlip = $currentUser && !$currentUser->isSalesAgent();
         // COO can give production feedback too (but is NOT a manager otherwise)
-        $canGiveFeedback = $currentUser && ($isManager || $currentUser->isCoo());
+        $canGiveFeedback = $currentUser && ($isManager || $currentUser->isCoo() || $currentUser->isQa());
         
         // Determine if editing is allowed (not delivered/completed)
         $canEdit = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
@@ -766,7 +773,7 @@ public function details(Request $request, string $id)
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
-            'progressPercent', 'pendingChanges', 'isManager', 'canGiveFeedback', 'canEdit', 'canEditProdSlip',
+            'progressPercent', 'pendingChanges', 'isManager', 'isGa', 'canGiveFeedback', 'canEdit', 'canEditProdSlip',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists', 'damageReports'
@@ -969,6 +976,20 @@ public function details(Request $request, string $id)
         if ($hasOverpayment) {
             $updateData['balance_due'] = 0; // zero out balance, overpayment tracked separately
         }
+
+        // Reprocess: write back the new Date Needed from the item JSON to the
+        // sale-level date fields. Otherwise the manager order list / My Sales due
+        // badges keep computing from the OLD estimated_completion_date.
+        if ($isReprocess && !empty($servicesAfter[0]['sublimationForm']['dateNeeded'])) {
+            try {
+                $newDate = \Carbon\Carbon::parse($servicesAfter[0]['sublimationForm']['dateNeeded'])->format('Y-m-d');
+                $updateData['estimated_completion_date'] = $newDate;
+                $updateData['date_needed'] = $newDate;
+            } catch (\Exception $e) {
+                // leave dates untouched if unparseable
+            }
+        }
+
         \DB::table('prototype_sales')
             ->where('id', $change->sale_id)
             ->update($updateData);
@@ -987,6 +1008,12 @@ public function details(Request $request, string $id)
                     ->where('id', $change->sale_id)
                     ->update(['mockup_images' => json_encode($mockupImages)]);
             }
+        }
+
+        // Reprocess replaces the product entirely — drop any stale production
+        // checklist so it regenerates with the correct sizes/quantities
+        if ($isReprocess) {
+            \DB::table('production_checklists')->where('sale_id', $change->sale_id)->delete();
         }
 
         // Mark change as approved
@@ -1124,8 +1151,8 @@ public function details(Request $request, string $id)
     public function storeProductionFeedback(Request $request, string $id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isManager() || $user->isCoo())) {
-            return response()->json(['success' => false, 'message' => 'Only managers and the COO can give production feedback.']);
+        if (!$user || !($user->isManager() || $user->isCoo() || $user->isQa())) {
+            return response()->json(['success' => false, 'message' => 'Only managers, the COO, and QA can give production feedback.']);
         }
 
         $sale = \DB::table('prototype_sales')->find($id);
@@ -1134,7 +1161,7 @@ public function details(Request $request, string $id)
         }
 
         // Prod manager is Class-only
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
         }
 
@@ -1221,8 +1248,8 @@ public function details(Request $request, string $id)
         $user = auth()->user();
         $feedback = \App\Models\ProductionFeedback::findOrFail($feedbackId);
 
-        $isManager = $user && $user->isManager();
-        $isTargetAgent = $user && $feedback->to_user_id === $user->id;
+        $isManager = $user && ($user->isManager() || $user->isCoo());
+        $isTargetAgent = $user && ($feedback->to_user_id === $user->id || $feedback->involved_user_id === $user->id);
         if (!$isManager && !$isTargetAgent) {
             return response()->json(['success' => false, 'message' => 'You cannot update this feedback.']);
         }
@@ -1234,11 +1261,26 @@ public function details(Request $request, string $id)
 
         $status = $request->status;
 
-        // Resolving requires an acknowledgement note from the recipient
-        if ($status === 'resolved') {
+        // Only managers / COO can RESOLVE; recipients can only acknowledge.
+        if ($status === 'resolved' && !$isManager) {
+            return response()->json(['success' => false, 'message' => 'Only managers and the COO can resolve production feedback.']);
+        }
+
+        // Only the recipient (or involved user) can acknowledge.
+        if ($status === 'acknowledged' && !$isTargetAgent) {
+            return response()->json(['success' => false, 'message' => 'Only the recipient can acknowledge this feedback.']);
+        }
+
+        // Must be acknowledged BEFORE it can be resolved.
+        if ($status === 'resolved' && $feedback->status !== 'acknowledged') {
+            return response()->json(['success' => false, 'message' => 'The recipient must acknowledge the feedback before it can be resolved.']);
+        }
+
+        // Acknowledgement note required when the recipient acknowledges.
+        if ($status === 'acknowledged') {
             $ack = trim((string) $request->input('acknowledgement', ''));
             if ($ack === '') {
-                return response()->json(['success' => false, 'message' => 'Please leave an acknowledgement note before resolving.']);
+                return response()->json(['success' => false, 'message' => 'Please leave an acknowledgement note.']);
             }
             $feedback->acknowledgement = $ack;
         }
@@ -1260,15 +1302,15 @@ public function details(Request $request, string $id)
     public function productionFeedbackList(Request $request)
     {
         $user = auth()->user();
-        $isManager = $user && (in_array($user->role, ['admin', 'manager']) || $user->isProdManager());
+        $isManager = $user && (in_array($user->role, ['admin', 'manager']) || $user->isClassScoped());
         $isArtist = $user && !$isManager && $user->isArtist();
-        $isAgent = $user && !$isManager && ($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isArtist() || $user->isCoo() || $user->isCpo() || $user->isCmo());
+        $isAgent = $user && !$isManager && ($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isArtist() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa());
         if (!$isManager && !$isAgent) {
             abort(403);
         }
 
         // Class Production Manager: Class department feedback only
-        $isProdManager = $user && $user->isProdManager();
+        $isProdManager = $user && $user->isClassScoped();
 
         // COO: manager order list entry (no scope param) → sees ALL feedback like a manager.
         // My Sales entry (?scope=mine) → only feedback addressed to him or created by him.
@@ -1310,6 +1352,9 @@ public function details(Request $request, string $id)
 
         $agents = \App\Models\User::whereIn('role', ['sales_agent', 'sales_representative', 'artist', 'admin', 'coo', 'cpo', 'cmo'])->orderBy('name')->get();
 
+        // Who may RESOLVE: managers and the COO only (recipients can only acknowledge).
+        $canResolve = $user && ($user->isManager() || $user->isCoo());
+
         // Status counts must match what THIS user actually sees (agents: own only, managers: + agent filter)
         $countQuery = \App\Models\ProductionFeedback::query();
         if ($isProdManager) {
@@ -1336,7 +1381,7 @@ public function details(Request $request, string $id)
         $statusCounts = $countQuery->selectRaw('status, count(*) as total')
             ->groupBy('status')->pluck('total', 'status')->toArray();
 
-        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'isManager', 'isArtist', 'canViewAll', 'ownOnly'));
+        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'isManager', 'isArtist', 'canViewAll', 'ownOnly', 'canResolve'));
     }
 
     /**
@@ -1509,6 +1554,7 @@ public function details(Request $request, string $id)
             $entry = [
                 'size' => $sd['size'] ?? 'M',
                 'qty' => $qty,
+                'quantity' => $qty, // normalized: both keys so views never show 0
             ];
             if (!empty($sd['name'])) {
                 $entry['name'] = $sd['name'];
@@ -1616,6 +1662,20 @@ public function details(Request $request, string $id)
             // Strip helper/extra keys that are not part of the expected format
             unset($normalized['unitPrice'], $normalized['totalQty'], $normalized['totalPrice']);
             unset($normalized['rosterMode'], $normalized['mockupData'], $normalized['mockupDataStripped']);
+
+            // Normalize size entries: ensure BOTH 'qty' and 'quantity' keys exist
+            // (forms/views may read either key — prevents "SMALL ×0" display bugs)
+            if (!empty($normalized['sizes']) && is_array($normalized['sizes'])) {
+                foreach ($normalized['sizes'] as $_i => $_sz) {
+                    if (is_array($_sz)) {
+                        $_q = $_sz['qty'] ?? $_sz['quantity'] ?? null;
+                        if ($_q !== null) {
+                            $normalized['sizes'][$_i]['qty'] = (int) $_q;
+                            $normalized['sizes'][$_i]['quantity'] = (int) $_q;
+                        }
+                    }
+                }
+            }
 
             // Store the normalized sublimation form data
             $item['sublimationForm'] = $normalized;
@@ -1766,7 +1826,7 @@ public function details(Request $request, string $id)
         foreach ($rawSizes as $sd) {
             $qty = intval($sd['qty'] ?? 1);
             if ($qty <= 0) continue;
-            $entry = ['size' => $sd['size'] ?? 'M', 'qty' => $qty];
+            $entry = ['size' => $sd['size'] ?? 'M', 'qty' => $qty, 'quantity' => $qty]; // normalized: both keys so views never show 0
             if (!empty($sd['name'])) $entry['name'] = $sd['name'];
             $sizeDetails[] = $entry;
         }
@@ -1831,6 +1891,20 @@ public function details(Request $request, string $id)
             if (!empty($normalized['mockupUrl'])) $normalized['mockup'] = $normalized['mockupUrl'];
             unset($normalized['unitPrice'], $normalized['totalQty'], $normalized['totalPrice']);
             unset($normalized['rosterMode'], $normalized['mockupData'], $normalized['mockupDataStripped']);
+
+            // Normalize size entries: ensure BOTH 'qty' and 'quantity' keys exist
+            // (forms/views may read either key — prevents "SMALL ×0" display bugs)
+            if (!empty($normalized['sizes']) && is_array($normalized['sizes'])) {
+                foreach ($normalized['sizes'] as $_i => $_sz) {
+                    if (is_array($_sz)) {
+                        $_q = $_sz['qty'] ?? $_sz['quantity'] ?? null;
+                        if ($_q !== null) {
+                            $normalized['sizes'][$_i]['qty'] = (int) $_q;
+                            $normalized['sizes'][$_i]['quantity'] = (int) $_q;
+                        }
+                    }
+                }
+            }
 
             $item['sublimationForm'] = $normalized;
             if (empty($item['sublimationForm']['sizes'])) $item['sublimationForm']['sizes'] = implode(', ', $sizeLines);
@@ -1915,7 +1989,7 @@ public function printSlip(string $id)
         
                 // Class Production Manager: only Class department sales (department_id = 4)
         $user = auth()->user();
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
         }
 $services = json_decode($sale->services, true);
@@ -2030,7 +2104,7 @@ $services = json_decode($sale->services, true);
         
                 // Class Production Manager: only Class department sales (department_id = 4)
         $user = auth()->user();
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
         }
 $services = json_decode($sale->services, true);
@@ -2087,15 +2161,42 @@ $services = json_decode($sale->services, true);
 
                 // Class Production Manager: only Class department sales (department_id = 4)
         $user = auth()->user();
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
         }
-$services = json_decode($sale->services, true) ?: [];
-        $sublimationForm = null;
-        foreach ($services as $item) {
-            if (isset($item['sublimationForm'])) {
-                $sublimationForm = $item['sublimationForm'];
-                break;
+        $services = json_decode($sale->services, true) ?: [];
+
+        // Determine which items are "additional" (added later via Add Product / change requests).
+        // Those belong on the Additional Production Slip; the MAIN slip shows original add-to-cart items only.
+        $allChanges = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $originalItemIds = [];
+        $reprocessedItemIds = [];
+        if ($allChanges->isNotEmpty()) {
+            $firstChange = $allChanges->first();
+            $firstBefore = json_decode($firstChange->services_before, true) ?: [];
+            $originalItemIds = array_column($firstBefore, 'id');
+            foreach ($allChanges as $c) {
+                if (($c->type ?? '') === 'reprocess' && $c->status === 'approved') {
+                    $after = json_decode($c->services_after, true) ?: [];
+                    foreach ($after as $a) {
+                        if (!empty($a['id'])) $reprocessedItemIds[] = $a['id'];
+                    }
+                }
+            }
+        }
+        // Only classify items as "additional" when the sale has change history.
+        // Sales with NO changes (e.g. multiple add-to-cart items at creation) have all-original items.
+        $additionalIds = [];
+        if ($allChanges->isNotEmpty()) {
+            foreach ($services as $item) {
+                $itemId = $item['id'] ?? null;
+                if ($itemId && !in_array($itemId, $originalItemIds) && !in_array($itemId, $reprocessedItemIds)) {
+                    $additionalIds[$itemId] = true;
+                }
             }
         }
 
@@ -2109,45 +2210,93 @@ $services = json_decode($sale->services, true) ?: [];
             'sizeLabel' => 'Size Label'
         ];
 
-        $main = $sublimationForm;
-        $specs = $main['specifications'] ?? [];
-        $partRows = [];
-        $garmentName = $main['garment']['name'] ?? '';
-        $partsAdded = $main['parts'] ?? [];
+        // Collect ALL original sublimation items (add-to-cart items) — each becomes its own slip card.
+        // No more `break` after the first one.
+        $slips = [];
+        foreach ($services as $si => $item) {
+            if (!isset($item['sublimationForm'])) continue;
+            $itemId = $item['id'] ?? null;
+            if ($itemId && isset($additionalIds[$itemId])) continue; // additional -> separate slip
 
-        if ($garmentName) {
-            $partRows[] = ['part' => 'Garment', 'detail' => $garmentName];
-        }
-        foreach ($specPartsMap as $key => $label) {
-            $val = $specs[$key] ?? '';
-            if ($val) {
-                $partRows[] = ['part' => $label, 'detail' => $val];
+            $sf = $item['sublimationForm'];
+            $specs = $sf['specifications'] ?? [];
+            $partRows = [];
+            $garmentName = $sf['garment']['name'] ?? '';
+            $partsAdded = $sf['parts'] ?? [];
+
+            if ($garmentName) {
+                $partRows[] = ['part' => 'Garment', 'detail' => $garmentName];
             }
-        }
-        if (!empty($partsAdded)) {
-            $partDetails = implode(', ', array_map(function($p) { return $p['name'] ?? ''; }, $partsAdded));
-            if ($partDetails) {
-                $partRows[] = ['part' => 'Parts Added', 'detail' => $partDetails];
+            foreach ($specPartsMap as $key => $label) {
+                $val = $specs[$key] ?? '';
+                if ($val) {
+                    $partRows[] = ['part' => $label, 'detail' => $val];
+                }
             }
-        }
-
-        // Roster data — only from the primary/first service (not additional services)
-        $allRosters = $main['roster'] ?? [];
-
-        // Sizes (from sublimation or fallback)
-        $sizes = $main['sizes'] ?? [];
-
-        // Total QTY — count from the primary service only (matches the roster/sizes shown on the slip)
-        // This avoids pulling in additional-order quantities (e.g. reprocess + 2 add-ons = 13+5+5)
-        $totalQty = 0;
-        $primarySf = $main ?: [];
-        foreach ($primarySf['sizes'] ?? [] as $s) {
-            $totalQty += intval($s['quantity'] ?? $s['qty'] ?? 0);
-        }
-        if ($totalQty === 0) {
-            foreach ($primarySf['roster'] ?? [] as $r) {
-                $totalQty += intval($r['qty'] ?? $r['number'] ?? 1);
+            if (!empty($partsAdded)) {
+                $partDetails = implode(', ', array_map(function($p) { return $p['name'] ?? ''; }, $partsAdded));
+                if ($partDetails) {
+                    $partRows[] = ['part' => 'Parts Added', 'detail' => $partDetails];
+                }
             }
+
+            // Roster data — from this item only
+            $allRosters = $sf['roster'] ?? [];
+
+            // Sizes (from sublimation or fallback)
+            $sizes = $sf['sizes'] ?? [];
+
+            // Total QTY for THIS product only (avoids pulling in additional-order quantities)
+            $totalQty = 0;
+            foreach ($sizes as $s) {
+                $totalQty += intval($s['quantity'] ?? $s['qty'] ?? 0);
+            }
+            if ($totalQty === 0) {
+                foreach ($allRosters as $r) {
+                    $totalQty += intval($r['qty'] ?? $r['number'] ?? 1);
+                }
+            }
+
+            // Mockup for THIS product
+            $mockup = $sf['mockup'] ?? null;
+            $mockupUrl = $mockup ? (is_string($mockup) ? $mockup : (is_array($mockup) && !empty($mockup[0]['url']) ? $mockup[0]['url'] : null)) : null;
+
+            $slips[] = [
+                'product' => count($slips),
+                'itemId' => $item['id'] ?? null,
+                'itemName' => $item['name'] ?? ('Product #' . (count($slips) + 1)),
+                'projectName' => $sf['projectName'] ?? '',
+                'description' => $sf['description'] ?? '',
+                'fabric' => $sf['fabric']['name'] ?? '',
+                'designer' => $sf['designer'] ?? '',
+                'totalQty' => $totalQty,
+                'dateNeeded' => $sf['dateNeeded'] ?? '',
+                'partRows' => $partRows,
+                'allRosters' => $allRosters,
+                'sizes' => $sizes,
+                'hasRoster' => !empty($allRosters),
+                'mockupUrl' => $mockupUrl,
+            ];
+        }
+
+        // Fallback: no sublimation items at all
+        if (empty($slips)) {
+            $slips[] = [
+                'product' => 0,
+                'itemId' => null,
+                'itemName' => '',
+                'projectName' => '',
+                'description' => '',
+                'fabric' => '',
+                'designer' => '',
+                'totalQty' => 0,
+                'dateNeeded' => '',
+                'partRows' => [],
+                'allRosters' => [],
+                'sizes' => [],
+                'hasRoster' => false,
+                'mockupUrl' => null,
+            ];
         }
 
         // Customer info
@@ -2156,61 +2305,110 @@ $services = json_decode($sale->services, true) ?: [];
         $salesAgent = $sale->sales_agent_name ?? '';
         $notes = $services[0]['notes'] ?? '';
 
-        // Build checklist items for status tracking
+        // Build checklist items for ALL products (each item tagged with its product index)
         $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
 
-        if (!$checklist) {
-            $items = [];
-            // Part items
-            foreach ($partRows as $pi) {
-                $items[] = [
+        $expectedItems = [];
+        foreach ($slips as $slip) {
+            $p = $slip['product'];
+            foreach ($slip['partRows'] as $pi) {
+                $expectedItems[] = [
                     'type' => 'part',
+                    'product' => $p,
                     'label' => $pi['part'] . ': ' . $pi['detail'],
                     'value' => '',
                     'status' => 'pending',
                 ];
             }
-            // Roster items
-            foreach ($allRosters as $r) {
-                $items[] = [
+            foreach ($slip['allRosters'] as $r) {
+                $expectedItems[] = [
                     'type' => 'roster',
+                    'product' => $p,
                     'label' => $r['name'] ?? 'Unknown',
                     'value' => ($r['size'] ?? '') . ' ×' . ($r['number'] ?? 1),
                     'status' => 'pending',
                 ];
             }
-            // Size items
-            foreach ($sizes as $s) {
-                $items[] = [
+            foreach ($slip['sizes'] as $s) {
+                $expectedItems[] = [
                     'type' => 'size',
-                    'label' => ($s['size'] ?? 'Size') . ' ×' . ($s['quantity'] ?? 0),
+                    'product' => $p,
+                    'label' => ($s['size'] ?? 'Size') . ' ×' . ($s['quantity'] ?? $s['qty'] ?? 0),
                     'value' => '',
                     'status' => 'pending',
                 ];
             }
+        }
 
+        if (!$checklist) {
             $checklist = \App\Models\ProductionChecklist::create([
                 'sale_id' => $id,
-                'items' => $items,
+                'items' => $expectedItems,
             ]);
+        } else {
+            // Rebuild items from all slips while preserving existing status/GA/QA flags
+            // by matching on (type, label, product).
+            $oldItems = $checklist->items ?? [];
+            $oldMap = [];
+            foreach ($oldItems as $oi) {
+                $key = ($oi['type'] ?? '') . '|' . ($oi['label'] ?? '') . '|' . ($oi['product'] ?? 0);
+                $oldMap[$key] = $oi;
+            }
+            $merged = [];
+            foreach ($expectedItems as $ni) {
+                $key = ($ni['type'] ?? '') . '|' . ($ni['label'] ?? '') . '|' . ($ni['product'] ?? 0);
+                if (isset($oldMap[$key])) {
+                    $oi = $oldMap[$key];
+                    $ni['status'] = $oi['status'] ?? 'pending';
+                    if (isset($oi['ga_done'])) $ni['ga_done'] = $oi['ga_done'];
+                    if (isset($oi['qa1_done'])) $ni['qa1_done'] = $oi['qa1_done'];
+                    if (isset($oi['qa2_done'])) $ni['qa2_done'] = $oi['qa2_done'];
+                }
+                $merged[] = $ni;
+            }
+            if (json_encode($merged) !== json_encode($oldItems)) {
+                $checklist->items = $merged;
+                $checklist->save();
+            }
         }
-        // Build mockupImages with fallback
+
+        // Lazy-migrate legacy sale-level ga_notes into per-product comments (first product)
+        if (empty($checklist->product_comments) && !empty($checklist->ga_notes)) {
+            $legacy = json_decode($checklist->ga_notes, true);
+            if (is_array($legacy) && count($legacy) > 0 && isset($slips[0]['itemId']) && $slips[0]['itemId'] !== null) {
+                $map = [(string) $slips[0]['itemId'] => $legacy];
+                $checklist->product_comments = json_encode($map);
+                $checklist->ga_notes = '';
+                $checklist->save();
+            }
+        }
+
+        // Build mockupImages with fallback (kept for backward compat / print slip)
         $mockupImages_final = [];
         $mockupsRaw_svc = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
         if (!empty($mockupsRaw_svc)) {
             $mockupImages_final = $mockupsRaw_svc;
         } else {
-            foreach ((array)$services as $svcItem) {
-                if (!empty($svcItem['sublimationForm']['mockup'])) {
+            foreach ($slips as $slip) {
+                if (!empty($slip['mockupUrl'])) {
                     $mockupImages_final = [[
-                        'name' => ($svcItem['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
-                        'url' => $svcItem['sublimationForm']['mockup'],
+                        'name' => ($slip['projectName'] ?: 'mockup') . '-mockup.png',
+                        'url' => $slip['mockupUrl'],
                         'type' => 'sublimation'
                     ]];
                     break;
                 }
             }
         }
+
+        // Shared sale-level fields (attached to each slip for the frontend)
+        foreach ($slips as &$slip) {
+            $slip['salesNumber'] = $salesNumber;
+            $slip['agent'] = $salesAgent;
+            $slip['customer'] = $customerName;
+            $slip['notes'] = $notes;
+        }
+        unset($slip);
 
         return response()->json([
             'checklist' => [
@@ -2221,6 +2419,7 @@ $services = json_decode($sale->services, true) ?: [];
                 'ga_done_at' => $checklist->ga_done_at ? $checklist->ga_done_at->toISOString() : null,
                 'ga_notes' => $checklist->ga_notes,
                 'additional_comments' => $checklist->additional_comments,
+                'product_comments' => $checklist->product_comments ?? null,
                 'qa1_done' => $checklist->qa1_done,
                 'qa1_done_at' => $checklist->qa1_done_at ? $checklist->qa1_done_at->toISOString() : null,
                 'qa1_notes' => $checklist->qa1_notes,
@@ -2230,23 +2429,9 @@ $services = json_decode($sale->services, true) ?: [];
                 'qa2_done_at' => $checklist->qa2_done_at ? $checklist->qa2_done_at->toISOString() : null,
                 'qa2_notes' => $checklist->qa2_notes,
             ],
-            'slip' => [
-                'projectName' => $main['projectName'] ?? '',
-                'description' => $main['description'] ?? '',
-                'fabric' => $main['fabric']['name'] ?? '',
-                'designer' => $main['designer'] ?? '',
-                'totalQty' => $totalQty,
-                'dateNeeded' => $main['dateNeeded'] ?? '',
-                'salesNumber' => $salesNumber,
-                'agent' => $salesAgent,
-                'customer' => $customerName,
-                'partRows' => $partRows,
-                'allRosters' => $allRosters,
-                'sizes' => $sizes,
-                'notes' => $notes,
-                'hasRoster' => !empty($allRosters),
-                'mockupImages' => $mockupImages_final,
-            ],
+            'slips' => $slips,
+            // Backward compat: first slip kept as `slip`
+            'slip' => $slips[0] ?? [],
         ]);
     }
 
@@ -2266,7 +2451,7 @@ $services = json_decode($sale->services, true) ?: [];
         
                 // Class Production Manager: only Class department sales (department_id = 4)
         $user = auth()->user();
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
         }
 // Get all approved changes for this sale that added products
@@ -2423,7 +2608,7 @@ $services = json_decode($sale->services, true) ?: [];
                             'backNumber' => $s['backNumber'] ?? $s['bckNumber'] ?? $s['number'] ?? '',
                             'size' => $s['size'] ?? '',
                             'number' => $s['number'] ?? 1,
-                            'qty' => $s['qty'] ?? 1,
+                            'qty' => $s['qty'] ?? $s['quantity'] ?? 1,
                         ];
                     } else {
                         $cleanSizes[] = $s;
@@ -2474,7 +2659,7 @@ $services = json_decode($sale->services, true) ?: [];
 
         // Class Production Manager: only Class department sales (department_id = 4)
         $user = auth()->user();
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
         }
 
@@ -2535,6 +2720,9 @@ $services = json_decode($sale->services, true) ?: [];
         }
         if (array_key_exists('additional_comments', $input)) {
             $checklist->additional_comments = $input['additional_comments'];
+        }
+        if (array_key_exists('product_comments', $input)) {
+            $checklist->product_comments = $input['product_comments'];
         }
 
         if (isset($input['qa1_done'])) {
@@ -2709,7 +2897,7 @@ $services = json_decode($sale->services, true) ?: [];
         
         // Class Production Manager: forced to Class department only
         $user = auth()->user();
-        if ($user && $user->isProdManager()) {
+        if ($user && $user->isClassScoped()) {
             $allowedDepts = ['class'];
             $activeDept = 'class';
         }
@@ -2763,11 +2951,11 @@ $services = json_decode($sale->services, true) ?: [];
         
         // Non-admin users only see their own sales (admin & COO see everything)
         // Prod Manager sees ALL Class sales (no agent scoping)
-        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isProdManager())) {
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isClassScoped())) {
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         // Manager/admin can override photo-completeness restriction on moves
-        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isProdManager());
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isClassScoped());
         
         $sales = $query->orderBy('created_at', 'desc')->paginate(100);
         
@@ -2853,6 +3041,307 @@ $services = json_decode($sale->services, true) ?: [];
     /**
      * Display Manager List page with pipeline progress bar.
      */
+    /**
+     * GA Order List — read-only list for GA/Agent users.
+     * Only shows orders tagged FOR SAMPLE / FOR APPROVAL / FOR FORMAT / PRINTING
+     * (the production stages GA needs to work on). No editing, no sales details.
+     */
+    public function gaOrderList()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isCoo())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $request = request();
+        $q = trim($request->get('q', ''));
+        $stage = $request->get('stage', '');
+        $dept = $request->get('dept', '');
+        $dateFrom = $request->get('date_from', '');
+        $dateTo = $request->get('date_to', '');
+        $delayedOnly = $request->boolean('delayed');
+        $priorityOnly = $request->boolean('priority');
+        $myJobs = $request->boolean('my_jobs');
+        $gaFilter = $request->get('ga', '');
+
+        // Same production stage map + reverse map as the manager order list
+        $prodStageMap = [
+            'FOR SAMPLE'   => 'sample_approval',
+            'FOR APPROVAL' => 'sample_approval',
+            'FOR FORMAT'   => 'design',
+            'PRINTING'     => 'design',
+            'PRESSING'     => 'production',
+            'CUTTING'      => 'production',
+            'SEWING'       => 'production',
+            'QA'           => 'quality_check',
+            'HOLD'         => 'new',
+            'DISPATCH'     => 'ready_for_delivery',
+            'UNPAID'       => 'delivered',
+            'DONE'         => 'completed',
+        ];
+        $statusToStage = [
+            'new'                => 'HOLD',
+            'sample_approval'    => 'FOR SAMPLE',
+            'design'             => 'FOR FORMAT',
+            'production'         => 'PRESSING',
+            'quality_check'      => 'QA',
+            'ready_for_delivery' => 'DISPATCH',
+            'delivered'          => 'UNPAID',
+            'completed'          => 'DONE',
+        ];
+        $departmentLabels = [
+            1 => "iPrint",
+            2 => "Consol",
+            3 => "Cinco",
+            4 => "Class",
+            5 => "MTO",
+            6 => "Other",
+        ];
+        $departmentColors = [
+            1 => "#0d6efd",
+            2 => "#198754",
+            3 => "#dc3545",
+            4 => "#6f42c1",
+            5 => "#fd7e14",
+            6 => "#6c757d",
+        ];
+
+        $sales = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at')
+            ->whereIn('production_stage', ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING'])
+            ->when(filled($q), function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('sales_number', 'like', '%' . $q . '%')
+                        ->orWhere('customer_name', 'like', '%' . $q . '%');
+                });
+            })
+            ->when(filled($stage), function ($query) use ($stage) {
+                $query->where('production_stage', $stage);
+            })
+            ->when(filled($dept), function ($query) use ($dept) {
+                $query->where('department_id', (int) $dept);
+            })
+            ->when(filled($dateFrom), function ($query) use ($dateFrom) {
+                $query->whereDate('created_at', '>=', $dateFrom);
+            })
+            ->when(filled($dateTo), function ($query) use ($dateTo) {
+                $query->whereDate('created_at', '<=', $dateTo);
+            })
+            ->when($delayedOnly, function ($query) {
+                $query->where('is_delayed', 1);
+            })
+            ->when($priorityOnly, function ($query) {
+                $query->whereNotNull('priority');
+            })
+            ->when($myJobs, function ($query) use ($user) {
+                $query->whereIn('id', function ($sub) use ($user) {
+                    $sub->select('prototype_sale_id')
+                        ->from('ga_assignments')
+                        ->where('user_id', $user->id);
+                });
+            })
+            ->when(filled($gaFilter), function ($query) use ($gaFilter) {
+                $query->whereIn('id', function ($sub) use ($gaFilter) {
+                    $sub->select('prototype_sale_id')
+                        ->from('ga_assignments')
+                        ->where('user_id', (int) $gaFilter);
+                });
+            })
+            ->orderByRaw("CASE WHEN is_delayed = 1 THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
+            ->orderBy('priority', 'asc')
+            ->orderBy('created_at', 'desc')
+            ->paginate(50)
+            ->withQueryString();
+
+        // GA users + assignments map for the current page
+        $gaUsers = \App\Models\User::where('role', 'ga')->orderBy('name')->get();
+        $saleIds = collect($sales->items())->pluck('id')->all();
+        $assignments = \App\Models\GaAssignment::with('user')
+            ->whereIn('prototype_sale_id', $saleIds)
+            ->get()
+            ->groupBy('prototype_sale_id');
+
+        // Recent activity log (assign / unassign / done) — latest 30
+        $activityLogs = \App\Models\GaAssignmentLog::with(['user', 'actor', 'sale'])
+            ->latest()
+            ->limit(30)
+            ->get();
+
+        // Completed jobs count: GA work counts kapag na-tag na ng Manager ang sale as SEWING or beyond
+        // (permanent marker ga_counted_at — kahit pa binalik sa PRINTING, counted pa rin)
+        $completedCount = \App\Models\GaAssignment::whereNotNull('completed_at')
+            ->whereHas('sale', function ($q) {
+                $q->whereNotNull('ga_counted_at');
+            })
+            ->when($user->isGa(), function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->distinct()
+            ->count('prototype_sale_id');
+
+        return view('sales.prototype.ga-order-list', compact('sales', 'prodStageMap', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'myJobs', 'gaFilter', 'gaUsers', 'assignments', 'activityLogs', 'completedCount'));
+    }
+
+    /**
+     * GA Dashboard — performance breakdown per GA, per stage, at monthly stats.
+     * Counted lang ang mga sale na na-tag na ng Manager as SEWING or beyond (ga_counted_at set).
+     */
+    public function gaDashboard()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isGa() || $user->isManager())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $request = request();
+        $month = $request->get('month', '');
+        $year = $request->get('year', '');
+
+        // Scope ng GA: sarili lang. Manager: lahat.
+        $gaUsers = \App\Models\User::where('role', 'ga')
+            ->when(!$user->isManager(), fn ($q) => $q->where('id', $user->id))
+            ->orderBy('name')
+            ->get();
+        $gaIds = $gaUsers->pluck('id')->all();
+
+        // Base query: counted sales (naabot ang SEWING+)
+        $countedQuery = \App\Models\PrototypeSale::whereNotNull('ga_counted_at')
+            ->when(filled($month), fn ($q) => $q->whereMonth('ga_counted_at', (int) $month))
+            ->when(filled($year), fn ($q) => $q->whereYear('ga_counted_at', (int) $year));
+        $countedSaleIds = (clone $countedQuery)->pluck('id')->all();
+
+        // Kabuuang counted jobs
+        $totalCounted = count($countedSaleIds);
+
+        // Data ng counted sales (services) — para sa item breakdown at per-stage piece count
+        $countedSales = (clone $countedQuery)->get(['id', 'services']);
+
+        // Per-GA stats
+        $perGa = [];
+
+        // Mapa ng kabuuang piraso per counted sale (para sa per-stage piece count)
+        $salePiecesMap = [];
+        foreach ($countedSales as $cs) {
+            $qtySum = 0;
+            $csItems = is_string($cs->services) ? json_decode($cs->services, true) : ($cs->services ?? []);
+            foreach ((array) $csItems as $ci) {
+                if (is_array($ci)) $qtySum += (int) ($ci['quantity'] ?? 1);
+            }
+            $salePiecesMap[$cs->id] = $qtySum;
+        }
+
+        foreach ($gaUsers as $ga) {
+            $assignments = \App\Models\GaAssignment::where('user_id', $ga->id)
+                ->whereIn('prototype_sale_id', $countedSaleIds)
+                ->get();
+
+            $jobs = $assignments->pluck('prototype_sale_id')->unique()->count();
+            $doneStages = $assignments->whereNotNull('completed_at');
+            $doneCount = $doneStages->count();
+
+            // Per-stage breakdown (completed)
+            $stageBreakdown = [];
+            foreach (['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING'] as $st) {
+                $stageBreakdown[$st] = $doneStages->where('stage', $st)->count();
+            }
+
+            // Average time: claimed → DONE (hours) + per-stage pieces & min-per-piece
+            $durations = [];
+            $stagePieces = [];      // stage => pirasong na-process
+            $stageDur = [];         // stage => kabuuang oras
+            foreach ($doneStages as $asg) {
+                $pieces = $salePiecesMap[$asg->prototype_sale_id] ?? 0;
+                $stagePieces[$asg->stage] = ($stagePieces[$asg->stage] ?? 0) + $pieces;
+                if ($asg->assigned_at && $asg->completed_at) {
+                    $d = \Carbon\Carbon::parse($asg->assigned_at)->diffInHours(\Carbon\Carbon::parse($asg->completed_at));
+                    $durations[] = $d;
+                    $stageDur[$asg->stage] = ($stageDur[$asg->stage] ?? 0) + $d;
+                }
+            }
+            $avgHours = count($durations) ? round(array_sum($durations) / count($durations), 1) : 0;
+
+            // Oras-per-piraso per stage (min/pc) — justification ng avg time
+            $stageMinsPerPiece = [];
+            foreach ($stagePieces as $st => $pc) {
+                $hrs = $stageDur[$st] ?? 0;
+                $stageMinsPerPiece[$st] = ($pc > 0 && $hrs > 0) ? round(($hrs * 60) / $pc, 1) : 0;
+            }
+            // Overall: total na oras / kabuuang piraso (lahat ng stages)
+            $totalStagePieces = array_sum($stagePieces);
+            $overallMinsPerPiece = ($totalStagePieces > 0 && array_sum($durations) > 0)
+                ? round((array_sum($durations) * 60) / $totalStagePieces, 1)
+                : 0;
+
+            $perGa[$ga->id] = [
+                'user'             => $ga,
+                'jobs'             => $jobs,
+                'doneStages'       => $doneCount,
+                'stages'           => $stageBreakdown,
+                'stagePieces'      => $stagePieces,
+                'stageMinsPerPiece'=> $stageMinsPerPiece,
+                'overallMinsPerPiece' => $overallMinsPerPiece,
+                'avgHours'         => $avgHours,
+            ];
+        }
+
+        // Monthly trend (all GAs) — huling 12 buwan na may counted jobs
+        $monthlyTrend = \DB::table('prototype_sales')
+            ->selectRaw("DATE_FORMAT(ga_counted_at, '%Y-%m') as ym, COUNT(*) as total")
+            ->whereNotNull('ga_counted_at')
+            ->groupBy('ym')
+            ->orderByDesc('ym')
+            ->limit(12)
+            ->get();
+
+        // Recent counted jobs (para makita kung ano ang na-count) — Manager view only
+        $recentCounted = \App\Models\PrototypeSale::whereNotNull('ga_counted_at')
+            ->when(filled($month), fn ($q) => $q->whereMonth('ga_counted_at', (int) $month))
+            ->when(filled($year), fn ($q) => $q->whereYear('ga_counted_at', (int) $year))
+            ->orderByDesc('ga_counted_at')
+            ->limit(15)
+            ->get(['id', 'sales_number', 'customer_name', 'department_id', 'production_stage', 'ga_counted_at']);
+
+        // ── Item quantity breakdown: kung ilang piraso per item type ang na-process ──
+        // Group by base garment type (hal. 'POLO ZIPPER' at 'POLO BUTTON' → 'POLO') para mag-total nang tama.
+        $itemBreakdown = [];      // ['POLO' => 12, 'JERSEY' => 8, ...]
+        $itemDetail = [];         // variant-level: ['POLO BUTTON' => 3, 'POLO ZIPPER' => 5]
+        $perGaPieces = [];        // GA id => kabuuang piraso
+        foreach ($countedSales as $s) {
+            $svcItems = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
+            foreach ((array) $svcItems as $svc) {
+                if (!is_array($svc)) continue;
+                $qty = (int) ($svc['quantity'] ?? 1);
+                // Pangalan ng item: garment name > productType > name
+                $sf = $svc['sublimationForm'] ?? [];
+                $itemName = $sf['garment']['name']
+                    ?? $svc['productType']
+                    ?? $svc['name']
+                    ?? $svc['product_name']
+                    ?? 'Item';
+                if (!is_string($itemName) || trim($itemName) === '') $itemName = 'Item';
+                // Base type: unang salita ng garment name (POLO ZIPPER → POLO, JERSEY → JERSEY)
+                $itemType = strtoupper(trim(explode(' ', trim($itemName))[0]));
+                $itemBreakdown[$itemType] = ($itemBreakdown[$itemType] ?? 0) + $qty;
+                // Detalyadong variant (POLO BUTTON, POLO ZIPPER, atbp.) — para makita kung ilan kada isa
+                $itemDetail[$itemName] = ($itemDetail[$itemName] ?? 0) + $qty;
+                // Per-GA: kung sinong GA may assignment sa sale na ito, idagdag ang piraso sa kanya
+                $saleGAs = \App\Models\GaAssignment::where('prototype_sale_id', $s->id)
+                    ->whereNotNull('completed_at')
+                    ->pluck('user_id');
+                foreach ($saleGAs as $gid) {
+                    $perGaPieces[$gid] = ($perGaPieces[$gid] ?? 0) + $qty;
+                }
+            }
+        }
+        arsort($itemBreakdown);
+        arsort($itemDetail);
+        $totalPieces = array_sum($itemBreakdown);
+
+        return view('sales.prototype.ga-dashboard', compact('gaUsers', 'perGa', 'totalCounted', 'monthlyTrend', 'recentCounted', 'month', 'year', 'itemBreakdown', 'itemDetail', 'totalPieces', 'perGaPieces'));
+    }
+
     public function list()
     {
         $deptCodeMap = [
@@ -2923,13 +3412,13 @@ $services = json_decode($sale->services, true) ?: [];
 
         // Class Production Manager: Class department only
         $user = auth()->user();
-        if ($user && $user->isProdManager()) {
+        if ($user && $user->isClassScoped()) {
             $query->where('department_id', 4);
         }
         
         // Non-admin users only see their own sales (admin & COO see everything)
         // Prod Manager sees ALL Class sales (no agent scoping)
-        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isProdManager())) {
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isClassScoped())) {
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
@@ -2943,10 +3432,10 @@ $services = json_decode($sale->services, true) ?: [];
         $usedPrioQuery = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
             ->whereNull('deleted_at')
             ->whereNotNull('priority');
-        if ($user && $user->isProdManager()) {
+        if ($user && $user->isClassScoped()) {
             $usedPrioQuery->where('department_id', 4);
         }
-        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isProdManager())) {
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isClassScoped())) {
             $usedPrioQuery->where('sales_agent_id', $user ? $user->id : null);
         }
         $usedPriorities = $usedPrioQuery->pluck('sales_number', 'priority')->toArray();
@@ -3017,7 +3506,7 @@ $services = json_decode($sale->services, true) ?: [];
 
         // ⚠️ Delay count — same scope as delayList()
         $delayCount = \App\Models\PrototypeSale::where('is_delayed', 1);
-        if ($user && $user->isProdManager()) {
+        if ($user && $user->isClassScoped()) {
             $delayCount->where('department_id', 4);
         }
         $delayCount = $delayCount->count();
@@ -3028,12 +3517,13 @@ $services = json_decode($sale->services, true) ?: [];
         $backjobCount = 0;
         $bjChecklists = \App\Models\ProductionChecklist::where(function ($q) {
             $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
-              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '');
+              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '')
+              ->orWhereNotNull('product_comments')->where('product_comments', '!=', '');
         })->get();
         foreach ($bjChecklists as $chk) {
             $bjSale = \DB::table('prototype_sales')->find($chk->sale_id);
             if (!$bjSale) continue;
-            if ($user && $user->isProdManager() && (int) $bjSale->department_id !== 4) continue;
+            if ($user && $user->isClassScoped() && (int) $bjSale->department_id !== 4) continue;
 
             $bjMain = json_decode($chk->ga_notes ?? '', true) ?: [];
             if (is_array($bjMain)) {
@@ -3045,6 +3535,16 @@ $services = json_decode($sale->services, true) ?: [];
             $bjAdd = json_decode($chk->additional_comments ?? '', true) ?: [];
             if (is_array($bjAdd)) {
                 foreach ($bjAdd as $itemId => $comments) {
+                    if (!is_array($comments)) continue;
+                    foreach ($comments as $c) {
+                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; break; }
+                    }
+                }
+            }
+
+            $bjProd = json_decode($chk->product_comments ?? '', true) ?: [];
+            if (is_array($bjProd)) {
+                foreach ($bjProd as $itemId => $comments) {
                     if (!is_array($comments)) continue;
                     foreach ($comments as $c) {
                         if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; break; }
@@ -3083,7 +3583,7 @@ $services = json_decode($sale->services, true) ?: [];
         // until both file screenshot + approved sample color are uploaded.
         $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $user = auth()->user();
-        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isProdManager());
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isClassScoped());
         if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
             $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
             $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
@@ -3121,7 +3621,7 @@ $services = json_decode($sale->services, true) ?: [];
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
         // Class Production Manager: Class department only
-        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+        if (auth()->user() && auth()->user()->isClassScoped() && (int) $sale->department_id !== 4) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -3138,7 +3638,7 @@ $services = json_decode($sale->services, true) ?: [];
         // until both file screenshot + approved sample color are uploaded.
         $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $user = auth()->user();
-        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isProdManager());
+        $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isClassScoped());
         if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
             $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
             $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
@@ -3169,6 +3669,13 @@ $services = json_decode($sale->services, true) ?: [];
             ];
             $sale->production_stage = $stageFromKanban[$request->kanban_status] ?? $sale->production_stage;
         }
+
+        // GA count: kapag na-tag na ang sale as SEWING (or beyond), i-record kung kailan
+        // — permanenteng counted na ito sa GA Dashboard (kahit pa binalik sa PRINTING).
+        $gaCountingStages = ['SEWING', 'QA', 'DISPATCH', 'UNPAID', 'DONE'];
+        if (in_array($sale->production_stage, $gaCountingStages) && empty($sale->ga_counted_at)) {
+            $sale->ga_counted_at = now();
+        }
         $sale->save();
 
         return response()->json(['success' => true, 'status' => $sale->kanban_status, 'production_stage' => $sale->production_stage]);
@@ -3186,7 +3693,7 @@ $services = json_decode($sale->services, true) ?: [];
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
         // Class Production Manager: Class department only
-        if (auth()->user() && auth()->user()->isProdManager() && (int) $sale->department_id !== 4) {
+        if (auth()->user() && auth()->user()->isClassScoped() && (int) $sale->department_id !== 4) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
@@ -3217,6 +3724,181 @@ $services = json_decode($sale->services, true) ?: [];
     }
 
     /**
+     * Assign a GA to a stage of a job (claim button). GA can only assign themselves;
+     * managers/admins can assign anyone.
+     */
+    public function assignGa(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isGa() || $user->isManager())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $stage = $request->get('stage', '');
+        $targetUserId = (int) $request->get('user_id', 0);
+
+        $allowedStages = ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING'];
+        if (!in_array($stage, $allowedStages, true)) {
+            return response()->json(['success' => false, 'message' => 'Invalid stage.'], 422);
+        }
+
+        // Stage lock: stages that already finished (before current production stage) can't be assigned
+        $stageOrder = ['FOR SAMPLE' => 0, 'FOR APPROVAL' => 1, 'FOR FORMAT' => 2, 'PRINTING' => 3, 'PRESSING' => 4, 'CUTTING' => 5];
+        $curIdx = $stageOrder[$sale->production_stage] ?? 0;
+        $targetIdx = $stageOrder[$stage] ?? 0;
+        if ($targetIdx < $curIdx) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tapos na ang ' . $stage . ' stage — hindi na pwedeng i-assign. Ibabalik muna ang job sa stage na ito para i-enable ulit.',
+            ], 422);
+        }
+
+        // GA can only assign themselves; managers can assign anyone
+        if ($user->isGa()) {
+            // GA free choice: pwede mag-claim kung walang tag si manager.
+            // Kapag may tag na sa ibang GA, hindi na pwedeng i-override.
+            $existing = \App\Models\GaAssignment::where('prototype_sale_id', $sale->id)
+                ->where('stage', $stage)
+                ->first();
+            if ($existing && $existing->user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Claimed na ni ' . ($existing->user->name ?? 'isa pang GA') . ' ang ' . $stage . ' stage. Hingin mo kay Manager kung gusto mong palitan.',
+                ], 409);
+            }
+            $targetUserId = $user->id;
+        } else {
+            if (!$targetUserId) {
+                return response()->json(['success' => false, 'message' => 'Select a GA to assign.'], 422);
+            }
+        }
+
+        $target = \App\Models\User::find($targetUserId);
+        if (!$target || !$target->isGa()) {
+            return response()->json(['success' => false, 'message' => 'Target user is not a GA.'], 422);
+        }
+
+        \App\Models\GaAssignment::updateOrCreate(
+            ['prototype_sale_id' => $sale->id, 'stage' => $stage],
+            [
+                'user_id' => $targetUserId,
+                'assigned_by' => $user->id,
+                'assigned_at' => now(),
+                'completed_at' => null,
+            ]
+        );
+
+        \App\Models\GaAssignmentLog::create([
+            'prototype_sale_id' => $sale->id,
+            'stage' => $stage,
+            'user_id' => $targetUserId,
+            'action' => 'assigned',
+            'actor_id' => $user->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $stage . ' assigned to ' . $target->name,
+        ]);
+    }
+
+    /**
+     * Unassign a GA from a stage of a job.
+     */
+    public function unassignGa(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isGa() || $user->isManager())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $stage = $request->get('stage', '');
+
+        $assignment = \App\Models\GaAssignment::where('prototype_sale_id', $sale->id)
+            ->where('stage', $stage)
+            ->first();
+        if (!$assignment) {
+            return response()->json(['success' => false, 'message' => 'No assignment found.'], 404);
+        }
+
+        // GA can only unassign themselves; managers can unassign anyone
+        if ($user->isGa() && $assignment->user_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'You can only unassign your own claim.'], 403);
+        }
+
+        \App\Models\GaAssignmentLog::create([
+            'prototype_sale_id' => $sale->id,
+            'stage' => $stage,
+            'user_id' => $assignment->user_id,
+            'action' => 'unassigned',
+            'actor_id' => $user->id,
+        ]);
+
+        $assignment->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Assignment removed.',
+        ]);
+    }
+
+    /**
+     * Mark a GA stage assignment as DONE (toggle). GA marks own work; managers can toggle anyone.
+     */
+    public function completeGa(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isGa() || $user->isManager())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $stage = $request->get('stage', '');
+
+        $allowedStages = ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING'];
+        if (!in_array($stage, $allowedStages, true)) {
+            return response()->json(['success' => false, 'message' => 'Invalid stage.'], 422);
+        }
+
+        $assignment = \App\Models\GaAssignment::where('prototype_sale_id', $sale->id)
+            ->where('stage', $stage)
+            ->first();
+        if (!$assignment) {
+            return response()->json(['success' => false, 'message' => 'No assignment found.'], 404);
+        }
+
+        // GA can only toggle their own claim; managers can toggle anyone
+        if ($user->isGa() && $assignment->user_id !== $user->id) {
+            return response()->json(['success' => false, 'message' => 'You can only mark your own claim as done.'], 403);
+        }
+
+        // Toggle: mark done, or bawiin kung nagkamali
+        if ($assignment->completed_at) {
+            $assignment->update(['completed_at' => null]);
+            \App\Models\GaAssignmentLog::create([
+                'prototype_sale_id' => $sale->id,
+                'stage' => $stage,
+                'user_id' => $assignment->user_id,
+                'action' => 'uncompleted',
+                'actor_id' => $user->id,
+            ]);
+            return response()->json(['success' => true, 'message' => 'DONE mark removed — binawi.', 'done' => false]);
+        }
+
+        $assignment->update(['completed_at' => now()]);
+        \App\Models\GaAssignmentLog::create([
+            'prototype_sale_id' => $sale->id,
+            'stage' => $stage,
+            'user_id' => $assignment->user_id,
+            'action' => 'completed',
+            'actor_id' => $user->id,
+        ]);
+        return response()->json(['success' => true, 'message' => 'Marked as DONE ✓', 'done' => true]);
+    }
+
+    /**
      * Verify payment for a sale.
      */
     public function calendar()
@@ -3225,7 +3907,7 @@ $services = json_decode($sale->services, true) ?: [];
 
         // Class Production Manager: Class department only
         $user = auth()->user();
-        if ($user && $user->isProdManager()) {
+        if ($user && $user->isClassScoped()) {
             $departments = collect([(object) ['id' => 4, 'name' => 'Class', 'code' => 'class', 'is_active' => true]]);
         }
 
@@ -3266,7 +3948,7 @@ $services = json_decode($sale->services, true) ?: [];
 
         // Class Production Manager: forced to Class department
         $user = auth()->user();
-        if ($user && $user->isProdManager()) {
+        if ($user && $user->isClassScoped()) {
             $department = 'Class';
         }
 
@@ -3277,7 +3959,7 @@ $services = json_decode($sale->services, true) ?: [];
         // Non-admin users only see their own sales (admin & COO see everything — consistent with manager list & kanban)
         // CPO/CMO/Sales Agents also see everything, but agent names/mockups are hidden in the formatted response
         // Prod Manager sees ALL Class sales (no agent scoping)
-        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo() && !$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isProdManager())) {
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo() && !$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isClassScoped() && !$user->isGa())) {
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
@@ -3392,7 +4074,7 @@ $services = json_decode($sale->services, true) ?: [];
             $hasPhotos = collect($dImgs)->contains('type', 'file_screenshot') && collect($dImgs)->contains('type', 'sample_color');
             $user = auth()->user();
             $canOverrideStatus = $user && $user->isManager();
-            $isRestrictedViewer = $user && ($user->isCpo() || $user->isCmo() || $user->isSalesAgent() || $user->isSalesRepresentative());
+            $isRestrictedViewer = $user && ($user->isCpo() || $user->isCmo() || $user->isSalesAgent() || $user->isSalesRepresentative() || $user->isGa());
 
             return [
                 'id' => $p->id,
@@ -4305,7 +4987,9 @@ $services = json_decode($sale->services, true) ?: [];
     public function paymentVerification()
     {
         $verifierUser = auth()->user();
-        $ownAccountFilter = $verifierUser && !$verifierUser->isAdmin() ? $verifierUser->id : null;
+        // Each verifier only sees payments tagged to their own payment accounts
+        // (applies to admin too — Andrew sees only Drew GCash, not other verifiers' payments)
+        $ownAccountFilter = $verifierUser ? $verifierUser->id : null;
 
         // Include initial deposits from prototype_sales that don't have matching prototype_payments yet
         $pendingPayments = \DB::table('prototype_payments')
@@ -4854,7 +5538,7 @@ $services = json_decode($sale->services, true) ?: [];
     public function agentDashboard(Request $request)
     {
         $user = auth()->user();
-        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo()) {
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo() && !$user->isQa()) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5150,6 +5834,7 @@ $services = json_decode($sale->services, true) ?: [];
             'kanban_status' => $request->kanban_status,
             'department' => $request->department,
             'product' => $request->product,
+            'production_stage' => $request->production_stage,
         ];
 
         if ($request->filled('date_from')) {
@@ -5166,6 +5851,51 @@ $services = json_decode($sale->services, true) ?: [];
         }
         if ($request->filled('department')) {
             $query->where('department_name', $request->department);
+        }
+
+        // Production stage counts for quick-view chips (computed BEFORE the stage filter
+        // narrows the list, so all stage counts stay visible)
+        $stageRows = (clone $query)->get(['id', 'production_stage', 'kanban_status']);
+        $prodStageCounts = [];
+        foreach ($stageRows as $sale) {
+            $stage = $sale->production_stage ?: (match ($sale->kanban_status ?? 'new') {
+                'new' => 'HOLD',
+                'sample_approval' => 'FOR SAMPLE',
+                'design' => 'FOR FORMAT',
+                'production' => 'PRINTING',
+                'quality_check' => 'QA',
+                'ready_for_delivery' => 'DISPATCH',
+                'delivered' => 'UNPAID',
+                'completed' => 'DONE',
+                default => 'HOLD',
+            });
+            $prodStageCounts[$stage] = ($prodStageCounts[$stage] ?? 0) + 1;
+        }
+
+        // Production stage filter — matches actual production_stage OR the stage derived from kanban status
+        if ($request->filled('production_stage')) {
+            $stageFilter = $request->production_stage;
+            $stageToKanban = [
+                'FOR SAMPLE' => 'sample_approval',
+                'FOR APPROVAL' => 'sample_approval',
+                'FOR FORMAT' => 'design',
+                'PRINTING' => 'design',
+                'PRESSING' => 'production',
+                'CUTTING' => 'production',
+                'SEWING' => 'production',
+                'QA' => 'quality_check',
+                'HOLD' => 'new',
+                'DISPATCH' => 'ready_for_delivery',
+                'UNPAID' => 'delivered',
+                'DONE' => 'completed',
+            ];
+            $query->where(function ($q) use ($stageFilter, $stageToKanban) {
+                $q->where('production_stage', $stageFilter)
+                  ->orWhere(function ($q2) use ($stageFilter, $stageToKanban) {
+                      $q2->whereNull('production_stage')
+                         ->where('kanban_status', $stageToKanban[$stageFilter] ?? '');
+                  });
+            });
         }
 
         $sales = $query->orderBy('created_at', 'desc')->get();
@@ -5348,13 +6078,29 @@ $services = json_decode($sale->services, true) ?: [];
             'completed' => 'Completed',
         ];
 
+        $prodStageOptions = [
+            'HOLD' => 'Hold',
+            'FOR SAMPLE' => 'For Sample',
+            'FOR APPROVAL' => 'For Approval',
+            'FOR FORMAT' => 'For Format',
+            'PRINTING' => 'Printing',
+            'PRESSING' => 'Pressing',
+            'CUTTING' => 'Cutting',
+            'SEWING' => 'Sewing',
+            'QA' => 'QA',
+            'DISPATCH' => 'Dispatched',
+            'UNPAID' => 'Delivered (Unpaid)',
+            'DONE' => 'Done',
+        ];
+
         return view('sales.prototype.sales-dashboard', compact(
             'sales', 'filters', 'statuses', 'statusLabels',
             'totalOrders', 'totalRevenue', 'totalBalance', 'totalCollected', 'totalPieces',
             'productMap', 'trendLabels', 'trendRevenue', 'trendOrders',
             'topProducts', 'productLabels', 'productRevenue',
             'paymentLabels', 'paymentValues',
-            'shopLabels', 'shopRevenue', 'shopOrders', 'shopPieces', 'departments'
+            'shopLabels', 'shopRevenue', 'shopOrders', 'shopPieces', 'departments',
+            'prodStageCounts', 'prodStageOptions'
         ));
     }
 
@@ -5391,7 +6137,7 @@ $services = json_decode($sale->services, true) ?: [];
     public function requestTimeAll(Request $request)
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped())) {
             abort(403, 'Only managers can request times.');
         }
 
@@ -5402,7 +6148,7 @@ $services = json_decode($sale->services, true) ?: [];
             ->whereNotIn('kanban_status', ['ready_for_delivery', 'delivered', 'completed']);
 
         // Class Production Manager: Class department only
-        if ($user->isProdManager()) {
+        if ($user->isClassScoped()) {
             $query->where('department_id', 4);
         }
 
@@ -5448,14 +6194,14 @@ $services = json_decode($sale->services, true) ?: [];
     public function requestTime(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped())) {
             abort(403, 'Only managers can request a time.');
         }
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
         // Class Production Manager: Class department only
-        if ($user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5526,20 +6272,21 @@ $services = json_decode($sale->services, true) ?: [];
     public function delayReview($id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped())) {
             abort(403, 'Only managers can view delay reviews.');
         }
 
         $sale = \App\Models\PrototypeSale::with(['payments', 'refunds'])->findOrFail($id);
 
         // Class Production Manager: Class department only
-        if ($user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Unauthorized access.');
         }
 
         // Order items breakdown (same pattern as other views)
         $items = [];
-        $services = json_decode($sale->services, true) ?: [];
+        $services = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+        $services = is_array($services) ? $services : [];
         foreach ($services as $s) {
             if (is_string($s)) {
                 $items[] = ['name' => $s, 'qty' => 1];
@@ -5577,13 +6324,91 @@ $services = json_decode($sale->services, true) ?: [];
     }
 
     /**
+     * Save the manager/COO/CEO review of a delayed sale.
+     * Status: acknowledged | resolved | dismissed. Sends a notification to the agent.
+     */
+    public function submitDelayReview(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped())) {
+            abort(403, 'Only managers can review delays.');
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $status = $request->input('delay_review_status');
+        if (!in_array($status, ['acknowledged', 'resolved', 'dismissed'])) {
+            return back()->with('error', 'Invalid review status.');
+        }
+
+        $sale->delay_review_status = $status;
+        $sale->delay_review_notes = trim((string) $request->input('delay_review_notes'));
+        $sale->delay_reviewed_by = $user->id;
+        $sale->delay_reviewed_at = now();
+        $sale->save();
+
+        // Notify the agent who owns this sale
+        if ($sale->sales_agent_id) {
+            $statusLabels = ['acknowledged' => 'Acknowledged', 'resolved' => 'Resolved', 'dismissed' => 'Dismissed'];
+            \App\Models\SaleNotification::create([
+                'sale_id' => $sale->id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $sale->sales_agent_id,
+                'type' => 'delay_review',
+                'title' => 'Delay reviewed: ' . $statusLabels[$status],
+                'message' => $sale->sales_number . ' — ' . $statusLabels[$status] . '. ' . ($sale->delay_review_notes ?: 'Walang notes.') . ' (Reviewer: ' . $user->display_label . ')',
+                'is_read' => false,
+            ]);
+        }
+
+        return back()->with('success', 'Delay review saved — na-notify na ang agent. ✅');
+    }
+
+    /**
+     * My Delays — compiles ALL delays reported by the logged-in agent,
+     * with review status + reviewer feedback so they can quickly see
+     * if their delay was acknowledged, resolved, or dismissed.
+     */
+    public function agentDelays()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->where('is_delayed', 1);
+
+        // Agents/COO/CPO/CMO see only their own delays
+        if (($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa()) && !$user->isAdmin()) {
+            $query->where('sales_agent_id', $user->id);
+        }
+
+        $delays = $query->orderBy('delayed_at', 'desc')->get();
+
+        // Reviewer name cache
+        $reviewerNames = [];
+        $reviewerIds = $delays->pluck('delay_reviewed_by')->filter()->unique()->values();
+        if ($reviewerIds->isNotEmpty()) {
+            $reviewerNames = \App\Models\User::whereIn('id', $reviewerIds)->pluck('display_label', 'id')->toArray();
+        }
+
+        $statusLabels = [
+            'acknowledged' => ['Acknowledged', '#f59e0b'],
+            'resolved' => ['Resolved', '#22c55e'],
+            'dismissed' => ['Dismissed', '#ef4444'],
+        ];
+
+        return view('sales.prototype.agent-delays', compact('delays', 'reviewerNames', 'statusLabels'));
+    }
+
+    /**
      * Delay list — all delayed sales in one page (with or without feedback),
      * so managers can review every delay in a single view.
      */
     public function delayList()
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped())) {
             abort(403, 'Only managers can view the delay list.');
         }
 
@@ -5591,7 +6416,7 @@ $services = json_decode($sale->services, true) ?: [];
             ->where('is_delayed', 1);
 
         // Class Production Manager: Class department only
-        if ($user->isProdManager()) {
+        if ($user->isClassScoped()) {
             $query->where('department_id', 4);
         }
 
@@ -5611,8 +6436,8 @@ $services = json_decode($sale->services, true) ?: [];
     public function backjobList()
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isProdManager())) {
-            abort(403, 'Only managers can view the backjob list.');
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped() || $user->isGa())) {
+            abort(403, 'Only managers and GA can view the backjob list.');
         }
 
         $departmentLabels = [
@@ -5627,7 +6452,8 @@ $services = json_decode($sale->services, true) ?: [];
         // All checklists that have any backjob comments
         $checklists = \App\Models\ProductionChecklist::where(function ($q) {
             $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
-              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '');
+              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '')
+              ->orWhereNotNull('product_comments')->where('product_comments', '!=', '');
         })->get();
 
         // Build one row per ACTIVE backjob comment (not done, not deleted)
@@ -5652,7 +6478,7 @@ $services = json_decode($sale->services, true) ?: [];
             if (!$sale) continue;
 
             // Class Production Manager: Class department only
-            if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+            if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
                 continue;
             }
 
@@ -5682,28 +6508,28 @@ $services = json_decode($sale->services, true) ?: [];
                 }
             }
 
+            // Resolve item id → project name/mockup from sale services (shared by additional & product comments)
+            $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+            $nameById = [];
+            foreach ((array) $svcItems as $svc) {
+                if (is_array($svc) && !empty($svc['id'])) {
+                    $nameById[(string) $svc['id']] = $svc['name'] ?? 'Additional Project';
+                }
+            }
+            $mockupByItem = [];
+            foreach ((array) $svcItems as $svc) {
+                if (!is_array($svc) || empty($svc['id'])) continue;
+                $sf = $svc['sublimationForm'] ?? [];
+                $mock = $sf['mockup'] ?? $sf['mockupData'] ?? $sf['mockupUrl'] ?? null;
+                if ($mock) {
+                    $mockupByItem[(string) $svc['id']] = is_string($mock) ? $mock : (is_array($mock) && !empty($mock[0]['url']) ? $mock[0]['url'] : '');
+                }
+            }
+
             // Per-project comments (additional_comments keyed by item id)
             $addMap = [];
             try { $addMap = json_decode($chk->additional_comments ?? '', true) ?: []; } catch (\Exception $e) { $addMap = []; }
             if (is_array($addMap)) {
-                // Resolve item id → project name from sale services
-                $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
-                $nameById = [];
-                foreach ((array) $svcItems as $svc) {
-                    if (is_array($svc) && !empty($svc['id'])) {
-                        $nameById[(string) $svc['id']] = $svc['name'] ?? 'Additional Project';
-                    }
-                }
-                // Per-project mockup: try the additional item's own mockup, fall back to sale mockup
-                $mockupByItem = [];
-                foreach ((array) $svcItems as $svc) {
-                    if (!is_array($svc) || empty($svc['id'])) continue;
-                    $sf = $svc['sublimationForm'] ?? [];
-                    $mock = $sf['mockup'] ?? $sf['mockupData'] ?? $sf['mockupUrl'] ?? null;
-                    if ($mock) {
-                        $mockupByItem[(string) $svc['id']] = is_string($mock) ? $mock : (is_array($mock) && !empty($mock[0]['url']) ? $mock[0]['url'] : '');
-                    }
-                }
                 foreach ($addMap as $itemId => $comments) {
                     if (!is_array($comments)) continue;
                     $projName = $nameById[(string) $itemId] ?? 'Additional Project';
@@ -5727,6 +6553,37 @@ $services = json_decode($sale->services, true) ?: [];
                             'needed_by' => $sale->needed_by ?? '',
                         ];
                         break; // FIFO: only the earliest pending comment per project
+                    }
+                }
+            }
+
+            // Per-product comments (product_comments keyed by item id — main production slip)
+            $prodMap = [];
+            try { $prodMap = json_decode($chk->product_comments ?? '', true) ?: []; } catch (\Exception $e) { $prodMap = []; }
+            if (is_array($prodMap) && !empty($prodMap)) {
+                foreach ($prodMap as $itemId => $comments) {
+                    if (!is_array($comments)) continue;
+                    $projName = $nameById[(string) $itemId] ?? 'Main Product';
+                    $projMockup = $mockupByItem[(string) $itemId] ?? $getMockup($sale);
+                    foreach ($comments as $c) {
+                        if (!is_array($c)) continue;
+                        if (!empty($c['deleted']) || !empty($c['done'])) continue;
+                        // First active comment for this product → current backjob
+                        $rows[] = [
+                            'sale_id' => $chk->sale_id,
+                            'sales_number' => $sale->sales_number,
+                            'customer' => $sale->customer_name,
+                            'agent' => $sale->sales_agent_name,
+                            'department_id' => $sale->department_id,
+                            'project' => $projName,
+                            'text' => $c['text'] ?? '',
+                            'at' => $c['at'] ?? '',
+                            'done' => false,
+                            'mockup_url' => $projMockup,
+                            'priority' => $sale->priority ?? '',
+                            'needed_by' => $sale->needed_by ?? '',
+                        ];
+                        break; // FIFO: only the earliest pending comment per product
                     }
                 }
             }
@@ -5769,7 +6626,7 @@ $services = json_decode($sale->services, true) ?: [];
         $deptFilter = function ($q) use ($user, $filters) {
             $q->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
               ->whereNull('archived_at');
-            if ($user && $user->isProdManager()) {
+            if ($user && $user->isClassScoped()) {
                 $q->where('department_id', 4);
             }
             if (!empty($filters['date_from'])) {
@@ -5864,7 +6721,7 @@ $services = json_decode($sale->services, true) ?: [];
 
         // ---- Open production feedbacks ----
         $fbQuery = \DB::table('production_feedbacks')->where('status', 'open');
-        if ($user && $user->isProdManager()) {
+        if ($user && $user->isClassScoped()) {
             $fbQuery->whereIn('sale_id', \DB::table('prototype_sales')->where('department_id', 4)->pluck('id'));
         }
         $openFeedbackCount = $fbQuery->count();
@@ -5872,13 +6729,14 @@ $services = json_decode($sale->services, true) ?: [];
         // ---- Active backjobs (pending comments) ----
         $checklists = \App\Models\ProductionChecklist::where(function ($q) {
             $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
-              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '');
+              ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '')
+              ->orWhereNotNull('product_comments')->where('product_comments', '!=', '');
         })->get();
         $backjobCount = 0;
         foreach ($checklists as $chk) {
             $sale = \DB::table('prototype_sales')->select('department_id')->find($chk->sale_id);
             if (!$sale) continue;
-            if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) continue;
+            if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) continue;
             $active = 0;
             $mainNotes = json_decode($chk->ga_notes ?? '', true) ?: [];
             foreach ((array) $mainNotes as $c) {
@@ -5887,6 +6745,15 @@ $services = json_decode($sale->services, true) ?: [];
             if (!$active) {
                 $addMap = json_decode($chk->additional_comments ?? '', true) ?: [];
                 foreach ((array) $addMap as $comments) {
+                    foreach ((array) $comments as $c) {
+                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $active++; break; }
+                    }
+                    if ($active) break;
+                }
+            }
+            if (!$active) {
+                $prodMap = json_decode($chk->product_comments ?? '', true) ?: [];
+                foreach ((array) $prodMap as $comments) {
                     foreach ((array) $comments as $c) {
                         if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $active++; break; }
                     }
@@ -5952,7 +6819,7 @@ $services = json_decode($sale->services, true) ?: [];
         $stageLabels = array_keys($stageCounts);
         $stageValues = array_values($stageCounts);
 
-        $isProdManager = $user && $user->isProdManager();
+        $isProdManager = $user && $user->isClassScoped();
 
         return view('production.tracking', compact(
             'totalOrders', 'totalRevenue', 'kanbanCounts', 'kanbanLabels', 'kanbanTotal',
@@ -6018,6 +6885,13 @@ $services = json_decode($sale->services, true) ?: [];
 
         $depositPaid = $request->deposit_paid ?? 0;
 
+        // PO (purchase order) handling: no payment now, only PO reference + PO form photo
+        $isPo = ($request->payment_method === 'po');
+        $poReference = $isPo ? ($request->po_reference ?: null) : null;
+        if ($isPo) {
+            $depositPaid = 0;
+        }
+
         \DB::table('prototype_sales')->insert([
             'sales_number' => $salesNumber,
             'customer_id' => null,
@@ -6035,12 +6909,13 @@ $services = json_decode($sale->services, true) ?: [];
             'total_amount' => $request->total_amount,
             'deposit_paid' => $depositPaid,
             'balance_due' => $request->total_amount - $depositPaid,
-            'payment_method' => $request->payment_method ?? 'cash',
+            'payment_method' => $isPo ? 'po' : ($request->payment_method ?? 'cash'),
             'payment_owner' => 'company',
             'payment_account_id' => null,
             'payment_date' => $depositPaid > 0 ? now() : null,
             'reference_number' => null,
-            'payment_status' => $depositPaid > 0 ? 'pending' : 'unpaid',
+            'po_reference' => $poReference,
+            'payment_status' => $isPo ? 'po' : ($depositPaid > 0 ? 'pending' : 'unpaid'),
             'payment_screenshot_path' => $paymentScreenshotPath,
             'customer_notes' => $request->notes,
             'internal_notes' => null,
@@ -6178,7 +7053,7 @@ $services = json_decode($sale->services, true) ?: [];
         }
 
         // Prod manager is Class-only
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -6726,7 +7601,7 @@ $services = json_decode($sale->services, true) ?: [];
 
         // Class Production Manager: only Class department sales (department_id = 4)
         $user = auth()->user();
-        if ($user && $user->isProdManager() && (int) $sale->department_id !== 4) {
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
             abort(403, 'Class department only.');
         }
 
@@ -6829,8 +7704,24 @@ $services = json_decode($sale->services, true) ?: [];
             }
         }
 
-        // Verifiers = users who can access the payment verification page (admin/staff)
-        $verifiers = \App\Models\User::whereIn('role', ['admin', 'staff'])->get();
+        // Verifiers = account owner of the tagged payment account (fallback: admin/staff)
+        $ownerId = null;
+        $pendingPayment = \App\Models\PrototypePayment::where('prototype_sale_id', $sale->id)
+            ->where('payment_status', 'pending')
+            ->orderBy('created_at', 'desc')
+            ->first();
+        $accountId = $pendingPayment ? $pendingPayment->payment_account_id : $sale->payment_account_id;
+        if ($accountId) {
+            $ownerId = \DB::table('payment_accounts')->where('id', $accountId)->value('user_id');
+        }
+
+        $verifiers = collect();
+        if ($ownerId) {
+            $verifiers = \App\Models\User::where('id', $ownerId)->get();
+        }
+        if ($verifiers->isEmpty()) {
+            $verifiers = \App\Models\User::whereIn('role', ['admin', 'staff'])->get();
+        }
         if ($verifiers->isEmpty()) {
             return response()->json(['success' => false, 'message' => 'Walang available na verifier ngayon.']);
         }

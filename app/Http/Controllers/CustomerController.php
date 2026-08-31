@@ -16,7 +16,7 @@ class CustomerController extends Controller
 
         // COO/CPO/CMO/Sales Agents only see customers they created (since they also sell)
         $u = auth()->user();
-        if ($u->isCoo() || $u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative()) {
+        if ($u->isCoo() || $u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative() || $u->isGa() || $u->isQa()) {
             $query->where('created_by', auth()->id());
         }
 
@@ -42,7 +42,7 @@ class CustomerController extends Controller
 
         // CPO/CMO/Sales Agents only see customers they created (since they also sell)
         $u = auth()->user();
-        if ($u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative()) {
+        if ($u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative() || $u->isGa() || $u->isQa()) {
             if ($customer->created_by !== auth()->id()) {
                 abort(403, 'Unauthorized access.');
             }
@@ -155,6 +155,12 @@ class CustomerController extends Controller
     public function search(Request $request)
     {
         $query = Customer::with('creator');
+
+        // Own-customer scoping for COO/CPO/CMO/Sales Agents/GA
+        $u = auth()->user();
+        if ($u->isCoo() || $u->isCpo() || $u->isCmo() || $u->isSalesAgent() || $u->isSalesRepresentative() || $u->isGa() || $u->isQa()) {
+            $query->where('created_by', auth()->id());
+        }
         
         // Text search
         if ($q = $request->get('q')) {

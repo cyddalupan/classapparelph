@@ -203,6 +203,8 @@
                                 <span class="role-badge staff">Staff</span>
                                 @elseif(Auth::user()->isArtist())
                                 <span class="role-badge artist">Artist</span>
+                                @elseif(Auth::user()->isGa())
+                                <span class="role-badge ga">GA/Agent</span>
                                 @elseif(Auth::user()->isCustomer())
                                 <span class="role-badge customer">Customer</span>
                                 @else
@@ -221,14 +223,18 @@
                     <!-- Main Navigation -->
                     <div class="nav-section">
                         <div class="nav-section-title">Main</div>
+                        @if(!Auth::user()->isQa())
                         <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-tachometer-alt"></i>
                             <span class="nav-text">Dashboard</span>
                         </a>
+                        @endif
+                        @if(!Auth::user()->isQa())
                         <a href="{{ route('damage.index') }}" class="nav-item {{ request()->routeIs('damage.*') ? 'active' : '' }}">
                             <i class="fas fa-exclamation-triangle"></i>
                             <span class="nav-text">Damage Reports</span>
                         </a>
+                        @endif
                     </div>
 
                     @auth
@@ -248,9 +254,53 @@
                             <i class="fas fa-list"></i>
                             <span class="nav-text">Manager List</span>
                         </a>
+                        <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span class="nav-text">GA Job List</span>
+                        </a>
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>
                             <span class="nav-text">Calendar</span>
+                        </a>
+                    </div>
+                    @endif
+                    @if(Auth::user()->isQa())
+                    <!-- QA / Sales Agent Navigation -->
+                    <div class="nav-section">
+                        <div class="nav-section-title">Production</div>
+                        <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
+                            <i class="fas fa-columns"></i>
+                            <span class="nav-text">Kanban Board</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
+                            <i class="fas fa-list"></i>
+                            <span class="nav-text">Manager List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span class="nav-text">GA Job List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span class="nav-text">Calendar</span>
+                        </a>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">Business</div>
+                        <a href="{{ route('customers.index') }}" class="nav-item {{ request()->routeIs('customers.*') ? 'active' : '' }}">
+                            <i class="fas fa-users"></i>
+                            <span class="nav-text">Customers</span>
+                        </a>
+                    </div>
+                    <div class="nav-section">
+                        <div class="nav-section-title">My Sales</div>
+                        <a href="{{ route('sales.team.dashboard') }}" class="nav-item {{ request()->routeIs('sales.team.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-th-list"></i>
+                            <span class="nav-text">My Sales Dashboard</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.create') }}" class="nav-item {{ request()->routeIs('sales.prototype.create') ? 'active' : '' }}">
+                            <i class="fas fa-plus-circle"></i>
+                            <span class="nav-text">Add New Sale</span>
                         </a>
                     </div>
                     @endif
@@ -287,6 +337,10 @@
                         <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
                             <i class="fas fa-list"></i>
                             <span class="nav-text">Manager List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span class="nav-text">GA Job List</span>
                         </a>
                         @endif
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
@@ -378,7 +432,7 @@
                     </div>
                     @else
                     <!-- Show Business Operations only for NON-SALES AGENTS -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
                     <!-- Business Operations (orders, pricing, customers, production — hidden from procurement) -->
                     <div class="nav-section">
                         <div class="nav-section-title">Business</div>
@@ -403,7 +457,7 @@
                     @endif
 
                     <!-- Production Section -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
                     <div class="nav-section">
                         <div class="nav-section-title">Production</div>
                         <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
@@ -418,6 +472,12 @@
                             <i class="fas fa-list"></i>
                             <span class="nav-text">Manager List</span>
                         </a>
+                        @if(Auth::user()->isAdmin())
+                        <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span class="nav-text">GA Job List</span>
+                        </a>
+                        @endif
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>
                             <span class="nav-text">Calendar</span>
@@ -439,7 +499,7 @@
                     @endif
 
                     <!-- Inventory Management (visible to all including procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
                     <div class="nav-section">
                         <div class="nav-section-title">Supplies</div>
                         <a href="{{ route('inventory.unified') }}" class="nav-item {{ request()->routeIs('inventory.unified') ? 'active' : '' }}">
@@ -490,6 +550,61 @@
                     </div>
                     @endif
 
+                    <!-- GA Navigation (Only for GA/Agent users) -->
+                    @if(Auth::user()->isGa())
+                    @php $gaIsAgent = str_contains(strtolower(Auth::user()->position ?? ''), 'agent'); @endphp
+                    @if($gaIsAgent)
+                    <div class="nav-section">
+                        <div class="nav-section-title">Business</div>
+                        <a href="{{ route('customers.index') }}" class="nav-item {{ request()->routeIs('customers.*') ? 'active' : '' }}">
+                            <i class="fas fa-users"></i>
+                            <span class="nav-text">Customers</span>
+                        </a>
+                    </div>
+                    @endif
+                    <div class="nav-section">
+                        <div class="nav-section-title">Production</div>
+                        <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span class="nav-text">GA Job List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
+                            <i class="fas fa-tools"></i>
+                            <span class="nav-text">Backjob List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span class="nav-text">Calendar</span>
+                        </a>
+                    </div>
+                    @if($gaIsAgent)
+                    <div class="nav-section">
+                        <div class="nav-section-title">My Sales</div>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-th-list"></i>
+                            <span class="nav-text">My Sales Dashboard</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                        <span class="nav-item nav-disabled">
+                            <i class="fas fa-plus-circle"></i>
+                            <span class="nav-text">Add New Sale</span>
+                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
+                        </span>
+                    </div>
+                    @endif
+                    <div class="nav-section">
+                        <div class="nav-section-title">My Work</div>
+                        <a href="{{ route('sales.prototype.production-feedback.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.production-feedback.list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-check"></i>
+                            <span class="nav-text">Production Feedback</span>
+                        </a>
+                        <a href="{{ route('sales.team.delays') }}" class="nav-item {{ request()->routeIs('sales.team.delays') ? 'active' : '' }}">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span class="nav-text">My Delays</span>
+                        </a>
+                    </div>
+                    @endif
+
                     <!-- Artist Navigation (Only for Artists) -->
                     @if(Auth::user()->isArtist())
                     <div class="nav-section">
@@ -502,7 +617,7 @@
                     @endif
 
                     <!-- Design & Analytics (hidden from procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
                     <div class="nav-section">
                         <div class="nav-section-title">Design</div>
                         <a href="{{ route('design.studio') }}" class="nav-item {{ request()->routeIs('design.*') ? 'active' : '' }}">
@@ -525,7 +640,7 @@
                     @endif
 
                     <!-- Finance (visible to all including procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
                     <div class="nav-section">
                         <div class="nav-section-title">Finance</div>
                         <a href="{{ route('finance.dashboard') }}" class="nav-item {{ request()->routeIs('finance.dashboard') ? 'active' : '' }}">
@@ -574,7 +689,7 @@
                     <!-- User Account -->
                     <div class="nav-section">
                         <div class="nav-section-title">Account</div>
-                        @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo() || Auth::user()->isProdManager() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
+                        @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo() || Auth::user()->isProdManager() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative() || Auth::user()->isGa())
                         <span class="nav-item nav-disabled">
                             <i class="fas fa-user"></i>
                             <span class="nav-text">Profile</span>
