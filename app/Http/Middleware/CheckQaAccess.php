@@ -47,6 +47,9 @@ class CheckQaAccess
         'sales.prototype.print-slip',
         'sales.prototype.print-slip.pdf',
 
+        // Audit history (read-only logs, used by show page comments/audit section)
+        'sales.prototype.audit-history',
+
         // Production checklist & additional production slip (used inside calendar/kanban modals)
         'api.production.checklist.get',
         'api.production.checklist.save',
