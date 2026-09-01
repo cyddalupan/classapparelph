@@ -256,6 +256,17 @@
 .day-cell .day-total-3 {
     background: #28a745;
 }
+.day-cell .day-total-eff {
+    background: #6f42c1;
+}
+.day-cell .day-total-eff.over {
+    background: #dc3545;
+}
+.day-cell.overload {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 2px rgba(220,53,69,0.2);
+    background: rgba(220,53,69,0.05);
+}
 .day-cell.today { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
 .day-cell.drag-over { border-color: #198754; box-shadow: 0 0 0 2.5px rgba(25,135,84,0.4); background: rgba(25,135,84,0.06); }
 .day-cell.today .day-number {
@@ -968,15 +979,20 @@ function renderWeek(monday, projects) {
             return pd && fmt(pd) === dateStr;
         });
 
-        html += `<div class="day-cell ${isToday?'today':''}" data-date="${dateStr}">`;
         var gt = getGarmentTotals(dayProjects);
+        // Effective pcs: JERSEY UP AND DOWN counts 2x (Class capacity: 180/day)
+        var effPcs = gt.g1 + (gt.g2 * 2) + gt.g3;
+        var isClassCal = activeDept === 'Class';
+        var overloaded = isClassCal && effPcs > 180;
+        html += `<div class="day-cell ${isToday?'today':''}${overloaded ? ' overload' : ''}" data-date="${dateStr}">`;
         html += `<div class="day-head">`;
         html += `<div class="day-number">${d.getDate()}</div>`;
         if (dayProjects.length > 0) {
-            html += `<div class="day-totals" title="${GARMENT_GROUP1.join(' + ')} | ${GARMENT_GROUP2.join(' + ')} | Iba pang garments">`;
+            html += `<div class="day-totals" title="${GARMENT_GROUP1.join(' + ')} | ${GARMENT_GROUP2.join(' + ')} (×2) | Iba pang garments${isClassCal ? ' | Effective: ' + effPcs + '/180' : ''}">`;
             html += `<span class="day-total day-total-1">${gt.g1}</span>`;
             html += `<span class="day-total day-total-2">${gt.g2}</span>`;
             html += `<span class="day-total day-total-3">${gt.g3}</span>`;
+            if (isClassCal) html += `<span class="day-total day-total-eff${overloaded ? ' over' : ''}">${effPcs}/180</span>`;
             html += '</div>';
         }
         html += '</div>';
