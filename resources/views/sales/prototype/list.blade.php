@@ -424,6 +424,11 @@
             </button>
             @endif
             <a href="{{ route('sales.prototype.kanban') }}" class="btn btn-kanban">📊 Kanban Board</a>
+            @if(auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()))
+            <button class="btn" id="pendingApprovalsBtn" onclick="showPendingApprovalsModal()" style="background:#be185d;color:#fff;" title="Class overload sales na naghihintay ng approval">
+                ⏳ Pending Approval @if(isset($pendingApprovals) && count($pendingApprovals) > 0)<span class="badge ms-1" style="background:#fff;color:#be185d;">{{ count($pendingApprovals) }}</span>@endif
+            </button>
+            @endif
             @if(!(auth()->user() && auth()->user()->isQa()))
             <a href="{{ route('sales.prototype.delays') }}" class="btn btn-delays" style="background:#dc3545;color:#fff;">⚠️ Delay List @if(($delayCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#dc3545;">{{ $delayCount }}</span>@endif</a>
             <a href="{{ route('sales.prototype.backjobs') }}" class="btn" style="background:#6d28d9;color:#fff;">🔧 Backjob List @if(($backjobCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#6d28d9;">{{ $backjobCount }}</span>@endif</a>
@@ -440,41 +445,7 @@
         </div>
     </div>
 
-    @if(isset($pendingApprovals) && count($pendingApprovals) > 0)
-    <div class="pending-approvals-panel" style="background:#fdf2f8;border:1px solid #f9a8d4;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
-        <div style="font-weight:700;color:#be185d;margin-bottom:8px;">
-            ⏳ Pending Approval — Class Overload ({{ count($pendingApprovals) }})
-        </div>
-        @foreach($pendingApprovals as $pa)
-            @php
-                $paSvc = is_string($pa->services) ? json_decode($pa->services, true) : ($pa->services ?? []);
-                $paEff = 0;
-                foreach ($paSvc as $pi) {
-                    $pg = strtoupper(trim($pi['sublimationForm']['garment']['name'] ?? ''));
-                    $pq = (int)($pi['quantity'] ?? $pi['qty'] ?? 1) ?: 1;
-                    if (in_array($pg, ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'])) $paEff += $pq;
-                    elseif ($pg === 'JERSEY UP AND DOWN') $paEff += $pq * 2;
-                    else $paEff += $pq;
-                }
-            @endphp
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#fff;border:1px solid #f1d6e4;border-radius:8px;padding:8px 12px;margin-bottom:6px;">
-                <div>
-                    <a href="{{ route('sales.prototype.show', $pa->id) }}" target="_blank" style="font-weight:600;color:#0d6efd;">
-                        {{ $pa->sales_number ?: ('Sale #' . $pa->id) }}
-                    </a>
-                    <span class="text-muted" style="font-size:12px;"> · {{ $pa->customer_name }} · {{ $pa->department_name }}</span>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge" style="background:#be185d;color:#fff;">~{{ $paEff }} eff pcs</span>
-                    <button type="button" class="btn btn-sm btn-success" onclick="overloadAction({{ $pa->id }}, 'approve', this)">✓ Approve</button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="overloadAction({{ $pa->id }}, 'reject', this)">✗ Reject</button>
-                </div>
-            </div>
-        @endforeach
-    </div>
-    @endif
-
-    <!-- Filter Bar -->
+        <!-- Filter Bar -->
     <div class="filter-bar">
         <input type="text" id="searchInput" placeholder="Search customer, sales #, phone..." onkeyup="filterTable()">
         <input type="date" id="dateFrom" title="Date from" onchange="filterTable()" style="min-width:140px;">
@@ -575,6 +546,44 @@
         </div>
     </div>
     @endif
+
+    <!-- Pending Approval Modal (Phase 3) -->
+    <div id="pendingApprovalsModal" class="pending-modal-overlay" onclick="if(event.target===this)closePendingApprovalsModal()">
+        <div class="pending-modal-content">
+            <div class="pending-modal-header">
+                <h4><i class="fas fa-hourglass-half me-2" style="color:#be185d;"></i>Pending Approval — Class Overload</h4>
+                <button onclick="closePendingApprovalsModal()" class="pending-modal-close">&times;</button>
+            </div>
+            <div class="pending-modal-body">
+                @forelse($pendingApprovals as $pa)
+                    @php
+                        $paSvc = is_string($pa->services) ? json_decode($pa->services, true) : ($pa->services ?? []);
+                        $paEff = 0;
+                        foreach ($paSvc as $pi) {
+                            $pg = strtoupper(trim($pi['sublimationForm']['garment']['name'] ?? ''));
+                            $pq = (int)($pi['quantity'] ?? $pi['qty'] ?? 1) ?: 1;
+                            if (in_array($pg, ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'])) $paEff += $pq;
+                            elseif ($pg === 'JERSEY UP AND DOWN') $paEff += $pq * 2;
+                            else $paEff += $pq;
+                        }
+                    @endphp
+                    <div class="pending-modal-item" style="align-items:center;">
+                        <div class="pending-item-left">
+                            <a href="{{ route('sales.prototype.show', $pa->id) }}" target="_blank" class="pending-item-sale">{{ $pa->sales_number ?: ('Sale #' . $pa->id) }}</a>
+                            <span class="pending-item-customer">{{ $pa->customer_name ?: '—' }} · {{ $pa->department_name }}</span>
+                        </div>
+                        <span class="badge" style="background:#be185d;color:#fff;">~{{ $paEff }} eff pcs</span>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-success" onclick="overloadAction({{ $pa->id }}, 'approve', this)">✓ Approve</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="overloadAction({{ $pa->id }}, 'reject', this)">✗ Reject</button>
+                        </div>
+                    </div>
+                @empty
+                    <div style="text-align:center;color:#6c757d;padding:20px;">✅ Wala pang pending approval.</div>
+                @endforelse
+            </div>
+        </div>
+    </div>
 
     <!-- Table -->
     <div style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 460px);">
@@ -888,6 +897,17 @@ function showPendingModal() {
 }
 function closePendingModal() {
     document.getElementById('pendingModal').style.display = 'none';
+}
+
+// Phase 3: Pending Approval modal (button sa header)
+function showPendingApprovalsModal() {
+    var m = document.getElementById('pendingApprovalsModal');
+    if (!m) return;
+    m.style.display = 'block';
+}
+function closePendingApprovalsModal() {
+    var m = document.getElementById('pendingApprovalsModal');
+    if (m) m.style.display = 'none';
 }
 
 function requestTime(btn) {

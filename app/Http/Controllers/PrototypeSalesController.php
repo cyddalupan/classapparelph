@@ -3155,22 +3155,13 @@ $services = json_decode($sale->services, true);
             ->all();
 
         // Phase 3: pending Class overload approvals (visible to managers/COO)
-        $pendingApprovals = collect();
-        if ($user && ($user->isManager() || $user->isCoo())) {
-            $paQuery = \App\Models\PrototypeSale::with(['payments', 'refunds'])
-                ->where('status', 'pending_approval')
-                ->whereNull('archived_at');
-            if (!$showAll) {
-                $paQuery->where('department_id', $deptId);
-            }
-            $pendingApprovals = $paQuery->orderBy('created_at', 'desc')->get();
-        }
-        
+        // NOTE: Panel is now on the Manager Order List header button + modal, hindi na sa kanban.
+
         return view('sales.prototype.kanban', compact(
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
             'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions',
             'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount', 'archivedCount',
-            'damageSaleIds', 'pendingApprovals'
+            'damageSaleIds'
         ));
     }
 
