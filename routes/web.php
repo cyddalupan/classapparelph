@@ -865,6 +865,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
 
+        // PENDING APPROVALS page — dedicated URL (MUST be before {id} route)
+        Route::get('/sales/prototype/pending-approvals', [App\Http\Controllers\PrototypeSalesController::class, 'pendingApprovalsPage'])->name('sales.prototype.pending-approvals');
+
         // GA ORDER LIST route — read-only, only orders tagged FOR SAMPLE / FOR APPROVAL / FOR FORMAT / PRINTING
         Route::get('/sales/prototype/ga-order-list', [App\Http\Controllers\PrototypeSalesController::class, 'gaOrderList'])->name('sales.prototype.ga-order-list');
 

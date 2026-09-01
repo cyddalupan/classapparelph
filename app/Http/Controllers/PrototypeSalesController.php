@@ -114,6 +114,23 @@ class PrototypeSalesController extends Controller
     }
 
     /**
+     * Dedicated page: lahat ng pending_approval sales (Class overload) — managers/COO only.
+     */
+    public function pendingApprovalsPage()
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->isManager() && !$user->isCoo())) {
+            abort(403, 'Only managers can view pending approvals.');
+        }
+        $pendingApprovals = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->where('status', 'pending_approval')
+            ->whereNull('archived_at')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        return view('sales.prototype.pending-approvals', compact('pendingApprovals'));
+    }
+
+    /**
      * Reject an overloaded Class sale: pending_approval → cancelled (does NOT count toward capacity).
      */
     public function rejectOverload(string $id)
