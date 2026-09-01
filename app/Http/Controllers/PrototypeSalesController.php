@@ -34,6 +34,65 @@ class PrototypeSalesController extends Controller
     }
 
     /**
+     * Compute effective pcs for a list of sale items (JERSEY UP AND DOWN counts 2x).
+     * Mirrors the calendar JS getProjectGarmentTotals logic.
+     */
+    private function computeEffectivePcsFromItems($items)
+    {
+        $group1 = ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'];
+        $group2 = ['JERSEY UP AND DOWN'];
+        $g1 = 0; $g2 = 0; $g3 = 0;
+        foreach ($items as $it) {
+            $g = strtoupper(trim($it['sublimationForm']['garment']['name'] ?? ''));
+            $qty = (int)($it['quantity'] ?? $it['qty'] ?? 1) ?: 1;
+            if (in_array($g, $group1)) $g1 += $qty;
+            elseif (in_array($g, $group2)) $g2 += $qty;
+            else $g3 += $qty;
+        }
+        return $g1 + ($g2 * 2) + $g3;
+    }
+
+    /**
+     * Get the current effective pcs load for a given date (Class department only).
+     * Only counts active sales (pending/confirmed/in_production/completed) — pending_approval excluded until approved.
+     */
+    private function getClassDayLoad($date)
+    {
+        if (!$date) return 0;
+        $dateStr = date('Y-m-d', strtotime($date));
+        $sales = \App\Models\PrototypeSale::where('department_name', 'Class')
+            ->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed'])
+            ->whereNull('archived_at')
+            ->where(function ($q) use ($dateStr) {
+                $q->whereDate('rescheduled_date', $dateStr)
+                  ->orWhereDate('estimated_completion_date', $dateStr)
+                  ->orWhereDate('created_at', $dateStr);
+            })
+            ->get();
+        $total = 0;
+        foreach ($sales as $s) {
+            $total += $this->computeEffectivePcsFromItems($s->services ?? []);
+        }
+        return $total;
+    }
+
+    /**
+     * AJAX endpoint: day load check for the create modal (Class capacity = 180 effective pcs).
+     */
+    public function dayLoad(Request $request)
+    {
+        $date = $request->date;
+        $limit = 180;
+        $effective = $this->getClassDayLoad($date);
+        return response()->json([
+            'date' => $date,
+            'limit' => $limit,
+            'effective' => $effective,
+            'overloaded' => $effective > $limit,
+        ]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
             public function store(Request $request)

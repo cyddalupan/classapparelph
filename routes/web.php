@@ -855,6 +855,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // CALENDAR route (MUST be before {id} route)
         Route::get('/sales/prototype/calendar', [App\Http\Controllers\PrototypeSalesController::class, 'calendar'])->name('sales.prototype.calendar');
         Route::post('/sales/prototype/calendar-data', [App\Http\Controllers\PrototypeSalesController::class, 'calendarData'])->name('sales.prototype.calendar-data');
+        Route::post('/sales/prototype/day-load', [App\Http\Controllers\PrototypeSalesController::class, 'dayLoad'])->name('sales.prototype.day-load');
         Route::post('/sales/prototype/{id}/reschedule', [App\Http\Controllers\PrototypeSalesController::class, 'reschedule'])->name('sales.prototype.reschedule');
         Route::post('/sales/prototype/{id}/request-time', [App\Http\Controllers\PrototypeSalesController::class, 'requestTime'])->name('sales.prototype.request-time');
         Route::post('/sales/prototype/request-time-all', [App\Http\Controllers\PrototypeSalesController::class, 'requestTimeAll'])->name('sales.prototype.request-time-all');
