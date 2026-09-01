@@ -1140,6 +1140,7 @@
                                                 <div class="col-md-4">
                                                     <label class="form-label">Date Needed *</label>
                                                     <input type="date" class="form-control" id="sublimation_dateNeeded" required>
+                                                    <div id="sublimation_capacityBadge" class="capacity-badge mt-1" style="display:none;"></div>
                                                 </div>
                                             </div>
                                             <div class="mt-3">
@@ -6249,6 +6250,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 sublimation_bulkPaste();
             }
+        });
+    }
+    
+    // Class capacity check — show day load (180 effective pcs) when a date is picked
+    var subDateInput = document.getElementById('sublimation_dateNeeded');
+    var subBadge = document.getElementById('sublimation_capacityBadge');
+    if (subDateInput && subBadge) {
+        var dayLoadTimer = null;
+        subDateInput.addEventListener('change', function() {
+            var date = this.value;
+            if (!date) { subBadge.style.display = 'none'; return; }
+            clearTimeout(dayLoadTimer);
+            dayLoadTimer = setTimeout(function() {
+                fetch('/sales/prototype/day-load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ date: date })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.error) { subBadge.style.display = 'none'; return; }
+                    var left = d.limit - d.effective;
+                    var html = 'Class load: <b>' + d.effective + '</b>/' + d.limit + ' eff pcs';
+                    if (d.overloaded) {
+                        html = '🔴 ' + html + ' — <b>OVERLOADED</b>';
+                        subBadge.className = 'capacity-badge mt-1 badge bg-danger text-white';
+                    } else if (left <= 30) {
+                        html = '🟠 ' + html + ' — ' + left + ' left';
+                        subBadge.className = 'capacity-badge mt-1 badge bg-warning text-dark';
+                    } else {
+                        html = '🟢 ' + html + ' — ' + left + ' left';
+                        subBadge.className = 'capacity-badge mt-1 badge bg-success text-white';
+                    }
+                    subBadge.innerHTML = html;
+                    subBadge.style.display = 'inline-block';
+                })
+                .catch(function() { subBadge.style.display = 'none'; });
+            }, 400);
         });
     }
 });
