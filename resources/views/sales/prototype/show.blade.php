@@ -106,6 +106,24 @@
         </div>
     </div>
 
+@if(($sale->status ?? '') === 'pending_approval')
+    <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2" style="border-left:5px solid #be185d;">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-hourglass-half me-3 fa-lg"></i>
+            <div>
+                <strong>⏳ Pending Approval — Class Overload</strong><br>
+                <small>This sale exceeds the 180 effective pcs/day capacity. It does not count toward the day load until approved.</small>
+            </div>
+        </div>
+        @if($isManager || ($currentUser && $currentUser->isCoo()))
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success btn-sm" onclick="overloadAction({{ $sale->id }}, 'approve', this)">✓ Approve</button>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="overloadAction({{ $sale->id }}, 'reject', this)">✗ Reject</button>
+        </div>
+        @endif
+    </div>
+@endif
+
 @if(isset($relatedSales) && $relatedSales->count() > 0)
     <div class="alert alert-info mb-3">
         <div class="d-flex align-items-start">
@@ -1345,6 +1363,32 @@
         
         document.body.appendChild(toast);
         setTimeout(function() { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(function() { toast.remove(); }, 300); }, 4000);
+    }
+
+    // Phase 3: approve/reject an overloaded Class sale (pending_approval)
+    function overloadAction(saleId, action, btn) {
+        if (!confirm(action === 'approve' ? 'Approve this overloaded sale? It will count toward the day load.' : 'Reject this overloaded sale? It will be cancelled.')) return;
+        if (btn) { btn.disabled = true; }
+        var csrf = document.querySelector('meta[name="csrf-token"]');
+        fetch('/sales/prototype/' + saleId + '/' + (action === 'approve' ? 'approve-overload' : 'reject-overload'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf ? csrf.content : '{{ csrf_token() }}', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.success) {
+                showToast('✅ ' + d.message, 'success');
+                setTimeout(function() { window.location.reload(); }, 800);
+            } else {
+                showToast(d.message || 'Action failed.', 'danger');
+                if (btn) { btn.disabled = false; }
+            }
+        })
+        .catch(function() {
+            showToast('Network error — please try again.', 'danger');
+            if (btn) { btn.disabled = false; }
+        });
     }
     
     // ---------- Comment Form Handler ----------

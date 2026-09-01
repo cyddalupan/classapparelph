@@ -93,6 +93,47 @@ class PrototypeSalesController extends Controller
     }
 
     /**
+     * Approve an overloaded Class sale: moves pending_approval → pending
+     * (it now counts toward the day load and appears in kanban/calendar).
+     */
+    public function approveOverload(string $id)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->isManager() && !$user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers can approve overloaded sales.'], 403);
+        }
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale || $sale->status !== 'pending_approval') {
+            return response()->json(['success' => false, 'message' => 'This sale is not pending approval.']);
+        }
+        $sale->status = 'pending';
+        $sale->approval_requested_at = null;
+        $sale->approval_requested_by = null;
+        $sale->save();
+        return response()->json(['success' => true, 'message' => 'Sale approved — it now counts toward the day load.']);
+    }
+
+    /**
+     * Reject an overloaded Class sale: pending_approval → cancelled (does NOT count toward capacity).
+     */
+    public function rejectOverload(string $id)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->isManager() && !$user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers can reject overloaded sales.'], 403);
+        }
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale || $sale->status !== 'pending_approval') {
+            return response()->json(['success' => false, 'message' => 'This sale is not pending approval.']);
+        }
+        $sale->status = 'cancelled';
+        $sale->approval_requested_at = null;
+        $sale->approval_requested_by = null;
+        $sale->save();
+        return response()->json(['success' => true, 'message' => 'Sale rejected and cancelled.']);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
             public function store(Request $request)
@@ -194,6 +235,7 @@ class PrototypeSalesController extends Controller
         $group_id = $isMultiDept ? \Illuminate\Support\Str::uuid()->toString() : null;
         $firstSaleId = null;
         $saleIds = [];
+        $pendingApprovalCount = 0;
         
         // Department code to id mapping
         $deptCache = [];
@@ -282,6 +324,23 @@ class PrototypeSalesController extends Controller
 
             // Build services JSON (only this department's items)
             $deptServicesJson = json_encode($items);
+
+            // Phase 3: Class capacity check — if this Class sale pushes the day over 180
+            // effective pcs, it goes to pending_approval instead of pending (not counted
+            // toward capacity until a manager approves it).
+            $saleStatus = 'pending';
+            $approvalRequestedAt = null;
+            $approvalRequestedBy = null;
+            if ($deptCode === 'class' && $deptDateNeeded) {
+                $newEff = $this->computeEffectivePcsFromItems($items);
+                $existingLoad = $this->getClassDayLoad($deptDateNeeded);
+                if (($existingLoad + $newEff) > 180) {
+                    $saleStatus = 'pending_approval';
+                    $approvalRequestedAt = now();
+                    $approvalRequestedBy = auth()->id();
+                    $pendingApprovalCount++;
+                }
+            }
             
             // Store overall totals for multi-department sales
             // Use actual item sum (not form values) for subtotal/total to ensure math checks out
@@ -321,7 +380,9 @@ class PrototypeSalesController extends Controller
                 'internal_notes' => $request->internal_notes,
                 'estimated_completion_date' => $deptDateNeeded,
                 'kanban_status' => 'new',
-                'status' => 'pending',
+                'status' => $saleStatus,
+                'approval_requested_at' => $approvalRequestedAt,
+                'approval_requested_by' => $approvalRequestedBy,
                 'group_id' => $group_id,
                 'overall_subtotal' => $deptOverallSubtotal,
                 'overall_total_amount' => $deptOverallTotal,
@@ -460,6 +521,10 @@ class PrototypeSalesController extends Controller
             $successMsg = count($deptGroups) . ' sales created (' . implode(', ', $deptNames) . ') — each added to their respective department Kanban board.';
         } else {
             $successMsg = 'Sale saved! It has been added to the Kanban board.';
+        }
+
+        if ($pendingApprovalCount > 0) {
+            $successMsg .= ' ⏳ Class capacity exceeded — ' . $pendingApprovalCount . ' sale(s) are pending manager approval and will not count toward the day load until approved.';
         }
 
         return redirect()->route('sales.prototype.create')
@@ -3088,12 +3153,24 @@ $services = json_decode($sale->services, true);
             ->pluck('sale_id')
             ->map(fn($id) => (int) $id)
             ->all();
+
+        // Phase 3: pending Class overload approvals (visible to managers/COO)
+        $pendingApprovals = collect();
+        if ($user && ($user->isManager() || $user->isCoo())) {
+            $paQuery = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+                ->where('status', 'pending_approval')
+                ->whereNull('archived_at');
+            if (!$showAll) {
+                $paQuery->where('department_id', $deptId);
+            }
+            $pendingApprovals = $paQuery->orderBy('created_at', 'desc')->get();
+        }
         
         return view('sales.prototype.kanban', compact(
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
             'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions',
             'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount', 'archivedCount',
-            'damageSaleIds'
+            'damageSaleIds', 'pendingApprovals'
         ));
     }
 

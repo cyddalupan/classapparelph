@@ -857,6 +857,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/calendar-data', [App\Http\Controllers\PrototypeSalesController::class, 'calendarData'])->name('sales.prototype.calendar-data');
         Route::post('/sales/prototype/day-load', [App\Http\Controllers\PrototypeSalesController::class, 'dayLoad'])->name('sales.prototype.day-load');
         Route::post('/sales/prototype/{id}/reschedule', [App\Http\Controllers\PrototypeSalesController::class, 'reschedule'])->name('sales.prototype.reschedule');
+        Route::post('/sales/prototype/{id}/approve-overload', [App\Http\Controllers\PrototypeSalesController::class, 'approveOverload'])->name('sales.prototype.approve-overload');
+        Route::post('/sales/prototype/{id}/reject-overload', [App\Http\Controllers\PrototypeSalesController::class, 'rejectOverload'])->name('sales.prototype.reject-overload');
         Route::post('/sales/prototype/{id}/request-time', [App\Http\Controllers\PrototypeSalesController::class, 'requestTime'])->name('sales.prototype.request-time');
         Route::post('/sales/prototype/request-time-all', [App\Http\Controllers\PrototypeSalesController::class, 'requestTimeAll'])->name('sales.prototype.request-time-all');
 
