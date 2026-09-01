@@ -3732,12 +3732,24 @@ $services = json_decode($sale->services, true);
             ->get()
             ->keyBy('email');
 
+        // Pending approval panel — managers/COO only (Phase 3)
+        $pendingApprovals = collect();
+        $listUser = auth()->user();
+        if ($listUser && ($listUser->isManager() || $listUser->isCoo())) {
+            $pendingApprovals = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+                ->where('status', 'pending_approval')
+                ->whereNull('archived_at')
+                ->orderBy('created_at', 'desc')
+                ->get();
+        }
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
             "departmentLabels", "departmentColors", "isAgent",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
-            "delayCount", "backjobCount", "repeatCustomers", "repeatEmails"
+            "delayCount", "backjobCount", "repeatCustomers", "repeatEmails",
+            "pendingApprovals"
         ));
     }
 

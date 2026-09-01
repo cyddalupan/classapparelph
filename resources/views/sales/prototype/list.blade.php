@@ -440,6 +440,40 @@
         </div>
     </div>
 
+    @if(isset($pendingApprovals) && count($pendingApprovals) > 0)
+    <div class="pending-approvals-panel" style="background:#fdf2f8;border:1px solid #f9a8d4;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+        <div style="font-weight:700;color:#be185d;margin-bottom:8px;">
+            ⏳ Pending Approval — Class Overload ({{ count($pendingApprovals) }})
+        </div>
+        @foreach($pendingApprovals as $pa)
+            @php
+                $paSvc = is_string($pa->services) ? json_decode($pa->services, true) : ($pa->services ?? []);
+                $paEff = 0;
+                foreach ($paSvc as $pi) {
+                    $pg = strtoupper(trim($pi['sublimationForm']['garment']['name'] ?? ''));
+                    $pq = (int)($pi['quantity'] ?? $pi['qty'] ?? 1) ?: 1;
+                    if (in_array($pg, ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'])) $paEff += $pq;
+                    elseif ($pg === 'JERSEY UP AND DOWN') $paEff += $pq * 2;
+                    else $paEff += $pq;
+                }
+            @endphp
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#fff;border:1px solid #f1d6e4;border-radius:8px;padding:8px 12px;margin-bottom:6px;">
+                <div>
+                    <a href="{{ route('sales.prototype.show', $pa->id) }}" target="_blank" style="font-weight:600;color:#0d6efd;">
+                        {{ $pa->sales_number ?: ('Sale #' . $pa->id) }}
+                    </a>
+                    <span class="text-muted" style="font-size:12px;"> · {{ $pa->customer_name }} · {{ $pa->department_name }}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge" style="background:#be185d;color:#fff;">~{{ $paEff }} eff pcs</span>
+                    <button type="button" class="btn btn-sm btn-success" onclick="overloadAction({{ $pa->id }}, 'approve', this)">✓ Approve</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="overloadAction({{ $pa->id }}, 'reject', this)">✗ Reject</button>
+                </div>
+            </div>
+        @endforeach
+    </div>
+    @endif
+
     <!-- Filter Bar -->
     <div class="filter-bar">
         <input type="text" id="searchInput" placeholder="Search customer, sales #, phone..." onkeyup="filterTable()">
@@ -974,9 +1008,34 @@ function showToast(msg, type) {
     setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 300); }, 2500);
 }
 
+// Phase 3: approve/reject an overloaded Class sale (pending_approval)
+function overloadAction(saleId, action, btn) {
+    if (!confirm(action === 'approve' ? 'Approve this overloaded sale? It will count toward the day load.' : 'Reject this overloaded sale? It will be cancelled.')) return;
+    if (btn) { btn.disabled = true; }
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch('/sales/prototype/' + saleId + '/' + (action === 'approve' ? 'approve-overload' : 'reject-overload'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf ? csrf.content : '{{ csrf_token() }}', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.success) {
+            showToast('✅ ' + d.message, 'success');
+            setTimeout(function() { window.location.reload(); }, 800);
+        } else {
+            showToast(d.message || 'Action failed.', 'error');
+            if (btn) { btn.disabled = false; }
+        }
+    })
+    .catch(function() {
+        showToast('Network error — please try again.', 'error');
+        if (btn) { btn.disabled = false; }
+    });
+}
+
 function togglePendingRows() {
-    var btn = document.getElementById('pendingToggleBtn');
-    var rows = document.querySelectorAll('#orderTable tbody tr.has-pending');
+    var btn = document.getElementById('pendingToggleBtn');    var rows = document.querySelectorAll('#orderTable tbody tr.has-pending');
     var allHidden = true;
     rows.forEach(function(row) { if (row.style.display !== 'none') allHidden = false; });
     
