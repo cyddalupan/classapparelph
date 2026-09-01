@@ -49,7 +49,7 @@
             </p>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ $isManager ? route('sales.prototype.dashboard') : (($isArtist ?? false) ? route('dashboard') : (($canViewAll ?? false) ? route('sales.prototype.list') : route('sales.team.dashboard'))) }}" class="btn btn-outline-secondary btn-sm">
+            <a href="{{ $isManager ? (auth()->user()->isProdManager() ? route('sales.prototype.list') : route('sales.prototype.dashboard')) : (($isArtist ?? false) ? route('dashboard') : (($canViewAll ?? false) ? route('sales.prototype.list') : route('sales.team.dashboard'))) }}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-arrow-left me-1"></i> Back
             </a>
         </div>

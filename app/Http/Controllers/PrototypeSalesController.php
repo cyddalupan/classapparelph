@@ -3411,7 +3411,22 @@ $services = json_decode($sale->services, true);
             6 => "#6c757d",
         ];
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn("status", ["confirmed", "in_production", "pending", "completed"]);
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn("status", ["confirmed", "in_production", "pending", "completed"])
+        ->whereNull('archived_at');
+
+        // SAFETY NET (auto-clear + auto-promote): kung may na-left na PRIO sa mga sale na
+        // DISPATCH/UNPAID/DONE na (dati kasi pwedeng ma-tag ang PRIO kahit DISPATCH na — stage
+        // guard sa updatePriority ang fix), i-clear ito automatic at i-shift pataas ang mga
+        // natitirang PRIO. Para hindi na kailangan i-re-tag ang DISPATCH para lang mawala ang PRIO.
+        // (Requested by Andrew 2026-09-01)
+        $stalePrioIds = \App\Models\PrototypeSale::whereIn('production_stage', ['DISPATCH', 'UNPAID', 'DONE'])
+            ->whereNotNull('priority')
+            ->whereNull('deleted_at')
+            ->pluck('id');
+        if ($stalePrioIds->isNotEmpty()) {
+            \App\Models\PrototypeSale::whereIn('id', $stalePrioIds)->update(['priority' => null]);
+            $this->reindexPriorities();
+        }
 
         // Class Production Manager: Class department only
         $user = auth()->user();
@@ -3500,11 +3515,18 @@ $services = json_decode($sale->services, true);
                 });
         }
 
-        // Open production feedback count GIVEN by this manager (badge on header button)
+        // Open production feedback count (badge on header button) — same scope as the
+        // Production Feedback list page: managers see ALL feedback (Class-scoped for
+        // prod_manager), and it counts anything NOT yet resolved (open + acknowledged).
         $openFeedbackCount = 0;
         if ($user && $user->isManager()) {
-            $openFeedbackCount = \App\Models\ProductionFeedback::where('from_user_id', $user->id)
-                ->where('status', 'open')->count();
+            $fbQuery = \App\Models\ProductionFeedback::whereIn('status', ['open', 'acknowledged']);
+            if ($user->isClassScoped()) {
+                $fbQuery->whereHas('sale', function ($q) {
+                    $q->where('department_id', 4);
+                });
+            }
+            $openFeedbackCount = $fbQuery->count();
         }
 
         // ⚠️ Delay count — same scope as delayList()
@@ -3556,12 +3578,30 @@ $services = json_decode($sale->services, true);
             }
         }
 
+        // 🔁 Repeat customer detection (READ-ONLY display — walang touch sa existing logic)
+        // Customer na may >1 sale = repeat. First sale nila ay HINDI flagged; ang mga kasunod lang.
+        $repeatCustomers = \App\Models\PrototypeSale::whereNotNull('customer_id')
+            ->whereNull('deleted_at')
+            ->groupBy('customer_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->selectRaw('customer_id, MIN(id) as first_id')
+            ->get()
+            ->keyBy('customer_id');
+        $repeatEmails = \DB::table('prototype_sales')
+            ->whereNotNull('customer_email')
+            ->whereNull('deleted_at')
+            ->selectRaw('LOWER(TRIM(customer_email)) as email, MIN(id) as first_id')
+            ->groupBy('email')
+            ->havingRaw('COUNT(*) > 1')
+            ->get()
+            ->keyBy('email');
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
             "departmentLabels", "departmentColors", "isAgent",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
-            "delayCount", "backjobCount"
+            "delayCount", "backjobCount", "repeatCustomers", "repeatEmails"
         ));
     }
 
@@ -3572,15 +3612,6 @@ $services = json_decode($sale->services, true);
         ]);
         
         $sale = \App\Models\PrototypeSale::findOrFail($id);
-
-        // PAYMENT LOCK (server-side): cannot move to Completed while there is a pending balance due
-        $balanceDue = $sale->balance_due_computed;
-        if ($request->kanban_status === 'completed' && $balanceDue > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hindi ma-move sa Completed: may pending balance pa na ₱' . number_format($balanceDue, 2) . '. Kailangan munang mabayaran bago i-DONE.',
-            ], 422);
-        }
 
         // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
         // until both file screenshot + approved sample color are uploaded.
@@ -3603,7 +3634,21 @@ $services = json_decode($sale->services, true);
         }
 
         $sale->kanban_status = $request->kanban_status;
+
+        // AUTO-CLEAR PRIO: kapag na-move sa ready_for_delivery (DISPATCH) o higit pa,
+        // tanggalin ang priority tag automatic. (Requested by Andrew 2026-09-01)
+        $clearedPriority = false;
+        if (in_array($request->kanban_status, ['ready_for_delivery', 'delivered', 'completed']) && $sale->priority) {
+            $sale->priority = null;
+            $clearedPriority = true;
+        }
+
         $sale->save();
+
+        // AUTO-PROMOTE (reindex): i-shift pataas ang mga natitirang PRIO kapag may na-clear na slot.
+        if ($clearedPriority) {
+            $this->reindexPriorities();
+        }
         
         if ($request->ajax()) {
             return response()->json(['success' => true]);
@@ -3628,25 +3673,24 @@ $services = json_decode($sale->services, true);
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
-        // PAYMENT LOCK (server-side): cannot mark as DONE/completed while there is a pending balance due
-        $balanceDue = $sale->balance_due_computed;
-        if ($request->kanban_status === 'completed' && $balanceDue > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hindi ma-mark na DONE: may pending balance pa na ₱' . number_format($balanceDue, 2) . '. Kailangan munang mabayaran bago i-DONE.',
-            ], 422);
-        }
-
-        // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
-        // until both file screenshot + approved sample color are uploaded.
-        $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
+        // TIERED PHOTO LOCK (server-side):
+        //  - Moving INTO sample_approval (FOR SAMPLE / FOR APPROVAL) requires the File Screenshot.
+        //  - Moving past it (FOR FORMAT / PRINTING / CUTTING / etc.) requires File Screenshot + Approved Sample Color.
+        $sampleStatuses = ['sample_approval'];
+        $pastSampleStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $user = auth()->user();
         $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isClassScoped());
-        if (in_array($request->kanban_status, $lockedStatuses) && !$canOverride) {
+        if (!$canOverride) {
             $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
             $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
             $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
-            if (!($hasFileShot && $hasColorShot)) {
+            if (in_array($request->kanban_status, $sampleStatuses) && !$hasFileShot) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hindi ma-move sa Sample/Approval: kulang ang File Screenshot. I-upload muna bago i-tag.',
+                ], 422);
+            }
+            if (in_array($request->kanban_status, $pastSampleStatuses) && !($hasFileShot && $hasColorShot)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Hindi ma-move: kulang pang photos (File Screenshot / Sample Color). Kailangan muna kumpleto bago lumipat sa ' . $request->kanban_status . '.',
@@ -3679,9 +3723,34 @@ $services = json_decode($sale->services, true);
         if (in_array($sale->production_stage, $gaCountingStages) && empty($sale->ga_counted_at)) {
             $sale->ga_counted_at = now();
         }
+
+        // AUTO-CLEAR PRIO: kapag na-DISPATCH na ang production status (o UNPAID/DONE),
+        // hindi na kailangan ang priority tag — tanggalin automatic para makapag-tag ng bago
+        // nang hindi manual. (Requested by Andrew 2026-09-01)
+        $clearedPriority = false;
+        if (in_array($sale->production_stage, ['DISPATCH', 'UNPAID', 'DONE']) && $sale->priority) {
+            $sale->priority = null;
+            $clearedPriority = true;
+        }
+
         $sale->save();
 
-        return response()->json(['success' => true, 'status' => $sale->kanban_status, 'production_stage' => $sale->production_stage]);
+        // AUTO-PROMOTE (reindex): kapag may na-clear na PRIO slot (e.g. na-DISPATCH ang PRIO 1),
+        // i-shift pataas ang mga natitirang PRIO (dating PRIO 2 → PRIO 1) para walang gap.
+        // Ang priority_map ay ginagamit ng frontend para i-update agad ang UI (no reload).
+        $priorityMap = null;
+        if ($clearedPriority) {
+            $priorityMap = $this->reindexPriorities();
+            $priorityMap[$sale->id] = null; // kasama ang na-clear na sale (para sa instant UI)
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => $sale->kanban_status,
+            'production_stage' => $sale->production_stage,
+            'priority' => $sale->priority,
+            'priority_map' => $priorityMap,
+        ]);
     }
 
     /**
@@ -3694,6 +3763,18 @@ $services = json_decode($sale->services, true);
         ]);
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // STAGE GUARD: hindi na pwedeng mag-tag ng PRIO ang sale na DISPATCH na (o UNPAID/DONE)
+        // — auto-cleared na dapat ito. Payagan lang ang pag-clear (empty) kung may leftover.
+        // Ito ang root cause ng "bumabalik ang PRIO kahit DISPATCH na": dati kasi walang check
+        // dito, kaya pwedeng ma-tag ulit ang PRIO at hindi na ito dumadaan sa auto-clear.
+        // (Fixed by Andrew request 2026-09-01)
+        if ($request->filled('priority') && in_array($sale->production_stage, ['DISPATCH', 'UNPAID', 'DONE'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi na ma-tag ng PRIO ang order na ito — DISPATCH na ang production status (auto-cleared ang priority).',
+            ], 422);
+        }
 
         // Class Production Manager: Class department only
         if (auth()->user() && auth()->user()->isClassScoped() && (int) $sale->department_id !== 4) {
@@ -3716,14 +3797,54 @@ $services = json_decode($sale->services, true);
             }
         }
 
+        $clearedPriority = !$request->filled('priority') && $sale->priority;
         $sale->priority = $request->filled('priority') ? (int) $request->priority : null;
         $sale->save();
+
+        // AUTO-PROMOTE: kapag may na-clear na PRIO slot, i-shift pataas ang mga natitirang PRIO
+        // (ex. dating PRIO 2 → PRIO 1) para walang gap. Ang priority_map ay para sa instant UI.
+        $priorityMap = null;
+        if ($clearedPriority) {
+            $priorityMap = $this->reindexPriorities();
+            $priorityMap[$sale->id] = null; // kasama ang na-clear na sale (para sa instant UI)
+        }
 
         return response()->json([
             'success' => true,
             'priority' => $sale->priority,
+            'priority_map' => $priorityMap,
             'message' => $sale->priority ? "Prio " . $sale->priority . " na ang order na ito" : 'Naalis ang priority tag',
         ]);
+    }
+
+    /**
+     * AUTO-PROMOTE (reindex): kapag may na-clear na PRIO slot, i-shift pataas ang mga
+     * natitirang PRIO numbers para walang gap — ex. na-DISPATCH ang PRIO 1, ang dating
+     * PRIO 2 ay magiging PRIO 1. Same scope as the uniqueness check sa updatePriority.
+     * Returns: [sale_id => priority] map ng lahat ng may PRIO (para sa instant UI update).
+     * (Requested by Andrew 2026-09-01)
+     */
+    protected function reindexPriorities()
+    {
+        $sales = \App\Models\PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('deleted_at')
+            ->whereNotNull('priority')
+            ->orderBy('priority', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get(['id', 'priority']);
+
+        $map = [];
+        $next = 1;
+        foreach ($sales as $sale) {
+            if ((int) $sale->priority !== $next) {
+                $sale->priority = $next;
+                $sale->save();
+            }
+            $map[$sale->id] = $next;
+            $next++;
+        }
+
+        return $map;
     }
 
     /**
@@ -4129,10 +4250,11 @@ $services = json_decode($sale->services, true);
     {
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
-        // Managers/admins only
+        // CEO (admin) and COO only — managers hanggang DONE lang, hindi pwede mag-archive.
+        // (Requested by Andrew 2026-09-01)
         $user = auth()->user();
-        if (!$user || !$user->isManager()) {
-            return response()->json(['success' => false, 'message' => 'Only managers can archive projects.'], 403);
+        if (!$user || !($user->isAdmin() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the CEO and COO can archive projects.'], 403);
         }
 
         if ($sale->kanban_status !== 'completed') {
@@ -4157,6 +4279,13 @@ $services = json_decode($sale->services, true);
      */
     public function archived(Request $request)
     {
+        // CEO (admin) and COO only — managers hanggang DONE lang, hindi pwede sa Archive page.
+        // (Requested by Andrew 2026-09-01)
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->isCoo())) {
+            abort(403, 'Only the CEO and COO can view archived projects.');
+        }
+
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
             ->whereNotNull('archived_at')
             ->orderByDesc('archived_at');
@@ -4181,9 +4310,11 @@ $services = json_decode($sale->services, true);
     {
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
+        // CEO (admin) and COO only — same rule as archive.
+        // (Requested by Andrew 2026-09-01)
         $user = auth()->user();
-        if (!$user || !$user->isManager()) {
-            return response()->json(['success' => false, 'message' => 'Only managers can restore projects.'], 403);
+        if (!$user || !($user->isAdmin() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the CEO and COO can restore projects.'], 403);
         }
 
         if (!$sale->archived_at) {
@@ -4222,6 +4353,18 @@ $services = json_decode($sale->services, true);
 
         $newDate = \Carbon\Carbon::parse($request->date)->format('Y-m-d');
         $originalDate = $sale->estimated_completion_date ? \Carbon\Carbon::parse($sale->estimated_completion_date)->format('Y-m-d') : null;
+
+        // NO-PAST RULE (server-side): the project can only be moved to TODAY (Manila) or a future
+        // date. Pwede pa bumalik basta hindi pa tapos ang araw sa PH (e.g. Sept 1 pa ngayon → pwede
+        // i-usog sa Sept 1). Once the day has passed (Sept 2 na), bawal na bumalik sa Sept 1.
+        // (mirrors the frontend drag-drop check in calendar.blade.php)
+        $todayManila = \Carbon\Carbon::now('Asia/Manila')->format('Y-m-d');
+        if ($newDate < $todayManila) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi pwedeng i-usog paurong sa nakaraang araw. Pwede lang sa ' . \Carbon\Carbon::parse($todayManila)->format('M d, Y') . ' (ngayon, PH) o mas future date.',
+            ], 422);
+        }
 
         $sale->rescheduled_date = $newDate;
         $sale->save();
@@ -4291,16 +4434,23 @@ $services = json_decode($sale->services, true);
             return response()->json(['error' => 'Sale not found'], 404);
         }
 
+        $action = $request->action;
+        $remark = $request->remark;
+
+        // Two-verifier approval: confirm/cancel actions (confirm_reject, cancel_reject,
+        // confirm_edit, cancel_edit) are done by a DIFFERENT verifier than the requester —
+        // kaya ang account-ownership restriction sa ibaba ay HINDI dapat mag-apply sa kanila.
+        $secondVerifierActions = ['confirm_reject', 'cancel_reject', 'confirm_edit', 'cancel_edit'];
+
         // Non-admin verifiers can only verify payments tagged to their own accounts
-        if (!auth()->user()->isAdmin() && $sale->payment_account_id) {
+        if (!in_array($action, $secondVerifierActions, true)
+            && !auth()->user()->isAdmin()
+            && $sale->payment_account_id) {
             $accountOwner = \DB::table('payment_accounts')->where('id', $sale->payment_account_id)->value('user_id');
             if (!(int) $accountOwner || (int) $accountOwner !== (int) auth()->id()) {
                 return response()->json(['error' => 'You can only verify payments for your own accounts.'], 403);
             }
         }
-
-        $action = $request->action;
-        $remark = $request->remark;
 
         if ($action === 'verify') {
             // Require a tagged account and positive deposit before verifying
@@ -4610,16 +4760,23 @@ $services = json_decode($sale->services, true);
             return response()->json(['error' => 'Sale not found'], 404);
         }
 
+        $action = $request->action;
+        $remark = $request->remark;
+
+        // Two-verifier approval: confirm/cancel actions (confirm_reject, cancel_reject,
+        // confirm_edit, cancel_edit) are done by a DIFFERENT verifier than the requester —
+        // kaya ang account-ownership restriction sa ibaba ay HINDI dapat mag-apply sa kanila.
+        $secondVerifierActions = ['confirm_reject', 'cancel_reject', 'confirm_edit', 'cancel_edit'];
+
         // Non-admin verifiers can only verify payments tagged to their own accounts
-        if (!auth()->user()->isAdmin() && $payment->payment_account_id) {
+        if (!in_array($action, $secondVerifierActions, true)
+            && !auth()->user()->isAdmin()
+            && $payment->payment_account_id) {
             $accountOwner = \DB::table('payment_accounts')->where('id', $payment->payment_account_id)->value('user_id');
             if (!(int) $accountOwner || (int) $accountOwner !== (int) auth()->id()) {
                 return response()->json(['error' => 'You can only verify payments for your own accounts.'], 403);
             }
         }
-
-        $action = $request->action;
-        $remark = $request->remark;
 
         if ($action === 'verify') {
             // Require account and amount before verifying
@@ -5037,6 +5194,7 @@ $services = json_decode($sale->services, true);
             })
             ->where('prototype_sales.deposit_paid', '>', 0)
             ->whereNull('prototype_sales.deleted_at')
+            ->whereNull('prototype_sales.archived_at')
             ->where(function ($q) {
                 $q->where('prototype_sales.payment_status', 'pending')
                   ->orWhereNull('prototype_sales.payment_status');
@@ -5106,6 +5264,7 @@ $services = json_decode($sale->services, true);
                 'verifier.name as verified_by_name',
             ])
             ->whereIn('prototype_payments.payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
+            ->whereNull('prototype_sales.archived_at')
             ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
             ->orderBy('prototype_payments.verified_at', 'desc')
             ->limit(50)
@@ -5121,7 +5280,8 @@ $services = json_decode($sale->services, true);
             ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as requester', 'prototype_payments.reject_requested_by', '=', 'requester.id')
             ->where('prototype_payments.payment_status', 'reject_pending')
-            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
+            // Second-verifier approval: dapat makita ito ng LAHAT ng verifier (hindi lang
+            // sa account owner) para may makapag-confirm — tinanggal ang ownAccountFilter dito
             ->select([
                 'prototype_sales.id as sale_id',
                 'prototype_sales.sales_number',
@@ -5145,6 +5305,7 @@ $services = json_decode($sale->services, true);
                 ->leftJoin('users as requester', 'prototype_sales.reject_requested_by', '=', 'requester.id')
                 ->where('prototype_sales.payment_status', 'reject_pending')
                 ->whereNull('prototype_sales.deleted_at')
+                ->whereNull('prototype_sales.archived_at')
                 // Sale-level entries only for initial deposits — skip sales already showing
                 // a reject_pending entry at the payment level (prevents duplicates)
                 ->whereNotExists(function ($query) {
@@ -5153,8 +5314,8 @@ $services = json_decode($sale->services, true);
                         ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
                         ->where('prototype_payments.payment_status', 'reject_pending');
                 })
-            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
-                ->select([
+            // Second-verifier approval: visible sa lahat ng verifier (consistent sa cashflow page)
+            ->select([
                     'prototype_sales.id as sale_id',
                     'prototype_sales.sales_number',
                     'prototype_sales.customer_name',
@@ -5181,7 +5342,7 @@ $services = json_decode($sale->services, true);
             ->leftJoin('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as requester', 'prototype_payments.edit_requested_by', '=', 'requester.id')
             ->where('prototype_payments.payment_status', 'edit_pending')
-            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
+            // Second-verifier approval: visible sa lahat ng verifier (hindi lang sa account owner)
             ->select([
                 'prototype_sales.id as sale_id',
                 'prototype_sales.sales_number',
@@ -5209,6 +5370,7 @@ $services = json_decode($sale->services, true);
                 ->leftJoin('users as requester', 'prototype_sales.edit_requested_by', '=', 'requester.id')
                 ->where('prototype_sales.payment_status', 'edit_pending')
                 ->whereNull('prototype_sales.deleted_at')
+                ->whereNull('prototype_sales.archived_at')
                 // Sale-level entries only for initial deposits — skip sales already showing
                 // an edit_pending entry at the payment level (prevents duplicates)
                 ->whereNotExists(function ($query) {
@@ -5217,8 +5379,8 @@ $services = json_decode($sale->services, true);
                         ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id')
                         ->where('prototype_payments.payment_status', 'edit_pending');
                 })
-            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
-                ->select([
+            // Second-verifier approval: visible sa lahat ng verifier (consistent sa cashflow page)
+            ->select([
                     'prototype_sales.id as sale_id',
                     'prototype_sales.sales_number',
                     'prototype_sales.customer_name',
@@ -6731,8 +6893,8 @@ $services = json_decode($sale->services, true);
         $overdueDue = $dueSales->filter(fn ($s) => $s->needed_by < now()->startOfDay());
         $dueCount = $dueSales->count();
 
-        // ---- Open production feedbacks ----
-        $fbQuery = \DB::table('production_feedbacks')->where('status', 'open');
+        // ---- Open production feedbacks (not yet resolved: open + acknowledged) ----
+        $fbQuery = \DB::table('production_feedbacks')->whereIn('status', ['open', 'acknowledged']);
         if ($user && $user->isClassScoped()) {
             $fbQuery->whereIn('sale_id', \DB::table('prototype_sales')->where('department_id', 4)->pluck('id'));
         }

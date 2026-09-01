@@ -80,16 +80,13 @@
                                         </span>
                                         <select class="form-select form-select-sm" id="marketplace" name="marketplace" required>
                                             <option value="" selected disabled>Select marketplace</option>
-                                            <option value="shopee">Shopee</option>
-                                            <option value="lazada">Lazada</option>
-                                            <option value="tiktok">TikTok Shop</option>
-                                            <option value="facebook">Facebook Marketplace</option>
-                                            <option value="instagram">Instagram</option>
-                                            <option value="website">Website</option>
-                                            <option value="walk-in">Walk-in</option>
-                                            <option value="referral">Referral</option>
-                                            <option value="corporate">Corporate</option>
-                                            <option value="wholesale">Wholesale</option>
+                                            <option value="MP">MP</option>
+                                            <option value="PAGE">PAGE</option>
+                                            <option value="WALKIN">WALKIN</option>
+                                            <option value="SHOPPEE">SHOPPEE</option>
+                                            <option value="MARKETING-MP">MARKETING-MP</option>
+                                            <option value="VIBER">VIBER</option>
+                                            <option value="MP-PAGE">MP-PAGE</option>
                                         </select>
                                     </div>
                                 </div>

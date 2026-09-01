@@ -569,9 +569,9 @@
 
 @section('content')
 <div class="container-fluid px-4">
-    <!-- Archive Link (top-right) -->
+    <!-- Archive Link (top-right) — CEO (admin) & COO only; managers hanggang DONE lang -->
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-        @if(!(auth()->user() && auth()->user()->isProdManager()))
+        @if(auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
         <a href="{{ route('sales.prototype.archived') }}" class="btn btn-sm btn-outline-secondary" style="border-radius:8px;font-weight:600;">
             📦 Archive <span class="badge bg-secondary ms-1" id="archiveCountBadge">{{ $archivedCount ?? 0 }}</span>
         </a>
@@ -743,7 +743,7 @@
                                     <span>👤 {{ $sale->sales_agent_name }}</span>
                                 @endif
                             </div>
-                            @if($statusKey === 'completed' && !(auth()->user() && auth()->user()->isProdManager()))
+                            @if($statusKey === 'completed' && auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
                                 <div style="margin-top:6px;">
                                     <button type="button" class="btn btn-sm btn-outline-secondary archive-btn" style="width:100%;font-size:10px;padding:2px 6px;" data-sale-id="{{ $sale->id }}" data-sale-number="{{ $sale->sales_number ?: $sale->id }}" onclick="event.stopPropagation();archiveSale(this)" title="Archive this completed project">📦 Archive</button>
                                 </div>
@@ -1130,7 +1130,8 @@ var approvedAdditions = @json(array_keys($approvedAdditions ?? []));
     }
 
     // === ARCHIVE SALE (Completed column) ===
-    function archiveSale(btn) {
+    // Exposed on window: inline onclick handlers (global scope) can't see IIFE-local functions
+    window.archiveSale = function(btn) {
         var saleId = btn.getAttribute('data-sale-id');
         var saleNumber = btn.getAttribute('data-sale-number');
         if (!saleId) return;

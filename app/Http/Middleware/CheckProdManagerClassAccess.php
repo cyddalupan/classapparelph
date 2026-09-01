@@ -63,6 +63,9 @@ class CheckProdManagerClassAccess
         'sales.prototype.ga-unassign',
         'sales.prototype.ga-complete',
 
+        // Nav: Production → Backjob List (Class only, scoped in controller)
+        'sales.prototype.backjobs',
+
         // Feedback & delays for Class sales (explicitly allowed by Andrew)
         'sales.prototype.production-feedback.list',
         'sales.prototype.production-feedback.store',

@@ -175,15 +175,15 @@ class Customer extends Model
      */
     public static function getMarketplaceOptions()
     {
+        // Source/channel only — repeat customer detection is automatic via Customer->sales() count
         return [
-            'facebook' => 'Facebook',
-            'instagram' => 'Instagram',
-            'walk_in' => 'Walk-in',
-            'referral' => 'Referral',
-            'website' => 'Website',
-            'google' => 'Google Search',
-            'repeat' => 'Repeat Customer',
-            'other' => 'Other',
+            'MP' => 'MP',
+            'PAGE' => 'PAGE',
+            'WALKIN' => 'WALKIN',
+            'SHOPPEE' => 'SHOPPEE',
+            'MARKETING-MP' => 'MARKETING-MP',
+            'VIBER' => 'VIBER',
+            'MP-PAGE' => 'MP-PAGE',
         ];
     }
 }

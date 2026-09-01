@@ -603,7 +603,6 @@
                         $photoMinAgo = $photoLastAt ? (int) $photoLastAt->diffInMinutes(now()) : 0;
                         $photoAgoText = $photoMinAgo < 60 ? $photoMinAgo . 'm ago' : round($photoMinAgo / 60) . 'h ago';
                         $canOverride = auth()->user() && auth()->user()->isManager();
-                        $lockedStatuses = ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
 
                         // Days-left bucket for the filter (same logic as the due badge)
                         $dlStageLabel = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD');
@@ -679,17 +678,16 @@
                         </td>
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
-                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;{{ !$allPhotos ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : '' }}" @if(!$allPhotos) disabled title="🔒 Kulang photos (File Screenshot / Sample Color) — i-move sa kanban board" @endif>
-                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); $balanceDue = $sale->balance_due_computed; @endphp
+                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;{{ !$hasFileShot ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : '' }}" @if(!$hasFileShot) disabled title="🔒 Kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL" @endif>
+                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); @endphp
                                 @foreach($prodStageMap as $stage => $st)
-                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if($st === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE" @endif>{{ $stage }}</option>
+                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if(in_array($st, ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed']) && $hasFileShot && !$hasColorShot) disabled title="🔒 Kulang Approved Sample Color — kumpletuhin muna bago lumampas sa FOR SAMPLE / FOR APPROVAL" @endif>{{ $stage }}</option>
                                 @endforeach
                             </select>
-                            @if($balanceDue > 0)
-                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 may pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE</div>
-                            @endif
-                            @if(!$allPhotos)
-                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang photos — i-move sa kanban board</div>
+                            @if(!$hasFileShot)
+                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL</div>
+                            @elseif(!$hasColorShot)
+                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🎨 pwede na sa FOR SAMPLE / FOR APPROVAL — pero kailangan Approved Sample Color bago FOR FORMAT / PRINTING pataas</div>
                             @endif
                         </td>
                         <td>
@@ -789,7 +787,21 @@
                                 {{ $departmentLabels[$sale->department_id] ?? 'Unknown' }}
                             </span>
                         </td>
-                        <td>{{ $sale->customer_name ?: '—' }}</td>
+                        <td>
+                            {{ $sale->customer_name ?: '—' }}
+                            @php
+                                // 🔁 Repeat badge (READ-ONLY display — walang touch sa existing logic)
+                                $isRepeat = false;
+                                if ($sale->customer_id && isset($repeatCustomers[$sale->customer_id])) {
+                                    $isRepeat = (int) $sale->id !== (int) $repeatCustomers[$sale->customer_id]->first_id;
+                                } elseif ($sale->customer_email && isset($repeatEmails[strtolower(trim($sale->customer_email))])) {
+                                    $isRepeat = (int) $sale->id !== (int) $repeatEmails[strtolower(trim($sale->customer_email))]->first_id;
+                                }
+                            @endphp
+                            @if($isRepeat)
+                                <span class="badge bg-info" style="font-size:10px;vertical-align:middle;" title="Repeat customer — may nakaraang sale na">🔁 Repeat</span>
+                            @endif
+                        </td>
                         <td style="font-size:12px;color:#6c757d;">
                             {{ $sale->sales_agent_name ?: '—' }}
                             @if(!$isAgent && auth()->user() && auth()->user()->isManager())
@@ -1137,6 +1149,8 @@ document.addEventListener('change', function(e) {
             sel.setAttribute('data-current', stage);
             showToast('✅ Tagged ' + stage + ' → ' + newStatus + ' sa kanban', 'success');
             updatePipelineInRow(row, newStatus);
+            // INSTANT PRIO: auto-clear sa DISPATCH + auto-promote (no reload)
+            applyPriorityMap(res.data.priority_map);
         } else {
             sel.value = oldStage;
             showToast('⚠️ ' + (res.data.message || 'Failed to update status.'), 'error');
@@ -1181,6 +1195,8 @@ document.addEventListener('change', function(e) {
                 sel.style.fontWeight = '';
             }
             showToast(res.data.message || '✅ Priority saved', 'success');
+            // AUTO-PROMOTE: kapag may na-clear na slot, i-shift agad ang iba (no reload)
+            applyPriorityMap(res.data.priority_map);
         } else {
             sel.value = oldPrio;
             showToast('⚠️ ' + (res.data.message || 'Failed to save priority.'), 'error');
@@ -1206,6 +1222,44 @@ function updatePipelineInRow(row, status) {
     row.querySelectorAll('.pipeline-line').forEach(function(line, i) {
         line.classList.remove('completed');
         if (i < idx) line.classList.add('completed');
+    });
+}
+
+// === INSTANT PRIO UI UPDATE (auto-clear sa DISPATCH + auto-promote) — no reload ===
+// Ang priority_map ay [sale_id => priority|null] na galing sa server response.
+function applyPriorityMap(priorityMap) {
+    if (!priorityMap) return;
+    var used = {};
+    Object.keys(priorityMap).forEach(function(saleId) {
+        var prio = priorityMap[saleId];
+        if (prio) used[prio] = saleId;
+        var sel = document.querySelector('.prio-select[data-sale-id="' + saleId + '"]');
+        if (!sel) return;
+        var row = sel.closest('tr');
+        sel.value = prio ? String(prio) : '';
+        sel.setAttribute('data-current', prio ? String(prio) : '');
+        if (row) row.setAttribute('data-prio', prio ? String(prio) : '');
+        if (prio) {
+            sel.style.background = '#fff3cd';
+            sel.style.color = '#856404';
+            sel.style.fontWeight = '600';
+        } else {
+            sel.style.background = '';
+            sel.style.color = '';
+            sel.style.fontWeight = '';
+        }
+    });
+    // Rebuild "Taken" disabled options batay sa bagong map (auto-promote ay maaaring
+    // magbakante o mag-occupy ng slots) — para consistent agad kahit walang reload.
+    document.querySelectorAll('.prio-select').forEach(function(s) {
+        var sid = s.getAttribute('data-sale-id');
+        Array.prototype.forEach.call(s.options, function(opt) {
+            if (!opt.value) return;
+            var n = parseInt(opt.value, 10);
+            var taken = used[n] && used[n] !== sid;
+            opt.disabled = taken;
+            opt.textContent = taken ? 'Prio ' + n + ' (Taken)' : 'Prio ' + n;
+        });
     });
 }
 

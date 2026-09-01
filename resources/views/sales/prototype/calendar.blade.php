@@ -1210,10 +1210,13 @@ document.addEventListener('drop', function(e) {
     dragSaleId = null;
     dragSaleFromDate = null;
 
-    // Bawal mag-usog paurong — dapat future date lang palagi (YYYY-MM-DD string compare)
-    if (fromDate && newDate < fromDate) {
+    // NO-PAST RULE: pwede pa bumalik basta hindi pa tapos ang araw sa PH (e.g. Sept 1 pa ngayon →
+    // pwede i-usog sa Sept 1). Pag lumipas na ang araw (Sept 2 na), bawal na bumalik sa Sept 1.
+    // Compare against Manila date (UTC+8), not the project's own date.
+    const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    if (newDate < manilaToday) {
         document.getElementById('calInfoTitle').innerHTML = '<i class="fas fa-exclamation-triangle text-warning me-2"></i>Hindi Pwedeng I-usog Paurong';
-        document.getElementById('calInfoBody').innerHTML = '<p class="mb-1">Hindi pwedeng i-usog <strong>paurong</strong> ang project.</p><p class="mb-0 text-muted">Pumili ng mas <strong>future date</strong> (pagkatapos ng ' + new Date(fromDate + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + ').</p>';
+        document.getElementById('calInfoBody').innerHTML = '<p class="mb-1">Hindi pwedeng i-usog ang project sa <strong>nakaraang araw</strong>.</p><p class="mb-0 text-muted">Pwede lang sa <strong>' + new Date(manilaToday + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + '</strong> (ngayon, PH) o mas future date.</p>';
         bootstrap.Modal.getOrCreateInstance(document.getElementById('calInfoModal')).show();
         return;
     }

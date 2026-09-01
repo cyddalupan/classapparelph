@@ -337,12 +337,13 @@
                         <label for="marketplace" class="form-label">How did you find us?</label>
                         <select class="form-select" id="marketplace">
                             <option value="">Select option</option>
-                            <option value="facebook">Facebook</option>
-                            <option value="instagram">Instagram</option>
-                            <option value="referral">Referral</option>
-                            <option value="walkin">Walk-in</option>
-                            <option value="website">Website</option>
-                            <option value="other">Other</option>
+                            <option value="MP">MP</option>
+                            <option value="PAGE">PAGE</option>
+                            <option value="WALKIN">WALKIN</option>
+                            <option value="SHOPPEE">SHOPPEE</option>
+                            <option value="MARKETING-MP">MARKETING-MP</option>
+                            <option value="VIBER">VIBER</option>
+                            <option value="MP-PAGE">MP-PAGE</option>
                         </select>
                     </div>
                 </div>

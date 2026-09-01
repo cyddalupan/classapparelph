@@ -120,17 +120,19 @@ class PrototypeSale extends Model
     }
 
     /**
-     * Total paid from payments table (excluding rejected/reject_pending),
+     * Total paid from payments table (VERIFIED payments only),
      * fallback to legacy deposit_paid column ONLY when there are no payment records.
+     * Pending/unverified payments do NOT count as paid — dapat ma-verify muna ng verifier
+     * bago mag-reflect ang "Paid" badge at ma-unlock ang DONE/completed.
      */
     public function getTotalPaidAttribute()
     {
         $payments = $this->relationLoaded('payments') ? $this->payments : $this->payments()->get();
 
-        // If the sale has payment records at all, use only verified/paid statuses.
-        // Rejected or reject_pending payments do NOT count as paid.
+        // If the sale has payment records at all, count only VERIFIED statuses
+        // (same list as recalcSalePaymentTotals + the payment model's isVerified scope).
         if ($payments->isNotEmpty()) {
-            return (float) $payments->whereNotIn('payment_status', ['rejected', 'reject_pending', 'edit_pending'])->sum('amount');
+            return (float) $payments->whereIn('payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])->sum('amount');
         }
 
         // Legacy fallback: no payment records — use the deposit_paid column as-is.
