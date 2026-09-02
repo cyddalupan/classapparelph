@@ -52,6 +52,12 @@ class CheckProdManagerClassAccess
         // Nav: Production → Manager List (Class only, scoped in controller)
         'sales.prototype.list',
 
+        // Pending Approval page + approve/reject (Class overload) — Class only, scoped in controller
+        'sales.prototype.pending-approvals',
+        'sales.prototype.approve-overload',
+        'sales.prototype.reject-overload',
+        'sales.prototype.day-load',
+
         // Nav: Production → Calendar (Class only, scoped in controller)
         'sales.prototype.calendar',
         'sales.prototype.calendar-data',
