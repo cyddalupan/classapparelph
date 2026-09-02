@@ -5,31 +5,141 @@
 @push('styles')
 <style>
     .main-content, .content-area { min-width: 0; }
+
+    /* Header — same gradient style as Backjob List, amber/orange theme */
+    .pf-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 10px;
+        background: linear-gradient(135deg, #3b2505 0%, #92400e 55%, #d97706 100%);
+        border-radius: 14px;
+        padding: 20px 24px;
+        box-shadow: 0 4px 16px rgba(217, 119, 6, 0.25);
+        position: relative;
+        overflow: hidden;
+    }
+    .pf-header::before {
+        content: '';
+        position: absolute;
+        top: -40px;
+        right: -40px;
+        width: 180px;
+        height: 180px;
+        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .pf-header::after {
+        content: '📋';
+        position: absolute;
+        right: 18px;
+        bottom: -14px;
+        font-size: 72px;
+        opacity: 0.12;
+        transform: rotate(-10deg);
+    }
+    .pf-header h2 {
+        margin: 0;
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .pf-header .pf-sub {
+        color: rgba(255,255,255,0.75);
+        font-size: 13px;
+        margin-top: 3px;
+        max-width: 560px;
+    }
+    .pf-stat {
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 10px;
+        padding: 8px 14px;
+        text-align: center;
+        backdrop-filter: blur(4px);
+        min-width: 84px;
+    }
+    .pf-stat .num { font-size: 1.35rem; font-weight: 800; line-height: 1; }
+    .pf-stat .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.85; }
+
+    /* Status pills — cleaner look */
+    .stat-pill {
+        padding: 7px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all .15s ease;
+        border: 1.5px solid transparent;
+    }
+    .stat-pill:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+
+    /* Table — same as Backjob List */
     .pipeline-table {
         width: 100%;
         border-collapse: collapse;
         font-size: 13px;
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
     .pipeline-table th {
-        background: #f8f9fa;
+        background: #fffbeb;
         padding: 10px 12px;
         text-align: left;
-        font-weight: 600;
-        border-bottom: 2px solid #dee2e6;
+        font-weight: 700;
+        color: #78350f;
+        border-bottom: 2px solid #fde68a;
         white-space: nowrap;
     }
     .pipeline-table td {
         padding: 12px;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid #f3f4f6;
         vertical-align: middle;
     }
-    .pipeline-table tr:hover td {
-        background: #f0f7ff;
+    .pipeline-table tbody tr { cursor: pointer; }
+    .pipeline-table tbody tr:hover td { background: #fffbeb; }
+    .pipeline-table tbody tr:last-child td { border-bottom: none; }
+
+    .pf-feedback-box {
+        background: #fff7ed;
+        border-left: 3px solid #f59e0b;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #7c2d12;
+        font-weight: 500;
     }
-    .pipeline-table tr {
-        cursor: pointer;
+    .pf-meta { font-size: 11px; color: #94a3b8; }
+    .pf-involved { color: #d97706; }
+
+    /* Filter bar (agent/category) */
+    .pf-filter-bar {
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 10px 14px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        margin-bottom: 16px;
     }
-    .stat-pill { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .pf-filter-bar select:focus {
+        border-color: #d97706;
+        box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    .empty-state i { font-size: 48px; color: #fcd34d; display: block; margin-bottom: 12px; }
 </style>
 @endpush
 
@@ -37,19 +147,27 @@
 <div class="container-fluid py-4">
 
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="pf-header">
         <div>
-            <h2 style="font-weight:700;color:#1e293b;"><i class="fas fa-clipboard-check me-2" style="color:#d97706;"></i>Production Feedback</h2>
-            <p class="text-muted mb-0" style="font-size:13px;">
+            <h2 class="mb-1"><i class="fas fa-clipboard-check me-2"></i>Production Feedback</h2>
+            <div class="pf-sub">
                 @if($canViewAll ?? $isManager)
                 Lahat ng feedback na binigay sa mga sales agents — para ma-track ang production delays dulot ng kulang na impormasyon.
                 @else
                 Feedback mula sa manager tungkol sa production delays — i-check at i-resolve para magpatuloy ang production.
                 @endif
-            </p>
+            </div>
         </div>
-        <div class="d-flex gap-2">
-            <a href="{{ $isManager ? (auth()->user()->isProdManager() ? route('sales.prototype.list') : route('sales.prototype.dashboard')) : (($isArtist ?? false) ? route('dashboard') : (($canViewAll ?? false) ? route('sales.prototype.list') : route('sales.team.dashboard'))) }}" class="btn btn-outline-secondary btn-sm">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="pf-stat">
+                <div class="num">{{ array_sum($statusCounts) }}</div>
+                <div class="lbl">Total</div>
+            </div>
+            <div class="pf-stat">
+                <div class="num" style="color:#7ef0a3;">{{ $statusCounts['resolved'] ?? 0 }}</div>
+                <div class="lbl">Resolved</div>
+            </div>
+            <a href="{{ $isManager ? (auth()->user()->isProdManager() ? route('sales.prototype.list') : route('sales.prototype.dashboard')) : (($isArtist ?? false) ? route('dashboard') : (($canViewAll ?? false) ? route('sales.prototype.list') : route('sales.team.dashboard'))) }}" class="btn btn-sm text-white" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);">
                 <i class="fas fa-arrow-left me-1"></i> Back
             </a>
         </div>
@@ -65,22 +183,24 @@
 
     <!-- Filters -->
     @if($canViewAll ?? $isManager)
-    <form method="GET" class="row g-2 mb-3">
-        <div class="col-auto">
-            <select name="agent_id" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="">All agents / artists</option>
-                @foreach($agents as $agent)
-                <option value="{{ $agent->id }}" {{ request('agent_id') == $agent->id ? 'selected' : '' }}>{{ $agent->name }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="col-auto">
-            <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
-                <option value="">All categories</option>
-                @foreach(\App\Models\ProductionFeedback::CATEGORIES as $val => $label)
-                <option value="{{ $val }}" {{ request('category') === $val ? 'selected' : '' }}>{{ $label }}</option>
-                @endforeach
-            </select>
+    <form method="GET" class="pf-filter-bar">
+        <div class="row g-2">
+            <div class="col-auto">
+                <select name="agent_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All agents / artists</option>
+                    @foreach($agents as $agent)
+                    <option value="{{ $agent->id }}" {{ request('agent_id') == $agent->id ? 'selected' : '' }}>{{ $agent->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-auto">
+                <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">All categories</option>
+                    @foreach(\App\Models\ProductionFeedback::CATEGORIES as $val => $label)
+                    <option value="{{ $val }}" {{ request('category') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
     </form>
     @endif
@@ -189,8 +309,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="text-center text-muted py-5">
-                            <i class="fas fa-clipboard-check" style="font-size:32px;color:#cbd5e1;"></i>
+                        <td colspan="8" class="empty-state">
+                            <i class="fas fa-clipboard-check"></i>
                             <p class="mt-2 mb-0">Wala pang production feedback.</p>
                         </td>
                     </tr>
