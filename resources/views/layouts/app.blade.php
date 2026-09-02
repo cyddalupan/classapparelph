@@ -346,6 +346,10 @@
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
                         </a>
+                        <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
+                            <i class="fas fa-tags"></i>
+                            <span class="nav-text">Special Price</span>
+                        </a>
                         @endif
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>
@@ -480,6 +484,10 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
+                            <i class="fas fa-tags"></i>
+                            <span class="nav-text">Special Price</span>
                         </a>
                         @endif
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">

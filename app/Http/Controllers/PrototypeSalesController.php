@@ -8109,4 +8109,90 @@ $services = json_decode($sale->services, true);
             ->update(['is_read' => true, 'read_at' => now()]);
         return response()->json(['success' => true]);
     }
+
+    /**
+     * Special Price Review List — read-only page listing all orders whose
+     * services JSON contains a special price override (sublimation hasSpecialPrice
+     * or garment printing isSpecialPrice). Shows the stored reason + project for
+     * manager/admin review. Purely additive; no existing feature/logic touched.
+     */
+    public function specialPriceList()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->isCoo())) {
+            abort(403, 'Only the CEO (admin) and COO can view the special price review list.');
+        }
+
+        $request = request();
+        $q = trim($request->get('q', ''));
+
+        // Candidates: services JSON mentioning either special-price flag (raw LIKE is
+        // safest here — the flag can live at item level, sublimationForm, or printing).
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->whereNull('archived_at')
+            ->where(function ($sub) {
+                $sub->whereRaw("services LIKE '%hasSpecialPrice%'")
+                    ->orWhereRaw("services LIKE '%isSpecialPrice%'")
+                    ->orWhereRaw("services LIKE '%specialPriceReason%'");
+            })
+            ->when($user->isClassScoped(), function ($query) {
+                $query->where('department_id', 4);
+            })
+            ->when(filled($q), function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('sales_number', 'like', '%' . $q . '%')
+                        ->orWhere('customer_name', 'like', '%' . $q . '%');
+                });
+            })
+            ->orderByDesc('created_at');
+
+        $sales = $query->paginate(100)->withQueryString();
+
+        // Extract special price lines from each sale's services JSON
+        $lines = collect();
+        foreach ($sales as $sale) {
+            $svc = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+            foreach ((array) $svc as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $sub = $item['sublimationForm'] ?? [];
+                $print = $item['printing'] ?? [];
+
+                $subSpecial = !empty($sub['hasSpecialPrice']) || !empty($item['hasSpecialPrice']);
+                $printSpecial = !empty($print['isSpecialPrice']) || !empty($item['isSpecialPrice']);
+
+                if ($subSpecial) {
+                    $lines->push([
+                        'sale'       => $sale,
+                        'kind'       => 'Sublimation',
+                        'itemName'   => $item['name'] ?? ($sub['garment'] ?? '—'),
+                        'project'    => $sub['projectName'] ?? $item['projectName'] ?? '',
+                        'qty'        => (int) ($item['quantity'] ?? $item['totalQty'] ?? 0),
+                        'price'      => $sub['specialPrice'] ?? $item['specialPrice'] ?? null,
+                        'reason'     => $sub['specialPriceReason'] ?? $item['specialPriceReason'] ?? '',
+                    ]);
+                }
+                if ($printSpecial) {
+                    $lines->push([
+                        'sale'       => $sale,
+                        'kind'       => 'Garment Print',
+                        'itemName'   => $item['name'] ?? ($print['printType'] ?? '—'),
+                        'project'    => $item['projectName'] ?? '',
+                        'qty'        => (int) ($item['totalQty'] ?? $item['quantity'] ?? $print['printQty'] ?? 0),
+                        'price'      => $print['specialTotal'] ?? $item['specialPrice'] ?? null,
+                        'reason'     => $print['specialReason'] ?? $item['specialReason'] ?? '',
+                    ]);
+                }
+            }
+        }
+
+        // Also collect sales where the flag exists but sits somewhere we didn't map
+        $mapped = $lines->pluck('sale.id')->unique()->flip();
+        $unmapped = $sales->filter(fn ($s) => !$mapped->has($s->id));
+
+        $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
+
+        return view('sales.prototype.special-price-list', compact('sales', 'lines', 'unmapped', 'q', 'departmentLabels'));
+    }
 }

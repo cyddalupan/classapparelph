@@ -871,6 +871,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // GA ORDER LIST route — read-only, only orders tagged FOR SAMPLE / FOR APPROVAL / FOR FORMAT / PRINTING
         Route::get('/sales/prototype/ga-order-list', [App\Http\Controllers\PrototypeSalesController::class, 'gaOrderList'])->name('sales.prototype.ga-order-list');
 
+        // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
+        Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');
+
         // GA DASHBOARD route — performance breakdown per GA / stage / month (counted when tagged SEWING+)
         Route::get('/sales/prototype/ga-dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'gaDashboard'])->name('sales.prototype.ga-dashboard');
 
