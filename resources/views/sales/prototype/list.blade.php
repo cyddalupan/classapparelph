@@ -507,6 +507,11 @@
             <option value="asc">⏫ Set Time: Earliest First</option>
             <option value="desc">⏬ Set Time: Latest First</option>
         </select>
+        <select id="dueSort" onchange="sortByDueDate()" title="Sort by remaining days / due date" style="max-width:200px;">
+            <option value="">Sort: Remaining Days</option>
+            <option value="asc">⏫ Due Soonest First (urgent on top)</option>
+            <option value="desc">⏬ Due Farthest First</option>
+        </select>
         <select id="daysLeftFilter" onchange="filterTable()" title="Filter by due date / days left">
             <option value="">All Days Left</option>
             <option value="overdue">🔴 Overdue</option>
@@ -624,7 +629,7 @@
                             else $daysLeftBucket = 'later';
                         }
                     @endphp
-                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" data-time-req="{{ !empty($sale->needed_by) ? 'set' : (!empty($sale->time_requested_at) ? 'requested' : 'none') }}" data-needed-by="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d H:i:s') : '' }}" data-days-left="{{ $daysLeftBucket }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" data-time-req="{{ !empty($sale->needed_by) ? 'set' : (!empty($sale->time_requested_at) ? 'requested' : 'none') }}" data-needed-by="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d H:i:s') : '' }}" data-days-left="{{ $daysLeftBucket }}" data-due="{{ $dlDate ? \Carbon\Carbon::parse($dlDate)->startOfDay()->format('Y-m-d') : '' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
                         <td style="max-width:130px;">
                             <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:80px;padding:1px 4px;margin-bottom:3px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}" title="Priority tag — nagamit na sa ibang order ang may (Taken)">
                                 <option value="" {{ !$sale->priority ? 'selected' : '' }}>Prio —</option>
@@ -1105,6 +1110,7 @@ function filterTable() {
 
 // Sort table rows by needed-by time (Set Time) — ascending or descending
 function sortByNeededTime() {
+    document.getElementById('dueSort').value = ''; // one sort active at a time
     var dir = document.getElementById('timeSort').value;
     var tbody = document.querySelector('#orderTable tbody');
     var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr')).filter(function(row) {
@@ -1122,6 +1128,31 @@ function sortByNeededTime() {
         return ta < tb ? -1 : (ta > tb ? 1 : 0);
     });
     
+    rows.forEach(function(row) {
+        tbody.appendChild(row);
+    });
+}
+
+// Sort table rows by due date (remaining days) — ascending (soonest/overdue first) or descending
+function sortByDueDate() {
+    document.getElementById('timeSort').value = ''; // one sort active at a time
+    var dir = document.getElementById('dueSort').value;
+    var tbody = document.querySelector('#orderTable tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr')).filter(function(row) {
+        return !row.querySelector('td[colspan]');
+    });
+
+    rows.sort(function(a, b) {
+        var da = a.getAttribute('data-due') || '';
+        var db = b.getAttribute('data-due') || '';
+        // Rows without a due date (dispatched/done/never set) sink to the bottom
+        if (!da && !db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        if (dir === 'desc') return da < db ? 1 : (da > db ? -1 : 0);
+        return da < db ? -1 : (da > db ? 1 : 0);
+    });
+
     rows.forEach(function(row) {
         tbody.appendChild(row);
     });
@@ -1145,7 +1176,7 @@ function populateAgentFilter() {
 }
 
 function resetFilters() {
-    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter', 'timeReqFilter', 'timeSort', 'daysLeftFilter'].forEach(function(id) {
+    ['searchInput', 'deptFilter', 'statusFilter', 'paymentFilter', 'agentFilter', 'photoFilter', 'dateFrom', 'dateTo', 'stageFilter', 'timeReqFilter', 'timeSort', 'dueSort', 'daysLeftFilter'].forEach(function(id) {
         document.getElementById(id).value = '';
     });
     document.getElementById('prioFilter').checked = false;
