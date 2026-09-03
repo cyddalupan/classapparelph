@@ -1390,7 +1390,8 @@ function getProjBreakdown(p) {
         if (specs.pocket && String(specs.pocket).toUpperCase() !== 'NO' && String(specs.pocket).toUpperCase() !== 'NONE') bd.parts['POCKET'] = 1;
         Object.keys(specs).forEach(function(k) {
             var v = String(specs[k]).trim().toUpperCase();
-            if (k.toLowerCase().indexOf('collar') !== -1 && v && v !== 'NO' && v !== 'NONE') bd.parts['KNITTED COLLAR'] = 1;
+            // Only a literal KNITTED COLLAR spec counts — SUBLI/SUBILI PRINT collars are a different option
+            if (v.indexOf('KNITTED COLLAR') !== -1) bd.parts['KNITTED COLLAR'] = 1;
         });
     });
     return { garments: Object.keys(bd.garments), fabrics: Object.keys(bd.fabrics), parts: Object.keys(bd.parts) };
@@ -1532,7 +1533,8 @@ function updateSummary(projects) {
             if (specs.pocket && String(specs.pocket).toUpperCase() !== 'NO' && String(specs.pocket).toUpperCase() !== 'NONE') parts.push('POCKET');
             Object.keys(specs).forEach(k => {
                 const v = String(specs[k]).trim().toUpperCase();
-                if (k.toLowerCase().indexOf('collar') !== -1 && v && v !== 'NO' && v !== 'NONE') parts.push('KNITTED COLLAR');
+                // Only a literal KNITTED COLLAR spec counts — SUBLI/SUBILI PRINT collars are a different option
+                if (v.indexOf('KNITTED COLLAR') !== -1) parts.push('KNITTED COLLAR');
             });
             // De-duplicate per item so qty is not double-counted
             const seen = {};
