@@ -96,7 +96,10 @@ class CustomerController extends Controller
         }
 
         // Check if customer already exists by phone
-        $customer = Customer::where('phone', $request->phone)->first();
+        // Placeholder phones ("N/A") must never match/update an existing customer —
+        // the UNIQUE phone column would glue unrelated buyers onto one record.
+        $isPlaceholder = Customer::isPlaceholderPhone($request->phone);
+        $customer = $isPlaceholder ? null : Customer::where('phone', $request->phone)->first();
 
         if ($customer) {
             // Update existing customer
@@ -108,10 +111,10 @@ class CustomerController extends Controller
                 'customer' => $customer->load('creator')
             ]);
         } else {
-            // Create new customer
+            // Create new customer (fresh record for placeholder phones — never reuse "N/A")
             $customer = Customer::create([
                 'name' => $request->name,
-                'phone' => $request->phone,
+                'phone' => $isPlaceholder ? Customer::uniquePlaceholderPhone() : $request->phone,
                 'email' => $request->email,
                 'marketplace' => $request->marketplace,
                 'address' => $request->address,
@@ -242,6 +245,15 @@ class CustomerController extends Controller
                 'success' => false,
                 'message' => 'Phone number is required'
             ], 400);
+        }
+
+        // Placeholder phones ("N/A") must never match an existing customer
+        if (Customer::isPlaceholderPhone($phone)) {
+            return response()->json([
+                'success' => true,
+                'exists' => false,
+                'customer' => null
+            ]);
         }
         
         $customer = Customer::where('phone', $phone)->with('creator')->first();

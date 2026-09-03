@@ -66,6 +66,45 @@ class Customer extends Model
     }
 
     /**
+     * Determine whether a phone value is a placeholder (no real number),
+     * e.g. "N/A", "NA", "-", "none", or client-side "+63N/A" artifacts.
+     * Placeholder phones must NEVER auto-link a sale to an existing customer
+     * via phone match — that UNIQUE-column collision merged unrelated buyers
+     * into one customer record (MAAM FAITHFUL / id 3).
+     */
+    public static function isPlaceholderPhone($phone)
+    {
+        if ($phone === null) {
+            return true;
+        }
+        $phone = trim((string) $phone);
+        if ($phone === '') {
+            return true;
+        }
+        // No digits at all -> cannot be a real contact number
+        if (!preg_match('/[0-9]/', $phone)) {
+            return true;
+        }
+        // Tolerate artifacts like "+63N/A": check the letters-only core
+        $alpha = strtolower($phone);
+        $alpha = preg_replace('/[^a-z]/', '', $alpha);
+        return in_array($alpha, ['na', 'none', 'nil', 'null', 'xxx', 'unknown', 'nophone', 'noprovided'], true);
+    }
+
+    /**
+     * Generate a UNIQUE placeholder phone (letters only, digit-free so it stays
+     * classified as a placeholder). Used when a buyer has no real phone number.
+     */
+    public static function uniquePlaceholderPhone($prefix = 'N/A')
+    {
+        do {
+            $suffix = strtoupper(substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ'), 0, 5));
+            $candidate = $prefix . '-' . $suffix;
+        } while (static::withTrashed()->where('phone', $candidate)->exists());
+        return $candidate;
+    }
+
+    /**
      * Update customer tier based on total spent
      */
     public function updateTier()

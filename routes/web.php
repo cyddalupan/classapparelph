@@ -690,6 +690,11 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // Customer API Routes for Prototype
         Route::get("/api/customers/check", function (\Illuminate\Http\Request $request) {
             $phone = $request->query("phone");
+            // Placeholder phones ("N/A") must never match an existing customer —
+            // the UNIQUE phone column would glue unrelated buyers onto one record.
+            if (\App\Models\Customer::isPlaceholderPhone($phone)) {
+                return response()->json(["exists" => false]);
+            }
             $customer = \App\Models\Customer::where("phone", $phone)->first();
             
             if ($customer) {

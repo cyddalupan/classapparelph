@@ -165,11 +165,21 @@ class PrototypeSalesController extends Controller
         
         // Use existing customer_id if provided and still valid; otherwise fall back to phone lookup/create
         // (stale customer_id from Smart Customer Detection must not block sale creation)
+        // IMPORTANT: placeholder phones ("N/A") must NEVER auto-link a sale to an existing
+        // customer via phone match — the UNIQUE phone column glued unrelated buyers onto
+        // one record (MAAM FAITHFUL bug). An explicit customer_id is only trusted when the
+        // selected customer's name matches the submitted name (genuine repeat purchase).
         $customer = null;
+        $phoneIsPlaceholder = \App\Models\Customer::isPlaceholderPhone($request->customer_phone);
+        $submittedName = trim((string) $request->customer_name);
         if ($request->customer_id) {
-            $customer = \App\Models\Customer::find($request->customer_id);
+            $candidate = \App\Models\Customer::find($request->customer_id);
+            if ($candidate && strcasecmp(trim((string) $candidate->name), $submittedName) === 0) {
+                $customer = $candidate;
+            }
         }
-        if (!$customer) {
+        // Real phone: look up / create by phone (unchanged behaviour for real numbers).
+        if (!$customer && !$phoneIsPlaceholder) {
             $customer = \App\Models\Customer::firstOrCreate(
                 ['phone' => $request->customer_phone],
                 [
@@ -182,9 +192,35 @@ class PrototypeSalesController extends Controller
                 ]
             );
         }
+        // Placeholder phone: reuse the CURRENT USER's own placeholder customer with the
+        // exact same name; otherwise create a FRESH unique record (never reuse "N/A").
+        if (!$customer) {
+            $normalized = mb_strtolower($submittedName);
+            $customer = \App\Models\Customer::where('created_by', auth()->id())
+                ->whereRaw('LOWER(TRIM(name)) = ?', [$normalized])
+                ->get()
+                ->first(function ($c) {
+                    return \App\Models\Customer::isPlaceholderPhone($c->phone);
+                });
+            if (!$customer) {
+                $customer = \App\Models\Customer::create([
+                    'name' => $request->customer_name,
+                    'phone' => \App\Models\Customer::uniquePlaceholderPhone(),
+                    'email' => $request->customer_email,
+                    'marketplace' => $request->marketplace,
+                    'location' => $request->customer_address,
+                    'company' => $request->customer_company,
+                    'created_by' => auth()->id(),
+                    'customer_tier' => \App\Models\Customer::TIER_BRONZE,
+                    'total_orders' => 0,
+                    'total_spent' => 0,
+                    'average_order_value' => 0,
+                ]);
+            }
+        }
         
         // If customer already exists, update their info if provided
-        if ($customer->wasRecentlyCreated === false) {
+        if (!$phoneIsPlaceholder && $customer->wasRecentlyCreated === false) {
             $updates = [];
             if ($request->customer_email && !$customer->email) {
                 $updates['email'] = $request->customer_email;
