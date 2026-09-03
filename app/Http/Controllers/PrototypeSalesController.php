@@ -5462,8 +5462,10 @@ $services = json_decode($sale->services, true);
             ->limit(50)
             ->get();
 
+        // Dropdown for re-tagging shows ALL active accounts (incl. other verifiers'
+        // and company accounts) so admin can re-tag payments between verifiers.
+        // Card visibility above still stays scoped to the verifier's own accounts.
         $accounts = \App\Models\PaymentAccount::with('user')->where('is_active', true)
-            ->when($ownAccountFilter, fn($q) => $q->where('user_id', $ownAccountFilter))
             ->get();
 
         // Pending rejections awaiting a second verifier (two-verifier approval)
