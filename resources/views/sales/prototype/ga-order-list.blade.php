@@ -649,6 +649,14 @@
                                 $assignMap[$asg->stage] = $asg;
                             }
                             $currentUser = auth()->user();
+
+                            // Production Status editor roles: CEO/COO/Prod Manager/QA lang ang may dropdown
+                            $isEditor = $currentUser && ($currentUser->isAdmin() || $currentUser->isCoo() || $currentUser->isProdManager() || $currentUser->isQa());
+                            // Photo-lock override (same rule as updateStatus server-side): admin/manager/class-scoped lang ang nakaka-bypass
+                            $canOverridePhotos = $currentUser && ($currentUser->isAdmin() || $currentUser->role === 'manager' || $currentUser->isClassScoped());
+                            $dImgs = is_string($sale->design_images) ? (json_decode($sale->design_images, true) ?: []) : ($sale->design_images ?: []);
+                            $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
+                            $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
                         @endphp
                         <tr data-sale-id="{{ $sale->id }}">
                             <td style="max-width:150px;">
@@ -666,6 +674,16 @@
                             </td>
                             <td style="max-width:260px;">
                                 <div style="font-size:12px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;" title="{{ $description }}">{{ \Illuminate\Support\Str::limit($description, 60) }}</div>
+                                @if($isEditor)
+                                    <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $stageLabel }}" title="Production Status — ilipat ang order sa susunod na stage" style="font-size:11px;min-width:160px;max-width:100%;padding:2px 6px;margin-top:4px;">
+                                        @foreach($prodStageMap as $st => $stStatus)
+                                            <option value="{{ $st }}" data-status="{{ $stStatus }}" {{ $stageLabel === $st ? 'selected' : '' }}
+                                                @if(!$canOverridePhotos && !$hasFileShot && $stStatus === 'sample_approval') disabled title="🔒 Kulang File Screenshot"
+                                                @elseif(!$canOverridePhotos && $hasFileShot && !$hasColorShot && in_array($stStatus, ['design','production','quality_check','ready_for_delivery','delivered','completed'], true)) disabled title="🔒 Kulang Approved Sample Color"
+                                                @endif>{{ $st }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                             </td>
                             <td class="text-center" style="font-weight:700;color:#374151;">{{ $totalQty ?: '—' }}</td>
                             <td>
@@ -980,6 +998,53 @@
         if (!row) return;
         const saleId = row.getAttribute('data-sale-id');
         window.location.href = '/sales/prototype/' + saleId;
+    });
+
+    // === PRODUCTION STATUS DROPDOWN (Description cell) — same endpoint as manager order list ===
+    const GA_FILTER_STAGES = ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING'];
+    const STAGE_BG = Object.assign({}, @json($stageColors), {
+        'HOLD': ['#6c757d', ''], 'SEWING': ['#198754', ''], 'QA': ['#6f42c1', ''],
+        'DISPATCH': ['#fd7e14', ''], 'UNPAID': ['#dc3545', ''], 'DONE': ['#198754', '']
+    });
+    document.addEventListener('change', function (e) {
+        const sel = e.target.closest('.prod-status-select');
+        if (!sel) return;
+        const saleId = sel.getAttribute('data-sale-id');
+        const stage = sel.value;
+        const newStatus = sel.options[sel.selectedIndex].getAttribute('data-status');
+        const oldStage = sel.getAttribute('data-current');
+        const row = sel.closest('tr[data-sale-id]');
+        sel.disabled = true;
+        fetch('/sales/prototype/' + saleId + '/update-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+            body: JSON.stringify({ kanban_status: newStatus, production_stage: stage })
+        })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            sel.disabled = false;
+            if (res.ok && res.data.success) {
+                sel.setAttribute('data-current', stage);
+                const badge = row ? row.querySelector('.stage-badge') : null;
+                if (badge) {
+                    badge.textContent = stage;
+                    if (STAGE_BG[stage] && STAGE_BG[stage][0]) badge.style.background = STAGE_BG[stage][0];
+                }
+                const urlParams = new URLSearchParams(window.location.search);
+                const hasStageFilter = !!urlParams.get('stage');
+                if (GA_FILTER_STAGES.indexOf(stage) === -1 || hasStageFilter) {
+                    setTimeout(function () { location.reload(); }, 900); // nawala sa GA list scope o may stage filter → refresh
+                }
+            } else {
+                sel.value = oldStage;
+                alert('⚠️ ' + (res.data.message || 'Failed to update status.'));
+            }
+        })
+        .catch(function () {
+            sel.disabled = false;
+            sel.value = oldStage;
+            alert('❌ Network error. Please try again.');
+        });
     });
 })();
 </script>
