@@ -465,7 +465,7 @@
     <div class="ga-hero mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <h4 class="mb-1">🎨 GA Job List</h4>
-            <div class="sub">Orders tagged <b>FOR SAMPLE</b> / <b>FOR APPROVAL</b> / <b>FOR FORMAT</b> / <b>PRINTING</b> — read-only view</div>
+            <div class="sub">Orders tagged <b>FOR SAMPLE</b> / <b>FOR FORMAT</b> / <b>PRINTING</b> — read-only view</div>
         </div>
         <div class="d-flex align-items-center gap-2">
             <a href="{{ route('sales.prototype.backjobs') }}" class="btn btn-sm fw-semibold" style="border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;">
@@ -505,7 +505,7 @@
                 </div>
             </div>
         </div>
-        @foreach(['FOR SAMPLE' => 'Sample', 'FOR APPROVAL' => 'Approval', 'FOR FORMAT' => 'Format', 'PRINTING' => 'Printing'] as $st => $lbl)
+        @foreach(['FOR SAMPLE' => 'Sample', 'FOR FORMAT' => 'Format', 'PRINTING' => 'Printing'] as $st => $lbl)
         <div class="col-6 col-md-4 col-xl-2">
             <div class="ga-stat">
                 <div class="ico" style="background:{{ $stageColors[$st][0] }};">{{ $stageColors[$st][1] }}</div>
@@ -713,7 +713,7 @@
                                         return ($firstNameCounts[strtolower($first)] ?? 1) > 1 ? $full : $first;
                                     };
                                 @endphp
-                                @foreach(['FOR SAMPLE' => 'Sample', 'FOR APPROVAL' => 'Approval', 'FOR FORMAT' => 'Format', 'PRINTING' => 'Print'] as $stName => $stLbl)
+                                @foreach(['FOR SAMPLE' => 'Sample', 'FOR FORMAT' => 'Format', 'PRINTING' => 'Print'] as $stName => $stLbl)
                                     @php
                                         $asg = $assignMap[$stName] ?? null;
                                         $isPast = ($stageOrder[$stName] ?? 0) < $curIdx;
