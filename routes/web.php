@@ -700,7 +700,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
             }
             
             return response()->json(["exists" => false]);
-        });
+        })->name('api.customers.check');
         
         Route::get("/api/customers/search", function (\Illuminate\Http\Request $request) {
             $query = \App\Models\Customer::active()->with('creator');
@@ -781,7 +781,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
             }
             
             return response()->json(["customers" => $customers]);
-        });
+        })->name('api.customers.search');
         
         Route::get("/api/customers/{id}", function ($id) {
             $customer = \App\Models\Customer::find($id);
@@ -794,8 +794,11 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
             $customer->getDaysSinceLastOrder = $customer->getDaysSinceLastOrder();
             
             return response()->json($customer);
-        });
-        Route::put("/api/customers/{id}", [\App\Http\Controllers\CustomerController::class, 'update']);
+        })->name('api.customers.show');
+        Route::put("/api/customers/{id}", [\App\Http\Controllers\CustomerController::class, 'update'])->name('api.customers.update');
+
+        // Save/create customer (used by Prototype create modal for ALL roles)
+        Route::post("/api/customers/save", [\App\Http\Controllers\CustomerController::class, 'save'])->name('api.customers.save');
         // PROTOTYPE SALES SYSTEM
         Route::get('/sales/prototype', function () {
             if (!Gate::allows('input-sales')) {

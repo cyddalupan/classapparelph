@@ -50,6 +50,15 @@ class CheckQaAccess
         // Audit history (read-only logs, used by show page comments/audit section)
         'sales.prototype.audit-history',
 
+        // Uploads on the Sale Show page (File Screenshot / Approved Sample Color /
+        // Mockups) — QA/Sales Agent can only manage their OWN sales
+        // (ownership is enforced in the controller)
+        'sales.prototype.upload-design-image',
+        'sales.prototype.delete-design-image',
+        'sales.prototype.upload-mockup',
+        'sales.prototype.delete-mockup',
+        'sales.prototype.set-main-mockup',
+
         // Pending add-on count badge (kanban/card headers)
         'sales.prototype.addon.pending-count',
 
@@ -96,6 +105,15 @@ class CheckQaAccess
         // My Sales → Production Feedback list (own/Class feedback, scoped in controller)
         'sales.prototype.production-feedback.list',
         'sales.prototype.create',
+        'api.sublimation-prices',
+        'product-pricing.api.products-for-box',
+        'product-pricing.api.filter-options',
+        'api.printing.options',
+        'sales.prototype.day-load',
+        'api.customers.check',
+        'api.customers.search',
+        'api.customers.show',
+        'api.customers.save',
         'sales.prototype.store',
         'sales.prototype.agent.payment',
         'sales.prototype.agent.payment.store',

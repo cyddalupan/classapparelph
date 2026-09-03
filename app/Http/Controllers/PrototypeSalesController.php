@@ -7637,6 +7637,12 @@ $services = json_decode($sale->services, true);
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
         }
 
+        // QA / Sales Agent: sariling benta lang — huwag gagalaw sa benta ng iba
+        $user = $request->user();
+        if ($user && $user->isQa() && (int) $sale->sales_agent_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: you can only manage your own sales.'], 403);
+        }
+
         $file = $request->file('design_image');
         $filename = 'design_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
         $filePath = $file->storeAs('uploads/sales/' . $id, $filename, 'public');
@@ -7681,6 +7687,12 @@ $services = json_decode($sale->services, true);
         $sale = \App\Models\PrototypeSale::find($id);
         if (!$sale) {
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        // QA / Sales Agent: sariling benta lang — huwag gagalaw sa benta ng iba
+        $user = $request->user();
+        if ($user && $user->isQa() && (int) $sale->sales_agent_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: you can only manage your own sales.'], 403);
         }
 
         $images = is_array($sale->design_images) ? $sale->design_images : (is_string($sale->design_images) ? (json_decode($sale->design_images, true) ?: []) : []);
@@ -7754,6 +7766,12 @@ $services = json_decode($sale->services, true);
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
         }
 
+        // QA / Sales Agent: sariling benta lang — huwag gagalaw sa benta ng iba
+        $user = $request->user();
+        if ($user && $user->isQa() && (int) $sale->sales_agent_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: you can only manage your own sales.'], 403);
+        }
+
         $file = $request->file('mockup_image');
         $filename = 'mockup_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
         $filePath = $file->storeAs('uploads/mockups/' . $id, $filename, 'public');
@@ -7793,6 +7811,12 @@ $services = json_decode($sale->services, true);
         $sale = \App\Models\PrototypeSale::find($id);
         if (!$sale) {
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        // QA / Sales Agent: sariling benta lang — huwag gagalaw sa benta ng iba
+        $user = $request->user();
+        if ($user && $user->isQa() && (int) $sale->sales_agent_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: you can only manage your own sales.'], 403);
         }
 
         $images = is_array($sale->mockup_images) ? $sale->mockup_images : [];
@@ -7876,6 +7900,12 @@ $services = json_decode($sale->services, true);
         $sale = \App\Models\PrototypeSale::find($id);
         if (!$sale) {
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        // QA / Sales Agent: sariling benta lang — huwag gagalaw sa benta ng iba
+        $user = $request->user();
+        if ($user && $user->isQa() && (int) $sale->sales_agent_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: you can only manage your own sales.'], 403);
         }
 
         $images = is_array($sale->mockup_images) ? $sale->mockup_images : [];
