@@ -106,10 +106,25 @@ class PrototypeSalesController extends Controller
         if (!$sale || $sale->status !== 'pending_approval') {
             return response()->json(['success' => false, 'message' => 'This sale is not pending approval.']);
         }
+        // Capture the requester BEFORE clearing the fields (approval_requested_by is reset below)
+        $requesterId = $sale->approval_requested_by ?: ($sale->sales_agent_id ?? null);
         $sale->status = 'pending';
         $sale->approval_requested_at = null;
         $sale->approval_requested_by = null;
         $sale->save();
+
+        // Notify the requester (agent) that their overloaded sale was approved
+        if ($requesterId && (int) $requesterId !== (int) $user->id) {
+            \App\Models\SaleNotification::create([
+                'sale_id' => $sale->id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $requesterId,
+                'type' => 'approval',
+                'title' => 'Sale Approved ✅',
+                'message' => 'Na-approve na ang sale ' . ($sale->sales_number ?? ('#' . $sale->id)) . ' — kasama na sa day load.',
+            ]);
+        }
+
         return response()->json(['success' => true, 'message' => 'Sale approved — it now counts toward the day load.']);
     }
 
@@ -1229,6 +1244,18 @@ public function details(Request $request, string $id)
             'updated_at' => now(),
         ]);
         
+        // Notify the requester (agent) that their change/reprocess request was approved
+        if (!empty($change->submitted_by) && (int) $change->submitted_by !== (int) $user->id) {
+            \App\Models\SaleNotification::create([
+                'sale_id' => $change->sale_id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $change->submitted_by,
+                'type' => 'approval',
+                'title' => $isReprocess ? 'Reprocess Approved ✅' : 'Change Approved ✅',
+                'message' => 'Na-approve na ng manager ang iyong request. ' . $desc,
+            ]);
+        }
+
         return response()->json(['success' => true, 'message' => $desc]);
     }
 
@@ -8216,10 +8243,14 @@ $services = json_decode($sale->services, true);
 
         $sales = $query->paginate(100)->withQueryString();
 
-        // Extract special price lines from each sale's services JSON
+        // Extract special price lines from each sale's services JSON.
+        // NOTE: "Additional Order" items store specialPrice as an OBJECT
+        // { price, reason } instead of a plain number — unwrap it so the review
+        // list shows the real price + reason (not a bogus ₱1.00 from casting).
         $lines = collect();
         foreach ($sales as $sale) {
             $svc = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+            $agent = trim((string) ($sale->sales_agent_name ?? ''));
             foreach ((array) $svc as $item) {
                 if (!is_array($item)) {
                     continue;
@@ -8231,36 +8262,153 @@ $services = json_decode($sale->services, true);
                 $printSpecial = !empty($print['isSpecialPrice']) || !empty($item['isSpecialPrice']);
 
                 if ($subSpecial) {
+                    $spRaw = $sub['specialPrice'] ?? $item['specialPrice'] ?? null;
+                    if (is_array($spRaw)) {
+                        $price = $spRaw['price'] ?? null;
+                        $reason = $spRaw['reason'] ?? ($sub['specialPriceReason'] ?? $item['specialPriceReason'] ?? '');
+                    } else {
+                        $price = $spRaw;
+                        $reason = $sub['specialPriceReason'] ?? $item['specialPriceReason'] ?? '';
+                    }
                     $lines->push([
-                        'sale'       => $sale,
-                        'kind'       => 'Sublimation',
-                        'itemName'   => $item['name'] ?? ($sub['garment'] ?? '—'),
-                        'project'    => $sub['projectName'] ?? $item['projectName'] ?? '',
-                        'qty'        => (int) ($item['quantity'] ?? $item['totalQty'] ?? 0),
-                        'price'      => $sub['specialPrice'] ?? $item['specialPrice'] ?? null,
-                        'reason'     => $sub['specialPriceReason'] ?? $item['specialPriceReason'] ?? '',
+                        'sale'      => $sale,
+                        'kind'      => 'Sublimation',
+                        'itemName'  => $item['name'] ?? (is_array($sub['garment'] ?? null) ? ($sub['garment']['name'] ?? '—') : ($sub['garment'] ?? '—')),
+                        'project'   => $sub['projectName'] ?? $item['projectName'] ?? '',
+                        'qty'       => (int) ($item['quantity'] ?? $item['totalQty'] ?? 0),
+                        'price'     => $price,
+                        'reason'    => (string) $reason,
+                        'agent'     => $agent,
+                        'lineKey'   => (string) ($item['id'] ?? ('n' . crc32(($item['name'] ?? '') . '|Sublimation'))) . '|Sublimation',
+                        'reviewed'  => null,
                     ]);
                 }
                 if ($printSpecial) {
+                    $spRaw = $print['specialTotal'] ?? $item['specialPrice'] ?? null;
+                    if (is_array($spRaw)) {
+                        $price = $spRaw['price'] ?? null;
+                        $reason = $spRaw['reason'] ?? ($print['specialReason'] ?? $item['specialReason'] ?? '');
+                    } else {
+                        $price = $spRaw;
+                        $reason = $print['specialReason'] ?? $item['specialReason'] ?? '';
+                    }
                     $lines->push([
-                        'sale'       => $sale,
-                        'kind'       => 'Garment Print',
-                        'itemName'   => $item['name'] ?? ($print['printType'] ?? '—'),
-                        'project'    => $item['projectName'] ?? '',
-                        'qty'        => (int) ($item['totalQty'] ?? $item['quantity'] ?? $print['printQty'] ?? 0),
-                        'price'      => $print['specialTotal'] ?? $item['specialPrice'] ?? null,
-                        'reason'     => $print['specialReason'] ?? $item['specialReason'] ?? '',
+                        'sale'      => $sale,
+                        'kind'      => 'Garment Print',
+                        'itemName'  => $item['name'] ?? ($print['printType'] ?? '—'),
+                        'project'   => $item['projectName'] ?? '',
+                        'qty'       => (int) ($item['totalQty'] ?? $item['quantity'] ?? $print['printQty'] ?? 0),
+                        'price'     => $price,
+                        'reason'    => (string) $reason,
+                        'agent'     => $agent,
+                        'lineKey'   => (string) ($item['id'] ?? ('n' . crc32(($item['name'] ?? '') . '|Garment Print'))) . '|Garment Print',
+                        'reviewed'  => null,
                     ]);
                 }
             }
         }
 
-        // Also collect sales where the flag exists but sits somewhere we didn't map
+        // Attach existing CEO/COO review ("checked") state to each line
+        if ($lines->isNotEmpty()) {
+            $mappedSaleIds = $lines->pluck('sale.id')->unique()->values();
+            $reviewRows = \DB::table('prototype_special_price_reviews')
+                ->whereIn('sale_id', $mappedSaleIds)
+                ->get()
+                ->keyBy(fn ($r) => $r->sale_id . '|' . $r->line_key);
+            $reviewerIds = $reviewRows->pluck('reviewed_by')->unique()->filter()->values();
+            $reviewerNames = \App\Models\User::whereIn('id', $reviewerIds)->get()->pluck('display_label', 'id');
+            $lines = $lines->map(function ($line) use ($reviewRows, $reviewerNames) {
+                $key = $line['sale']->id . '|' . $line['lineKey'];
+                $row = $reviewRows->get($key);
+                if ($row) {
+                    $line['reviewed'] = [
+                        'by' => $reviewerNames[$row->reviewed_by] ?? ('User #' . $row->reviewed_by),
+                        'at' => \Carbon\Carbon::parse($row->reviewed_at)->format('M d, g:i A'),
+                    ];
+                }
+                return $line;
+            });
+        }
+
+        // Unmapped = sales na may TUNAY na special-price flag (hindi lang "false"
+        // o "0" na naka-store sa JSON) pero hindi natin na-extract bilang line.
+        $hasTruthyFlag = function ($node) use (&$hasTruthyFlag) {
+            if (!is_array($node)) {
+                return false;
+            }
+            foreach ($node as $k => $v) {
+                if (is_string($k)) {
+                    $lk = strtolower($k);
+                    if ($lk === 'hasspecialprice' || $lk === 'isspecialprice') {
+                        if ($v === true) {
+                            return true;
+                        }
+                        if (is_string($v) && trim($v) !== '' && strtolower(trim($v)) !== 'false' && trim($v) !== '0') {
+                            return true;
+                        }
+                        if (is_numeric($v) && (float) $v > 0) {
+                            return true;
+                        }
+                    }
+                }
+                if ($hasTruthyFlag($v)) {
+                    return true;
+                }
+            }
+            return false;
+        };
         $mapped = $lines->pluck('sale.id')->unique()->flip();
-        $unmapped = $sales->filter(fn ($s) => !$mapped->has($s->id));
+        $unmapped = $sales->filter(function ($s) use ($mapped, $hasTruthyFlag) {
+            if ($mapped->has($s->id)) {
+                return false;
+            }
+            $svc = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
+            return $hasTruthyFlag($svc);
+        });
 
         $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
 
         return view('sales.prototype.special-price-list', compact('sales', 'lines', 'unmapped', 'q', 'departmentLabels'));
+    }
+
+    /**
+     * Toggle the CEO/COO "checked" review state of one special-price line.
+     * Additive only — no other logic is touched.
+     */
+    public function toggleSpecialPriceReview(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the CEO (admin) and COO can mark special prices as checked.'], 403);
+        }
+
+        $data = $request->validate([
+            'sale_id'  => 'required|integer',
+            'line_key' => 'required|string|max:255',
+        ]);
+
+        $existing = \DB::table('prototype_special_price_reviews')
+            ->where('sale_id', $data['sale_id'])
+            ->where('line_key', $data['line_key'])
+            ->first();
+
+        if ($existing) {
+            \DB::table('prototype_special_price_reviews')
+                ->where('id', $existing->id)
+                ->delete();
+
+            return response()->json(['success' => true, 'checked' => false]);
+        }
+
+        \DB::table('prototype_special_price_reviews')->insert([
+            'sale_id'     => $data['sale_id'],
+            'line_key'    => $data['line_key'],
+            'reviewed_by' => $user->id,
+            'reviewed_at' => now(),
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        return response()->json(['success' => true, 'checked' => true]);
     }
 }

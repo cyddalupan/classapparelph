@@ -882,6 +882,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
         Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');
 
+        // SPECIAL PRICE REVIEW — toggle CEO/COO "checked" state of a special-price line
+        Route::post('/sales/prototype/special-price/review', [App\Http\Controllers\PrototypeSalesController::class, 'toggleSpecialPriceReview'])->name('sales.prototype.special-price.review');
+
         // GA DASHBOARD route — performance breakdown per GA / stage / month (counted when tagged SEWING+)
         Route::get('/sales/prototype/ga-dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'gaDashboard'])->name('sales.prototype.ga-dashboard');
 

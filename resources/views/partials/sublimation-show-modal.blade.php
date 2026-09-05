@@ -1052,9 +1052,12 @@ window.sub_calculateTotal = function() {
         });
     } else {
         sizeInputs.forEach(function(input) {
-            var size = input.dataset.size;
-            var sizePrice = sub_getSizePrice(size);
-            if (sizePrice > maxSizeAddon) maxSizeAddon = sizePrice;
+            var val = parseInt(input.value) || 0;
+            if (val > 0) { // Only count sizes with actual qty (fix: phantom size add-on)
+                var size = input.dataset.size;
+                var sizePrice = sub_getSizePrice(size);
+                if (sizePrice > maxSizeAddon) maxSizeAddon = sizePrice;
+            }
         });
     }
     

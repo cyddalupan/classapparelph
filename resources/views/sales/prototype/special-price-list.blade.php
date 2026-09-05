@@ -138,6 +138,7 @@
                         @if($line['project'])
                             <div class="sp-muted mt-1"><i class="fas fa-briefcase me-1"></i>{{ $line['project'] }}</div>
                         @endif
+                        <div class="sp-muted mt-1"><i class="fas fa-user-tie me-1"></i><strong>Sales Agent:</strong> {{ $line['agent'] !== '' ? $line['agent'] : '—' }}</div>
                     </div>
                     <div class="text-end">
                         <div class="fw-bold text-warning" style="font-size:1.05rem;">
@@ -155,6 +156,16 @@
                     <strong>Reason:</strong>
                     {{ $line['reason'] !== '' ? $line['reason'] : '⚠️ Walang reason na nilagay!' }}
                 </div>
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-2">
+                    @if($line['reviewed'])
+                        <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Checked by {{ $line['reviewed']['by'] }} · {{ $line['reviewed']['at'] }}</span>
+                    @else
+                        <span></span>
+                    @endif
+                    <button type="button" class="btn btn-sm {{ $line['reviewed'] ? 'btn-outline-secondary' : 'btn-success' }} sp-review-btn" data-sale="{{ $sale->id }}" data-key="{{ $line['lineKey'] }}">
+                        <i class="fas {{ $line['reviewed'] ? 'fa-undo' : 'fa-check' }} me-1"></i>{{ $line['reviewed'] ? 'Uncheck' : 'Mark as checked' }}
+                    </button>
+                </div>
             </div>
         </div>
     @empty
@@ -165,6 +176,7 @@
         <div class="card border-warning mb-3">
             <div class="card-header bg-warning text-dark fw-bold"><i class="fas fa-exclamation-triangle me-1"></i> May flag pero hindi ma-extract ang line details</div>
             <div class="card-body py-2">
+                <div class="small text-muted mb-2">Safety net: mga order na ang raw JSON ay may special-price flag pero hindi na-parse ng extractor bilang linya (hal. may text na <code>hasSpecialPrice</code> na ang value ay false/0, o naka-store sa hindi pa kilalang format). I-click ang sales number para i-check manually kung may special price nga.</div>
                 @foreach($unmapped as $sale)
                     <a href="{{ route('sales.prototype.show', $sale->id) }}" class="badge bg-light text-dark border me-1 mb-1 text-decoration-none">{{ $sale->sales_number }}</a>
                 @endforeach
@@ -178,3 +190,38 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.sp-review-btn');
+        if (!btn) return;
+        e.preventDefault();
+        btn.disabled = true;
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving…';
+        fetch('{{ route('sales.prototype.special-price.review') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                sale_id: btn.dataset.sale,
+                line_key: btn.dataset.key
+            })
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+            if (!res.ok || !res.d.success) { throw new Error((res.d && res.d.message) || 'Error'); }
+            location.reload();
+        })
+        .catch(function (err) {
+            btn.disabled = false;
+            btn.innerHTML = original;
+            alert('Hindi ma-save: ' + err.message);
+        });
+    });
+</script>
+@endpush

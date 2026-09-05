@@ -91,6 +91,9 @@ class CheckQaAccess
         'sales.prototype.notification-read',
         'sales.prototype.notifications-read-all',
 
+        // Profile picture upload (avatar boxes on sidebar & top-right)
+        'profile.avatar.update',
+
         // Nav: Business → Customers (own-created only, scoped in controller)
         'customers.index',
         'customers.show',

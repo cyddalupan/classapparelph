@@ -103,6 +103,10 @@ class CheckProdManagerClassAccess
 
         // Comments & notifications
         'sales.prototype.add-comment',
+        'sales.prototype.audit-history',
+
+        // Profile picture upload (avatar boxes on sidebar & top-right)
+        'profile.avatar.update',
         'sales.prototype.notification-read',
         'sales.prototype.notifications-read-all',
     ];
