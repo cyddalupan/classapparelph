@@ -192,7 +192,7 @@
 
 .week-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 5px;
     margin-bottom: 1.5rem;
 }
@@ -217,6 +217,7 @@
     border: 1px solid #e8ecf5;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 .day-cell .day-head {
     display: flex;
@@ -224,6 +225,7 @@
     gap: 3px;
     margin-bottom: 0.15rem;
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 .day-cell .day-number {
     font-size: 0.75rem;
@@ -236,6 +238,8 @@
     display: flex;
     gap: 2px;
     margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 .day-cell .day-total {
     display: inline-block;
@@ -283,6 +287,7 @@
 .day-cell .day-projects-list {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     min-height: 0;
 }
 /* Thin scrollbar */
@@ -298,6 +303,8 @@
     transition: transform 0.1s;
     line-height: 1.25;
     flex-shrink: 0;
+    min-width: 0;
+    max-width: 100%;
 }
 .day-project:hover { transform: translateX(2px); }
 .day-project.moved {
