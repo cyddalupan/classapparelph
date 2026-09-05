@@ -3832,6 +3832,18 @@ $services = json_decode($sale->services, true);
         
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
+        // PAYMENT LOCK (server-side): cannot move to Completed while there is a pending balance due.
+        // (Restored 2026-09-05 — this lock was removed 2026-09-01 in commit 211ab16. Andrew: block lahat,
+        // walang makaka-DONE habang may balance kahit ₱1.)
+        $balanceDue = (float) $sale->balance_due_computed;
+        if ($request->kanban_status === 'completed' && $balanceDue > 0) {
+            $msg = 'Hindi ma-move sa Completed: may pending balance pa na ₱' . number_format($balanceDue, 2) . '. Kailangan munang mabayaran bago i-DONE.';
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return redirect()->back()->with('error', $msg);
+        }
+
         // PHOTO LOCK (server-side): non-manager users cannot move a sale to Design and beyond
         // until both file screenshot + approved sample color are uploaded.
         $lockedStatuses = ['sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
@@ -3890,6 +3902,18 @@ $services = json_decode($sale->services, true);
         // Class Production Manager: Class department only
         if (auth()->user() && auth()->user()->isClassScoped() && (int) $sale->department_id !== 4) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        // PAYMENT LOCK (server-side): cannot mark as DONE/completed while there is a pending balance due.
+        // (Restored 2026-09-05 — this lock was removed 2026-09-01 in commit 211ab16. Andrew: block lahat,
+        // walang makaka-DONE habang may balance kahit ₱1.) Unconditional — applies to ALL roles.
+        $balanceDue = (float) $sale->balance_due_computed;
+        $targetIsDone = $request->kanban_status === 'completed' || $request->input('production_stage') === 'DONE';
+        if ($targetIsDone && $balanceDue > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi ma-mark na DONE: may pending balance pa na ₱' . number_format($balanceDue, 2) . '. Kailangan munang mabayaran bago i-DONE.',
+            ], 422);
         }
 
         // TIERED PHOTO LOCK (server-side):
@@ -4439,6 +4463,7 @@ $services = json_decode($sale->services, true);
                 'subtotal' => $p->subtotal,
                 'deposit_paid' => $p->deposit_paid,
                 'balance_due' => $p->balance_due,
+                'balance_due_computed' => (float) $p->balance_due_computed,
                 'kanban_status' => $p->kanban_status,
                 'production_stage' => $p->production_stage,
                 'priority' => $p->priority,

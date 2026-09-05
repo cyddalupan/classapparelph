@@ -689,11 +689,14 @@
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
                             <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;{{ !$hasFileShot ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : '' }}" @if(!$hasFileShot) disabled title="🔒 Kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL" @endif>
-                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); @endphp
+                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); $balanceDue = (float) $sale->balance_due_computed; @endphp
                                 @foreach($prodStageMap as $stage => $st)
-                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if(in_array($st, ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed']) && $hasFileShot && !$hasColorShot) disabled title="🔒 Kulang Approved Sample Color — kumpletuhin muna bago lumampas sa FOR SAMPLE / FOR APPROVAL" @endif>{{ $stage }}</option>
+                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if($st === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE" @elseif(in_array($st, ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed']) && $hasFileShot && !$hasColorShot) disabled title="🔒 Kulang Approved Sample Color — kumpletuhin muna bago lumampas sa FOR SAMPLE / FOR APPROVAL" @endif>{{ $stage }}</option>
                                 @endforeach
                             </select>
+                            @if($balanceDue > 0)
+                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 may pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE</div>
+                            @endif
                             @if(!$hasFileShot)
                                 <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL</div>
                             @elseif(!$hasColorShot)

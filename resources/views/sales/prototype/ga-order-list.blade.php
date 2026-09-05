@@ -657,6 +657,8 @@
                             $dImgs = is_string($sale->design_images) ? (json_decode($sale->design_images, true) ?: []) : ($sale->design_images ?: []);
                             $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
                             $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
+                            // PAYMENT LOCK (restored 2026-09-05): hindi ma-DONE habang may balance (kahit ₱1)
+                            $balanceDue = (float) $sale->balance_due_computed;
                         @endphp
                         <tr data-sale-id="{{ $sale->id }}">
                             <td style="max-width:150px;">
@@ -678,7 +680,8 @@
                                     <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $stageLabel }}" title="Production Status — ilipat ang order sa susunod na stage" style="font-size:11px;min-width:160px;max-width:100%;padding:2px 6px;margin-top:4px;">
                                         @foreach($prodStageMap as $st => $stStatus)
                                             <option value="{{ $st }}" data-status="{{ $stStatus }}" {{ $stageLabel === $st ? 'selected' : '' }}
-                                                @if(!$canOverridePhotos && !$hasFileShot && $stStatus === 'sample_approval') disabled title="🔒 Kulang File Screenshot"
+                                                @if($stStatus === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE"
+                                                @elseif(!$canOverridePhotos && !$hasFileShot && $stStatus === 'sample_approval') disabled title="🔒 Kulang File Screenshot"
                                                 @elseif(!$canOverridePhotos && $hasFileShot && !$hasColorShot && in_array($stStatus, ['design','production','quality_check','ready_for_delivery','delivered','completed'], true)) disabled title="🔒 Kulang Approved Sample Color"
                                                 @endif>{{ $st }}</option>
                                         @endforeach

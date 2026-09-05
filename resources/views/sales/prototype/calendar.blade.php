@@ -1063,7 +1063,7 @@ function renderWeek(monday, projects) {
                     Object.keys(PROD_STAGE_MAP).forEach(function(st) {
                         const stStatus = PROD_STAGE_MAP[st];
                         let dis = '';
-                        if (stStatus === 'completed' && parseFloat(p.balance_due) > 0) dis = 'disabled';
+                        if (stStatus === 'completed' && parseFloat(p.balance_due_computed ?? p.balance_due ?? 0) > 0) dis = 'disabled';
                         stageOpts += `<option value="${st}" data-status="${stStatus}" ${st === curStage ? 'selected' : ''} ${dis}>${st}</option>`;
                     });
                     html += `<select class="dp-stage-select" data-sale-id="${p.id}" data-current="${curStage}" ${lockedNoPhotos ? 'disabled' : ''} title="${lockedNoPhotos ? '🔒 Kulang photos (File Screenshot / Sample Color) — i-move sa kanban board' : 'Production status → kanban'}" onclick="event.stopPropagation()" style="${lockedNoPhotos ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : ''}">${stageOpts}</select>`;
