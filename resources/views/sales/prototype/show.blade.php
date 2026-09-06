@@ -4084,7 +4084,7 @@ function loadFreebies() {
                     itemsHtml += '<div class="flex-grow-1">';
                     itemsHtml += '<div>' + it.description + (it.purpose ? ' <span class="text-muted small">(' + it.purpose + ')</span>' : '') + '</div>';
                     if (it.reference_image_url) {
-                        itemsHtml += '<a href="' + it.reference_image_url + '" target="_blank" class="small text-primary"><i class="fas fa-image me-1"></i>Reference image</a>';
+                        itemsHtml += '<a href="javascript:void(0)" class="small text-primary" onclick="openLightbox(\'' + escHtml(it.reference_image_url) + '\')"><i class="fas fa-image me-1"></i>Reference image</a>';
                     }
                     itemsHtml += '</div></div>';
                 });
