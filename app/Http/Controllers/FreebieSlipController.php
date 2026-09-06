@@ -213,6 +213,7 @@ class FreebieSlipController extends Controller
 
         $request = request();
         $status = trim((string) $request->get('status', ''));
+        $audit = trim((string) $request->get('audit', ''));
         $q = trim((string) $request->get('q', ''));
         $from = trim((string) $request->get('from', ''));
         $to = trim((string) $request->get('to', ''));
@@ -235,12 +236,20 @@ class FreebieSlipController extends Controller
                 'prototype_sales.sales_number',
                 'prototype_sales.customer_name',
                 'prototype_sales.department_id',
+                'prototype_sales.total_amount',
+                'prototype_sales.overall_total_amount',
                 'users.name as requested_by_name'
             );
         $scope($query);
 
         if (in_array($status, ['pending', 'approved', 'rejected'])) {
             $query->where('freebie_requests.status', $status);
+        }
+        if ($audit === 'awaiting') {
+            $query->where('freebie_requests.status', 'approved')->whereNull('freebie_requests.audited_at');
+        }
+        if ($audit === 'audited') {
+            $query->where('freebie_requests.status', 'approved')->whereNotNull('freebie_requests.audited_at');
         }
         if ($requesterId > 0) {
             $query->where('freebie_requests.requested_by', $requesterId);
@@ -292,7 +301,10 @@ class FreebieSlipController extends Controller
             $r->slip_done_at = $slip->done_at ?? null;
             $r->approved_by_name = $this->userName($r->approved_by);
             $r->rejected_by_name = $this->userName($r->rejected_by);
+            $r->audited_by_name = $this->userName($r->audited_by);
             $r->age_hours = round((now()->timestamp - strtotime($r->created_at)) / 3600, 1);
+            // Project total sales: use group-wide total for multi-dept sales, else the sale's own total.
+            $r->project_total = $r->overall_total_amount !== null ? (float) $r->overall_total_amount : (float) ($r->total_amount ?? 0);
             return $r;
         });
 
@@ -304,6 +316,7 @@ class FreebieSlipController extends Controller
         $totalRequests = $statBase()->count();
         $pendingCount = $statBase()->where('freebie_requests.status', 'pending')->count();
         $approvedCount = $statBase()->where('freebie_requests.status', 'approved')->count();
+        $awaitingAuditCount = $statBase()->where('freebie_requests.status', 'approved')->whereNull('freebie_requests.audited_at')->count();
         $rejectedCount = $statBase()->where('freebie_requests.status', 'rejected')->count();
         $givenQty = $statBase()
             ->join('freebie_request_items', 'freebie_request_items.freebie_request_id', '=', 'freebie_requests.id')
@@ -351,8 +364,8 @@ class FreebieSlipController extends Controller
         $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
 
         return view('sales.prototype.freebie-list', compact(
-            'requests', 'status', 'q', 'from', 'to', 'requesterId',
-            'totalRequests', 'pendingCount', 'approvedCount', 'rejectedCount', 'givenQty',
+            'requests', 'status', 'audit', 'q', 'from', 'to', 'requesterId',
+            'totalRequests', 'pendingCount', 'approvedCount', 'awaitingAuditCount', 'rejectedCount', 'givenQty',
             'topRequesters', 'topItems', 'requesters', 'departmentLabels'
         ));
     }
@@ -509,6 +522,54 @@ class FreebieSlipController extends Controller
         });
 
         return response()->json(['success' => true, 'message' => 'Freebie approved — Freebie Slip created.']);
+    }
+
+    /**
+     * AUDIT (double-check) an approved freebie request.
+     * Only a DIFFERENT approver-level user (not the one who approved) may
+     * audit/verify the approval — prevents approve-without-review.
+     */
+    public function audit(Request $request, int $requestId)
+    {
+        $user = auth()->user();
+        if (!$user || !$this->canApprove()) {
+            return response()->json(['error' => 'Unauthorized: Manager/CEO/COO only.'], 403);
+        }
+
+        $fb = DB::table('freebie_requests')->find($requestId);
+        if (!$fb || $fb->status !== 'approved') {
+            return response()->json(['error' => 'Only approved freebie requests can be audited.'], 404);
+        }
+        if ($fb->audited_at) {
+            return response()->json(['error' => 'This freebie request is already audited.'], 422);
+        }
+        if ((int) $fb->approved_by === (int) $user->id) {
+            return response()->json(['error' => 'Double-check rule: hindi mo maaaring i-audit ang sarili mong approval — kailangan ng ibang manager/CEO/COO.'], 422);
+        }
+
+        $sale = DB::table('prototype_sales')->find($fb->sale_id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+        $this->classScopeAbortIfBlocked($sale);
+
+        DB::table('freebie_requests')->where('id', $fb->id)->update([
+            'audited_by' => $user->id,
+            'audited_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'freebie_audited',
+            'description' => 'Freebie request #' . $fb->id . ' audited (double-check) — approved by user #' . $fb->approved_by . ', audited by user #' . $user->id,
+            'details' => json_encode(['freebie_request_id' => $fb->id, 'approved_by' => $fb->approved_by, 'audited_by' => $user->id]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Freebie request audited — double-check complete.']);
     }
 
     /**

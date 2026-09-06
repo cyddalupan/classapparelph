@@ -959,6 +959,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/sales/prototype/{id}/freebie/pending', [App\Http\Controllers\FreebieSlipController::class, 'pending'])->name('sales.prototype.freebie.pending');
         Route::post('/sales/prototype/{id}/freebie/request', [App\Http\Controllers\FreebieSlipController::class, 'request'])->name('sales.prototype.freebie.request');
         Route::post('/sales/prototype/freebie/{requestId}/approve', [App\Http\Controllers\FreebieSlipController::class, 'approve'])->name('sales.prototype.freebie.approve');
+        Route::post('/sales/prototype/freebie/{requestId}/audit', [App\Http\Controllers\FreebieSlipController::class, 'audit'])->name('sales.prototype.freebie.audit');
         Route::post('/sales/prototype/freebie/{requestId}/reject', [App\Http\Controllers\FreebieSlipController::class, 'reject'])->name('sales.prototype.freebie.reject');
         Route::post('/sales/prototype/freebie/{requestId}/done', [App\Http\Controllers\FreebieSlipController::class, 'done'])->name('sales.prototype.freebie.done');
         

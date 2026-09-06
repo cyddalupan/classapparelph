@@ -136,6 +136,12 @@
         </div>
         <div class="col-6 col-md">
             <div class="fb-stat">
+                <div class="val" style="color:#d97706;">{{ number_format($awaitingAuditCount) }}</div>
+                <div class="lbl">Awaiting Audit 🕵️</div>
+            </div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="fb-stat">
                 <div class="val text-danger">{{ number_format($rejectedCount) }}</div>
                 <div class="lbl">Rejected</div>
             </div>
@@ -215,7 +221,15 @@
                         <option value="rejected" {{ $status === 'rejected' ? 'selected' : '' }}>❌ Rejected</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">Audit</label>
+                    <select name="audit" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option value="awaiting" {{ $audit === 'awaiting' ? 'selected' : '' }}>🕵️ Awaiting Audit</option>
+                        <option value="audited" {{ $audit === 'audited' ? 'selected' : '' }}>✅ Audited</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label small text-muted mb-1">Requester</label>
                     <select name="requester" class="form-select form-select-sm">
                         <option value="">All</option>
@@ -224,9 +238,9 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small text-muted mb-1">Search</label>
-                    <input type="text" name="q" value="{{ $q }}" class="form-control form-control-sm" placeholder="Sales #, customer, requester, item…">
+                    <input type="text" name="q" value="{{ $q }}" class="form-control form-control-sm" placeholder="Sales #, customer, item…">
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small text-muted mb-1">From</label>
@@ -239,7 +253,7 @@
             </div>
             <div class="d-flex gap-2 mt-2">
                 <button class="btn btn-sm" style="background:#7c3aed;color:#fff;"><i class="fas fa-filter me-1"></i>Filter</button>
-                @if($status || $q || $from || $to || $requesterId)
+                @if($status || $audit || $q || $from || $to || $requesterId)
                     <a href="{{ route('sales.prototype.freebie-list') }}" class="btn btn-sm btn-outline-danger"><i class="fas fa-times me-1"></i>Clear</a>
                 @endif
             </div>
@@ -259,6 +273,7 @@
                     <a href="{{ route('sales.prototype.show', $r->sale_id) }}" target="_blank" class="fw-bold text-decoration-none">{{ $r->sales_number }}</a>
                     <span class="fb-muted">·</span>
                     <span>{{ $r->customer_name }}</span>
+                    <span class="badge" style="background:#0ea5e9;color:#fff;" title="Total sales ng project"><i class="fas fa-coins me-1"></i>₱{{ number_format($r->project_total, 2) }}</span>
                     @if($reqDept)
                         <span class="badge bg-secondary">{{ $reqDept }}</span>
                     @endif
@@ -267,6 +282,13 @@
                     <span class="badge {{ $badgeColor }}">
                         {{ $r->status === 'approved' ? '✅ Approved' : ($r->status === 'rejected' ? '❌ Rejected' : '⏳ Pending') }}
                     </span>
+                    @if($r->status === 'approved')
+                        @if($r->audited_at)
+                            <span class="badge" style="background:#4338ca;color:#fff;" title="Na-audit ni {{ $r->audited_by_name ?? '—' }}"><i class="fas fa-shield-alt me-1"></i>Audited</span>
+                        @else
+                            <span class="badge bg-warning text-dark" title="Approved — naghihintay ng double-check ng ibang manager/CEO/COO"><i class="fas fa-hourglass-half me-1"></i>Awaiting Audit</span>
+                        @endif
+                    @endif
                     @if($r->slip_status)
                         <span class="badge {{ $r->slip_status === 'done' ? 'bg-success' : 'bg-danger' }}">
                             {{ $r->slip_status === 'done' ? '🎁 Slip Done' : '🎁 Slip Open' }}
@@ -306,6 +328,11 @@
                     <div class="fb-muted">
                         @if($r->status === 'approved')
                             <span><i class="fas fa-check-circle text-success me-1"></i>by {{ $r->approved_by_name ?? '—' }}@if($r->approved_at) · {{ \Carbon\Carbon::parse($r->approved_at)->format('M d, g:i A') }}@endif</span>
+                            @if($r->audited_at && $r->audited_by_name)
+                                <span class="ms-2"><i class="fas fa-shield-alt" style="color:#4338ca;"></i> Audited by {{ $r->audited_by_name }}@if($r->audited_at) · {{ \Carbon\Carbon::parse($r->audited_at)->format('M d, g:i A') }}@endif</span>
+                            @elseif(!$r->audited_at)
+                                <span class="ms-2 text-warning"><i class="fas fa-hourglass-half"></i> Waiting for double-check (ibang manager/CEO/COO)</span>
+                            @endif
                             @if($r->slip_status === 'done' && $r->slip_done_by_name)
                                 <span class="ms-2"><i class="fas fa-gift text-success me-1"></i>Done by {{ $r->slip_done_by_name }}@if($r->slip_done_at) · {{ \Carbon\Carbon::parse($r->slip_done_at)->format('M d, g:i A') }}@endif</span>
                             @endif
@@ -316,6 +343,10 @@
                         @endif
                     </div>
                     <div class="d-flex gap-2">
+                        @php $canAudit = auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()); @endphp
+                        @if($r->status === 'approved' && !$r->audited_at && $canAudit && auth()->id() !== (int) $r->approved_by)
+                            <button class="btn btn-sm" style="background:#4338ca;color:#fff;" onclick="auditFreebieReq({{ $r->id }}, this)" title="Double-check: i-verify ang approval na ito"><i class="fas fa-shield-alt me-1"></i>Audit</button>
+                        @endif
                         @if($r->status === 'pending' && auth()->user() && auth()->user()->isManager())
                             <button class="btn btn-sm btn-success" onclick="approveFreebieReq({{ $r->id }}, this)"><i class="fas fa-check me-1"></i>Approve</button>
                             <button class="btn btn-sm btn-outline-danger" onclick="rejectFreebieReq({{ $r->id }}, this)"><i class="fas fa-times me-1"></i>Reject</button>
@@ -393,6 +424,26 @@ function doneFreebieReq(id, btn) {
     var original = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     fetch('{{ route('sales.prototype.freebie.done', 'REQUEST_ID') }}'.replace('REQUEST_ID', id), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').getAttribute('content')
+        },
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { location.reload(); }
+        else { alert(data.error || 'Failed.'); btn.disabled = false; btn.innerHTML = original; }
+    })
+    .catch(function() { alert('Request failed.'); btn.disabled = false; btn.innerHTML = original; });
+}
+function auditFreebieReq(id, btn) {
+    if (!confirm('I-audit (double-check) ang approval ng freebie request #' + id + '? Ikaw ang magbe-verify na karapat-dapat itong i-approve.')) return;
+    btn.disabled = true;
+    var original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    fetch('{{ route('sales.prototype.freebie.audit', 'REQUEST_ID') }}'.replace('REQUEST_ID', id), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
