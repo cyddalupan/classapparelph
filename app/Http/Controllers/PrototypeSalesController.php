@@ -3799,7 +3799,14 @@ $services = json_decode($sale->services, true);
             }
         }
 
-        // 🔁 Repeat customer detection (READ-ONLY display — walang touch sa existing logic)
+        // 🎁 Open freebie slips count (consistent sa backjobList rows)
+        $fbSlipQuery = \DB::table('freebie_slips')
+            ->join('prototype_sales', 'freebie_slips.sale_id', '=', 'prototype_sales.id')
+            ->where('freebie_slips.status', 'open');
+        if ($user && $user->isClassScoped()) {
+            $fbSlipQuery->where('prototype_sales.department_id', 4);
+        }
+        $backjobCount += $fbSlipQuery->count();
         // Customer na may >1 sale = repeat. First sale nila ay HINDI flagged; ang mga kasunod lang.
         $repeatCustomers = \App\Models\PrototypeSale::whereNotNull('customer_id')
             ->whereNull('deleted_at')
@@ -7251,6 +7258,15 @@ $services = json_decode($sale->services, true);
             }
             $backjobCount += $active;
         }
+
+        // 🎁 Open freebie slips count (consistent sa backjobList rows)
+        $fbSlipQ = \DB::table('freebie_slips')
+            ->join('prototype_sales', 'freebie_slips.sale_id', '=', 'prototype_sales.id')
+            ->where('freebie_slips.status', 'open');
+        if ($user && $user->isClassScoped()) {
+            $fbSlipQ->where('prototype_sales.department_id', 4);
+        }
+        $backjobCount += $fbSlipQ->count();
 
         // ---- Pending change requests & addon requests ----
         $pendingChanges = 0;
