@@ -675,6 +675,13 @@
                             @if(!empty($pendingCounts[$sale->id]))
                                 <span class="badge bg-warning text-dark pending-row-badge" title="Has pending changes for approval">🔔</span>
                             @endif
+                            @if(in_array($sale->id, $fbPendingIds ?? []))
+                                <span class="badge bg-warning text-dark pending-row-badge" title="May pending freebie request">🎁</span>
+                            @elseif(in_array($sale->id, $fbOpenIds ?? []))
+                                <span class="badge bg-danger pending-row-badge" title="May freebie slip na hindi pa done">🎁</span>
+                            @elseif(in_array($sale->id, $fbDoneIds ?? []))
+                                <span class="badge" style="background:#059669;color:#fff;" title="Freebie slips done">🎁✓</span>
+                            @endif
                         </td>
                         <td>
                             @if($firstMockupUrl)

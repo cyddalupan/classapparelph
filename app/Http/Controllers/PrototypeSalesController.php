@@ -3828,13 +3828,23 @@ $services = json_decode($sale->services, true);
                 ->get();
         }
 
+        // Freebie indicator per sale (row badge): amber pending / red open slip / green done
+        $fbPendingIds = [];
+        $fbOpenIds = [];
+        $fbDoneIds = [];
+        if ($listUser && ($listUser->isManager() || $listUser->isCoo())) {
+            $fbPendingIds = \DB::table('freebie_requests')->where('status', 'pending')->pluck('sale_id')->map(fn($id) => (int) $id)->unique()->values()->all();
+            $fbOpenIds = \DB::table('freebie_slips')->where('status', 'open')->pluck('sale_id')->map(fn($id) => (int) $id)->unique()->values()->all();
+            $fbDoneIds = \DB::table('freebie_slips')->where('status', 'done')->pluck('sale_id')->map(fn($id) => (int) $id)->unique()->values()->all();
+        }
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
             "departmentLabels", "departmentColors", "isAgent",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
             "delayCount", "backjobCount", "repeatCustomers", "repeatEmails",
-            "pendingApprovals"
+            "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds"
         ));
     }
 
