@@ -695,13 +695,6 @@
                             @if(!empty($pendingCounts[$sale->id]))
                                 <span class="badge bg-warning text-dark pending-row-badge" title="Has pending changes for approval">🔔</span>
                             @endif
-                            @if(in_array($sale->id, $fbPendingIds ?? []))
-                                <span class="badge bg-warning text-dark pending-row-badge" title="May pending freebie request">🎁</span>
-                            @elseif(in_array($sale->id, $fbOpenIds ?? []))
-                                <span class="badge bg-danger pending-row-badge" title="May freebie slip na hindi pa done">🎁</span>
-                            @elseif(in_array($sale->id, $fbDoneIds ?? []))
-                                <span class="badge" style="background:#059669;color:#fff;" title="Freebie slips done">🎁✓</span>
-                            @endif
                         </td>
                         <td>
                             @if($firstMockupUrl)
@@ -801,6 +794,13 @@
                                 @endif
                                 @if(($sale->total_refunded ?? 0) > 0)
                                     <div class="small" style="color:#dc3545;"><i class="fas fa-undo-alt me-1"></i>−₱{{ number_format($sale->total_refunded, 2) }} refunded</div>
+                                @endif
+                                @if(in_array($sale->id, $fbPendingIds ?? []))
+                                    <span class="badge bg-warning text-dark" style="margin-left:4px;font-size:12px;" title="May pending freebie request">🎁</span>
+                                @elseif(in_array($sale->id, $fbOpenIds ?? []))
+                                    <span class="badge bg-danger" style="margin-left:4px;font-size:12px;" title="May freebie slip na hindi pa done">🎁</span>
+                                @elseif(in_array($sale->id, $fbDoneIds ?? []))
+                                    <span class="badge" style="margin-left:4px;font-size:12px;background:#059669;color:#fff;" title="Freebie slips done">🎁✓</span>
                                 @endif
                             </div>
                         </td>
