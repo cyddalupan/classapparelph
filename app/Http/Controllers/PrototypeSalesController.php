@@ -7016,11 +7016,55 @@ $services = json_decode($sale->services, true);
                             'mockup_url' => $projMockup,
                             'priority' => $sale->priority ?? '',
                             'needed_by' => $sale->needed_by ?? '',
+                            'kind' => 'backjob',
                         ];
                         break; // FIFO: only the earliest pending comment per product
                     }
                 }
             }
+        }
+
+        // OPEN FREEBIE SLIPS — approved freebie slips na hindi pa done (hanggang ma-done,
+        // naka-display sa backjob list bilang reminder sa production).
+        $freebieSlips = \DB::table('freebie_slips')
+            ->join('freebie_requests', 'freebie_slips.freebie_request_id', '=', 'freebie_requests.id')
+            ->join('prototype_sales', 'freebie_slips.sale_id', '=', 'prototype_sales.id')
+            ->where('freebie_slips.status', 'open')
+            ->select('freebie_slips.*', 'freebie_requests.requested_by', 'prototype_sales.sales_number',
+                'prototype_sales.customer_name', 'prototype_sales.sales_agent_name',
+                'prototype_sales.department_id', 'prototype_sales.priority', 'prototype_sales.needed_by')
+            ->get();
+
+        foreach ($freebieSlips as $fs) {
+            // Class Production Manager: Class department only
+            if ($user && $user->isClassScoped() && (int) $fs->department_id !== 4) {
+                continue;
+            }
+            // Skip sales na wala na (cancelled/archived etc. — consistent sa checklists)
+            $sale = \DB::table('prototype_sales')->find($fs->sale_id);
+            if (!$sale) continue;
+
+            $items = \DB::table('freebie_request_items')
+                ->where('freebie_request_id', $fs->freebie_request_id)
+                ->get();
+            $summary = $items->map(fn($it) => $it->quantity . '× ' . $it->description)->join(', ');
+            if ($summary === '') $summary = 'Freebie slip (open)';
+
+            $rows[] = [
+                'sale_id' => $fs->sale_id,
+                'sales_number' => $fs->sales_number,
+                'customer' => $fs->customer_name,
+                'agent' => $fs->sales_agent_name,
+                'department_id' => $fs->department_id,
+                'project' => '🎁 Freebie Slip',
+                'text' => $summary,
+                'at' => \Carbon\Carbon::parse($fs->created_at)->format('M d, g:i A'),
+                'done' => false,
+                'mockup_url' => '',
+                'priority' => $fs->priority ?? '',
+                'needed_by' => $fs->needed_by ?? '',
+                'kind' => 'freebie',
+            ];
         }
 
         // Sort: newest backjob comment first
