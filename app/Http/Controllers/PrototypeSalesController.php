@@ -3234,6 +3234,20 @@ $services = json_decode($sale->services, true);
             ->map(fn($id) => (int) $id)
             ->all();
 
+        // Freebie slip status per sale (kanban card badge):
+        // amber = may pending request, red = approved pero hindi pa done, green = all done
+        $freebiePendingSaleIds = [];
+        $freebieOpenSaleIds = [];
+        $freebieDoneSaleIds = [];
+        if ($user && ($user->isManager() || $user->isCoo())) {
+            $fbPending = \DB::table('freebie_requests')->where('status', 'pending')->pluck('sale_id');
+            $fbOpen = \DB::table('freebie_slips')->where('status', 'open')->pluck('sale_id');
+            $fbDone = \DB::table('freebie_slips')->where('status', 'done')->pluck('sale_id');
+            $freebiePendingSaleIds = $fbPending->map(fn($id) => (int) $id)->unique()->values()->all();
+            $freebieOpenSaleIds = $fbOpen->map(fn($id) => (int) $id)->unique()->values()->all();
+            $freebieDoneSaleIds = $fbDone->map(fn($id) => (int) $id)->unique()->values()->all();
+        }
+
         // Phase 3: pending Class overload approvals (visible to managers/COO)
         // NOTE: Panel is now on the Manager Order List header button + modal, hindi na sa kanban.
 
@@ -3241,7 +3255,7 @@ $services = json_decode($sale->services, true);
             'columns', 'activeDept', 'allowedDepts', 'kanbanLabels', 'kanbanOrder',
             'showAll', 'departmentLabels', 'departmentColors', 'approvedAdditions',
             'canOverride', 'pendingAddonSaleIds', 'pendingAddonCount', 'archivedCount',
-            'damageSaleIds'
+            'damageSaleIds', 'freebiePendingSaleIds', 'freebieOpenSaleIds', 'freebieDoneSaleIds'
         ));
     }
 
