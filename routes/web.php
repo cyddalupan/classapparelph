@@ -882,6 +882,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
         Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');
 
+        // FREEBIE LIST & REVIEW route — all freebie requests w/ filters + stats (MUST be before {id} route)
+        Route::get('/sales/prototype/freebie-list', [App\Http\Controllers\FreebieSlipController::class, 'reviewList'])->name('sales.prototype.freebie-list');
+
         // SPECIAL PRICE REVIEW — toggle CEO/COO "checked" state of a special-price line
         Route::post('/sales/prototype/special-price/review', [App\Http\Controllers\PrototypeSalesController::class, 'toggleSpecialPriceReview'])->name('sales.prototype.special-price.review');
 

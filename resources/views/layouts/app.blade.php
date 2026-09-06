@@ -350,6 +350,12 @@
                             <i class="fas fa-tags"></i>
                             <span class="nav-text">Special Price</span>
                         </a>
+                        @if(auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()))
+                        <a href="{{ route('sales.prototype.freebie-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.freebie-list') ? 'active' : '' }}">
+                            <i class="fas fa-gift"></i>
+                            <span class="nav-text">Freebie List</span>
+                        </a>
+                        @endif
                         @endif
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>
@@ -489,6 +495,12 @@
                             <i class="fas fa-tags"></i>
                             <span class="nav-text">Special Price</span>
                         </a>
+                        @if(auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()))
+                        <a href="{{ route('sales.prototype.freebie-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.freebie-list') ? 'active' : '' }}">
+                            <i class="fas fa-gift"></i>
+                            <span class="nav-text">Freebie List</span>
+                        </a>
+                        @endif
                         @endif
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>

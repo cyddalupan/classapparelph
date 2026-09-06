@@ -447,6 +447,11 @@
                     🎁 Freebies <span class="pending-count-badge" style="background:#7c3aed;">{{ $freebiePendingCount }}</span>
                 </button>
             @endif
+            @if(auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()))
+                <a href="{{ route('sales.prototype.freebie-list') }}" class="btn" style="background:#7c3aed;color:#fff;" title="Lahat ng freebie requests — review, filters, stats">
+                    🎁 Freebie List
+                </a>
+            @endif
         </div>
     </div>
 

@@ -199,6 +199,164 @@ class FreebieSlipController extends Controller
         return response()->json(['count' => $query->count()]);
     }
 
+    /**
+     * FREEBIE LIST — full review page (all freebie requests across sales).
+     * Manager/CEO/COO only. Server-rendered: filters + stats (top requesters,
+     * most-given freebies) + approve/reject/done review actions.
+     */
+    public function reviewList()
+    {
+        $user = auth()->user();
+        if (!$user || !$this->canApprove()) {
+            abort(403, 'Only managers/CEO/COO can view the freebie list.');
+        }
+
+        $request = request();
+        $status = trim((string) $request->get('status', ''));
+        $q = trim((string) $request->get('q', ''));
+        $from = trim((string) $request->get('from', ''));
+        $to = trim((string) $request->get('to', ''));
+        $requesterId = (int) $request->get('requester', 0);
+
+        // Class-scoped (prod_manager) → Class dept (4) only
+        $scope = function ($qb) use ($user) {
+            if ($user->isClassScoped()) {
+                $qb->where('prototype_sales.department_id', 4);
+            }
+            return $qb;
+        };
+
+        // ---- Main list (filterable) ----
+        $query = DB::table('freebie_requests')
+            ->join('prototype_sales', 'freebie_requests.sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('users', 'freebie_requests.requested_by', '=', 'users.id')
+            ->select(
+                'freebie_requests.*',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.department_id',
+                'users.name as requested_by_name'
+            );
+        $scope($query);
+
+        if (in_array($status, ['pending', 'approved', 'rejected'])) {
+            $query->where('freebie_requests.status', $status);
+        }
+        if ($requesterId > 0) {
+            $query->where('freebie_requests.requested_by', $requesterId);
+        }
+        if ($from !== '') {
+            $query->whereDate('freebie_requests.created_at', '>=', $from);
+        }
+        if ($to !== '') {
+            $query->whereDate('freebie_requests.created_at', '<=', $to);
+        }
+        if ($q !== '') {
+            $like = '%' . $q . '%';
+            $query->where(function ($sub) use ($q, $like) {
+                $sub->where('prototype_sales.sales_number', 'like', $like)
+                    ->orWhere('prototype_sales.customer_name', 'like', $like)
+                    ->orWhere('users.name', 'like', $like)
+                    ->orWhereExists(function ($ex) use ($q) {
+                        $ex->select(DB::raw(1))
+                            ->from('freebie_request_items')
+                            ->whereColumn('freebie_request_items.freebie_request_id', 'freebie_requests.id')
+                            ->where('freebie_request_items.description', 'like', '%' . $q . '%')
+                            ->orWhere('freebie_request_items.purpose', 'like', '%' . $q . '%');
+                    });
+            });
+        }
+
+        $requests = $query->orderByDesc('freebie_requests.created_at')->paginate(100)->withQueryString();
+
+        // Attach items + slip info + reviewer names
+        $ids = $requests->pluck('id');
+        $items = collect();
+        $slips = collect();
+        if ($ids->isNotEmpty()) {
+            $items = DB::table('freebie_request_items')
+                ->whereIn('freebie_request_id', $ids)
+                ->orderBy('id')
+                ->get()
+                ->groupBy('freebie_request_id');
+            $slips = DB::table('freebie_slips')->whereIn('freebie_request_id', $ids)->get()->keyBy('freebie_request_id');
+        }
+        $requests->getCollection()->transform(function ($r) use ($items, $slips) {
+            $r->items = $items->get($r->id, collect())->map(function ($it) {
+                $it->reference_image_url = $it->reference_image ? asset('storage/' . $it->reference_image) : null;
+                return $it;
+            })->values();
+            $slip = $slips->get($r->id);
+            $r->slip_status = $slip->status ?? null;
+            $r->slip_done_by_name = $this->userName($slip->done_by ?? null);
+            $r->slip_done_at = $slip->done_at ?? null;
+            $r->approved_by_name = $this->userName($r->approved_by);
+            $r->rejected_by_name = $this->userName($r->rejected_by);
+            $r->age_hours = round((now()->timestamp - strtotime($r->created_at)) / 3600, 1);
+            return $r;
+        });
+
+        // ---- Stats (all-time; respect dept scope) ----
+        $statBase = function () use ($scope) {
+            return $scope(DB::table('freebie_requests')
+                ->join('prototype_sales', 'freebie_requests.sale_id', '=', 'prototype_sales.id'));
+        };
+        $totalRequests = $statBase()->count();
+        $pendingCount = $statBase()->where('freebie_requests.status', 'pending')->count();
+        $approvedCount = $statBase()->where('freebie_requests.status', 'approved')->count();
+        $rejectedCount = $statBase()->where('freebie_requests.status', 'rejected')->count();
+        $givenQty = $statBase()
+            ->join('freebie_request_items', 'freebie_request_items.freebie_request_id', '=', 'freebie_requests.id')
+            ->where('freebie_requests.status', 'approved')
+            ->sum('freebie_request_items.quantity');
+
+        // Top requesters (sino madalas mag-request)
+        $topRequesters = $scope(DB::table('freebie_requests as fr')
+            ->join('prototype_sales', 'fr.sale_id', '=', 'prototype_sales.id')
+            ->join('users as u', 'fr.requested_by', '=', 'u.id')
+            ->leftJoin('freebie_request_items as it', 'it.freebie_request_id', '=', 'fr.id'))
+            ->select('u.id as user_id', 'u.name as user_name',
+                DB::raw('COUNT(DISTINCT fr.id) as req_count'),
+                DB::raw('COALESCE(SUM(CASE WHEN fr.status = "approved" THEN it.quantity ELSE 0 END), 0) as given_qty'))
+            ->groupBy('u.id', 'u.name')
+            ->orderByDesc('req_count')
+            ->orderByDesc('given_qty')
+            ->limit(6)
+            ->get();
+
+        // Most-given freebie items (anong freebie madalas ibigay + ilan)
+        $topItems = $scope(DB::table('freebie_request_items as it')
+            ->join('freebie_requests as fr', 'it.freebie_request_id', '=', 'fr.id')
+            ->join('prototype_sales', 'fr.sale_id', '=', 'prototype_sales.id')
+            ->where('fr.status', 'approved'))
+            ->select('it.description',
+                DB::raw('SUM(it.quantity) as total_qty'),
+                DB::raw('COUNT(DISTINCT fr.id) as times'))
+            ->groupBy('it.description')
+            ->orderByDesc('total_qty')
+            ->orderByDesc('times')
+            ->limit(8)
+            ->get();
+
+        // Requester dropdown for the filter
+        $requesters = $scope(DB::table('freebie_requests as fr')
+            ->join('prototype_sales', 'fr.sale_id', '=', 'prototype_sales.id')
+            ->join('users as u', 'fr.requested_by', '=', 'u.id'))
+            ->select('u.id as user_id', 'u.name as user_name', DB::raw('COUNT(*) as c'))
+            ->groupBy('u.id', 'u.name')
+            ->orderByDesc('c')
+            ->limit(100)
+            ->get();
+
+        $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
+
+        return view('sales.prototype.freebie-list', compact(
+            'requests', 'status', 'q', 'from', 'to', 'requesterId',
+            'totalRequests', 'pendingCount', 'approvedCount', 'rejectedCount', 'givenQty',
+            'topRequesters', 'topItems', 'requesters', 'departmentLabels'
+        ));
+    }
+
     /* ------------------------------------------------------------------
      * Mutations
      * ---------------------------------------------------------------- */
