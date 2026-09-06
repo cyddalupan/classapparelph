@@ -3837,6 +3837,7 @@ $services = json_decode($sale->services, true);
             $fbOpenIds = \DB::table('freebie_slips')->where('status', 'open')->pluck('sale_id')->map(fn($id) => (int) $id)->unique()->values()->all();
             $fbDoneIds = \DB::table('freebie_slips')->where('status', 'done')->pluck('sale_id')->map(fn($id) => (int) $id)->unique()->values()->all();
         }
+        $freebiePendingCount = count($fbPendingIds);
 
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
@@ -3844,7 +3845,7 @@ $services = json_decode($sale->services, true);
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
             "delayCount", "backjobCount", "repeatCustomers", "repeatEmails",
-            "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds"
+            "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds", "freebiePendingCount"
         ));
     }
 

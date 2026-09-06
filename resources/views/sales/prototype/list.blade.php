@@ -442,6 +442,11 @@
                     🔔 Add-ons <span class="pending-count-badge">{{ $totalPending }}</span>
                 </button>
             @endif
+            @if(isset($freebiePendingCount) && $freebiePendingCount > 0 && auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()))
+                <button class="btn btn-pending-hdr" id="freebieToggleBtn" onclick="showFreebiePendingModal()" style="position:relative;background:#7c3aed;color:#fff;">
+                    🎁 Freebies <span class="pending-count-badge" style="background:#7c3aed;">{{ $freebiePendingCount }}</span>
+                </button>
+            @endif
         </div>
     </div>
 
@@ -547,6 +552,21 @@
                     <div class="pending-item-arrow">→</div>
                 </a>
                 @endforeach
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Freebie Requests Modal (Manager/CEO/COO approval inbox) -->
+    @if(($freebiePendingCount ?? 0) > 0 && auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()))
+    <div id="freebiePendingModal" class="pending-modal-overlay" onclick="if(event.target===this)closeFreebiePendingModal()">
+        <div class="pending-modal-content" style="max-width:680px;">
+            <div class="pending-modal-header" style="background:#f5f0ff;">
+                <h4><i class="fas fa-gift me-2" style="color:#7c3aed;"></i>Freebie Requests Awaiting Approval</h4>
+                <button onclick="closeFreebiePendingModal()" class="pending-modal-close">&times;</button>
+            </div>
+            <div class="pending-modal-body" id="freebiePendingBody">
+                <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
             </div>
         </div>
     </div>
@@ -874,6 +894,125 @@ function showPendingModal() {
 }
 function closePendingModal() {
     document.getElementById('pendingModal').style.display = 'none';
+}
+
+/* ===== Freebie Requests approval inbox (Manager/CEO/COO) ===== */
+function showFreebiePendingModal() {
+    var modal = document.getElementById('freebiePendingModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    loadFreebiePendingRequests();
+}
+function closeFreebiePendingModal() {
+    var modal = document.getElementById('freebiePendingModal');
+    if (modal) modal.style.display = 'none';
+}
+function loadFreebiePendingRequests() {
+    var body = document.getElementById('freebiePendingBody');
+    if (!body) return;
+    body.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    fetch('{{ route('sales.prototype.freebie.all-pending') }}')
+        .then(function(r) { return r.json(); })
+        .then(function(list) {
+            if (!Array.isArray(list) || list.length === 0) {
+                body.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-check-circle text-success"></i> Wala nang pending freebie request.</div>';
+                var btn = document.getElementById('freebieToggleBtn');
+                if (btn) btn.style.display = 'none';
+                return;
+            }
+            var html = '';
+            list.forEach(function(r) {
+                var dept = {1:'iPrint',2:'Consol',3:'Cinco',4:'Class',5:'MTO',6:'Other'}[r.department_id] || '';
+                var itemsHtml = '';
+                (r.items || []).forEach(function(it) {
+                    itemsHtml += '<div class="d-flex align-items-start gap-2 py-1" style="font-size:12px;">';
+                    itemsHtml += '<span class="badge bg-secondary">' + it.quantity + '×</span>';
+                    itemsHtml += '<div>' + it.description + (it.purpose ? ' <span class="text-muted">(' + it.purpose + ')</span>' : '') + '</div>';
+                    itemsHtml += '</div>';
+                });
+                html += '<div class="border rounded p-2 mb-2" style="border-color:#e5e7eb !important;">';
+                html += '<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">';
+                html += '<div>';
+                html += '<a href="{{ route('sales.prototype.show', ':SALE_ID') }}" target="_blank" style="font-weight:700;font-size:13px;color:#0d6efd;text-decoration:none;">' + r.sales_number + '</a>';
+                if (dept) html += ' <span class="badge bg-secondary" style="font-size:10px;">' + dept + '</span>';
+                html += '<div style="font-size:12px;color:#6c757d;">' + (r.customer_name || '—') + '</div>';
+                html += '</div>';
+                html += '<div class="text-end">';
+                html += '<div class="text-muted" style="font-size:11px;">by ' + (r.requested_by_name || 'Unknown') + ' · ' + r.age_hours + 'h ago</div>';
+                html += '<div class="mt-1 d-flex gap-1 justify-content-end">';
+                html += '<button class="btn btn-sm btn-success" onclick="approveFreebieReq(' + r.id + ', this)"><i class="fas fa-check"></i> Approve</button>';
+                html += '<button class="btn btn-sm btn-outline-danger" onclick="rejectFreebieReq(' + r.id + ', this)"><i class="fas fa-times"></i> Reject</button>';
+                html += '</div></div>';
+                html += '</div>';
+                if (r.notes) html += '<div class="text-muted fst-italic" style="font-size:12px;">"' + r.notes + '"</div>';
+                html += itemsHtml;
+                html += '</div>';
+            });
+            body.innerHTML = html;
+        })
+        .catch(function() {
+            body.innerHTML = '<div class="text-danger text-center py-3">Failed to load freebie requests.</div>';
+        });
+}
+function approveFreebieReq(id, btn) {
+    if (!confirm('Approve freebie request #' + id + '? Bubuo ito ng Freebie Slip.')) return;
+    btn.disabled = true;
+    fetch('{{ route('sales.prototype.freebie.approve', 'REQUEST_ID') }}'.replace('REQUEST_ID', id), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').getAttribute('content')
+        },
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            loadFreebiePendingRequests();
+            refreshFreebieCount();
+        } else { alert(data.error || 'Failed.'); btn.disabled = false; }
+    })
+    .catch(function() { alert('Request failed.'); btn.disabled = false; });
+}
+function rejectFreebieReq(id, btn) {
+    var reason = prompt('Ilagay ang dahilan ng pag-reject:');
+    if (reason === null) return;
+    reason = reason.trim();
+    if (!reason) { alert('Kailangan ng dahilan para i-reject.'); return; }
+    btn.disabled = true;
+    fetch('{{ route('sales.prototype.freebie.reject', 'REQUEST_ID') }}'.replace('REQUEST_ID', id), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').getAttribute('content')
+        },
+        body: JSON.stringify({reason: reason})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            loadFreebiePendingRequests();
+            refreshFreebieCount();
+        } else { alert(data.error || 'Failed.'); btn.disabled = false; }
+    })
+    .catch(function() { alert('Request failed.'); btn.disabled = false; });
+}
+function refreshFreebieCount() {
+    fetch('{{ route('sales.prototype.freebie.pending-count') }}')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var btn = document.getElementById('freebieToggleBtn');
+            if (!btn) return;
+            var count = d.count || 0;
+            if (count > 0) {
+                btn.style.display = '';
+                var b = btn.querySelector('.pending-count-badge');
+                if (b) b.textContent = count;
+            } else {
+                btn.style.display = 'none';
+            }
+        })
+        .catch(function() {});
 }
 
 function requestTime(btn) {
