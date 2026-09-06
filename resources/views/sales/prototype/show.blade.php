@@ -552,6 +552,23 @@
                 @endif
             </div>
 
+            <!-- Freebie Slips -->
+            <div class="detail-section mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="detail-title mb-0" style="border-bottom:none;padding-bottom:0;">
+                        <i class="fas fa-gift me-2" style="color:#7c3aed;"></i>Freebie Slips
+                    </h5>
+                    <button class="btn btn-sm" style="background:#7c3aed;color:#fff;display:none;" id="btnAddFreebie" onclick="openFreebieModal()">
+                        <i class="fas fa-plus"></i> Add Freebie Request
+                    </button>
+                </div>
+                <div id="freebiesContainer" class="mt-2">
+                    <div class="text-muted py-2" style="font-size:13px;">
+                        <i class="fas fa-spinner fa-spin"></i> Loading freebies...
+                    </div>
+                </div>
+            </div>
+
             <!-- Audit History (hidden for GA) -->
             @if(!$isGa)
             <div class="detail-section mt-3">
@@ -1275,6 +1292,40 @@
         <div class="cm-footer">
             <button onclick="cancelDeleteComment()" class="cm-cancel-btn">No</button>
             <button onclick="doDeleteComment()" class="cm-confirm-btn cm-reject"><i class="fas fa-trash-alt me-1"></i>Yes, Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Freebie Request Modal -->
+<div class="modal fade" id="freebieModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-gift me-2" style="color:#7c3aed;"></i>Add Freebie Request</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info py-2" style="font-size:13px;">
+                    <i class="fas fa-info-circle me-1"></i> Freebies are customer appreciation items (tshirt, banner, etc.) given at no charge. Submit for Manager/CEO/COO approval — once approved, a <strong>Freebie Slip</strong> is created automatically.
+                </div>
+                <div id="freebieItemsContainer"></div>
+                <div class="mt-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addFreebieRow()">
+                        <i class="fas fa-plus"></i> Add Item
+                    </button>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label">Notes <span class="text-muted">(optional)</span></label>
+                    <textarea id="freebieNotes" class="form-control" rows="2" maxlength="1000" placeholder="Extra details for the approver..."></textarea>
+                </div>
+                <div id="freebieError" class="text-danger mt-2" style="font-size:13px;display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn" style="background:#7c3aed;color:#fff;" id="btnSubmitFreebie" onclick="submitFreebieRequest()">
+                    <i class="fas fa-paper-plane"></i> Submit for Approval
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -3985,6 +4036,231 @@ function updateFeedbackStatus(feedbackId, status) {
     })
     .catch(function() { alert('Request failed.'); });
 }
+
+/* ================= Freebie Slips ================= */
+var FREEBIE_SALE_ID = {{ $sale->id }};
+
+function loadFreebies() {
+    var container = document.getElementById('freebiesContainer');
+    if (!container) return;
+    fetch('{{ route('sales.prototype.freebie.pending', $sale->id) }}')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                container.innerHTML = '<div class="text-muted" style="font-size:13px;"><i class="fas fa-info-circle"></i> ' + data.error + '</div>';
+                return;
+            }
+            var addBtn = document.getElementById('btnAddFreebie');
+            if (addBtn && data.can_request) { addBtn.style.display = ''; }
+
+            var reqs = data.requests || [];
+            if (reqs.length === 0) {
+                container.innerHTML = '<div class="text-muted" style="font-size:13px;"><i class="fas fa-info-circle"></i> No freebie requests for this sale.</div>';
+                return;
+            }
+
+            var html = '';
+            reqs.forEach(function(r) {
+                var statusBadge = '';
+                if (r.status === 'pending') {
+                    statusBadge = '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending Approval</span>';
+                } else if (r.status === 'approved') {
+                    statusBadge = '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Approved</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Rejected</span>';
+                }
+
+                var slipBadge = '';
+                if (r.slip_status === 'open') {
+                    slipBadge = '<span class="badge bg-primary"><i class="fas fa-file-alt me-1"></i>Freebie Slip Open</span>';
+                } else if (r.slip_status === 'done') {
+                    slipBadge = '<span class="badge" style="background:#059669;color:#fff;"><i class="fas fa-check-double me-1"></i>Slip Done' + (r.done_by_name ? ' · ' + r.done_by_name : '') + '</span>';
+                }
+
+                var itemsHtml = '';
+                (r.items || []).forEach(function(it) {
+                    itemsHtml += '<div class="d-flex align-items-start gap-2 py-1">';
+                    itemsHtml += '<span class="badge bg-secondary">' + it.quantity + '×</span>';
+                    itemsHtml += '<div class="flex-grow-1">';
+                    itemsHtml += '<div>' + it.description + (it.purpose ? ' <span class="text-muted small">(' + it.purpose + ')</span>' : '') + '</div>';
+                    if (it.reference_image_url) {
+                        itemsHtml += '<a href="' + it.reference_image_url + '" target="_blank" class="small text-primary"><i class="fas fa-image me-1"></i>Reference image</a>';
+                    }
+                    itemsHtml += '</div></div>';
+                });
+
+                var actionBtns = '';
+                if (r.status === 'pending' && data.can_approve) {
+                    actionBtns = '<div class="mt-2 d-flex gap-2">' +
+                        '<button class="btn btn-sm btn-success" onclick="approveFreebie(' + r.id + ')"><i class="fas fa-check me-1"></i>Approve</button>' +
+                        '<button class="btn btn-sm btn-outline-danger" onclick="rejectFreebie(' + r.id + ')"><i class="fas fa-times me-1"></i>Reject</button>' +
+                        '</div>';
+                }
+                if (r.status === 'approved' && r.slip_status === 'open' && data.can_done) {
+                    actionBtns = '<div class="mt-2">' +
+                        '<button class="btn btn-sm" style="background:#059669;color:#fff;" onclick="doneFreebie(' + r.id + ')"><i class="fas fa-check-double me-1"></i>Mark Slip Done</button>' +
+                        '</div>';
+                }
+
+                var rejectReason = (r.status === 'rejected' && r.rejection_reason)
+                    ? '<div class="small text-danger mt-1"><i class="fas fa-info-circle me-1"></i>Reason: ' + r.rejection_reason + '</div>'
+                    : '';
+
+                html += '<div class="border rounded p-2 mb-2" style="border-color:#e5e7eb !important;font-size:13px;">';
+                html += '<div class="d-flex justify-content-between align-items-start flex-wrap gap-1">';
+                html += '<div>' + statusBadge + ' ' + slipBadge;
+                html += '<div class="text-muted small mt-1">#' + r.id + ' · by ' + (r.requested_by_name || 'Unknown') + ' · ' + r.age_hours + 'h ago';
+                if (r.notes) { html += '<div class="text-muted mt-1 fst-italic">"' + r.notes + '"</div>'; }
+                html += '</div></div>';
+                html += '<small class="text-muted">' + new Date(r.created_at).toLocaleString() + '</small></div>';
+                html += itemsHtml;
+                html += actionBtns;
+                html += rejectReason;
+                html += '</div>';
+            });
+            container.innerHTML = html;
+        })
+        .catch(function() {
+            container.innerHTML = '<div class="text-danger" style="font-size:13px;">Failed to load freebie requests.</div>';
+        });
+}
+
+function openFreebieModal() {
+    document.getElementById('freebieItemsContainer').innerHTML = '';
+    document.getElementById('freebieNotes').value = '';
+    document.getElementById('freebieError').style.display = 'none';
+    addFreebieRow();
+    new bootstrap.Modal(document.getElementById('freebieModal')).show();
+}
+
+function addFreebieRow() {
+    var idx = document.querySelectorAll('#freebieItemsContainer .freebie-row').length;
+    var div = document.createElement('div');
+    div.className = 'freebie-row border rounded p-2 mb-2';
+    div.style.cssText = 'border-color:#e5e7eb !important;';
+    div.innerHTML = '<div class="d-flex justify-content-between align-items-center mb-1">' +
+        '<strong class="small">Item ' + (idx + 1) + '</strong>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFreebieRow(this)"><i class="fas fa-trash"></i></button>' +
+        '</div>' +
+        '<div class="row g-2">' +
+        '<div class="col-md-5"><input class="form-control form-control-sm freebie-desc" placeholder="Description (e.g. Free tshirt size M)" maxlength="255"></div>' +
+        '<div class="col-md-2"><input class="form-control form-control-sm freebie-qty" type="number" min="1" value="1" placeholder="Qty"></div>' +
+        '<div class="col-md-5"><input class="form-control form-control-sm freebie-purpose" placeholder="Purpose (optional)" maxlength="500"></div>' +
+        '</div>' +
+        '<div class="mt-2"><label class="form-label small text-muted mb-1">Reference image (optional)</label>' +
+        '<input class="form-control form-control-sm freebie-img" type="file" accept="image/*"></div>';
+    document.getElementById('freebieItemsContainer').appendChild(div);
+}
+
+function removeFreebieRow(btn) {
+    var container = document.getElementById('freebieItemsContainer');
+    btn.closest('.freebie-row').remove();
+    if (container.children.length === 0) addFreebieRow();
+}
+
+function submitFreebieRequest() {
+    var rows = document.querySelectorAll('#freebieItemsContainer .freebie-row');
+    var formData = new FormData();
+    var valid = 0;
+    rows.forEach(function(row, i) {
+        var desc = row.querySelector('.freebie-desc').value.trim();
+        if (!desc) return;
+        valid++;
+        formData.append('items[' + i + '][description]', desc);
+        formData.append('items[' + i + '][quantity]', row.querySelector('.freebie-qty').value || 1);
+        formData.append('items[' + i + '][purpose]', row.querySelector('.freebie-purpose').value.trim());
+        var img = row.querySelector('.freebie-img');
+        if (img.files.length > 0) {
+            formData.append('image_' + i, img.files[0]);
+        }
+    });
+    if (valid === 0) {
+        document.getElementById('freebieError').textContent = 'Maglagay ng hindi bababa sa isang item na may description.';
+        document.getElementById('freebieError').style.display = 'block';
+        return;
+    }
+    formData.append('notes', document.getElementById('freebieNotes').value.trim());
+
+    var btn = document.getElementById('btnSubmitFreebie');
+    btn.disabled = true;
+    fetch('{{ route('sales.prototype.freebie.request', $sale->id) }}', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content },
+        body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('freebieModal')).hide();
+            loadFreebies();
+            alert(data.message);
+        } else {
+            document.getElementById('freebieError').textContent = data.error || 'Failed to submit.';
+            document.getElementById('freebieError').style.display = 'block';
+        }
+    })
+    .catch(function() { btn.disabled = false; alert('Request failed.'); });
+}
+
+function approveFreebie(id) {
+    if (!confirm('Approve freebie request #' + id + '? This will create the Freebie Slip.')) return;
+    fetch('{{ route('sales.prototype.freebie.approve', 'REQUEST_ID') }}'.replace('REQUEST_ID', id), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { loadFreebies(); }
+        else { alert(data.error || 'Failed.'); }
+    })
+    .catch(function() { alert('Request failed.'); });
+}
+
+function rejectFreebie(id) {
+    var reason = prompt('Ilagay ang dahilan ng pag-reject:');
+    if (reason === null) return;
+    reason = reason.trim();
+    if (!reason) { alert('Kailangan ng dahilan para i-reject.'); return; }
+    fetch('{{ route('sales.prototype.freebie.reject', 'REQUEST_ID') }}'.replace('REQUEST_ID', id), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({reason: reason})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { loadFreebies(); }
+        else { alert(data.error || 'Failed.'); }
+    })
+    .catch(function() { alert('Request failed.'); });
+}
+
+function doneFreebie(id) {
+    if (!confirm('Mark this Freebie Slip as done?')) return;
+    fetch('{{ route('sales.prototype.freebie.done', 'REQUEST_ID') }}'.replace('REQUEST_ID', id), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { loadFreebies(); }
+        else { alert(data.error || 'Failed.'); }
+    })
+    .catch(function() { alert('Request failed.'); });
+}
+
+document.addEventListener('DOMContentLoaded', function() { loadFreebies(); });
 
 </script>
 

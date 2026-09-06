@@ -950,6 +950,15 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/addon/{requestId}/approve', [App\Http\Controllers\SaleAddonController::class, 'approve'])->name('sales.prototype.addon.approve');
         Route::post('/sales/prototype/addon/{requestId}/reject', [App\Http\Controllers\SaleAddonController::class, 'reject'])->name('sales.prototype.addon.reject');
         
+        // Freebie Slip routes (customer appreciation freebies)
+        Route::get('/sales/prototype/freebie/pending', [App\Http\Controllers\FreebieSlipController::class, 'allPending'])->name('sales.prototype.freebie.all-pending');
+        Route::get('/sales/prototype/freebie/pending-count', [App\Http\Controllers\FreebieSlipController::class, 'pendingCount'])->name('sales.prototype.freebie.pending-count');
+        Route::get('/sales/prototype/{id}/freebie/pending', [App\Http\Controllers\FreebieSlipController::class, 'pending'])->name('sales.prototype.freebie.pending');
+        Route::post('/sales/prototype/{id}/freebie/request', [App\Http\Controllers\FreebieSlipController::class, 'request'])->name('sales.prototype.freebie.request');
+        Route::post('/sales/prototype/freebie/{requestId}/approve', [App\Http\Controllers\FreebieSlipController::class, 'approve'])->name('sales.prototype.freebie.approve');
+        Route::post('/sales/prototype/freebie/{requestId}/reject', [App\Http\Controllers\FreebieSlipController::class, 'reject'])->name('sales.prototype.freebie.reject');
+        Route::post('/sales/prototype/freebie/{requestId}/done', [App\Http\Controllers\FreebieSlipController::class, 'done'])->name('sales.prototype.freebie.done');
+        
         // Edit Transaction (Add/Remove/Change items during production)
         Route::get('/sales/prototype/{id}/edit-items', [App\Http\Controllers\PrototypeSalesController::class, 'editItems'])->name('sales.prototype.edit-items');
         Route::post('/sales/prototype/{id}/submit-change', [App\Http\Controllers\PrototypeSalesController::class, 'submitChange'])->name('sales.prototype.submit-change');
