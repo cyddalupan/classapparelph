@@ -933,7 +933,8 @@ function loadFreebiePendingRequests() {
                 html += '<div class="border rounded p-2 mb-2" style="border-color:#e5e7eb !important;">';
                 html += '<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">';
                 html += '<div>';
-                html += '<a href="{{ route('sales.prototype.show', ':SALE_ID') }}" target="_blank" style="font-weight:700;font-size:13px;color:#0d6efd;text-decoration:none;">' + r.sales_number + '</a>';
+                var saleUrl = '{{ route('sales.prototype.show', ':SALE_ID') }}'.replace(':SALE_ID', r.sale_id);
+                html += '<a href="' + saleUrl + '" target="_blank" style="font-weight:700;font-size:13px;color:#0d6efd;text-decoration:none;">' + r.sales_number + '</a>';
                 if (dept) html += ' <span class="badge bg-secondary" style="font-size:10px;">' + dept + '</span>';
                 html += '<div style="font-size:12px;color:#6c757d;">' + (r.customer_name || '—') + '</div>';
                 html += '</div>';
