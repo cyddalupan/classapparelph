@@ -59,7 +59,8 @@ class LayoutJobController extends Controller
      * ---------------------------------------------------------------- */
 
     /**
-     * Layout Job List — pangkalahatan (approver review) o own-scoped (GA / creator).
+     * Personal Layout Job — jobs na assigned sa akin (ga_user_id) O ginawa ko (created_by).
+     * Para sa lahat ng layout-doers (admin/coo/cpo/cmo/ga) at mga creators.
      */
     public function index(Request $request)
     {
@@ -71,12 +72,55 @@ class LayoutJobController extends Controller
         $query = LayoutJob::with(['gaUser', 'creator', 'customer', 'sale', 'payout'])
             ->orderByDesc('id');
 
-        // GA: sariling jobs lang
+        // Personal scope: assigned sa akin O ako ang gumawa
+        $query->where(function ($q) use ($u) {
+            $q->where('ga_user_id', $u->id)
+              ->orWhere('created_by', $u->id);
+        });
+
+        $this->applyFilters($query, $request, $u);
+
+        $jobs = $query->paginate(25)->withQueryString();
+
+        // GA credit: SUM(earning jobs) − SUM(verified payouts) — credit box para sa GA
+        $credit = null;
         if ($this->isGaUser() && !$this->canReview()) {
-            $query->where('ga_user_id', $u->id);
+            $credit = $this->gaCredit($u->id);
         }
 
-        // Filters
+        $gaUsers = $this->layoutDoerUsers();
+        $mode = 'personal';
+
+        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'mode'));
+    }
+
+    /**
+     * Global Layout Job List — lahat ng jobs, para sa approvers (admin/coo/cpo/cmo).
+     */
+    public function all(Request $request)
+    {
+        $u = auth()->user();
+        if (!$this->canReview()) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $query = LayoutJob::with(['gaUser', 'creator', 'customer', 'sale', 'payout'])
+            ->orderByDesc('id');
+
+        $this->applyFilters($query, $request, $u);
+
+        $jobs = $query->paginate(25)->withQueryString();
+
+        $gaUsers = $this->layoutDoerUsers();
+        $credit = null;
+        $mode = 'global';
+
+        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'mode'));
+    }
+
+    /** Shared filter logic para sa index() at all() */
+    private function applyFilters($query, Request $request, $u)
+    {
         if ($type = $request->get('type')) {
             $query->where('type', $type);
         }
@@ -101,21 +145,15 @@ class LayoutJobController extends Controller
                     ->orWhere('description', 'like', "%{$q}%");
             });
         }
+    }
 
-        $jobs = $query->paginate(25)->withQueryString();
-
-        // GA credit: SUM(earning jobs) − SUM(verified payouts)
-        $credit = null;
-        if ($this->isGaUser()) {
-            $credit = $this->gaCredit($u->id);
-        }
-
-        $gaUsers = DB::table('users')
-            ->where('role', 'ga')
+    /** Layout-doer users: admin/coo/cpo/cmo + ga (para sa assignee/GA filter dropdown) */
+    private function layoutDoerUsers()
+    {
+        return DB::table('users')
+            ->whereIn('role', ['admin', 'coo', 'cpo', 'cmo', 'ga'])
             ->orderBy('name')
-            ->get(['id', 'name']);
-
-        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit'));
+            ->get(['id', 'name', 'position']);
     }
 
     /** GA credit computation */
@@ -147,7 +185,7 @@ class LayoutJobController extends Controller
         if (!$this->canCreate()) {
             abort(403, 'Unauthorized.');
         }
-        $gaUsers = DB::table('users')->where('role', 'ga')->orderBy('name')->get(['id', 'name']);
+        $gaUsers = $this->layoutDoerUsers();
         return view('sales.layout_jobs.create', compact('gaUsers'));
     }
 

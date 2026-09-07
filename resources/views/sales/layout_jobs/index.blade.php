@@ -65,8 +65,8 @@
     <div class="lj-hero mb-3">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
             <div>
-                <h4 class="mb-0">🎨 Layout Job List</h4>
-                <div class="sub">Bayad / libre na layout jobs — pre-sale o naka-link sa sale. May GA tag, payment verification, at payout requests.</div>
+                <h4 class="mb-0">🎨 {{ ($mode ?? 'personal') === 'global' ? 'Layout Job List (All)' : 'My Layout Jobs' }}</h4>
+                <div class="sub">{{ ($mode ?? 'personal') === 'global' ? 'Lahat ng bayad / libre na layout jobs — para sa review at payout ng approver.' : 'Bayad / libre na layout jobs mo — assigned sa iyo o ikaw ang gumawa. May GA tag, payment verification, at payout requests.' }}</div>
             </div>
             @if(auth()->user()->isAdmin() || auth()->user()->isCoo() || in_array(auth()->user()->role, ['staff','sales_agent','sales_representative','prod_manager','qa']))
             <a href="{{ route('sales.layout-jobs.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New Layout Job</a>
@@ -122,7 +122,7 @@
                         <option value="no_amount" {{ request('status')==='no_amount'?'selected':'' }}>Libre — wala pang amount</option>
                     </select>
                 </div>
-                @if(auth()->user()->isAdmin() || auth()->user()->isCoo() || auth()->user()->isCpo() || auth()->user()->isCmo())
+                @if(($mode ?? 'personal') === 'global')
                 <div class="col-md-2">
                     <label class="lj-muted">GA Artist</label>
                     <select name="ga" class="form-select form-select-sm">
@@ -135,7 +135,7 @@
                 @endif
                 <div class="col-md-3">
                     <button class="btn btn-sm btn-outline-primary"><i class="fas fa-filter"></i> Filter</button>
-                    <a href="{{ route('sales.layout-jobs') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                    <a href="{{ ($mode ?? 'personal') === 'global' ? route('sales.layout-jobs.all') : route('sales.layout-jobs') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
                 </div>
             </form>
         </div>

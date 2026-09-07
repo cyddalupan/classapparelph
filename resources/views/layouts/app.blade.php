@@ -192,8 +192,9 @@
                         </div>
                         <div class="user-role">
                             @auth
-                                @if(!Auth::user()->position)
-                                @if(Auth::user()->isAdmin())
+                                @if(Auth::user()->position)
+                                <span class="role-badge" style="background:rgba(124,58,237,.14);color:#7c3aed;font-weight:700;">{{ Auth::user()->position }}</span>
+                                @elseif(Auth::user()->isAdmin())
                                 <span class="role-badge admin">Administrator</span>
                                 @elseif(Auth::user()->isSalesAgent())
                                 <span class="role-badge sales-agent">Sales Agent</span>
@@ -209,7 +210,6 @@
                                 <span class="role-badge customer">Customer</span>
                                 @else
                                 <span class="role-badge user">User</span>
-                                @endif
                                 @endif
                             @else
                             <span class="role-badge user">Guest</span>
@@ -337,6 +337,10 @@
                             <span class="nav-text">Manager List</span>
                             <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
                         </span>
+                        <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
+                            <i class="fas fa-palette"></i>
+                            <span class="nav-text">Layout Job List</span>
+                        </a>
                         @else
                         <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
                             <i class="fas fa-columns"></i>
@@ -349,6 +353,10 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
+                        </a>
+                        <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
+                            <i class="fas fa-palette"></i>
+                            <span class="nav-text">Layout Job List</span>
                         </a>
                         <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
                             <i class="fas fa-tags"></i>
@@ -499,6 +507,10 @@
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
                         </a>
+                        <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
+                            <i class="fas fa-palette"></i>
+                            <span class="nav-text">Layout Job List</span>
+                        </a>
                         <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
                             <i class="fas fa-tags"></i>
                             <span class="nav-text">Special Price</span>
@@ -626,12 +638,15 @@
                             <span class="nav-text">Add New Sale</span>
                             <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
                         </span>
-                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
+                    </div>
+                    @endif
+                    <div class="nav-section">
+                        <div class="nav-section-title">My Layout</div>
+                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs') || request()->routeIs('sales.layout-jobs.create') ? 'active' : '' }}">
                             <i class="fas fa-palette"></i>
                             <span class="nav-text">Layout Job</span>
                         </a>
                     </div>
-                    @endif
                     <div class="nav-section">
                         <div class="nav-section-title">My Work</div>
                         <a href="{{ route('sales.prototype.production-feedback.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.production-feedback.list') ? 'active' : '' }}">
@@ -874,7 +889,7 @@
                                     {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
                                     @endif
                                 </div>
-                                <span class="user-name-short">@if(Auth::user()->position){{ Auth::user()->position }}@elseif(Auth::user()->isAdmin())Administrator@elseif(Auth::user()->isSalesAgent())Sales Agent@elseif(Auth::user()->isSalesRepresentative())Sales Representative@elseif(Auth::user()->isStaff())Staff@elseif(Auth::user()->isArtist())Artist@elseif(Auth::user()->isCustomer())Customer@else{{ Auth::user()->first_name }}@endif</span>
+                                <span class="user-name-short">@if(Auth::user()->position){{ Auth::user()->first_name }} · {{ Auth::user()->position }}@elseif(Auth::user()->isAdmin())Administrator@elseif(Auth::user()->isSalesAgent())Sales Agent@elseif(Auth::user()->isSalesRepresentative())Sales Representative@elseif(Auth::user()->isStaff())Staff@elseif(Auth::user()->isArtist())Artist@elseif(Auth::user()->isCustomer())Customer@else{{ Auth::user()->first_name }}@endif</span>
                                 <i class="fas fa-chevron-down"></i>
                             </button>
                             
@@ -889,6 +904,9 @@
                                     </div>
                                     <div>
                                         <div class="user-name-medium">{{ Auth::user()->name }}</div>
+                                        @if(Auth::user()->position)
+                                        <div style="font-size:12px;font-weight:700;color:#7c3aed;margin:2px 0;">{{ Auth::user()->position }}</div>
+                                        @endif
                                         <div class="user-email">{{ Auth::user()->email }}</div>
                                     </div>
                                 </div>
