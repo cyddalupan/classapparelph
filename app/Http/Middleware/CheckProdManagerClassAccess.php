@@ -82,6 +82,10 @@ class CheckProdManagerClassAccess
         // Notify agent (🔔/🚨 buttons on Manager Order List) — Class only, scoped in controller
         'sales.prototype.notify-agent',
 
+        // Request Time (⏰ per-sale button on Manager List + Request Time All)
+        'sales.prototype.request-time',
+        'sales.prototype.request-time-all',
+
         // Add-ons (🔔 Add-ons button & approve/reject) — Class only, scoped in controller
         'sales.prototype.addon.all-pending',
         'sales.prototype.addon.pending-count',

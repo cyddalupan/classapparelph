@@ -1128,7 +1128,62 @@ public function details(Request $request, string $id)
         }
         
         $servicesAfter = json_decode($change->services_after, true);
-        
+        if (!is_array($servicesAfter)) {
+            $servicesAfter = [];
+        }
+
+        $changeType = $change->type ?? 'addition';
+        $isReprocess = $changeType === 'reprocess';
+
+        // ADDITIONS MERGE — they must NOT replace the whole services list.
+        // Approving an addition layers its new line(s) on top of the sale's
+        // CURRENT services. Otherwise a later approval of an older pending
+        // request overwrites additions that were already approved in between
+        // (sale #45 bug: stale x2 approval wiped the earlier-approved x4).
+        if ($changeType === 'addition') {
+            $saleRow = \DB::table('prototype_sales')->find($change->sale_id);
+            $currentServices = $saleRow ? json_decode($saleRow->services ?? '[]', true) : [];
+            if (!is_array($currentServices)) {
+                $currentServices = [];
+            }
+            $servicesBefore = json_decode($change->services_before ?? '[]', true);
+            if (!is_array($servicesBefore)) {
+                $servicesBefore = [];
+            }
+            $beforeIds = array_column($servicesBefore, 'id');
+            $currentIds = array_column($currentServices, 'id');
+
+            foreach ($servicesAfter as $item) {
+                $itemId = $item['id'] ?? null;
+                $isNewLine = !in_array($itemId, $beforeIds);
+                if (!$isNewLine) {
+                    // Edited an existing line: apply the change onto the matching
+                    // line already present in the sale (same id), if it exists.
+                    if ($itemId !== null) {
+                        foreach ($currentServices as $k => $cur) {
+                            if (($cur['id'] ?? null) === $itemId) {
+                                $currentServices[$k] = $item;
+                            }
+                        }
+                    }
+                    continue;
+                }
+                // Brand-new line: renumber if the id is already taken in the sale
+                // (concurrent pending requests can compute the same next-id).
+                if (in_array($itemId, $currentIds)) {
+                    $existingIds = array_column($currentServices, 'id');
+                    $nextId = $existingIds ? (max($existingIds) + 1) : (($itemId ?? 0) + 1);
+                    while (in_array($nextId, $existingIds)) {
+                        $nextId++;
+                    }
+                    $item['id'] = $nextId;
+                }
+                $currentServices[] = $item;
+                $currentIds = array_column($currentServices, 'id');
+            }
+            $servicesAfter = $currentServices;
+        }
+
         // Calculate new totals
         $subtotal = $servicesAfter ? array_sum(array_column($servicesAfter, 'totalPrice')) : 0;
         $totalAmount = $subtotal; // no 12% tax per Andrew's rule
@@ -1150,7 +1205,6 @@ public function details(Request $request, string $id)
         $netPaid = max($totalPaid - $totalRefunded, 0);
         
         // Detect overpayment for reprocess
-        $isReprocess = ($change->type ?? 'addition') === 'reprocess';
         $rawBalance = $totalAmount - $netPaid;
         $hasOverpayment = $rawBalance < 0;
         $balanceDue = max($rawBalance, 0); // Don't show negative balance
@@ -1176,7 +1230,6 @@ public function details(Request $request, string $id)
             try {
                 $newDate = \Carbon\Carbon::parse($servicesAfter[0]['sublimationForm']['dateNeeded'])->format('Y-m-d');
                 $updateData['estimated_completion_date'] = $newDate;
-                $updateData['date_needed'] = $newDate;
             } catch (\Exception $e) {
                 // leave dates untouched if unparseable
             }

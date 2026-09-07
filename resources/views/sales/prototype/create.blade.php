@@ -1497,6 +1497,8 @@
         .print-slip .mockup-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .print-slip .roster-table th { background: #e0e0e0; font-weight: bold; text-align: center; }
         .print-slip .roster-table td { text-align: center; }
+        .print-slip .roster-table th, .print-slip .roster-table td { border: 1px solid #bbb; }
+        .print-slip .roster-table tr.roster-filler td { height: 12px; font-size: 6pt; line-height: 6pt; padding: 0; }
         .print-slip .section-title { font-weight: bold; font-size: 11pt; margin-top: 4px; margin-bottom: 2px; }
         .print-slip .divider { border-top: 2px solid #000; margin: 1px 0; }
         /* ⬇️ Compress upper 3-column area — keep text size, reduce padding/margins */
@@ -6052,6 +6054,21 @@ window.sublimation_printOrderSlip = function() {
                 rosterBody.innerHTML += '<tr><td></td><td style="text-align:left;">' + (inp.dataset.size || '') + '</td><td></td><td>' + qty + '</td></tr>';
             }
         });
+    }
+
+    // Pad roster with empty filler rows so the full light-gray grid shows (min look)
+    if (rosterBody.querySelectorAll('tr').length > 0) {
+        var existing = rosterBody.querySelectorAll('tr').length;
+        var headRow = rosterTable.querySelector('thead tr');
+        var cols = headRow ? headRow.cells.length : (rosterBody.querySelector('tr') ? rosterBody.querySelector('tr').cells.length : 4);
+        var fill = Math.max(0, Math.min(8, 12 - existing));
+        for (var fi = 0; fi < fill; fi++) {
+            var fr = document.createElement('tr'); fr.className = 'roster-filler';
+            for (var fc = 0; fc < cols; fc++) {
+                var ftd = document.createElement('td'); ftd.innerHTML = '&nbsp;'; fr.appendChild(ftd);
+            }
+            rosterBody.appendChild(fr);
+        }
     }
     
     // Show and print

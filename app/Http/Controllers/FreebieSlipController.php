@@ -35,6 +35,7 @@ class FreebieSlipController extends Controller
         return in_array($u->role, [
             'admin', 'manager', 'coo', 'staff',
             'sales_agent', 'sales_representative', 'prod_manager',
+            'qa',
         ]);
     }
 

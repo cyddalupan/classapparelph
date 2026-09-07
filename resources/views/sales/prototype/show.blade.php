@@ -41,6 +41,10 @@
     .pslip .chk { width:16px; height:16px; cursor:pointer; accent-color:#198754; margin:0; vertical-align:middle; }
     .pslip tr.done td { text-decoration:line-through; color:#999; }
     .pslip .no-border td, .pslip .no-border { border:none; }
+
+    /* NAME LIST light-gray full grid (roster tables) — overrides .no-border & black borders */
+    .pslip table.roster-table th, .pslip table.roster-table td { border:1px solid #bbb !important; }
+    .pslip table.roster-table tr.roster-filler td { border:1px solid #bbb !important; height:14px; }
     .ps-comment-list { margin-top:6px; max-height:150px; overflow-y:auto; }
     .ps-comment-entry { padding:6px 8px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:12px; border-left:3px solid #0d6efd; line-height:1.4; }
     .ps-comment-entry .time { font-size:10px; color:#999; }
@@ -2602,6 +2606,29 @@ document.addEventListener('click', function(e) {
     }
 });
 
+
+function padRosterGrids(root){
+    if (!root) return;
+    var tables = root.querySelectorAll('table.roster-table');
+    for (var i=0;i<tables.length;i++){
+        var t = tables[i];
+        var tbody = t.querySelector('tbody'); if (!tbody) continue;
+        var n = tbody.querySelectorAll('tr').length;
+        var fill = Math.max(0, Math.min(8, 12 - n));
+        if (!fill) continue;
+        var headRow = t.querySelector('thead tr');
+        var cols = headRow ? headRow.cells.length : 0;
+        if (!cols) continue;
+        for (var f=0; f<fill; f++){
+            var tr = document.createElement('tr'); tr.className = 'roster-filler';
+            for (var c=0; c<cols; c++){
+                var td = document.createElement('td'); td.innerHTML = '&nbsp;'; tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+    }
+}
+
 function loadProductionSlip(saleId) {
     var prodBody = document.getElementById('modalProdSlipBody');
     if (!saleId || !prodBody) return;
@@ -2872,6 +2899,7 @@ function renderProductionSlip(data) {
 
     var prodBody = document.getElementById('modalProdSlipBody');
     prodBody.innerHTML = html;
+    padRosterGrids(prodBody);
     prodBody.dataset.loaded = '1';
     prodBody.dataset.saleId = saleId;
 }
@@ -3007,7 +3035,7 @@ function renderAdditionalProductionSlip(saleId, data) {
                     }
                     return item.columns[hdr] || '';
                 }
-                html += '<table style="width:100%;font-size:9pt;border-collapse:collapse;">';
+                html += '<table class="roster-table" style="width:100%;font-size:9pt;border-collapse:collapse;">';
                 html += '<thead><tr><th>#</th>';
                 if (hasExcelCols) {
                     allColHeaders.forEach(function(h) { html += '<th>' + escHtml(h) + '</th>'; });
@@ -3035,7 +3063,7 @@ function renderAdditionalProductionSlip(saleId, data) {
                 });
                 html += '</tbody></table>';
             } else if (sizes.length > 0) {
-                html += '<table style="width:100%;font-size:9pt;border-collapse:collapse;">';
+                html += '<table class="roster-table" style="width:100%;font-size:9pt;border-collapse:collapse;">';
                 html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
                 html += '<tbody>';
                 sizes.forEach(function(s, si) {
@@ -3066,6 +3094,7 @@ function renderAdditionalProductionSlip(saleId, data) {
     
     var addProdBody = document.getElementById('modalAddProdSlipBody');
     addProdBody.innerHTML = html;
+    padRosterGrids(addProdBody);
     addProdBody.dataset.loaded = '1';
     addProdBody.dataset.saleId = saleId;
 }

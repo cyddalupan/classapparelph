@@ -91,6 +91,15 @@ class CheckQaAccess
         'sales.prototype.notification-read',
         'sales.prototype.notifications-read-all',
 
+        // Urgent notification response (modal reason → posted to sale comments)
+        'sales.prototype.respond-urgent',
+
+        // Freebie Slips — QA/Sales Agent can view + add freebie requests & mark slips done
+        // (Class-scoped; request gating also in FreebieSlipController)
+        'sales.prototype.freebie.pending',
+        'sales.prototype.freebie.request',
+        'sales.prototype.freebie.done',
+
         // Profile picture upload (avatar boxes on sidebar & top-right)
         'profile.avatar.update',
 

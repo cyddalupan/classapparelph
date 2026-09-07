@@ -172,8 +172,11 @@
     .print-slip .section-title { background: #000; color: #fff; padding: 3px 6px; font-weight: bold; font-size: 10pt; text-align: center; letter-spacing: 1px; }
     .print-slip .info-table td, .print-slip .info-table th { border: 1px solid #000; padding: 2px 4px; }
     .print-slip .info-table .label { font-weight: bold; width: 30%; background: #f0f0f0; }
+    .print-slip .roster-table th, .print-slip .roster-table td { border: 1px solid #bbb; }
     .print-slip .roster-table th { background: #e0e0e0; font-weight: bold; text-align: center; }
     .print-slip .roster-table td { text-align: center; }
+    /* Empty filler rows extend the grid below data rows (DomPDF-safe) */
+    .print-slip .roster-table tr.roster-filler td { height: 12px; font-size: 6pt; line-height: 6pt; padding: 0; border: 1px solid #bbb; }
     .print-slip .parts-table td { padding: 1px 4px; }
     .print-slip .mockup-box { border: 1px dotted #999; min-height: 100px; display: flex; align-items: center; justify-content: center; }
     .print-slip .mockup-box img { max-width: 100%; max-height: 400px; object-fit: contain; }
@@ -293,6 +296,13 @@
                                         <td></td><td></td><td></td>
                                     </tr>
                                     @endforeach
+                                    @php
+                                        $fillRows = max(0, min(8, 12 - count($sd['roster'])));
+                                        $fillCols = 1 + count($excelHeaders) + 3;
+                                    @endphp
+                                    @for($fi = 0; $fi < $fillRows; $fi++)
+                                    <tr class="roster-filler">@for($ci = 0; $ci < $fillCols; $ci++)<td>&nbsp;</td>@endfor</tr>
+                                    @endfor
                                 </tbody>
                             @else
                                 <thead><tr><th>#</th><th>NAME</th><th>NUMBER</th><th>SIZE</th><th>QTY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>
@@ -307,6 +317,12 @@
                                         <td></td><td></td><td></td>
                                     </tr>
                                     @endforeach
+                                    @php
+                                        $fillRows = max(0, min(8, 12 - count($sd['roster'])));
+                                    @endphp
+                                    @for($fi = 0; $fi < $fillRows; $fi++)
+                                    <tr class="roster-filler">@for($ci = 0; $ci < 8; $ci++)<td>&nbsp;</td>@endfor</tr>
+                                    @endfor
                                 </tbody>
                             @endif
                         </table>
@@ -325,6 +341,12 @@
                                 @if(empty($sizes))
                                 <tr><td colspan="5" style="text-align:center;">—</td></tr>
                                 @endif
+                                @php
+                                    $fillRows = count($sizes) > 0 ? max(0, min(8, 12 - count($sizes))) : 0;
+                                @endphp
+                                @for($fi = 0; $fi < $fillRows; $fi++)
+                                <tr class="roster-filler">@for($ci = 0; $ci < 5; $ci++)<td>&nbsp;</td>@endfor</tr>
+                                @endfor
                             </tbody>
                         </table>
                     @endif

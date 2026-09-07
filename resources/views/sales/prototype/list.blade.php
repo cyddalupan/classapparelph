@@ -683,14 +683,15 @@
                                 if ($dueDate) {
                                     $dueCarbon = \Carbon\Carbon::parse($dueDate)->startOfDay();
                                     $daysLeft = (int) now()->startOfDay()->diffInDays($dueCarbon, false);
+                                    $dueDateShort = $dueCarbon->format('M d');
                                     if ($daysLeft < 0) {
-                                        $dueBadge = '<span class="badge bg-danger" title="Due ' . $dueCarbon->format('M d, Y') . '">Due ' . abs($daysLeft) . 'd ago</span>';
+                                        $dueBadge = '<span class="badge bg-danger" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $dueDateShort . ' · ' . abs($daysLeft) . 'd ago</span>';
                                     } elseif ($daysLeft === 0) {
-                                        $dueBadge = '<span class="badge bg-danger" title="Due today">Due TODAY</span>';
+                                        $dueBadge = '<span class="badge bg-danger" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $dueDateShort . ' · TODAY</span>';
                                     } elseif ($daysLeft <= 3) {
-                                        $dueBadge = '<span class="badge bg-warning text-dark" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $daysLeft . 'd left</span>';
+                                        $dueBadge = '<span class="badge bg-warning text-dark" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $dueDateShort . ' · ' . $daysLeft . 'd left</span>';
                                     } else {
-                                        $dueBadge = '<span class="badge bg-success" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $daysLeft . 'd left</span>';
+                                        $dueBadge = '<span class="badge bg-success" title="Due ' . $dueCarbon->format('M d, Y') . '">' . $dueDateShort . ' · ' . $daysLeft . 'd left</span>';
                                     }
                                 }
                             @endphp
