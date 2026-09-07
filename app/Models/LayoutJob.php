@@ -11,7 +11,7 @@ class LayoutJob extends Model
     protected $fillable = [
         'job_no', 'customer_id', 'customer_name', 'description', 'reference_image_path',
         'type', 'amount', 'amount_set_by', 'amount_set_at',
-        'payment_method', 'payment_reference', 'payment_screenshot_path',
+        'payment_method', 'payment_account_id', 'payment_reference', 'payment_screenshot_path',
         'payment_status', 'payment_verified_by', 'payment_verified_at', 'payment_reject_reason',
         'ga_user_id', 'assigned_by', 'assigned_at',
         'status', 'done_by', 'done_at',
@@ -57,6 +57,11 @@ class LayoutJob extends Model
     public function payout()
     {
         return $this->belongsTo(LayoutJobPayout::class, 'payout_id');
+    }
+
+    public function paymentAccount()
+    {
+        return $this->belongsTo(PaymentAccount::class, 'payment_account_id');
     }
 
     /* ------------------------------------------------------------------

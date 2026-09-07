@@ -124,7 +124,7 @@
                 </div>
                 @if(($mode ?? 'personal') === 'global')
                 <div class="col-md-2">
-                    <label class="lj-muted">GA Artist</label>
+                    <label class="lj-muted">Layout Doer</label>
                     <select name="ga" class="form-select form-select-sm">
                         <option value="">All</option>
                         @foreach($gaUsers as $g)
@@ -150,7 +150,7 @@
                         <th>Type</th>
                         <th>Amount</th>
                         <th>Payment</th>
-                        <th>GA Artist</th>
+                        <th>Layout Doer</th>
                         <th>Status</th>
                         <th class="text-end">Actions</th>
                     </tr>
@@ -190,6 +190,9 @@
                                 <span class="lj-badge {{ in_array($ps,['verified']) ? 'verified' : ($ps==='rejected' ? 'rejected' : 'pending') }}">
                                     {{ $ps === 'verified' ? '✓ Verified' : ($ps === 'rejected' ? '✗ Rejected' : '⏳ Pending') }}
                                 </span>
+                                @if($job->paymentAccount)
+                                <br><span class="lj-muted"><i class="fas fa-wallet"></i> {{ $job->paymentAccount->name }}</span>
+                                @endif
                                 @if($job->payment_screenshot_path)
                                 <br><a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $job->payment_screenshot_path) }}')"><i class="fas fa-receipt"></i> view proof</a>
                                 @endif
@@ -206,12 +209,17 @@
                             @endif
                         </td>
                         <td class="text-end">
-                            @php $isApprover = auth()->user()->isAdmin() || auth()->user()->isCoo() || auth()->user()->isCpo() || auth()->user()->isCmo(); @endphp
-                            @if($isApprover)
-                                @if($job->isPaid() && $job->payment_status === 'pending')
+                            @php
+                                $isApprover = auth()->user()->isAdmin() || auth()->user()->isCoo() || auth()->user()->isCpo() || auth()->user()->isCmo();
+                                // Verify payment: admin O ang may-ari ng payment account
+                                $accOwnerId = $job->paymentAccount?->user_id;
+                                $canVerifyPay = auth()->user()->isAdmin() || ($accOwnerId && auth()->id() === $accOwnerId);
+                            @endphp
+                            @if($job->isPaid() && $job->payment_status === 'pending' && $canVerifyPay)
                                 <button class="btn btn-sm btn-success lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'verify')">Verify Pay</button>
                                 <button class="btn btn-sm btn-danger lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'reject')">Reject</button>
-                                @endif
+                            @endif
+                            @if($isApprover)
                                 @if($job->isFree() && $job->amount === null && $job->status !== 'done')
                                 <button class="btn btn-sm btn-dark lj-btn-mini mb-1" onclick="openSetAmount({{ $job->id }}, '{{ $job->job_no }}')">Set Amount</button>
                                 @endif
@@ -289,13 +297,12 @@
         <input type="hidden" id="payPayoutId">
         <div class="row g-2 mb-2">
             <div class="col-6">
-                <label class="lj-muted">Payment Method</label>
+                <label class="lj-muted">Payment Account (pambayad sa GA)</label>
                 <select id="payPayoutMethod" class="form-select">
-                    <option value="gcash">GCash</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="cash">Cash</option>
-                    <option value="paymaya">PayMaya</option>
-                    <option value="other">Other</option>
+                    <option value="">— piliin ang account —</option>
+                    @foreach($paymentAccounts ?? [] as $pa)
+                    <option value="{{ $pa->name }}">{{ $pa->name }}</option>
+                    @endforeach
                 </select>
             </div>
             <div class="col-6">
@@ -305,7 +312,7 @@
         </div>
         <label class="lj-muted">Payment Proof (screenshot)</label>
         <input type="file" id="payPayoutProof" class="form-control" accept="image/*">
-        <div class="mt-2"><small class="lj-muted">Pwede ring i-verify kaagad (bawas agad sa credit ng GA) o pay muna.</small></div>
+        <div class="mt-2"><small class="lj-muted">Pwede ring i-verify kaagad (bawas agad sa credit ng layout-doer) o pay muna.</small></div>
     </div>
     <div class="modal-footer">
         <button class="btn btn-outline-danger" onclick="rejectPayout()">Reject</button>

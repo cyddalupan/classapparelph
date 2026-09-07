@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\LayoutJob;
 use App\Models\LayoutJobPayout;
+use App\Models\PaymentAccount;
 
 /**
  * Layout Job System — standalone layout jobs (bayad / libre) for Full Sublimation.
@@ -22,9 +23,9 @@ use App\Models\LayoutJobPayout;
  *   → bayad na layout lang ang nalilink sa sale (libre = HINDI)
  *
  * Access:
- *   canCreate  : admin, staff, coo, sales_agent, sales_representative, prod_manager, qa
+ *   canCreate  : admin, staff, coo, cpo, cmo, sales_agent, sales_representative, prod_manager, qa
  *   canReview  : admin (approver), coo, cpo, cmo
- *   GA actions : ga role (own jobs) — done + payout request
+ *   Layout-doer (credit + payout request) : admin, coo, cpo, cmo, ga
  */
 class LayoutJobController extends Controller
 {
@@ -37,7 +38,7 @@ class LayoutJobController extends Controller
         $u = auth()->user();
         if (!$u) return false;
         return in_array($u->role, [
-            'admin', 'staff', 'coo', 'sales_agent', 'sales_representative',
+            'admin', 'staff', 'coo', 'cpo', 'cmo', 'sales_agent', 'sales_representative',
             'prod_manager', 'qa',
         ]);
     }
@@ -52,6 +53,21 @@ class LayoutJobController extends Controller
     {
         $u = auth()->user();
         return $u && $u->isGa();
+    }
+
+    /** Layout-doer: tumatanggap ng bayad sa layout (admin/coo/cpo/cmo/ga) */
+    private function isLayoutDoer(): bool
+    {
+        $u = auth()->user();
+        return $u && in_array($u->role, ['admin', 'coo', 'cpo', 'cmo', 'ga']);
+    }
+
+    /** Aktibong payment accounts para sa payment method dropdown */
+    private function paymentAccounts()
+    {
+        return PaymentAccount::where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'provider', 'account_number', 'user_id']);
     }
 
     /* ------------------------------------------------------------------
@@ -69,7 +85,7 @@ class LayoutJobController extends Controller
             abort(403, 'Unauthorized.');
         }
 
-        $query = LayoutJob::with(['gaUser', 'creator', 'customer', 'sale', 'payout'])
+        $query = LayoutJob::with(['gaUser', 'creator', 'customer', 'sale', 'payout', 'paymentAccount'])
             ->orderByDesc('id');
 
         // Personal scope: assigned sa akin O ako ang gumawa
@@ -82,16 +98,17 @@ class LayoutJobController extends Controller
 
         $jobs = $query->paginate(25)->withQueryString();
 
-        // GA credit: SUM(earning jobs) − SUM(verified payouts) — credit box para sa GA
+        // Layout credit: para sa LAHAT ng layout-doers (admin/coo/cpo/cmo/ga) — credit box + payout request
         $credit = null;
-        if ($this->isGaUser() && !$this->canReview()) {
+        if ($this->isLayoutDoer()) {
             $credit = $this->gaCredit($u->id);
         }
 
         $gaUsers = $this->layoutDoerUsers();
+        $paymentAccounts = $this->paymentAccounts();
         $mode = 'personal';
 
-        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'mode'));
+        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode'));
     }
 
     /**
@@ -104,7 +121,7 @@ class LayoutJobController extends Controller
             abort(403, 'Unauthorized.');
         }
 
-        $query = LayoutJob::with(['gaUser', 'creator', 'customer', 'sale', 'payout'])
+        $query = LayoutJob::with(['gaUser', 'creator', 'customer', 'sale', 'payout', 'paymentAccount'])
             ->orderByDesc('id');
 
         $this->applyFilters($query, $request, $u);
@@ -112,10 +129,11 @@ class LayoutJobController extends Controller
         $jobs = $query->paginate(25)->withQueryString();
 
         $gaUsers = $this->layoutDoerUsers();
+        $paymentAccounts = $this->paymentAccounts();
         $credit = null;
         $mode = 'global';
 
-        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'mode'));
+        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode'));
     }
 
     /** Shared filter logic para sa index() at all() */
@@ -186,7 +204,8 @@ class LayoutJobController extends Controller
             abort(403, 'Unauthorized.');
         }
         $gaUsers = $this->layoutDoerUsers();
-        return view('sales.layout_jobs.create', compact('gaUsers'));
+        $paymentAccounts = $this->paymentAccounts();
+        return view('sales.layout_jobs.create', compact('gaUsers', 'paymentAccounts'));
     }
 
     /* ------------------------------------------------------------------
@@ -208,21 +227,27 @@ class LayoutJobController extends Controller
             'description'   => 'nullable|string',
             'type'          => 'required|in:paid,free',
             'amount'        => 'nullable|numeric|min:0',
-            'payment_method'=> 'nullable|string|max:50',
+            'payment_account_id' => 'nullable|integer|exists:payment_accounts,id',
             'payment_reference' => 'nullable|string|max:255',
             'ga_user_id'    => 'required|integer|exists:users,id',
             'reference_image' => 'nullable|image|max:5120',
             'payment_screenshot' => 'nullable|image|max:5120',
         ]);
 
-        // Bayad: kailangan ng payment info
+        // Bayad: kailangan ng payment info (actual payment account, hindi generic)
+        $accountName = null;
         if ($data['type'] === 'paid') {
             if (empty($data['amount'])) {
                 return response()->json(['error' => 'Bayad na layout — kailangan ng amount.'], 422);
             }
-            if (empty($data['payment_method'])) {
-                return response()->json(['error' => 'Bayad na layout — piliin ang payment method.'], 422);
+            if (empty($data['payment_account_id'])) {
+                return response()->json(['error' => 'Bayad na layout — piliin kung saang account binayad (hal. Drew Gcash, Jemel Gcash).'], 422);
             }
+            $account = PaymentAccount::where('is_active', true)->find($data['payment_account_id']);
+            if (!$account) {
+                return response()->json(['error' => 'Hindi valid ang payment account na pinili.'], 422);
+            }
+            $accountName = $account->name;
             if (empty($data['payment_reference']) && !$request->hasFile('payment_screenshot')) {
                 return response()->json(['error' => 'Bayad na layout — maglagay ng reference number O payment screenshot.'], 422);
             }
@@ -250,7 +275,8 @@ class LayoutJobController extends Controller
             'reference_image_path' => $refPath,
             'type' => $data['type'],
             'amount' => $data['type'] === 'paid' ? $data['amount'] : null,
-            'payment_method' => $data['type'] === 'paid' ? ($data['payment_method'] ?? null) : null,
+            'payment_method' => $data['type'] === 'paid' ? $accountName : null,
+            'payment_account_id' => $data['type'] === 'paid' ? ($data['payment_account_id'] ?? null) : null,
             'payment_reference' => $data['type'] === 'paid' ? ($data['payment_reference'] ?? null) : null,
             'payment_screenshot_path' => $payPath,
             'payment_status' => $data['type'] === 'paid' ? 'pending' : null,
@@ -265,17 +291,26 @@ class LayoutJobController extends Controller
     }
 
     /**
-     * Approver: verify bayad na layout job payment (pending → verified/rejected).
+     * Verify/reject bayad na layout job payment.
+     * Permission: admin O ang may-ari ng payment account (tulad ng sales/prototype system).
      */
     public function verifyPayment(Request $request, int $id)
     {
-        if (!$this->canReview()) {
-            return response()->json(['error' => 'Unauthorized.'], 403);
-        }
-
-        $job = LayoutJob::findOrFail($id);
+        $u = auth()->user();
+        $job = LayoutJob::with('paymentAccount')->findOrFail($id);
         if ($job->type !== 'paid') {
             return response()->json(['error' => 'Hindi bayad na layout ito.'], 422);
+        }
+
+        // Account owner check: company accounts (walang user_id) → admin lang.
+        $accountOwnerId = $job->paymentAccount?->user_id;
+        $isAdmin = $u && $u->isAdmin();
+        $isOwner = $accountOwnerId && $u && $u->id === $accountOwnerId;
+        if (!$isAdmin && !$isOwner) {
+            $ownerName = $job->paymentAccount?->user?->name ?? 'Company';
+            return response()->json([
+                'error' => "Ikaw ay hindi ang verifier ng payment na ito. Ang payment ay nasa " . ($job->paymentAccount?->name ?? 'account') . " — si " . $ownerName . " (o admin) lang ang pwedeng mag-verify."
+            ], 403);
         }
 
         $action = $request->get('action', 'verify');
@@ -343,20 +378,24 @@ class LayoutJobController extends Controller
     }
 
     /**
-     * GA: mag-request ng payout ng kanyang total layout credit.
-     * Gumagawa ng payout record; lahat ng earning (done) jobs na wala pang payout
-     * ay ililink sa payout request na ito.
+     * Layout-doer: mag-request ng payout ng kanyang total layout credit.
+     * Self-service — para sa lahat ng layout-doers (admin/coo/cpo/cmo/ga).
+     * Approvers ay pwedeng mag-request on behalf (ga_user_id param) kung hindi sarili.
      */
     public function requestPayout(Request $request)
     {
         $u = auth()->user();
-        if (!$this->isGaUser() && !$this->canReview()) {
+        if (!$this->isLayoutDoer()) {
             return response()->json(['error' => 'Unauthorized.'], 403);
         }
 
-        $gaUserId = $this->isGaUser() ? $u->id : (int) $request->get('ga_user_id');
+        // Default: sarili. Approver pwede mag-request para sa ibang layout-doer.
+        $gaUserId = (int) ($request->get('ga_user_id') ?: $u->id);
         if (!$gaUserId) {
-            return response()->json(['error' => 'Kailangan ng GA.'], 422);
+            return response()->json(['error' => 'Kailangan ng layout-doer.'], 422);
+        }
+        if (!$this->canReview() && $gaUserId !== $u->id) {
+            return response()->json(['error' => 'Hindi ka pwedeng mag-request para sa iba.'], 403);
         }
 
         // Earning + done + belum linked sa payout

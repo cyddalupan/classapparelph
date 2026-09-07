@@ -48,7 +48,7 @@
 
     <div class="lj-create-hero mb-3">
         <h4 class="mb-1">🎨 New Layout Job</h4>
-        <div class="opacity-75" style="font-size:12.5px;">Bayad (client nagbayad ng layout fee) o Libre (waived — walang threshold). I-tag ang GA Artist na gagawa.</div>
+        <div class="opacity-75" style="font-size:12.5px;">Bayad (client nagbayad ng layout fee) o Libre (waived — walang threshold). I-tag ang Layout Doer na gagawa.</div>
     </div>
 
     <div class="lj-card p-4">
@@ -81,14 +81,14 @@
                     <input type="text" name="customer_name" class="form-control" required placeholder="Pangalan ng client / company">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">GA Artist (tag) <span class="lj-required">*</span></label>
+                    <label class="form-label">Layout Doer (tag) <span class="lj-required">*</span></label>
                     <select name="ga_user_id" class="form-select" required>
                         <option value="">— piliin ang GA —</option>
                         @foreach($gaUsers as $g)
                         <option value="{{ $g->id }}">{{ $g->name }}</option>
                         @endforeach
                     </select>
-                    <div class="form-text">Pag na-save, mapupunta sa GA na ito ang job info.</div>
+                    <div class="form-text">Pag na-save, mapupunta sa kanya ang job info.</div>
                 </div>
 
                 <div class="col-12">
@@ -113,16 +113,14 @@
                             <input type="number" name="amount" class="form-control" min="0" step="0.01" placeholder="0.00">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Payment Method <span class="lj-required">*</span></label>
-                            <select name="payment_method" class="form-select">
-                                <option value="">— piliin —</option>
-                                <option value="gcash">GCash</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="cash">Cash</option>
-                                <option value="paymaya">PayMaya</option>
-                                <option value="credit_card">Credit Card</option>
-                                <option value="other">Other</option>
+                            <label class="form-label">Saan Binayad / Payment Account <span class="lj-required">*</span></label>
+                            <select name="payment_account_id" class="form-select">
+                                <option value="">— piliin ang account —</option>
+                                @foreach($paymentAccounts ?? [] as $pa)
+                                <option value="{{ $pa->id }}">{{ $pa->name }}@if($pa->account_number) ({{ $pa->account_number }})@endif</option>
+                                @endforeach
                             </select>
+                            <div class="form-text">Account kung saan binayad ni client — ang may-ari nito ang magve-verify.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Reference #</label>
