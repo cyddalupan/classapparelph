@@ -100,6 +100,12 @@ class CheckQaAccess
         'sales.prototype.freebie.request',
         'sales.prototype.freebie.done',
 
+        // Layout Jobs — QA/Sales Agent: view list + create (tag GA) + link sa sale
+        'sales.layout-jobs',
+        'sales.layout-jobs.create',
+        'sales.layout-jobs.store',
+        'sales.layout-jobs.link-sale',
+
         // Profile picture upload (avatar boxes on sidebar & top-right)
         'profile.avatar.update',
 

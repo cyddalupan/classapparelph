@@ -306,6 +306,10 @@
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Add New Sale</span>
                         </a>
+                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
+                            <i class="fas fa-palette"></i>
+                            <span class="nav-text">Layout Job</span>
+                        </a>
                     </div>
                     @endif
                     @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo())
@@ -398,6 +402,10 @@
                         <a href="{{ route('sales.prototype.create') }}" class="nav-item {{ request()->routeIs('sales.prototype.create') ? 'active' : '' }}">
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Add New Sale</span>
+                        </a>
+                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
+                            <i class="fas fa-palette"></i>
+                            <span class="nav-text">Layout Job</span>
                         </a>
                     </div>
                     <div class="nav-section">
@@ -545,6 +553,10 @@
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Add New Sale</span>
                         </a>
+                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
+                            <i class="fas fa-palette"></i>
+                            <span class="nav-text">Layout Job</span>
+                        </a>
                     </div>
                     @endif
 
@@ -614,6 +626,10 @@
                             <span class="nav-text">Add New Sale</span>
                             <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
                         </span>
+                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
+                            <i class="fas fa-palette"></i>
+                            <span class="nav-text">Layout Job</span>
+                        </a>
                     </div>
                     @endif
                     <div class="nav-section">

@@ -988,6 +988,18 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/notifications/read-all', [App\Http\Controllers\PrototypeSalesController::class, 'notificationsReadAll'])->name('sales.prototype.notifications-read-all');
         Route::post('/sales/prototype/refund/{id}/process', [App\Http\Controllers\PrototypeSalesController::class, 'processRefund'])->name('sales.prototype.process-refund');
         Route::get('/sales/refunds', [App\Http\Controllers\PrototypeSalesController::class, 'refundList'])->name('sales.prototype.refunds');
+
+        // LAYOUT JOB SYSTEM (bayad/libre layout jobs — pre-sale at sale-linked)
+        Route::get('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'index'])->name('sales.layout-jobs');
+        Route::get('/sales/layout-jobs/create', [App\Http\Controllers\LayoutJobController::class, 'create'])->name('sales.layout-jobs.create');
+        Route::post('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'store'])->name('sales.layout-jobs.store');
+        Route::post('/sales/layout-jobs/{id}/verify-payment', [App\Http\Controllers\LayoutJobController::class, 'verifyPayment'])->name('sales.layout-jobs.verify-payment');
+        Route::post('/sales/layout-jobs/{id}/set-amount', [App\Http\Controllers\LayoutJobController::class, 'setAmount'])->name('sales.layout-jobs.set-amount');
+        Route::post('/sales/layout-jobs/{id}/done', [App\Http\Controllers\LayoutJobController::class, 'done'])->name('sales.layout-jobs.done');
+        Route::post('/sales/layout-jobs/payout-request', [App\Http\Controllers\LayoutJobController::class, 'requestPayout'])->name('sales.layout-jobs.payout-request');
+        Route::post('/sales/layout-jobs/payout/{payoutId}/pay', [App\Http\Controllers\LayoutJobController::class, 'payPayout'])->name('sales.layout-jobs.payout-pay');
+        Route::post('/sales/layout-jobs/{id}/link-sale', [App\Http\Controllers\LayoutJobController::class, 'linkSale'])->name('sales.layout-jobs.link-sale');
+        Route::get('/sales/layout-jobs/pending-counts', [App\Http\Controllers\LayoutJobController::class, 'pendingCounts'])->name('sales.layout-jobs.pending-counts');
 });
 
         // Department Inventory Management (iPrint & others)
