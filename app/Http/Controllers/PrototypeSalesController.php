@@ -904,6 +904,13 @@ public function details(Request $request, string $id)
         
         // Determine if editing is allowed (not delivered/completed)
         $canEdit = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
+
+        // Reprocess lock: once the order is tagged PRINTING (or any later
+        // production stage), regular users lose reprocess access. Only
+        // CEO (admin), Class Manager (prod_manager) and COO can override.
+        $startedStages = ['PRINTING', 'PRESSING', 'CUTTING', 'SEWING', 'QA', 'DISPATCH', 'UNPAID', 'DONE'];
+        $productionStarted = in_array($sale->production_stage ?? '', $startedStages, true);
+        $canOverrideReprocess = $currentUser && ($currentUser->isAdmin() || $currentUser->isProdManager() || $currentUser->isCoo());
         
         // Fetch refund data for this sale
         $refunds = \DB::table('prototype_refunds')
@@ -966,6 +973,7 @@ public function details(Request $request, string $id)
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
             'progressPercent', 'pendingChanges', 'isManager', 'isGa', 'canGiveFeedback', 'canEdit', 'canEditProdSlip',
+            'productionStarted', 'canOverrideReprocess',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists', 'damageReports'
@@ -2073,6 +2081,22 @@ public function details(Request $request, string $id)
 
         if (!auth()->check()) {
             return response()->json(['success' => false, 'message' => 'You must be logged in to reprocess orders.'], 401);
+        }
+
+        // PRODUCTION-STARTED LOCK: once the order is tagged PRINTING (or any
+        // later production stage), regular users can no longer reprocess it.
+        // Only CEO (admin), Class Manager (prod_manager) and COO may override.
+        // Any wasted output from the started run is tracked via Damage Reports
+        // (manual flow — not auto-created here, to keep that system untouched).
+        $user = auth()->user();
+        $startedStages = ['PRINTING', 'PRESSING', 'CUTTING', 'SEWING', 'QA', 'DISPATCH', 'UNPAID', 'DONE'];
+        $productionStarted = in_array($sale->production_stage ?? '', $startedStages, true);
+        $canOverride = $user && ($user->isAdmin() || $user->isProdManager() || $user->isCoo());
+        if ($productionStarted && !$canOverride) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot reprocess — order is already tagged ' . $sale->production_stage . ' (production started). Only CEO / Class Manager / COO can reprocess at this point. If work was already done, report it via a Damage Report instead.',
+            ], 403);
         }
 
         if (empty($productName)) {

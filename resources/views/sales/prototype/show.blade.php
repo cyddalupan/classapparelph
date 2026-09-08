@@ -88,11 +88,18 @@
             
             @php
                 $canReprocess = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
+                $reprocessLocked = $productionStarted && !$canOverrideReprocess;
             @endphp
             @if($canEdit && $canReprocess && !$isGa)
-            <button type="button" class="btn btn-warning" onclick="openSubReprocessModal()">
-                <i class="fas fa-sync-alt"></i> Reprocess Order
-            </button>
+                @if($reprocessLocked)
+                <button type="button" class="btn btn-warning" disabled title="Naka-PRINTING na ang order — hindi na pwedeng mag-reprocess. CEO / Class Manager / COO lang ang pwedeng mag-override.">
+                    <i class="fas fa-sync-alt"></i> Reprocess Order
+                </button>
+                @else
+                <button type="button" class="btn btn-warning" onclick="openSubReprocessModal()">
+                    <i class="fas fa-sync-alt"></i> Reprocess Order
+                </button>
+                @endif
             @endif
             @endif
             <button type="button" class="btn btn-outline-info" onclick="openProdSlipModal()">
