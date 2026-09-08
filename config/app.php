@@ -123,4 +123,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Demo Mode
+    |--------------------------------------------------------------------------
+    |
+    | When true, selected sidebar navigation items are visually hidden only
+    | (display:none). No routes or features are removed; set DEMO_HIDE_NAV=false
+    | in .env to restore them.
+    |
+    */
+
+    'demo_hide_nav' => env('DEMO_HIDE_NAV', false),
+
 ];
