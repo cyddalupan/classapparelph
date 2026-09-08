@@ -136,6 +136,12 @@
         <div class="kpi-sub">Across all stages</div>
     </div>
     <div class="kpi-card">
+        <div class="kpi-icon" style="background:#ecfdf5;color:#059669;"><i class="fas fa-sack-dollar"></i></div>
+        <div class="kpi-label">Total Paid</div>
+        <div class="kpi-value" style="color:#059669;">₱{{ number_format($totalPaidAmount, 2) }}</div>
+        <div class="kpi-sub">Verified payments (net of refunds)</div>
+    </div>
+    <div class="kpi-card">
         <div class="kpi-icon" style="background:#fef3c7;color:#b45309;"><i class="fas fa-hand-holding-dollar"></i></div>
         <div class="kpi-label">Pa Sisingilin</div>
         <div class="kpi-value" style="color:#b45309;">₱{{ number_format($totalCollectible, 2) }}</div>

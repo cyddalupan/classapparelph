@@ -7269,6 +7269,7 @@ $services = json_decode($sale->services, true);
         }
 
         $totalCollectible = 0.0;
+        $totalPaidAmount = 0.0;
         $pendingVerificationAmount = 0.0;
         $collectibleOrders = 0;
         foreach ($moneySales as $ms) {
@@ -7278,6 +7279,7 @@ $services = json_decode($sale->services, true);
                 : (float) ($ms->deposit_paid ?? 0);
             $refunded = (float) ($refundedBySale[$ms->id] ?? 0);
             $netPaid = max($paid - $refunded, 0);
+            $totalPaidAmount += $netPaid;
             $due = max((float) $ms->total_amount - $netPaid, 0);
             if ($due > 0.009) {
                 $totalCollectible += $due;
@@ -7291,6 +7293,7 @@ $services = json_decode($sale->services, true);
             }
         }
         $totalCollectible = round($totalCollectible, 2);
+        $totalPaidAmount = round($totalPaidAmount, 2);
         $pendingVerificationAmount = round($pendingVerificationAmount, 2);
 
         // ---- Kanban status counts ----
@@ -7470,7 +7473,7 @@ $services = json_decode($sale->services, true);
         $isProdManager = $user && $user->isClassScoped();
 
         return view('production.tracking', compact(
-            'totalOrders', 'totalRevenue', 'totalCollectible', 'collectibleOrders', 'pendingVerificationAmount',
+            'totalOrders', 'totalRevenue', 'totalCollectible', 'totalPaidAmount', 'collectibleOrders', 'pendingVerificationAmount',
             'kanbanCounts', 'kanbanLabels', 'kanbanTotal',
             'stageCounts', 'delayedCount', 'prioCount', 'dueCount', 'upcomingDue', 'overdueDue',
             'openFeedbackCount', 'backjobCount', 'pendingChanges', 'pendingAddons',
