@@ -149,6 +149,76 @@
                 </div>
             </div>
 
+            <!-- Pending Layout Job Payments (connected sa hub) -->
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-palette me-2" style="color:#6f42c1"></i> Pending Layout Payments</h5>
+                    <span class="badge rounded-pill" style="background:#6f42c1">{{ $pendingLayoutJobs->count() }}</span>
+                </div>
+                <div class="card-body p-0">
+                    @if($pendingLayoutJobs->isEmpty())
+                        <div class="text-center py-4 text-muted">
+                            <small>No pending layout payments for your accounts.</small>
+                        </div>
+                    @else
+                        <div class="list-group list-group-flush">
+                            @foreach($pendingLayoutJobs as $lj)
+                                <div class="list-group-item payment-card pending">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1 me-3">
+                                            <div class="d-flex align-items-center gap-2 mb-1">
+                                                <span class="fw-semibold">🎨 {{ $lj->job_no }}</span>
+                                                <span class="badge bg-warning status-badge">Pending</span>
+                                                @if($lj->customer_name)
+                                                    <span class="small text-muted">{{ $lj->customer_name }}</span>
+                                                @endif
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2 mb-1">
+                                                <span class="fw-bold text-success">₱{{ number_format((float) $lj->amount, 2) }}</span>
+                                                @if($lj->ga_name)
+                                                    <span class="small text-muted">Layout doer: {{ $lj->ga_name }}</span>
+                                                @endif
+                                            </div>
+                                            <div class="small mt-1">
+                                                @if($lj->account_name)
+                                                    <span class="badge bg-light text-dark me-1">
+                                                        <i class="fas fa-user"></i> {{ $lj->account_name }}
+                                                    </span>
+                                                @endif
+                                                @if($lj->payment_reference)
+                                                    <span class="badge bg-light text-dark me-1">
+                                                        <i class="fas fa-hashtag"></i> {{ $lj->payment_reference }}
+                                                    </span>
+                                                @endif
+                                                <span class="badge bg-light text-dark me-1">
+                                                    <i class="fas fa-clock"></i> {{ \Carbon\Carbon::parse($lj->created_at)->format('M d, g:i A') }}
+                                                </span>
+                                            </div>
+                                            @if($lj->payment_screenshot_path)
+                                                <div class="mt-2">
+                                                    <img src="{{ asset('storage/' . $lj->payment_screenshot_path) }}" alt="Payment screenshot"
+                                                         onclick="window.openScreenshot('{{ asset('storage/' . $lj->payment_screenshot_path) }}')"
+                                                         style="max-height: 80px; max-width: 120px; border-radius: 6px; cursor: zoom-in; border: 1px solid #dee2e6; object-fit: cover;"
+                                                         title="Click to view payment screenshot">
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="text-end" style="min-width: 100px;">
+                                            <button class="btn btn-sm btn-success w-100 mb-1" onclick="verifyLayoutPay({{ $lj->id }}, 'verify')" title="Verify Layout Payment">
+                                                <i class="fas fa-check"></i> Verify
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger w-100" onclick="verifyLayoutPay({{ $lj->id }}, 'reject')" title="Reject Layout Payment">
+                                                <i class="fas fa-times"></i> Reject
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </div>
+
             <!-- Pending Rejections (awaiting second verifier) -->
             <div class="card shadow-sm mt-3">
                 <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
@@ -660,6 +730,38 @@ function verifyPayment(paymentId, saleId, action, remark) {
 window.verifySale = function(saleId, action) {
     verifyPayment(null, saleId, action);
 };
+
+// === VERIFY / REJECT LAYOUT JOB PAYMENT (hub connection) ===
+function verifyLayoutPay(jobId, action) {
+    var reason = '';
+    if (action === 'reject') {
+        reason = prompt('Reason for rejection (required):');
+        if (reason === null) return;
+        reason = reason.trim();
+        if (!reason) {
+            showToast('error', 'Rejection reason is required — hindi ma-reject kapag walang dahilan.');
+            return;
+        }
+    }
+
+    var btn = event.target.closest('button');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
+
+    window.axios.post('/sales/layout-jobs/' + jobId + '/verify-payment', {
+            _token: document.querySelector('meta[name="csrf-token"]').content,
+            action: action,
+            reason: reason
+        })
+        .then(function(res) {
+            showToast('success', action === 'verify' ? 'Layout payment verified ✓' : 'Layout payment rejected.');
+            setTimeout(function() { location.reload(); }, 1000);
+        })
+        .catch(function(err) {
+            var msg = err.response && err.response.data && err.response.data.error ? err.response.data.error : 'An error occurred';
+            showToast('error', msg);
+            if (btn) { btn.disabled = false; btn.innerHTML = action === 'verify' ? '<i class="fas fa-check"></i> Verify' : '<i class="fas fa-times"></i>'; }
+        });
+}
 
 // === VERIFY CONFIRMATION MODAL ===
 var pendingVerify = null;

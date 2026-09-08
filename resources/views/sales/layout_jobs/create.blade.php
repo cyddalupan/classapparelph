@@ -39,6 +39,47 @@
         background: #f8fafc;
     }
     .lj-required { color: #dc2626; }
+
+    /* Toast notification (katulad ng sales create) */
+    .notification-toast {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1.25rem 1.5rem;
+        background: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);
+        border-left: 6px solid #3b82f6;
+        min-width: 340px;
+        max-width: 460px;
+        animation: fadeInScale .3s ease-out;
+    }
+    @keyframes fadeInScale {
+        from { transform: translate(-50%, -50%) scale(.9); opacity: 0; }
+        to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    .notification-toast.success { border-left-color: #10b981; }
+    .notification-toast.error { border-left-color: #ef4444; }
+    .notification-icon {
+        width: 32px; height: 32px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 50%;
+    }
+    .notification-toast .notification-icon { background: rgba(59,130,246,.1); color: #3b82f6; }
+    .notification-toast.success .notification-icon { background: rgba(16,185,129,.1); color: #10b981; }
+    .notification-toast.error .notification-icon { background: rgba(239,68,68,.1); color: #ef4444; }
+    .notification-content { flex: 1; }
+    .notification-message { font-size: .9375rem; color: #1e293b; line-height: 1.4; }
+    .notification-close {
+        background: none; border: none; color: #94a3b8; cursor: pointer;
+        padding: .25rem; border-radius: .25rem;
+    }
+    .notification-close:hover { color: #64748b; }
 </style>
 @endpush
 
@@ -153,6 +194,28 @@ function selectType(type) {
 }
 document.getElementById('paidFields').style.display = '';
 
+// Toast notification (katulad ng sales create quick page)
+function showNotification(message, type = 'success') {
+    const existing = document.querySelectorAll('.notification-toast');
+    existing.forEach(n => n.remove());
+
+    const notification = document.createElement('div');
+    notification.className = `notification-toast ${type}`;
+    notification.innerHTML = `
+        <div class="notification-icon">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-message">${message}</div>
+        </div>
+        <button class="notification-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    document.body.appendChild(notification);
+    setTimeout(() => { if (notification.parentElement) notification.remove(); }, 5000);
+}
+
 document.getElementById('layoutJobForm').addEventListener('submit', function (e) {
     e.preventDefault();
     const btn = this.querySelector('button[type=submit]');
@@ -167,13 +230,18 @@ document.getElementById('layoutJobForm').addEventListener('submit', function (e)
         body: fd
     }).then(r => r.json()).then(d => {
         if (d.error) {
-            alert(d.error);
+            showNotification(d.error, 'error');
             btn.disabled = false;
             return;
         }
-        alert('Layout Job ' + d.job_no + ' created ✓ — nasa GA na ito.');
-        window.location.href = '/sales/layout-jobs';
-    }).catch(() => { btn.disabled = false; alert('May error — subukan ulit.'); });
+        btn.innerHTML = '<i class="fas fa-check"></i> Created ✓';
+        showNotification('Layout Job <strong>' + d.job_no + '</strong> created ✓ — nasa Layout Jobs na ito, at kung bayad, nasa Payment Verification na ng account owner.', 'success');
+        setTimeout(() => { window.location.href = '/sales/layout-jobs'; }, 1800);
+    }).catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> Create Layout Job';
+        showNotification('May error — subukan ulit.', 'error');
+    });
 });
 </script>
 @endpush

@@ -5736,7 +5736,33 @@ $services = json_decode($sale->services, true);
             ->orderBy('edit_requested_at', 'desc')
             ->get();
 
-        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts', 'pendingRejections', 'pendingEdits'));
+        // Layout job payments pending verification — connected sa hub para isang tinginan lang
+        // (same scoping: sariling payment account lang ng verifier, katulad ng prototype payments)
+        $pendingLayoutJobs = \DB::table('layout_jobs')
+            ->leftJoin('payment_accounts', 'layout_jobs.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as ga', 'layout_jobs.ga_user_id', '=', 'ga.id')
+            ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
+            ->where('layout_jobs.type', 'paid')
+            ->where('layout_jobs.payment_status', 'pending')
+            ->select([
+                'layout_jobs.id',
+                'layout_jobs.job_no',
+                'layout_jobs.customer_name',
+                'layout_jobs.description',
+                'layout_jobs.amount',
+                'layout_jobs.payment_reference',
+                'layout_jobs.payment_screenshot_path',
+                'layout_jobs.payment_account_id',
+                'layout_jobs.ga_user_id',
+                'layout_jobs.created_at',
+                'payment_accounts.name as account_name',
+                'payment_accounts.user_id as account_user_id',
+                'ga.name as ga_name',
+            ])
+            ->orderBy('layout_jobs.created_at', 'desc')
+            ->get();
+
+        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts', 'pendingRejections', 'pendingEdits', 'pendingLayoutJobs'));
     }
 
     /**
