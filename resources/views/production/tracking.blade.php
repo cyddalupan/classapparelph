@@ -136,6 +136,18 @@
         <div class="kpi-sub">Across all stages</div>
     </div>
     <div class="kpi-card">
+        <div class="kpi-icon" style="background:#fef3c7;color:#b45309;"><i class="fas fa-hand-holding-dollar"></i></div>
+        <div class="kpi-label">Pa Sisingilin</div>
+        <div class="kpi-value" style="color:#b45309;">₱{{ number_format($totalCollectible, 2) }}</div>
+        <div class="kpi-sub">{{ number_format($collectibleOrders) }} order(s) may balance pa</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:#dbeafe;color:#2563eb;"><i class="fas fa-clock"></i></div>
+        <div class="kpi-label">Pending Verification</div>
+        <div class="kpi-value"><a href="{{ route('sales.verification') }}">₱{{ number_format($pendingVerificationAmount, 2) }}</a></div>
+        <div class="kpi-sub">Naghihintay ng verify</div>
+    </div>
+    <div class="kpi-card">
         <div class="kpi-icon" style="background:#fef3c7;color:#b45309;"><i class="fas fa-flag"></i></div>
         <div class="kpi-label">Priority</div>
         <div class="kpi-value">{{ number_format($prioCount) }}</div>

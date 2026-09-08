@@ -7229,6 +7229,70 @@ $services = json_decode($sale->services, true);
         $totalOrders = $kpiSales->count();
         $totalRevenue = $kpiSales->sum('total_amount');
 
+        // ---- Money KPIs: pa-sisingilin (remaining balance) + pending verification amount (same scope as above) ----
+        $moneyScope = \App\Models\PrototypeSale::query();
+        $deptFilter($moneyScope);
+        $moneySales = $moneyScope->get(['id', 'total_amount', 'deposit_paid', 'payment_status']);
+        $moneySaleIds = $moneySales->pluck('id');
+        $verifiedStatuses = ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'];
+
+        $paidBySale = collect();
+        $pendingBySale = collect();
+        $refundedBySale = collect();
+        $salesWithPayments = collect();
+        if ($moneySaleIds->isNotEmpty()) {
+            $paidBySale = \DB::table('prototype_payments')
+                ->whereIn('prototype_sale_id', $moneySaleIds)
+                ->whereIn('payment_status', $verifiedStatuses)
+                ->groupBy('prototype_sale_id')
+                ->selectRaw('prototype_sale_id, SUM(amount) as amt')
+                ->pluck('amt', 'prototype_sale_id');
+
+            $pendingBySale = \DB::table('prototype_payments')
+                ->whereIn('prototype_sale_id', $moneySaleIds)
+                ->where('payment_status', 'pending')
+                ->groupBy('prototype_sale_id')
+                ->selectRaw('prototype_sale_id, SUM(amount) as amt')
+                ->pluck('amt', 'prototype_sale_id');
+
+            $refundedBySale = \DB::table('prototype_refunds')
+                ->whereIn('prototype_sale_id', $moneySaleIds)
+                ->where('refund_status', 'completed')
+                ->groupBy('prototype_sale_id')
+                ->selectRaw('prototype_sale_id, SUM(refund_amount) as amt')
+                ->pluck('amt', 'prototype_sale_id');
+
+            $salesWithPayments = \DB::table('prototype_payments')
+                ->whereIn('prototype_sale_id', $moneySaleIds)
+                ->distinct()
+                ->pluck('prototype_sale_id');
+        }
+
+        $totalCollectible = 0.0;
+        $pendingVerificationAmount = 0.0;
+        $collectibleOrders = 0;
+        foreach ($moneySales as $ms) {
+            // Legacy fallback: no payment records yet → deposit_paid counts as paid (mirrors getTotalPaidAttribute)
+            $paid = $salesWithPayments->contains($ms->id)
+                ? (float) ($paidBySale[$ms->id] ?? 0)
+                : (float) ($ms->deposit_paid ?? 0);
+            $refunded = (float) ($refundedBySale[$ms->id] ?? 0);
+            $netPaid = max($paid - $refunded, 0);
+            $due = max((float) $ms->total_amount - $netPaid, 0);
+            if ($due > 0.009) {
+                $totalCollectible += $due;
+                $collectibleOrders++;
+            }
+            // Pending verification: pending payment rows, + legacy initial deposits na wala pang payment record
+            if ($salesWithPayments->contains($ms->id)) {
+                $pendingVerificationAmount += (float) ($pendingBySale[$ms->id] ?? 0);
+            } elseif ((float) ($ms->deposit_paid ?? 0) > 0 && in_array($ms->payment_status, ['pending', null], true)) {
+                $pendingVerificationAmount += (float) $ms->deposit_paid;
+            }
+        }
+        $totalCollectible = round($totalCollectible, 2);
+        $pendingVerificationAmount = round($pendingVerificationAmount, 2);
+
         // ---- Kanban status counts ----
         $kanbanOrder = ['new', 'sample_approval', 'design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed'];
         $kanbanLabels = [
@@ -7406,7 +7470,8 @@ $services = json_decode($sale->services, true);
         $isProdManager = $user && $user->isClassScoped();
 
         return view('production.tracking', compact(
-            'totalOrders', 'totalRevenue', 'kanbanCounts', 'kanbanLabels', 'kanbanTotal',
+            'totalOrders', 'totalRevenue', 'totalCollectible', 'collectibleOrders', 'pendingVerificationAmount',
+            'kanbanCounts', 'kanbanLabels', 'kanbanTotal',
             'stageCounts', 'delayedCount', 'prioCount', 'dueCount', 'upcomingDue', 'overdueDue',
             'openFeedbackCount', 'backjobCount', 'pendingChanges', 'pendingAddons',
             'recentSales', 'isProdManager', 'filters',
