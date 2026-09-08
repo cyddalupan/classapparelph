@@ -215,7 +215,8 @@
                                 $accOwnerId = $job->paymentAccount?->user_id;
                                 $canVerifyPay = auth()->user()->isAdmin() || ($accOwnerId && auth()->id() === $accOwnerId);
                             @endphp
-                            @if($job->isPaid() && $job->payment_status === 'pending' && $canVerifyPay)
+                            @if($mode === 'global' && $job->isPaid() && $job->payment_status === 'pending' && $canVerifyPay)
+                                {{-- Verify/Reject sa personal list ay inalis — nasa Payment Verification hub na ang pag-verify ng sariling account (2026-09-08). Sa All list lang ito para sa company accounts at admin review. --}}
                                 <button class="btn btn-sm btn-success lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'verify')">Verify Pay</button>
                                 <button class="btn btn-sm btn-danger lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'reject')">Reject</button>
                             @endif
