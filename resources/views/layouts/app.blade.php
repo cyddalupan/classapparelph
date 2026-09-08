@@ -147,6 +147,11 @@
                     margin-bottom: 0.5rem;
                 }
             }
+
+            /* Profile pic shape should follow its rounded-square box (2026-09-08) */
+            .sidebar-user .user-avatar img {
+                border-radius: inherit;
+            }
         </style>
     </head>
     <body class="app-body">
