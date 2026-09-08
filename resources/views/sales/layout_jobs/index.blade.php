@@ -150,7 +150,12 @@
                         <th>Type</th>
                         <th>Amount</th>
                         <th>Payment</th>
+                        @if(($mode ?? 'personal') === 'global')
                         <th>Layout Doer</th>
+                        <th>Galing kay</th>
+                        @else
+                        <th>Galing kay</th>
+                        @endif
                         <th>Status</th>
                         <th class="text-end">Actions</th>
                     </tr>
@@ -200,7 +205,12 @@
                             <span class="lj-muted">N/A (libre)</span>
                             @endif
                         </td>
+                        @if(($mode ?? 'personal') === 'global')
                         <td>{{ $job->gaUser?->name ?: '—' }}</td>
+                        <td>{{ $job->creator?->name ?: '—' }}</td>
+                        @else
+                        <td>{{ $job->creator?->name ?: '—' }}</td>
+                        @endif
                         <td>
                             @if($job->payout_id)
                             <span class="lj-badge requested">💸 Payout #{{ $job->payout_id }} ({{ $job->payout?->status ?? '' }})</span>
