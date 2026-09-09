@@ -1496,7 +1496,17 @@ function applyPriorityMap(priorityMap) {
             opt.disabled = taken && !canForcePriority;
             if (taken) {
                 opt.setAttribute('data-taken', '1');
-                if (!opt.getAttribute('data-holder')) opt.setAttribute('data-holder', '');
+                // Hanapin ang sales number ng may-ari ng slot para sa confirm message
+                var holderSel = document.querySelector('.prio-select[data-sale-id="' + used[n] + '"]');
+                var holderSn = '';
+                if (holderSel) {
+                    var hrow = holderSel.closest('tr');
+                    if (hrow) {
+                        var link = hrow.querySelector('a[href*="/sales/prototype/"]');
+                        if (link) holderSn = link.textContent.trim();
+                    }
+                }
+                opt.setAttribute('data-holder', holderSn);
                 opt.textContent = canForcePriority ? 'Prio ' + n + ' (Taken — click para i-force)' : 'Prio ' + n + ' (Taken)';
             } else {
                 opt.removeAttribute('data-taken');

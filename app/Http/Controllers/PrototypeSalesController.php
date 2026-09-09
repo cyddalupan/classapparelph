@@ -4225,11 +4225,27 @@ $services = json_decode($sale->services, true);
         $sale->save();
 
         // AUTO-PROMOTE: kapag may na-clear na PRIO slot, i-shift pataas ang mga natitirang PRIO
-        // (ex. dating PRIO 2 → PRIO 1) para walang gap. Ang priority_map ay para sa instant UI.
-        $priorityMap = null;
+        // (ex. dating PRIO 2 → PRIO 1) para walang gap.
         if ($clearedPriority) {
-            $priorityMap = $this->reindexPriorities();
+            $this->reindexPriorities();
+        }
+
+        // Full priority map para sa instant UI — palaging i-return para ma-refresh ang "(Taken)"
+        // state ng LAHAT ng dropdown kahit walang page reload. (Fix 2026-09-09: stale dropdown —
+        // kapag may na-tag na bagong Prio, dapat agad markahan ang numero na Taken sa ibang rows.)
+        $all = \App\Models\PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('deleted_at')
+            ->whereNotNull('priority')
+            ->orderBy('priority', 'asc')
+            ->get(['id', 'priority']);
+        $priorityMap = [];
+        foreach ($all as $a) {
+            $priorityMap[$a->id] = (int) $a->priority;
+        }
+        if ($clearedPriority) {
             $priorityMap[$sale->id] = null; // kasama ang na-clear na sale (para sa instant UI)
+        } else {
+            $priorityMap[$sale->id] = (int) $sale->priority;
         }
 
         return response()->json([
