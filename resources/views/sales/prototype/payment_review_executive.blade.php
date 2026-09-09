@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'CEO/COO Payment Review')
+@section('title', 'Close-out Review — Payment Close-outs')
 
 @push('styles')
 <style>
@@ -78,7 +78,7 @@
 
     <div class="px-hero mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-            <h4 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>CEO/COO Review — Payment Close-outs</h4>
+            <h4 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Close-out Review — Payment Close-outs</h4>
             <div class="sub mt-1">Mga close-out na in-ACCEPT ng Accountant. I-review ang dahilan at proof, tapos i-mark as REVIEWED para ma-unlock ang archive ng sale.</div>
         </div>
         <div class="d-flex gap-2">

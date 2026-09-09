@@ -114,7 +114,7 @@
             <a href="{{ route('sales.prototype.payment-review.accountant', ['status' => 'reviewed']) }}" class="text-decoration-none">
                 <div class="pr-stat {{ $status === 'reviewed' ? 'border border-success' : '' }}">
                     <div class="val" style="color:#7c3aed;">{{ number_format($counts['reviewed']) }}</div>
-                    <div class="lbl">Reviewed (CEO/COO)</div>
+                    <div class="lbl">Reviewed</div>
                 </div>
             </a>
         </div>
@@ -131,7 +131,7 @@
                     <option value="requested" {{ $status === 'requested' ? 'selected' : '' }}>⏳ For Review</option>
                     <option value="accepted" {{ $status === 'accepted' ? 'selected' : '' }}>✓ Accepted</option>
                     <option value="rejected" {{ $status === 'rejected' ? 'selected' : '' }}>✗ Rejected</option>
-                    <option value="reviewed" {{ $status === 'reviewed' ? 'selected' : '' }}>Reviewed (CEO/COO)</option>
+                    <option value="reviewed" {{ $status === 'reviewed' ? 'selected' : '' }}>Reviewed</option>
                     <option value="all" {{ $status === 'all' ? 'selected' : '' }}>All</option>
                 </select>
             </div>
@@ -139,7 +139,9 @@
                 <button type="submit" class="btn btn-dark w-100"><i class="fas fa-search me-1"></i>Filter</button>
             </div>
             <div class="col-md-3 text-md-end">
-                <a href="{{ route('sales.prototype.payment-review.executive') }}" class="btn btn-outline-primary w-100"><i class="fas fa-clipboard-check me-1"></i> CEO/COO Review</a>
+                @if(auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
+                <a href="{{ route('sales.prototype.payment-review.executive') }}" class="btn btn-outline-primary w-100"><i class="fas fa-clipboard-check me-1"></i> Close-out Review</a>
+                @endif
             </div>
         </div>
     </form>
@@ -164,9 +166,9 @@
                     @php
                         $rvBadge = match($rv->status) {
                             'requested' => ['bg-warning text-dark', '⏳ For Review'],
-                            'accepted'  => ['bg-success', '✓ Accepted — for CEO/COO review'],
+                            'accepted'  => ['bg-success', '✓ Accepted — for close-out review'],
                             'rejected'  => ['bg-danger', '✗ Rejected'],
-                            'reviewed'  => ['bg-secondary', 'Reviewed (CEO/COO)'],
+                            'reviewed'  => ['bg-secondary', 'Reviewed'],
                             default     => ['bg-secondary', ucfirst($rv->status)],
                         };
                     @endphp
@@ -260,7 +262,7 @@ window.decision = function(id, action) {
     var btn = event.target.closest('button');
     var original = btn.innerHTML;
     if (!confirm(action === 'accept'
-        ? 'I-ACCEPT ang close-out na ito? Zero ang balance → ma-u-unlock ang DONE, at mapupunta sa CEO/COO review.'
+        ? 'I-ACCEPT ang close-out na ito? Zero ang balance → ma-u-unlock ang DONE, at mapupunta sa close-out review (final sign-off).'
         : 'I-REJECT ang request na ito? Lalabas ito sa payment history at audit trail.')) return;
 
     btn.disabled = true;

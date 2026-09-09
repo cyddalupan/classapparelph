@@ -141,7 +141,7 @@ class PaymentReviewController extends Controller
     public function accountantQueue(Request $request)
     {
         if (!$this->canAccountant()) {
-            abort(403, 'Only the Accountant (and CEO) can view the payment review queue.');
+            abort(403, 'Only the Accountant (and Admin) can view the payment review queue.');
         }
 
         $user = auth()->user();
@@ -299,7 +299,7 @@ class PaymentReviewController extends Controller
                 ]);
             });
 
-            return response()->json(['success' => true, 'message' => 'Request accepted — balance closed out at na-unlock ang DONE. Nakapila na ito sa CEO/COO review.']);
+            return response()->json(['success' => true, 'message' => 'Request accepted — balance closed out at na-unlock ang DONE. Nakapila na ito sa close-out review.']);
         }
 
         return response()->json(['success' => false, 'message' => 'Invalid action.'], 422);
@@ -312,7 +312,7 @@ class PaymentReviewController extends Controller
     public function executiveQueue(Request $request)
     {
         if (!$this->canExecReview()) {
-            abort(403, 'Only the CEO (admin) and COO can review accepted payment reviews.');
+            abort(403, 'Only the Admin can review accepted payment reviews.');
         }
 
         $user = auth()->user();
@@ -360,7 +360,7 @@ class PaymentReviewController extends Controller
     {
         $user = auth()->user();
         if (!$user || !$this->canExecReview()) {
-            return response()->json(['success' => false, 'message' => 'CEO/COO access only.'], 403);
+            return response()->json(['success' => false, 'message' => 'Admin access only for close-out review.'], 403);
         }
 
         $review = DB::table('payment_review_requests')->find($reviewId);
@@ -386,7 +386,7 @@ class PaymentReviewController extends Controller
                 'sale_id'     => $review->prototype_sale_id,
                 'user_id'     => $user->id,
                 'action'      => 'payment_review_reviewed',
-                'description' => 'Payment review #' . $review->id . ' marked as REVIEWED (CEO/COO). Puwede nang i-archive ang sale.',
+                'description' => 'Payment review #' . $review->id . ' marked as REVIEWED. Puwede nang i-archive ang sale.',
                 'details'     => json_encode(['review_id' => $review->id]),
                 'created_at'  => now(),
                 'updated_at'  => now(),

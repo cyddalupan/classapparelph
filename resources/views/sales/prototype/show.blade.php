@@ -965,9 +965,9 @@
                     @php
                         $rvBadge = match($rv->status) {
                             'requested' => ['border-warning', 'bg-warning text-dark', '⏳ For Accountant Review'],
-                            'accepted'  => ['border-success', 'bg-success', '✓ Accepted — for CEO/COO review'],
+                            'accepted'  => ['border-success', 'bg-success', '✓ Accepted — for close-out review'],
                             'rejected'  => ['border-danger', 'bg-danger', '✗ Rejected'],
-                            'reviewed'  => ['border-secondary', 'bg-secondary', 'Reviewed (CEO/COO)'],
+                            'reviewed'  => ['border-secondary', 'bg-secondary', 'Reviewed'],
                             default     => ['border-secondary', 'bg-secondary', ucfirst($rv->status)],
                         };
                     @endphp

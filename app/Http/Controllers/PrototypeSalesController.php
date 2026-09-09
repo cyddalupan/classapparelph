@@ -4881,7 +4881,7 @@ $services = json_decode($sale->services, true);
         if ($pendingExecReview) {
             return response()->json([
                 'success' => false,
-                'message' => 'Hindi pa ma-archive: may payment review na in-accept ng Accountant pero pending pa ang CEO/COO review. I-mark muna itong reviewed sa payment review list.',
+                'message' => 'Hindi pa ma-archive: may payment review na in-accept ng Accountant pero pending pa ang close-out review (final sign-off). I-mark muna itong reviewed sa close-out review list.',
             ], 422);
         }
 
