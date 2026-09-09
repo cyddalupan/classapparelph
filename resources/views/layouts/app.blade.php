@@ -376,6 +376,18 @@
                             <span class="nav-text">Freebie List</span>
                         </a>
                         @endif
+                        @if(auth()->user() && (auth()->user()->isAccountant() || auth()->user()->isAdmin()))
+                        <a href="{{ route('sales.prototype.payment-review.accountant') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.accountant') ? 'active' : '' }}">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            <span class="nav-text">Payment Review</span>
+                        </a>
+                        @endif
+                        @if(auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
+                        <a href="{{ route('sales.prototype.payment-review.executive') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.executive') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-check"></i>
+                            <span class="nav-text">Close-out Review</span>
+                        </a>
+                        @endif
                         @endif
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>
@@ -527,6 +539,18 @@
                         <a href="{{ route('sales.prototype.freebie-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.freebie-list') ? 'active' : '' }}">
                             <i class="fas fa-gift"></i>
                             <span class="nav-text">Freebie List</span>
+                        </a>
+                        @endif
+                        @if(auth()->user() && (auth()->user()->isAccountant() || auth()->user()->isAdmin()))
+                        <a href="{{ route('sales.prototype.payment-review.accountant') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.accountant') ? 'active' : '' }}">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            <span class="nav-text">Payment Review</span>
+                        </a>
+                        @endif
+                        @if(auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
+                        <a href="{{ route('sales.prototype.payment-review.executive') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.executive') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-check"></i>
+                            <span class="nav-text">Close-out Review</span>
                         </a>
                         @endif
                         @endif

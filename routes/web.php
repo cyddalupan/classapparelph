@@ -890,6 +890,13 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // SPECIAL PRICE REVIEW — toggle CEO/COO "checked" state of a special-price line
         Route::post('/sales/prototype/special-price/review', [App\Http\Controllers\PrototypeSalesController::class, 'toggleSpecialPriceReview'])->name('sales.prototype.special-price.review');
 
+        // PAYMENT REVIEW (balance close-out) routes — lahat MUST be before {id} route
+        Route::get('/sales/prototype/payment-reviews/accountant', [App\Http\Controllers\PaymentReviewController::class, 'accountantQueue'])->name('sales.prototype.payment-review.accountant');
+        Route::get('/sales/prototype/payment-reviews/executive', [App\Http\Controllers\PaymentReviewController::class, 'executiveQueue'])->name('sales.prototype.payment-review.executive');
+        Route::post('/sales/prototype/payment-review/request/{saleId}', [App\Http\Controllers\PaymentReviewController::class, 'store'])->name('sales.prototype.payment-review.request');
+        Route::post('/sales/prototype/payment-review/decision/{reviewId}', [App\Http\Controllers\PaymentReviewController::class, 'accountantDecision'])->name('sales.prototype.payment-review.decision');
+        Route::post('/sales/prototype/payment-review/mark-reviewed/{reviewId}', [App\Http\Controllers\PaymentReviewController::class, 'markReviewed'])->name('sales.prototype.payment-review.mark-reviewed');
+
         // GA DASHBOARD route — performance breakdown per GA / stage / month (counted when tagged SEWING+)
         Route::get('/sales/prototype/ga-dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'gaDashboard'])->name('sales.prototype.ga-dashboard');
 

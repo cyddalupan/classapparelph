@@ -812,10 +812,16 @@
                 @endif
 
                 @if($bal > 0)
-                <div class="mt-3 mb-3">
+                <div class="mt-3 mb-3 d-grid gap-2">
                     <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#payBalanceModal">
                         <i class="fas fa-credit-card me-2"></i>Pay Balance
                     </button>
+                    @php $canRequestReview = auth()->user() && (auth()->user()->isSalesAgent() || auth()->user()->isSalesRepresentative() || auth()->user()->isAdmin()); @endphp
+                    @if($canRequestReview && !isset($activeReviewRequest))
+                    <button type="button" class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#paymentReviewModal">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>For Review Payment
+                    </button>
+                    @endif
                 </div>
                 @endif
 
@@ -942,6 +948,67 @@
                             @if($pay->screenshot_path)
                                 <div class="ms-2">
                                     <img src="{{ $pay->screenshot_path }}" alt="Payment screenshot" class="rounded" style="width:70px;height:70px;object-fit:cover;cursor:pointer;" onclick="openLightbox('{{ $pay->screenshot_path }}')">
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+            @endif
+
+            <!-- Payment Review History (balance close-out requests) — hidden for GA -->
+            @if(!$isGa && isset($paymentReviews) && $paymentReviews->count() > 0)
+            <div class="detail-section mt-3">
+                <h5 class="detail-title"><i class="fas fa-file-invoice-dollar me-2"></i>Payment Review History ({{ $paymentReviews->count() }})</h5>
+                <p class="small text-muted mb-2">Balance close-out requests (EWT/taxes/bawas) — sino humawak, anong oras, at ano ang nangyari.</p>
+                @foreach($paymentReviews as $rv)
+                    @php
+                        $rvBadge = match($rv->status) {
+                            'requested' => ['border-warning', 'bg-warning text-dark', '⏳ For Accountant Review'],
+                            'accepted'  => ['border-success', 'bg-success', '✓ Accepted — for CEO/COO review'],
+                            'rejected'  => ['border-danger', 'bg-danger', '✗ Rejected'],
+                            'reviewed'  => ['border-secondary', 'bg-secondary', 'Reviewed (CEO/COO)'],
+                            default     => ['border-secondary', 'bg-secondary', ucfirst($rv->status)],
+                        };
+                    @endphp
+                    <div class="p-2 mb-2 border rounded {{ $rvBadge[0] }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <span class="badge {{ $rvBadge[1] }}">{{ $rvBadge[2] }}</span>
+                                <span class="badge bg-dark ms-1">Close-out ₱{{ number_format($rv->amount, 2) }}</span>
+                                @if($rv->reference_number)
+                                    <span class="badge bg-light text-dark border ms-1"><i class="fas fa-hashtag"></i> {{ $rv->reference_number }}</span>
+                                @endif
+                                <div class="small text-muted mt-1">
+                                    <i class="fas fa-user me-1"></i>{{ $rv->requested_by_name }}
+                                    @if($rv->created_at) · {{ \Carbon\Carbon::parse($rv->created_at)->format('M d, Y g:i A') }} @endif
+                                </div>
+                                @if($rv->reason)
+                                    <div class="small mt-1" style="background:#f0fdfa;border-left:3px solid #2dd4bf;padding:6px 10px;border-radius:0 6px 6px 0;">
+                                        <i class="fas fa-comment-dots me-1"></i>{{ $rv->reason }}
+                                    </div>
+                                @endif
+                                @if($rv->status === 'rejected' && $rv->accountant_note)
+                                    <div class="small mt-1" style="background:#fff7ed;border-left:3px solid #fbbf24;padding:6px 10px;border-radius:0 6px 6px 0;">
+                                        <i class="fas fa-times-circle text-danger me-1"></i><strong>Rejected ({{ $rv->accountant_name ?: 'Accountant' }}):</strong> {{ $rv->accountant_note }}
+                                    </div>
+                                @endif
+                                @if($rv->accountant_action_at)
+                                    <div class="small {{ $rv->status === 'rejected' ? 'text-danger' : 'text-success' }} mt-1">
+                                        <i class="fas fa-user-check me-1"></i>{{ $rv->accountant_name ?: 'Accountant' }}
+                                        @if($rv->status === 'rejected') ✗ Rejected @else ✓ Accepted @endif · {{ \Carbon\Carbon::parse($rv->accountant_action_at)->format('M d, g:i A') }}
+                                    </div>
+                                @endif
+                                @if($rv->status === 'reviewed' && $rv->reviewed_by_name)
+                                    <div class="small text-primary mt-1">
+                                        <i class="fas fa-clipboard-check me-1"></i>Reviewed by {{ $rv->reviewed_by_name }}
+                                        @if($rv->reviewed_at) · {{ \Carbon\Carbon::parse($rv->reviewed_at)->format('M d, g:i A') }} @endif
+                                    </div>
+                                @endif
+                            </div>
+                            @if($rv->proof_image)
+                                <div class="ms-2 flex-shrink-0">
+                                    <img src="{{ $rv->proof_image }}" alt="Proof" class="rounded" style="width:70px;height:70px;object-fit:cover;cursor:pointer;border:1px solid #ccc;" onclick="openLightbox('{{ $rv->proof_image }}')">
                                 </div>
                             @endif
                         </div>
@@ -1213,6 +1280,69 @@
                         </ul>
                     </div>
                 @endif
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Review Modal (balance close-out request) -->
+<div class="modal fade" id="paymentReviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{{ route('sales.prototype.payment-review.request', $sale->id) }}" method="POST" enctype="multipart/form-data" id="paymentReviewForm">
+                @csrf
+                <div class="modal-header" style="background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;">
+                    <h5 class="modal-title"><i class="fas fa-file-invoice-dollar me-2"></i>For Review Payment</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning d-flex align-items-start">
+                        <i class="fas fa-info-circle me-2 mt-1"></i>
+                        <div class="small">
+                            <strong>Balance close-out.</strong> Ginagamit ito kapag may bawas ang client
+                            (EWT/withholding tax, receipt fee, iba pang bawas) kaya hindi nagiging ₱0.00 ang balance
+                            kahit "fully paid" na. I-a-verify ng <strong>Accountant</strong> ang proof mo — pag na-accept,
+                            zero ang balance at pwede nang ma-<strong>DONE</strong>. Buong natitirang balance ang sinesettle dito (walang partial).
+                        </div>
+                    </div>
+
+                    <div class="bg-light p-3 rounded d-flex justify-content-around text-center mb-3">
+                        <div>
+                            <small class="text-muted d-block">Total</small>
+                            <strong>₱{{ number_format($sale->total_amount ?? 0, 2) }}</strong>
+                        </div>
+                        <div>
+                            <small class="text-muted d-block">Net Paid</small>
+                            <strong class="text-success">₱{{ number_format($netPaid, 2) }}</strong>
+                        </div>
+                        <div>
+                            <small class="text-muted d-block">Remaining Balance</small>
+                            <strong class="text-danger">₱{{ number_format($balanceDue, 2) }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Bakit hindi nag-zero ang balance? <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control" rows="3" required placeholder="Hal. Nagbawas si client ng ₱5,000 EWT (BIR 2307) bago magbayad — kaya ₱95,000 lang ang na-record vs ₱100,000 total."></textarea>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Reference Number</label>
+                            <input type="text" name="reference_number" class="form-control" placeholder="Ref # (BIR 2307 / resibo / transaction)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Proof Image <span class="text-danger">*</span></label>
+                            <input type="file" name="proof_image" class="form-control" accept="image/*" required>
+                            <div class="form-text">BIR 2307 / screenshot / resibo — REQUIRED ito, walang request na walang proof.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-paper-plane me-1"></i>Submit for Accountant Review
+                    </button>
+                </div>
             </form>
         </div>
     </div>

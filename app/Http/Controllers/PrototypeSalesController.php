@@ -1044,6 +1044,26 @@ public function details(Request $request, string $id)
         $layoutFeeTotal = (float) $linkedLayoutJobs->where('payment_status', 'verified')->sum('amount');
         $collectedWithLayout = (float) $netPaid + $layoutFeeTotal;
 
+        // Payment review requests (balance close-out) for this sale — history sa baba:
+        // requested → accepted/rejected (Accountant) → reviewed (CEO/COO), sino + anong oras.
+        $paymentReviews = \DB::table('payment_review_requests')
+            ->join('users as requester', 'payment_review_requests.requested_by', '=', 'requester.id')
+            ->leftJoin('users as accountant', 'payment_review_requests.accountant_id', '=', 'accountant.id')
+            ->leftJoin('users as reviewer', 'payment_review_requests.reviewed_by', '=', 'reviewer.id')
+            ->select(
+                'payment_review_requests.*',
+                'requester.name as requested_by_name',
+                'accountant.name as accountant_name',
+                'reviewer.name as reviewed_by_name'
+            )
+            ->where('payment_review_requests.prototype_sale_id', $id)
+            ->orderByDesc('payment_review_requests.created_at')
+            ->get();
+
+        // May open/active request ba (requested or accepted)? If yes, hide ang "For Review Payment" button
+        // (may nakabinbing close-out na — hintayin munang ma-process). Accepted pa lang = nasa CEO/COO queue.
+        $activeReviewRequest = $paymentReviews->first(fn($r) => in_array($r->status, ['requested', 'accepted']));
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
@@ -1052,7 +1072,7 @@ public function details(Request $request, string $id)
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists', 'damageReports',
-            'linkedLayoutJobs', 'layoutFeeTotal', 'collectedWithLayout'
+            'linkedLayoutJobs', 'layoutFeeTotal', 'collectedWithLayout', 'paymentReviews', 'activeReviewRequest'
         ));
     }
 
