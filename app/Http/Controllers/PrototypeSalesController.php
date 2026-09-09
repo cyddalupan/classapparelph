@@ -3842,6 +3842,9 @@ $services = json_decode($sale->services, true);
         // main slip counts once if it has any active comment;
         // each additional project counts once if it has an active comment.
         $backjobCount = 0;
+        // 🔒 DISPATCH-lock set: sale ids na may ACTIVE backjob comment o open freebie slip
+        // (hindi pwedeng i-DISPATCH hangga't hindi na-clear lahat)
+        $backjobLockSaleIds = [];
         $bjChecklists = \App\Models\ProductionChecklist::where(function ($q) {
             $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
               ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '')
@@ -3855,7 +3858,7 @@ $services = json_decode($sale->services, true);
             $bjMain = json_decode($chk->ga_notes ?? '', true) ?: [];
             if (is_array($bjMain)) {
                 foreach ($bjMain as $c) {
-                    if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; break; }
+                    if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
                 }
             }
 
@@ -3864,7 +3867,7 @@ $services = json_decode($sale->services, true);
                 foreach ($bjAdd as $itemId => $comments) {
                     if (!is_array($comments)) continue;
                     foreach ($comments as $c) {
-                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; break; }
+                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
                     }
                 }
             }
@@ -3874,7 +3877,7 @@ $services = json_decode($sale->services, true);
                 foreach ($bjProd as $itemId => $comments) {
                     if (!is_array($comments)) continue;
                     foreach ($comments as $c) {
-                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; break; }
+                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
                     }
                 }
             }
@@ -3888,6 +3891,11 @@ $services = json_decode($sale->services, true);
             $fbSlipQuery->where('prototype_sales.department_id', 4);
         }
         $backjobCount += $fbSlipQuery->count();
+        // 🎁 Open freebie slips = kasama rin sa DISPATCH lock
+        foreach ($fbSlipQuery->pluck('freebie_slips.sale_id') as $fbSid) {
+            $backjobLockSaleIds[(int) $fbSid] = true;
+        }
+        $backjobLockSaleIds = array_keys($backjobLockSaleIds);
         // Customer na may >1 sale = repeat. First sale nila ay HINDI flagged; ang mga kasunod lang.
         $repeatCustomers = \App\Models\PrototypeSale::whereNotNull('customer_id')
             ->whereNull('deleted_at')
@@ -3932,7 +3940,7 @@ $services = json_decode($sale->services, true);
             "departmentLabels", "departmentColors", "isAgent", "canForcePriority",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
-            "delayCount", "backjobCount", "repeatCustomers", "repeatEmails",
+            "delayCount", "backjobCount", "backjobLockSaleIds", "repeatCustomers", "repeatEmails",
             "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds", "freebiePendingCount"
         ));
     }
@@ -4051,6 +4059,55 @@ $services = json_decode($sale->services, true);
                     'success' => false,
                     'message' => 'Hindi ma-move: kulang pang photos (File Screenshot / Sample Color). Kailangan muna kumpleto bago lumipat sa ' . $request->kanban_status . '.',
                 ], 422);
+            }
+        }
+
+        // 🔒 BACKJOB/FREEBIE LOCK — production status dropdown lang (Andrew 2026-09-09):
+        // habang may ACTIVE backjob comment (production slips) o OPEN freebie slip ang order,
+        // hindi pwedeng i-tag DISPATCH. Dapat ma-clear/ma-complete muna lahat.
+        $bjDropdownStage = strtoupper((string) $request->input('production_stage'));
+        if ($request->filled('production_stage') && $bjDropdownStage === 'DISPATCH') {
+            $bjLocked = false;
+            $bjReasons = [];
+            // (a) Active backjob comments — same FIFO logic as backjobList()
+            $bjChks = \App\Models\ProductionChecklist::where('sale_id', $sale->id)
+                ->where(function ($q) {
+                    $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
+                      ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '')
+                      ->orWhereNotNull('product_comments')->where('product_comments', '!=', '');
+                })->get();
+            foreach ($bjChks as $bjChk) {
+                $bjMain = json_decode($bjChk->ga_notes ?? '', true) ?: [];
+                if (is_array($bjMain)) {
+                    foreach ($bjMain as $c) {
+                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $bjLocked = true; $bjReasons['backjob'] = true; break 2; }
+                    }
+                }
+                foreach (['additional_comments', 'product_comments'] as $bjField) {
+                    $bjData = json_decode($bjChk->{$bjField} ?? '', true) ?: [];
+                    if (!is_array($bjData)) continue;
+                    foreach ($bjData as $itemId => $comments) {
+                        if (!is_array($comments)) continue;
+                        foreach ($comments as $c) {
+                            if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $bjLocked = true; $bjReasons['backjob'] = true; break 3; }
+                        }
+                    }
+                }
+            }
+            // (b) Open freebie slip
+            if (\DB::table('freebie_slips')->where('sale_id', $sale->id)->where('status', 'open')->exists()) {
+                $bjLocked = true;
+                $bjReasons['freebie'] = true;
+            }
+            if ($bjLocked) {
+                $reasonParts = [];
+                if (!empty($bjReasons['backjob'])) $reasonParts[] = '🔧 active backjob comment';
+                if (!empty($bjReasons['freebie'])) $reasonParts[] = '🎁 open freebie slip';
+                $msg = 'Hindi ma-DISPATCH: may ' . implode(' at ', $reasonParts) . ' pa ang order na ito. Kailangan munang ma-clear lahat bago i-tag DISPATCH.';
+                if ($request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $msg], 422);
+                }
+                return redirect()->back()->with('error', $msg);
             }
         }
 
