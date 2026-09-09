@@ -395,6 +395,108 @@
         background: #fff3cd;
         font-weight: 600;
     }
+
+    /* Custom Force-Insert Confirm Dialog */
+    .prio-confirm-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 12000;
+        background: rgba(15,23,42,0.55);
+        backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+    }
+    .prio-confirm-overlay.show {
+        display: flex;
+        animation: prioFade .18s ease;
+    }
+    @keyframes prioFade { from { opacity: 0; } to { opacity: 1; } }
+    .prio-confirm-card {
+        width: 92%;
+        max-width: 430px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+        overflow: hidden;
+        animation: prioPop .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+    @keyframes prioPop {
+        from { transform: scale(.92) translateY(14px); opacity: 0; }
+        to { transform: none; opacity: 1; }
+    }
+    .prio-confirm-head {
+        padding: 24px 24px 0;
+        text-align: center;
+    }
+    .prio-confirm-icon {
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 10px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #fff3cd, #ffe1a1);
+        border: 2px solid #ffd76d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+    }
+    .prio-confirm-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: #1f2937;
+    }
+    .prio-confirm-sub {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 4px;
+        word-break: break-word;
+    }
+    .prio-confirm-body {
+        padding: 14px 24px 6px;
+    }
+    .prio-confirm-warn {
+        background: #fff7e6;
+        border: 1px solid #ffd76d;
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 13px;
+        color: #7a5b12;
+        line-height: 1.6;
+    }
+    .prio-confirm-warn b { color: #b45309; }
+    .prio-confirm-foot {
+        display: flex;
+        gap: 10px;
+        padding: 16px 24px 22px;
+    }
+    .prio-confirm-btn {
+        flex: 1;
+        padding: 10px 0;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+        transition: all .15s;
+    }
+    .prio-confirm-cancel { background: #f3f4f6; color: #4b5563; }
+    .prio-confirm-cancel:hover { background: #e5e7eb; }
+    .prio-confirm-force {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(217,119,6,.35);
+    }
+    .prio-confirm-force:hover { filter: brightness(1.05); }
+    .prio-confirm-holder {
+        display: inline-block;
+        background: #fff3cd;
+        color: #856404;
+        font-weight: 700;
+        padding: 1px 8px;
+        border-radius: 6px;
+        font-size: 12.5px;
+    }
 </style>
 @endpush
 
@@ -1386,6 +1488,41 @@ document.addEventListener('change', function(e) {
 
 // === PRIORITY DROPDOWN — tag Prio 1-10 (Manager/CEO/COO may force insert) ===
 var canForcePriority = @json($canForcePriority ?? false);
+// Custom styled confirm dialog (replaces plain browser confirm())
+function prioForceDialog(prio, holder, onYes) {
+    var ov = document.getElementById('prioForceOverlay');
+    if (ov) ov.remove();
+    ov = document.createElement('div');
+    ov.id = 'prioForceOverlay';
+    ov.className = 'prio-confirm-overlay';
+    ov.innerHTML =
+        '<div class="prio-confirm-card">' +
+            '<div class="prio-confirm-head">' +
+                '<div class="prio-confirm-icon">⚡</div>' +
+                '<div class="prio-confirm-title">Force insert Prio ' + prio + '?</div>' +
+                '<div class="prio-confirm-sub">Taken na ang slot na ito &mdash; hawak ni <span class="prio-confirm-holder">' + (holder || 'isa pang order') + '</span></div>' +
+            '</div>' +
+            '<div class="prio-confirm-body">' +
+                '<div class="prio-confirm-warn">⚠️ Kapag itinuloy: uurong ng <b>+1</b> ang lahat ng may Prio &ge; <b>' + prio + '</b>, at ang kasalukuyang <b>Prio 10</b> ay mawawalan ng tag. Ang order na ito ang kukuha ng Prio <b>' + prio + '</b>.</div>' +
+            '</div>' +
+            '<div class="prio-confirm-foot">' +
+                '<button type="button" class="prio-confirm-btn prio-confirm-cancel">Cancel</button>' +
+                '<button type="button" class="prio-confirm-btn prio-confirm-force">⚡ Force Insert</button>' +
+            '</div>' +
+        '</div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function() { ov.classList.add('show'); });
+    var done = false;
+    function close(result) {
+        if (done) return;
+        done = true;
+        ov.classList.remove('show');
+        setTimeout(function() { ov.remove(); if (result && onYes) onYes(); }, 150);
+    }
+    ov.addEventListener('click', function(e) { if (e.target === ov) close(false); });
+    ov.querySelector('.prio-confirm-cancel').addEventListener('click', function() { close(false); });
+    ov.querySelector('.prio-confirm-force').addEventListener('click', function() { close(true); });
+}
 function sendPriority(saleId, sel, oldPrio, prio, force) {
     var csrf = document.querySelector('meta[name="csrf-token"]');
     sel.disabled = true;
@@ -1419,9 +1556,9 @@ function sendPriority(saleId, sel, oldPrio, prio, force) {
             // (Hindi umaasa sa client-side Taken detection para hindi ma-stale ang dropdown.)
             sel.value = oldPrio;
             var holder = res.data.holder || 'isa pang order';
-            var sure = confirm('Taken na ang Prio ' + prio + ' (kay ' + holder + ').\n\nForce insert? Uurong ng +1 ang lahat ng may Prio >= ' + prio + ', at ang kasalukuyang Prio 10 ay mawawalan ng tag.\n\nItutuloy mo ba?');
-            if (!sure) return;
-            sendPriority(saleId, sel, oldPrio, prio, true);
+            prioForceDialog(prio, holder, function() {
+                sendPriority(saleId, sel, oldPrio, prio, true);
+            });
         } else {
             sel.value = oldPrio;
             showToast('⚠️ ' + (res.data.message || 'Failed to save priority.'), 'error');
@@ -1441,7 +1578,6 @@ document.addEventListener('change', function(e) {
     var prio = sel.value;
     var opt = sel.options[sel.selectedIndex];
     var isTaken = prio && opt && opt.getAttribute('data-taken') === '1';
-    var force = false;
     if (isTaken) {
         if (!canForcePriority) {
             sel.value = oldPrio;
@@ -1449,11 +1585,12 @@ document.addEventListener('change', function(e) {
             return;
         }
         var holder = (opt.getAttribute('data-holder') || 'isa pang order');
-        var sure = confirm('Taken na ang Prio ' + prio + ' (kay ' + holder + ').\n\nForce insert? Uurong ng +1 ang lahat ng may Prio >= ' + prio + ', at ang kasalukuyang Prio 10 ay mawawalan ng tag.\n\nItutuloy mo ba?');
-        if (!sure) { sel.value = oldPrio; return; }
-        force = true;
+        prioForceDialog(prio, holder, function() {
+            sendPriority(saleId, sel, oldPrio, prio, true);
+        });
+        return;
     }
-    sendPriority(saleId, sel, oldPrio, prio, force);
+    sendPriority(saleId, sel, oldPrio, prio, false);
 });
 
 function updatePipelineInRow(row, status) {
