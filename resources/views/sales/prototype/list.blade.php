@@ -1386,28 +1386,9 @@ document.addEventListener('change', function(e) {
 
 // === PRIORITY DROPDOWN — tag Prio 1-10 (Manager/CEO/COO may force insert) ===
 var canForcePriority = @json($canForcePriority ?? false);
-document.addEventListener('change', function(e) {
-    var sel = e.target.closest('.prio-select');
-    if (!sel) return;
-    var saleId = sel.getAttribute('data-sale-id');
-    var oldPrio = sel.getAttribute('data-current');
-    var prio = sel.value;
-    var opt = sel.options[sel.selectedIndex];
-    var isTaken = prio && opt && opt.getAttribute('data-taken') === '1';
-    var force = false;
-    if (isTaken) {
-        if (!canForcePriority) {
-            sel.value = oldPrio;
-            showToast('⚠️ Taken na ang Prio ' + prio + ' — Manager/CEO/COO lang ang pwedeng mag-force insert.', 'error');
-            return;
-        }
-        var holder = (opt.getAttribute('data-holder') || 'isa pang order');
-        var sure = confirm('Taken na ang Prio ' + prio + ' (kay ' + holder + ').\n\nForce insert? Uurong ng +1 ang lahat ng may Prio >= ' + prio + ', at ang kasalukuyang Prio 10 ay mawawalan ng tag.\n\nItutuloy mo ba?');
-        if (!sure) { sel.value = oldPrio; return; }
-        force = true;
-    }
-    sel.disabled = true;
+function sendPriority(saleId, sel, oldPrio, prio, force) {
     var csrf = document.querySelector('meta[name="csrf-token"]');
+    sel.disabled = true;
     fetch('/sales/prototype/' + saleId + '/priority', {
         method: 'POST',
         headers: {
@@ -1431,8 +1412,16 @@ document.addEventListener('change', function(e) {
                 sel.style.fontWeight = '';
             }
             showToast(res.data.message || '✅ Priority saved', 'success');
-            // AUTO-PROMOTE: kapag may na-clear na slot, i-shift agad ang iba (no reload)
+            // AUTO-PROMOTE / force shift: i-refresh agad ang lahat ng dropdown (no reload)
             applyPriorityMap(res.data.priority_map);
+        } else if (!force && res.data && res.data.can_force && canForcePriority) {
+            // Server: Taken ang napili pero pwede kang mag-force — prompt at auto-retry.
+            // (Hindi umaasa sa client-side Taken detection para hindi ma-stale ang dropdown.)
+            sel.value = oldPrio;
+            var holder = res.data.holder || 'isa pang order';
+            var sure = confirm('Taken na ang Prio ' + prio + ' (kay ' + holder + ').\n\nForce insert? Uurong ng +1 ang lahat ng may Prio >= ' + prio + ', at ang kasalukuyang Prio 10 ay mawawalan ng tag.\n\nItutuloy mo ba?');
+            if (!sure) return;
+            sendPriority(saleId, sel, oldPrio, prio, true);
         } else {
             sel.value = oldPrio;
             showToast('⚠️ ' + (res.data.message || 'Failed to save priority.'), 'error');
@@ -1443,6 +1432,28 @@ document.addEventListener('change', function(e) {
         sel.value = oldPrio;
         showToast('❌ Network error. Please try again.', 'error');
     });
+}
+document.addEventListener('change', function(e) {
+    var sel = e.target.closest('.prio-select');
+    if (!sel) return;
+    var saleId = sel.getAttribute('data-sale-id');
+    var oldPrio = sel.getAttribute('data-current');
+    var prio = sel.value;
+    var opt = sel.options[sel.selectedIndex];
+    var isTaken = prio && opt && opt.getAttribute('data-taken') === '1';
+    var force = false;
+    if (isTaken) {
+        if (!canForcePriority) {
+            sel.value = oldPrio;
+            showToast('⚠️ Taken na ang Prio ' + prio + ' — Manager/CEO/COO lang ang pwedeng mag-force insert.', 'error');
+            return;
+        }
+        var holder = (opt.getAttribute('data-holder') || 'isa pang order');
+        var sure = confirm('Taken na ang Prio ' + prio + ' (kay ' + holder + ').\n\nForce insert? Uurong ng +1 ang lahat ng may Prio >= ' + prio + ', at ang kasalukuyang Prio 10 ay mawawalan ng tag.\n\nItutuloy mo ba?');
+        if (!sure) { sel.value = oldPrio; return; }
+        force = true;
+    }
+    sendPriority(saleId, sel, oldPrio, prio, force);
 });
 
 function updatePipelineInRow(row, status) {

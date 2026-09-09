@@ -4156,6 +4156,8 @@ $services = json_decode($sale->services, true);
                     return response()->json([
                         'success' => false,
                         'message' => 'Prio ' . $prio . ' ay nagamit na sa ' . $holder->sales_number . ' (' . ($holder->customer_name ?: 'no customer') . '). Alisin muna ang tag doon bago gamitin dito' . ($canForce ? ' — o i-force insert para i-shift pababa ang iba.' : '.') ,
+                        'can_force' => $canForce,
+                        'holder' => $holder->sales_number,
                     ], 422);
                 }
 
