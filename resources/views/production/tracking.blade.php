@@ -213,6 +213,56 @@
     </div>
 </div>
 
+<!-- PRODUCTS -->
+<div class="chart-grid">
+    <div class="chart-card">
+        <div class="card-title"><i class="fas fa-tshirt"></i> Top 10 Products by Pieces</div>
+        <div class="chart-wrap" style="height:300px;"><canvas id="productChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="card-title"><i class="fas fa-layer-group"></i> Product Performance — Volume per Item</div>
+        @if(count($productMap) > 0)
+        <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+            <table class="table table-sm mb-0" style="font-size:.78rem;">
+                <thead class="sticky-top bg-white">
+                    <tr>
+                        <th>#</th>
+                        <th>Product</th>
+                        <th class="text-center">Pcs</th>
+                        <th class="text-center">Orders</th>
+                        <th class="text-end">Revenue</th>
+                        <th style="width:110px;">Share</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php $pRank = 0; $pShareTotal = $totalProductPcs > 0 ? $totalProductPcs : 1; @endphp
+                    @foreach($productMap as $pName => $pData)
+                    @php $pRank++; $pShare = ($pData['qty'] / $pShareTotal) * 100; @endphp
+                    <tr>
+                        <td class="text-muted">{{ $pRank }}</td>
+                        <td class="fw-semibold">{{ $pName }}@if(!empty($pData['projects']))<div style="font-size:.68rem;color:#94a3b8;font-weight:400;">📁 {{ implode(' • ', array_slice($pData['projects'], 0, 2)) }}</div>@endif</td>
+                        <td class="text-center fw-semibold">{{ number_format($pData['qty']) }}</td>
+                        <td class="text-center">{{ number_format($pData['orders']) }}</td>
+                        <td class="text-end">₱{{ number_format($pData['revenue'], 2) }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-1">
+                                <div class="progress flex-grow-1" style="height:8px;">
+                                    <div class="progress-bar" style="width:{{ min($pShare, 100) }}%;background:{{ $pRank === 1 ? '#6f42c1' : ($pRank === 2 ? '#3b82f6' : ($pRank === 3 ? '#f59e0b' : '#cbd5e1')) }};"></div>
+                                </div>
+                                <span style="font-size:.68rem;color:#64748b;min-width:36px;text-align:right;">{{ number_format($pShare, 1) }}%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @else
+        <p class="text-muted text-center py-4 mb-0">No product data yet</p>
+        @endif
+    </div>
+</div>
+
 <div class="row g-3">
     <!-- KANBAN -->
     <div class="col-lg-7">
@@ -493,6 +543,36 @@
                     scales: {
                         x: { grid: { display: false }, ticks: { font: fontStyle, maxRotation: 45 } },
                         y: { grid: { color: gridColor }, ticks: { font: fontStyle, callback: v => '₱' + (v / 1000).toFixed(1) + 'k' } }
+                    }
+                }
+            });
+        }
+
+        // 5. Top 10 products by pieces (horizontal bar)
+        const prodEl = document.getElementById('productChart');
+        if (prodEl) {
+            new Chart(prodEl, {
+                type: 'bar',
+                data: {
+                    labels: @json($topProductNames),
+                    datasets: [{
+                        label: 'Pieces',
+                        data: @json($topProductPcs),
+                        backgroundColor: ['#6f42c1', '#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#14b8a6', '#8b5cf6', '#22c55e', '#94a3b8', '#ef4444'],
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: ctx => ctx.parsed.x + ' pcs' } }
+                    },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { font: fontStyle, precision: 0 } },
+                        y: { grid: { display: false }, ticks: { font: { family: 'Inter, sans-serif', size: 11 } } }
                     }
                 }
             });

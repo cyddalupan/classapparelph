@@ -7647,6 +7647,54 @@ $services = json_decode($sale->services, true);
         $stageLabels = array_keys($stageCounts);
         $stageValues = array_values($stageCounts);
 
+        // ---- Product aggregation by base garment type (Andrew 2026-09-09) ----
+        // Same grouping as the sales dashboard: sum pieces across projects/GSM/fabric
+        // so "POLO BUTTON" from different orders adds up into one row.
+        $prodAggQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($prodAggQuery);
+        $prodAggSales = $prodAggQuery->get(['id', 'services']);
+
+        $productMap = []; // garment => qty / revenue / orders (distinct sales) / projects
+        $totalProductPcs = 0;
+        foreach ($prodAggSales as $psale) {
+            $pItems = $psale->services;
+            if (is_string($pItems)) $pItems = json_decode($pItems, true) ?: [];
+            $pItems = is_array($pItems) ? $pItems : [];
+            foreach ($pItems as $pItem) {
+                if (!is_array($pItem)) continue;
+                $pRawName = $pItem['name'] ?? ($pItem['garment']['name'] ?? null);
+                if (!$pRawName) continue;
+                $pSf = $pItem['sublimationForm'] ?? [];
+                $pGarment = trim((string) ($pSf['garment']['name'] ?? ''));
+                if ($pGarment !== '') {
+                    $pName = strtoupper($pGarment);
+                } else {
+                    $pSpec = \App\Models\PrototypeSale::itemSpecSummary($pItem);
+                    $pName = ($pSpec && $pSpec !== 'Item') ? $pSpec : $pRawName;
+                }
+                $pQty = (int) ($pItem['quantity'] ?? 0);
+                $pUnit = (float) ($pItem['unitPrice'] ?? 0);
+                $pLineTotal = (float) ($pItem['totalPrice'] ?? ($pUnit * $pQty));
+                if (!isset($productMap[$pName])) {
+                    $productMap[$pName] = ['qty' => 0, 'revenue' => 0, 'saleIds' => [], 'projects' => []];
+                }
+                $productMap[$pName]['qty'] += $pQty;
+                $productMap[$pName]['revenue'] += $pLineTotal;
+                $productMap[$pName]['saleIds'][$psale->id] = true;
+                if (!in_array($pRawName, $productMap[$pName]['projects'])) {
+                    $productMap[$pName]['projects'][] = $pRawName;
+                }
+                $totalProductPcs += $pQty;
+            }
+        }
+        foreach ($productMap as $pName => $pData) {
+            $productMap[$pName]['orders'] = count($pData['saleIds']);
+            unset($productMap[$pName]['saleIds']);
+        }
+        uasort($productMap, fn ($a, $b) => $b['qty'] <=> $a['qty']);
+        $topProductNames = array_slice(array_keys($productMap), 0, 10);
+        $topProductPcs = array_map(fn ($n) => $productMap[$n]['qty'], $topProductNames);
+
         $isProdManager = $user && $user->isClassScoped();
 
         return view('production.tracking', compact(
@@ -7657,7 +7705,8 @@ $services = json_decode($sale->services, true);
             'recentSales', 'isProdManager', 'filters',
             'trendLabels', 'trendOrders', 'trendRevenue',
             'pieLabels', 'pieValues', 'pieColors',
-            'stageLabels', 'stageValues'
+            'stageLabels', 'stageValues',
+            'productMap', 'totalProductPcs', 'topProductNames', 'topProductPcs'
         ));
     }
 
