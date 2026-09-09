@@ -383,15 +383,17 @@
     .pending-modal-item:hover .pending-item-arrow {
         color: #0d6efd;
     }
-    /* Priority select — grey out taken numbers */
+    /* Priority select — taken numbers: disabled (grey) para sa regular users,
+       clickable (amber) para sa Manager/CEO/COO na pwedeng mag-force insert */
     .prio-select option:disabled {
         color: #b0b7c0;
         background: #f1f3f5;
         font-weight: 400;
     }
-    .prio-select option[data-taken="1"] {
-        color: #b0b7c0;
-        background: #f1f3f5;
+    .prio-select option[data-taken="1"]:not(:disabled) {
+        color: #856404;
+        background: #fff3cd;
+        font-weight: 600;
     }
 </style>
 @endpush
@@ -660,10 +662,12 @@
                                 <option value="" {{ !$sale->priority ? 'selected' : '' }}>Prio —</option>
                                 @for($i = 1; $i <= 10; $i++)
                                 @php
-                                    // Disable priority numbers already used by OTHER sales (unique prio per number)
+                                    // Taken = ginagamit na ng ibang sales (unique prio per number).
+                                    // Managers (admin/manager/prod_manager) + COO lang ang pwedeng mag-force
+                                    // insert: ang taken numbers ay selectable + may confirm dialog (i-shift pababa).
                                     $prioTaken = isset($usedPriorities[$i]) && $usedPriorities[$i] !== $sale->sales_number;
                                 @endphp
-                                <option value="{{ $i }}" {{ $sale->priority === $i ? 'selected' : '' }} {{ $prioTaken ? 'disabled' : '' }}>{{ $prioTaken ? 'Prio ' . $i . ' (Taken)' : 'Prio ' . $i }}</option>
+                                <option value="{{ $i }}" {{ $sale->priority === $i ? 'selected' : '' }} {{ ($prioTaken && !($canForcePriority ?? false)) ? 'disabled' : '' }} {{ $prioTaken ? 'data-taken="1" data-holder="' . e($usedPriorities[$i]) . '"' : '' }}>{{ $prioTaken ? 'Prio ' . $i . ' (Taken' . ($canForcePriority ?? false ? ' — click para i-force' : '') . ')' : 'Prio ' . $i }}</option>
                                 @endfor
                             </select>
                             @if($sale->is_delayed)
@@ -1380,13 +1384,28 @@ document.addEventListener('change', function(e) {
     });
 });
 
-// === PRIORITY DROPDOWN — tag Prio 1/2/3 ===
+// === PRIORITY DROPDOWN — tag Prio 1-10 (Manager/CEO/COO may force insert) ===
+var canForcePriority = @json($canForcePriority ?? false);
 document.addEventListener('change', function(e) {
     var sel = e.target.closest('.prio-select');
     if (!sel) return;
     var saleId = sel.getAttribute('data-sale-id');
     var oldPrio = sel.getAttribute('data-current');
     var prio = sel.value;
+    var opt = sel.options[sel.selectedIndex];
+    var isTaken = prio && opt && opt.getAttribute('data-taken') === '1';
+    var force = false;
+    if (isTaken) {
+        if (!canForcePriority) {
+            sel.value = oldPrio;
+            showToast('⚠️ Taken na ang Prio ' + prio + ' — Manager/CEO/COO lang ang pwedeng mag-force insert.', 'error');
+            return;
+        }
+        var holder = (opt.getAttribute('data-holder') || 'isa pang order');
+        var sure = confirm('Taken na ang Prio ' + prio + ' (kay ' + holder + ').\n\nForce insert? Uurong ng +1 ang lahat ng may Prio >= ' + prio + ', at ang kasalukuyang Prio 10 ay mawawalan ng tag.\n\nItutuloy mo ba?');
+        if (!sure) { sel.value = oldPrio; return; }
+        force = true;
+    }
     sel.disabled = true;
     var csrf = document.querySelector('meta[name="csrf-token"]');
     fetch('/sales/prototype/' + saleId + '/priority', {
@@ -1395,7 +1414,7 @@ document.addEventListener('change', function(e) {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrf ? csrf.content : ''
         },
-        body: JSON.stringify({ priority: prio })
+        body: JSON.stringify({ priority: prio, force: force })
     })
     .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
     .then(function(res) {
@@ -1466,7 +1485,7 @@ function applyPriorityMap(priorityMap) {
             sel.style.fontWeight = '';
         }
     });
-    // Rebuild "Taken" disabled options batay sa bagong map (auto-promote ay maaaring
+    // Rebuild "Taken" options batay sa bagong map (auto-promote/force insert ay maaaring
     // magbakante o mag-occupy ng slots) — para consistent agad kahit walang reload.
     document.querySelectorAll('.prio-select').forEach(function(s) {
         var sid = s.getAttribute('data-sale-id');
@@ -1474,8 +1493,16 @@ function applyPriorityMap(priorityMap) {
             if (!opt.value) return;
             var n = parseInt(opt.value, 10);
             var taken = used[n] && used[n] !== sid;
-            opt.disabled = taken;
-            opt.textContent = taken ? 'Prio ' + n + ' (Taken)' : 'Prio ' + n;
+            opt.disabled = taken && !canForcePriority;
+            if (taken) {
+                opt.setAttribute('data-taken', '1');
+                if (!opt.getAttribute('data-holder')) opt.setAttribute('data-holder', '');
+                opt.textContent = canForcePriority ? 'Prio ' + n + ' (Taken — click para i-force)' : 'Prio ' + n + ' (Taken)';
+            } else {
+                opt.removeAttribute('data-taken');
+                opt.removeAttribute('data-holder');
+                opt.textContent = 'Prio ' + n;
+            }
         });
     });
 }

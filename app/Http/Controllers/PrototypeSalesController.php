@@ -3758,6 +3758,10 @@ $services = json_decode($sale->services, true);
         
         // Determine if current user is an agent-type user
         $isAgent = $user && !$user->isAdmin() && ($user->isSalesAgent() || $user->isSalesRepresentative());
+
+        // Force-insert Prio: Manager (admin/manager/prod_manager) + COO lang ang pwedeng
+        // mag-override ng Taken number (mag-shift pababa ng +1 ang iba).
+        $canForcePriority = $user && ($user->isManager() || $user->isCoo());
         
         // Count pending changes per sale for manager notification badges
         $pendingCounts = [];
@@ -3925,7 +3929,7 @@ $services = json_decode($sale->services, true);
 
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
-            "departmentLabels", "departmentColors", "isAgent",
+            "departmentLabels", "departmentColors", "isAgent", "canForcePriority",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
             "delayCount", "backjobCount", "repeatCustomers", "repeatEmails",
@@ -4133,7 +4137,10 @@ $services = json_decode($sale->services, true);
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
         }
 
-        // Unique priority enforcement: a priority number can only be used by ONE sale at a time
+        // Unique priority enforcement: a priority number can only be used by ONE sale at a time.
+        // FORCE INSERT (2026-09-09, by Andrew): Manager/CEO/COO lang ang pwedeng mag-override ng
+        // Taken number — cascade shift: lahat ng may Prio >= chosen ay uurong +1, at ang makalampas
+        // sa Prio 10 ay mawawalan ng tag. Ang target sale ang kukuha ng chosen number.
         if ($request->filled('priority')) {
             $prio = (int) $request->priority;
             $holder = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
@@ -4142,10 +4149,74 @@ $services = json_decode($sale->services, true);
                 ->where('id', '!=', $sale->id)
                 ->first();
             if ($holder) {
+                $user = auth()->user();
+                $canForce = $user && ($user->isManager() || $user->isCoo());
+                $isForce = $request->boolean('force');
+                if (!$isForce || !$canForce) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Prio ' . $prio . ' ay nagamit na sa ' . $holder->sales_number . ' (' . ($holder->customer_name ?: 'no customer') . '). Alisin muna ang tag doon bago gamitin dito' . ($canForce ? ' — o i-force insert para i-shift pababa ang iba.' : '.') ,
+                    ], 422);
+                }
+
+                // Cascade: i-shift +1 ang bawat occupied slot simula sa chosen number pataas.
+                // Hihinto kapag may bakanteng slot; ang malampas sa 10 ay made-default sa null (mawalan ng tag).
+                $toShift = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
+                    ->whereNull('deleted_at')
+                    ->whereNotNull('priority')
+                    ->where('priority', '>=', $prio)
+                    ->where('id', '!=', $sale->id)
+                    ->orderBy('priority', 'asc')
+                    ->get();
+                $slot = $prio;
+                $clearedId = null;
+                $clearedNumber = null;
+                foreach ($toShift as $s) {
+                    $cur = (int) $s->priority;
+                    if ($cur === $slot) {
+                        $newPrio = $cur + 1;
+                        if ($newPrio > 10) {
+                            $clearedNumber = $s->sales_number;
+                            $clearedId = $s->id;
+                            $s->priority = null;
+                        } else {
+                            $s->priority = $newPrio;
+                        }
+                        $s->save();
+                        $slot = $cur + 1;
+                    } elseif ($cur > $slot) {
+                        break; // may bakante — hindi na kailangang i-shift pa
+                    }
+                }
+                $sale->priority = $prio;
+                $sale->save();
+
+                // Buong priority map para sa instant UI (kabilang ang na-clear na dating Prio 10)
+                $all = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
+                    ->whereNull('deleted_at')
+                    ->whereNotNull('priority')
+                    ->orderBy('priority', 'asc')
+                    ->get(['id', 'priority']);
+                $map = [];
+                foreach ($all as $a) {
+                    $map[$a->id] = (int) $a->priority;
+                }
+                $map[$sale->id] = $prio;
+                if ($clearedId) {
+                    $map[$clearedId] = null; // bump-off: ang dating Prio 10 ay mawawalan ng tag sa UI agad
+                }
+
+                $msg = '✅ Force insert: Prio ' . $prio . ' na ang order na ito — na-shift pababa (+1) ang mga naunang may Prio ≥ ' . $prio . '.';
+                if ($clearedNumber) {
+                    $msg .= ' Ang dating Prio 10 (' . $clearedNumber . ') ay nawalan ng tag.';
+                }
+
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Prio ' . $prio . ' ay nagamit na sa ' . $holder->sales_number . ' (' . ($holder->customer_name ?: 'no customer') . '). Alisin muna ang tag doon bago gamitin dito.',
-                ], 422);
+                    'success' => true,
+                    'priority' => $sale->priority,
+                    'priority_map' => $map,
+                    'message' => $msg,
+                ]);
             }
         }
 
