@@ -53,6 +53,59 @@ class PrototypeSalesController extends Controller
     }
 
     /**
+     * Split plan for a sale with split_start_date..split_end_date set:
+     * returns date (Y-m-d) => ['g1','g2','g3','qty','eff'] where each garment
+     * group's total is divided as evenly as possible across the dates in the
+     * range (remainder goes to the earliest dates, e.g. 250 over 3 days →
+     * 84/83/83). Empty array when the sale is not split.
+     */
+    private function getSplitChunkMap($sale)
+    {
+        $map = [];
+        if (!$sale->split_start_date || !$sale->split_end_date) return $map;
+        $start = \Carbon\Carbon::parse($sale->split_start_date);
+        $end = \Carbon\Carbon::parse($sale->split_end_date);
+        if ($end->lt($start)) return $map;
+        $n = (int) $start->diffInDays($end) + 1;
+        if ($n < 1 || $n > 120) return $map;
+        $group1 = ['TSHIRT ROUNDNECK', 'TSHIRT VNECK', 'JERSEY UP'];
+        $group2 = ['JERSEY UP AND DOWN'];
+        $g1 = 0; $g2 = 0; $g3 = 0;
+        foreach (($sale->services ?? []) as $it) {
+            $g = strtoupper(trim($it['sublimationForm']['garment']['name'] ?? ''));
+            $qty = (int)($it['quantity'] ?? $it['qty'] ?? 1) ?: 1;
+            if (in_array($g, $group1)) $g1 += $qty;
+            elseif (in_array($g, $group2)) $g2 += $qty;
+            else $g3 += $qty;
+        }
+        $split = function ($Q) use ($n) {
+            if ($Q <= 0) return array_fill(0, $n, 0);
+            $base = intdiv($Q, $n);
+            $rem = $Q % $n;
+            $out = [];
+            for ($i = 0; $i < $n; $i++) $out[] = $base + ($i < $rem ? 1 : 0);
+            return $out;
+        };
+        $a1 = $split($g1); $a2 = $split($g2); $a3 = $split($g3);
+        for ($i = 0; $i < $n; $i++) {
+            $date = $start->copy()->addDays($i)->format('Y-m-d');
+            $q1 = $a1[$i]; $q2 = $a2[$i]; $q3 = $a3[$i];
+            $map[$date] = ['g1' => $q1, 'g2' => $q2, 'g3' => $q3, 'qty' => $q1 + $q2 + $q3, 'eff' => $q1 + ($q2 * 2) + $q3];
+        }
+        return $map;
+    }
+
+    /**
+     * Effective pcs this split sale contributes on a specific date (0 when the
+     * date is outside its split range).
+     */
+    private function getSplitDayEffectivePcs($sale, $dateStr)
+    {
+        $map = $this->getSplitChunkMap($sale);
+        return isset($map[$dateStr]) ? (int) $map[$dateStr]['eff'] : 0;
+    }
+
+    /**
      * Get the current effective pcs load for a given date (Class department only).
      * Only counts active sales (pending/confirmed/in_production/completed) — pending_approval excluded until approved.
      */
@@ -66,12 +119,25 @@ class PrototypeSalesController extends Controller
             ->where(function ($q) use ($dateStr) {
                 $q->whereDate('rescheduled_date', $dateStr)
                   ->orWhereDate('estimated_completion_date', $dateStr)
-                  ->orWhereDate('created_at', $dateStr);
+                  ->orWhereDate('created_at', $dateStr)
+                  // Split sales: count them on EVERY date inside their split range
+                  ->orWhere(function ($q2) use ($dateStr) {
+                      $q2->whereNotNull('split_start_date')
+                         ->whereNotNull('split_end_date')
+                         ->whereDate('split_start_date', '<=', $dateStr)
+                         ->whereDate('split_end_date', '>=', $dateStr);
+                  });
             })
             ->get();
         $total = 0;
         foreach ($sales as $s) {
-            $total += $this->computeEffectivePcsFromItems($s->services ?? []);
+            if ($s->split_start_date && $s->split_end_date) {
+                // Split sale: contributes only its share for dates inside the split range
+                // (0 when this date is outside the range → hindi na sasakupin ang original date ng buo)
+                $total += $this->getSplitDayEffectivePcs($s, $dateStr);
+            } else {
+                $total += $this->computeEffectivePcsFromItems($s->services ?? []);
+            }
         }
         return $total;
     }
@@ -4604,11 +4670,18 @@ $services = json_decode($sale->services, true);
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
-        // Filter by date range (use created_at, estimated_completion_date, or rescheduled_date)
+        // Filter by date range (use created_at, estimated_completion_date, rescheduled_date, or split range)
         $query->where(function($q) use ($startDate, $endDate) {
             $q->whereBetween('created_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
               ->orWhereBetween('estimated_completion_date', [$startDate, $endDate])
-              ->orWhereBetween('rescheduled_date', [$startDate, $endDate]);
+              ->orWhereBetween('rescheduled_date', [$startDate, $endDate])
+              // Split sales: kasama rin kapag ang split range nila ay sumasapaw sa visible window
+              ->orWhere(function($q2) use ($startDate, $endDate) {
+                  $q2->whereNotNull('split_start_date')
+                     ->whereNotNull('split_end_date')
+                     ->whereDate('split_start_date', '<=', $endDate)
+                     ->whereDate('split_end_date', '>=', $startDate);
+              });
         });
         
         // Filter by department
@@ -4744,6 +4817,9 @@ $services = json_decode($sale->services, true);
                 'date_needed' => $p->estimated_completion_date,
                 'estimated_completion_date' => $p->estimated_completion_date,
                 'rescheduled_date' => $p->rescheduled_date,
+                'split_start_date' => $p->split_start_date ? $p->split_start_date->format('Y-m-d') : null,
+                'split_end_date' => $p->split_end_date ? $p->split_end_date->format('Y-m-d') : null,
+                'split_chunks' => $p->split_start_date && $p->split_end_date ? $this->getSplitChunkMap($p) : (object) [],
                 'created_at' => $p->created_at,
                 'status' => $p->status,
             ];
@@ -4851,6 +4927,14 @@ $services = json_decode($sale->services, true);
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
 
+        // Split guard: naka-split ang project → bawal i-drag/reschedule; alisin muna ang split
+        if ($sale->split_start_date && $sale->split_end_date) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Naka-split ang project na ito — hindi pwedeng i-drag/i-reschedule. Buksan ang project at i-remove muna ang split (✂ Split) bago ilipat.',
+            ], 422);
+        }
+
         // Only managers/admins/staff/prod_manager can reschedule
         $user = auth()->user();
         if (!$user || !($user->isManager() || $user->role === 'staff')) {
@@ -4899,6 +4983,170 @@ $services = json_decode($sale->services, true);
             'original_date' => $originalDate,
         ]);
     }
+
+    /**
+     * Split a big Class project across multiple calendar dates (e.g. 300 pcs →
+     * 100/100/100 over 3 dates). Only stores split_start_date/split_end_date on
+     * the sale — original estimated_completion_date / rescheduled_date stay
+     * untouched (sales page + kanban unaffected). All day-load math reads the
+     * split range via getSplitChunkMap().
+     */
+    public function splitSale(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the CEO, COO and Class Production Manager can split projects.'], 403);
+        }
+
+        $request->validate([
+            'split_start_date' => 'required|date',
+            'split_end_date' => 'required|date',
+        ]);
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Project not found.'], 404);
+        }
+
+        // Class scope only — consistent with the Class calendar (capacity 180/day)
+        if ($sale->department_name !== 'Class') {
+            return response()->json(['success' => false, 'message' => 'Pwede lang i-split ang mga Class department projects.'], 422);
+        }
+
+        $startRaw = date('Y-m-d', strtotime($request->split_start_date));
+        $endRaw = date('Y-m-d', strtotime($request->split_end_date));
+        $start = \Carbon\Carbon::parse($startRaw);
+        $end = \Carbon\Carbon::parse($endRaw);
+
+        if ($end->lt($start)) {
+            return response()->json(['success' => false, 'message' => 'Ang end date ay hindi pwedeng mauna sa start date.'], 422);
+        }
+
+        // NO-PAST RULE (server-side): bawal bumalik sa nakaraang araw (same as drag/reschedule)
+        $todayManila = \Carbon\Carbon::now('Asia/Manila')->format('Y-m-d');
+        if ($startRaw < $todayManila) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi pwedeng pumili ng nakaraang araw. Pwede lang sa ' . \Carbon\Carbon::parse($todayManila)->format('M d, Y') . ' (ngayon, PH) o mas future date.',
+            ], 422);
+        }
+
+        // Safety cap: max 45 calendar days per split (sapat na para sa malalaking volume)
+        $numDays = (int) $start->diffInDays($end) + 1;
+        if ($numDays > 45) {
+            return response()->json(['success' => false, 'message' => 'Masyadong mahaba ang split range (max 45 araw). Pumili ng mas maikli o hatiin sa dalawang split.'], 422);
+        }
+        if ($numDays < 2) {
+            return response()->json(['success' => false, 'message' => 'Pumili ng hindi bababa sa 2 araw para magkaroon ng split.'], 422);
+        }
+
+        // Validate: hindi dapat lumampas sa 180 effective pcs/day ang bawat araw ng split
+        // (sinasama ang ibang sales sa araw na yun, minus ang kontribusyon ng sale na ito kung nandoon)
+        $probe = clone $sale;
+        $probe->split_start_date = $startRaw;
+        $probe->split_end_date = $endRaw;
+        $map = $this->getSplitChunkMap($probe);
+        foreach ($map as $date => $chunk) {
+            if ($chunk['eff'] > 180) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hindi pa rin kasya sa isang araw: ' . \Carbon\Carbon::parse($date)->format('M d, Y') . ' ay magiging ' . $chunk['eff'] . ' effective pcs (>180). Pumili ng mas maraming araw o mas maliit na volume kada araw.',
+                ], 422);
+            }
+            // Day load sa araw na yun (kasama na ang sale na ito kung naka-eksena siya dito ngayon)
+            $dayLoad = $this->getClassDayLoad($date);
+            // Alisin ang kasalukuyang kontribusyon ng sale na ito sa araw na yun para walang double-count
+            $currentContribution = 0;
+            $saleEffDate = null;
+            if ($sale->rescheduled_date) $saleEffDate = $sale->rescheduled_date->format('Y-m-d');
+            elseif ($sale->estimated_completion_date) $saleEffDate = $sale->estimated_completion_date->format('Y-m-d');
+            else $saleEffDate = $sale->created_at ? date('Y-m-d', strtotime($sale->created_at)) : null;
+            if ($sale->split_start_date && $sale->split_end_date) {
+                $currentContribution = $this->getSplitDayEffectivePcs($sale, $date);
+            } elseif ($saleEffDate === $date) {
+                $currentContribution = $this->computeEffectivePcsFromItems($sale->services ?? []);
+            }
+            $existingOther = max($dayLoad - $currentContribution, 0);
+            $totalAfter = $existingOther + $chunk['eff'];
+            if ($totalAfter > 180) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Lalampas sa 180 effective pcs/day ang ' . \Carbon\Carbon::parse($date)->format('M d, Y') . ' (' . $totalAfter . '). Pumili ng ibang dates o dagdagan ang bilang ng araw.',
+                ], 422);
+            }
+        }
+
+        $sale->split_start_date = $startRaw;
+        $sale->split_end_date = $endRaw;
+        $sale->save();
+
+        // Audit trail
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'split',
+            'description' => 'Project split across ' . $numDays . ' dates (' . \Carbon\Carbon::parse($startRaw)->format('M d, Y') . ' — ' . \Carbon\Carbon::parse($endRaw)->format('M d, Y') . '). Original date kept.',
+            'details' => json_encode([
+                'split_start_date' => $startRaw,
+                'split_end_date' => $endRaw,
+                'num_days' => $numDays,
+                'chunks' => $map,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Project na-split sa ' . $numDays . ' dates (' . \Carbon\Carbon::parse($startRaw)->format('M d, Y') . ' — ' . \Carbon\Carbon::parse($endRaw)->format('M d, Y') . '). Ipakikita na ito sa bawat araw ng range.',
+            'split_start_date' => $startRaw,
+            'split_end_date' => $endRaw,
+        ]);
+    }
+
+    /**
+     * Remove the split → balik sa original date placement (display-only revert).
+     */
+    public function removeSplit(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the CEO, COO and Class Production Manager can modify splits.'], 403);
+        }
+
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Project not found.'], 404);
+        }
+        if (!$sale->split_start_date && !$sale->split_end_date) {
+            return response()->json(['success' => false, 'message' => 'Ang project na ito ay wala pang split.'], 422);
+        }
+
+        $prevStart = $sale->split_start_date ? $sale->split_start_date->format('Y-m-d') : null;
+        $prevEnd = $sale->split_end_date ? $sale->split_end_date->format('Y-m-d') : null;
+        $sale->split_start_date = null;
+        $sale->split_end_date = null;
+        $sale->save();
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'split_removed',
+            'description' => 'Split removed — project back to its original date placement.',
+            'details' => json_encode([
+                'removed_start' => $prevStart,
+                'removed_end' => $prevEnd,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Split inalis — balik na ang project sa original date placement nito.',
+        ]);
+    }
+
 
     /**
      * Recompute sale-level deposit_paid/balance_due/overpayment from VERIFIED payments only.

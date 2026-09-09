@@ -374,6 +374,32 @@
     padding: 0.05rem 0.4rem;
     white-space: nowrap;
 }
+.day-project .dp-split-chip {
+    display: inline-block;
+    font-size: 0.52rem;
+    font-weight: 800;
+    color: #fff;
+    background: #e67e22;
+    border-radius: 8px;
+    padding: 0.04rem 0.35rem;
+    margin-left: 3px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.day-project .dp-split-btn {
+    border: none;
+    background: #e67e22;
+    color: #fff;
+    font-size: 0.6rem;
+    line-height: 1;
+    border-radius: 6px;
+    padding: 2px 5px;
+    margin-left: 3px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+.day-project .dp-split-btn:hover { background: #cf5f1a; }
+.day-project.is-split { box-shadow: inset 0 0 0 1px rgba(230,126,34,0.35); }
 .day-project .dp-stage {
     display: inline-block;
     font-size: 0.5rem;
@@ -842,6 +868,24 @@
     </div>
 </div>
 
+<!-- Calendar Split Confirm Modal (Class big projects → hati sa ilang dates) -->
+<div class="modal fade" id="calSplitModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-scissors me-2"></i>I-split ang Project (Class)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="calSplitBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger me-auto" id="calSplitRemoveBtn" style="display:none;"><i class="fas fa-undo me-1"></i> Alisin ang Split</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="calSplitOkBtn"><i class="fas fa-check"></i> OK — I-split</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="confirmDeleteCommentModal" class="cm-overlay" onclick="if(event.target===this)cancelDeleteComment()">
     <div class="cm-modal" style="max-width:420px;">
         <div class="cm-header">
@@ -880,6 +924,8 @@ const IS_SALES_AGENT = @json(auth()->user() && (auth()->user()->isSalesAgent() |
 const IS_GA = @json(auth()->user() && auth()->user()->isGa());
 const IS_QA = @json(auth()->user() && auth()->user()->isQa());
 const psCanEdit = !IS_SALES_AGENT && !IS_GA && !IS_QA;
+// CEO (admin) / COO / managers / Class Production Manager lang ang pwedeng mag-split
+const CAN_SPLIT = @json(auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()));
 var psCurrentUserName = @json(auth()->user()->name ?? '');
 const STAGE_COLORS = {
     'FOR SAMPLE': '#fd7e14', 'FOR APPROVAL': '#fd7e14',
@@ -984,13 +1030,30 @@ function renderWeek(monday, projects) {
         const dateStr = fmt(d);
         const isToday = dateStr === today;
 
-        // Use effective date: rescheduled_date takes priority, then original
-        const dayProjects = projects.filter(p => {
-            const pd = parseD(p.rescheduled_date || p.estimated_completion_date || p.created_at);
-            return pd && fmt(pd) === dateStr;
+        // Build day projects: split sales render on EVERY date inside their split range
+        // (each date gamit ang chunk quantities ng araw na yun); regular sales sa effective date.
+        const dayProjects = [];
+        projects.forEach(pp => {
+            const chunks = (pp.split_chunks && typeof pp.split_chunks === 'object' && Object.keys(pp.split_chunks).length) ? pp.split_chunks : null;
+            if (chunks) {
+                if (chunks[dateStr]) dayProjects.push(Object.assign({}, pp, { _splitChunk: chunks[dateStr] }));
+                return;
+            }
+            const pd = parseD(pp.rescheduled_date || pp.estimated_completion_date || pp.created_at);
+            if (pd && fmt(pd) === dateStr) dayProjects.push(Object.assign({}, pp, { _splitChunk: null }));
         });
 
-        var gt = getGarmentTotals(dayProjects);
+        var gt = { g1: 0, g2: 0, g3: 0 };
+        dayProjects.forEach(pp => {
+            if (pp._splitChunk) {
+                gt.g1 += parseInt(pp._splitChunk.g1) || 0;
+                gt.g2 += parseInt(pp._splitChunk.g2) || 0;
+                gt.g3 += parseInt(pp._splitChunk.g3) || 0;
+            } else {
+                const tt = getProjectGarmentTotals(pp);
+                gt.g1 += tt.g1; gt.g2 += tt.g2; gt.g3 += tt.g3;
+            }
+        });
         // Effective pcs: JERSEY UP AND DOWN counts 2x (Class capacity: 180/day)
         var effPcs = gt.g1 + (gt.g2 * 2) + gt.g3;
         var isClassCal = activeDept === 'Class';
@@ -1020,20 +1083,25 @@ function renderWeek(monday, projects) {
                 return 0;
             });
             dayProjects.forEach(p => {
+                const splitChunk = p._splitChunk || null;
+                const splitKeys = splitChunk && p.split_chunks ? Object.keys(p.split_chunks).sort() : [];
+                const splitIdx = splitChunk ? splitKeys.indexOf(dateStr) + 1 : 0;
+                const splitTotal = splitKeys.length;
                 const dept = p.department_name || 'other';
                 const color = dc[dept] || '#6c757d';
                 const name = (p.product_label ? p.product_label + (p.sales_agent_name ? ' - ' + p.sales_agent_name : '') : (p.customer_name || 'Unknown'));
                 const amt = parseFloat(p.subtotal || p.total_amount || 0);
-                const qty = parseInt(p.total_qty) || 0;
+                const qty = splitChunk ? (parseInt(splitChunk.qty) || 0) : (parseInt(p.total_qty) || 0);
                 const stage = p.production_stage || p.kanban_status || '';
                 const mockupUrl = p.mockup_url || '';
-                const isMoved = !!p.rescheduled_date && p.rescheduled_date !== p.estimated_completion_date;
+                const isMoved = !splitChunk && !!p.rescheduled_date && p.rescheduled_date !== p.estimated_completion_date;
                 const orig = p.estimated_completion_date ? parseD(p.estimated_completion_date) : null;
                 const bd = getProjBreakdown(p);
-                const pt = getProjectGarmentTotals(p);
+                const pt = splitChunk ? { g1: parseInt(splitChunk.g1)||0, g2: parseInt(splitChunk.g2)||0, g3: parseInt(splitChunk.g3)||0 } : getProjectGarmentTotals(p);
+                const canSplitHere = CAN_SPLIT && !IS_SALES_AGENT && !IS_GA && !IS_QA && String(dept).toLowerCase() === 'class';
                 
-                html += `<div class="day-project ${isMoved?'moved':''}" style="background:${color}15;border-left:3px solid ${isMoved?'#fd7e14':color};"
-                    draggable="${(IS_SALES_AGENT || IS_GA || IS_QA) ? 'false' : 'true'}" data-id="${p.id}" data-prio="${p.priority || ''}" data-g1="${pt.g1}" data-g2="${pt.g2}" data-g3="${pt.g3}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="${(IS_SALES_AGENT || IS_GA || IS_QA) ? '' : `showDetail(${p.id})`}" title="${name}${(IS_SALES_AGENT || IS_GA) ? '' : ' - ' + curr(amt)}">`;
+                html += `<div class="day-project ${isMoved?'moved':''}${splitChunk?' is-split':''}" style="background:${color}15;border-left:3px solid ${splitChunk ? '#e67e22' : (isMoved ? '#fd7e14' : color)};"
+                    draggable="${(IS_SALES_AGENT || IS_GA || IS_QA || splitChunk) ? 'false' : 'true'}" data-id="${p.id}" data-split="${splitChunk ? '1' : '0'}" data-prio="${p.priority || ''}" data-g1="${pt.g1}" data-g2="${pt.g2}" data-g3="${pt.g3}" data-garments="${bd.garments.join(',')}" data-fabrics="${bd.fabrics.join(',')}" data-parts="${bd.parts.join(',')}" onclick="${(IS_SALES_AGENT || IS_GA || IS_QA) ? '' : `showDetail(${p.id})`}" title="${name}${splitChunk ? ' — ✂ araw ' + splitIdx + '/' + splitTotal : ''}${(IS_SALES_AGENT || IS_GA) ? '' : ' - ' + curr(amt)}">`;
                 if (isMoved) {
                     html += `<span class="dp-moved-badge" title="Original: ${orig ? orig.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}">↗ Moved</span>`;
                 }
@@ -1043,11 +1111,11 @@ function renderWeek(monday, projects) {
                     const pc = `hsl(${hue}, 85%, 45%)`;
                     html += `<span class="dp-prio-badge" style="background:${pc};color:#fff;font-weight:700;">PRIO ${prio}</span>`;
                 }
-                // Mockup thumbnail (same as manager list)
-                if (mockupUrl) {
+                // Mockup thumbnail — sa unang chunk lang para hindi maulit-ulit (same as manager list)
+                if (mockupUrl && (!splitChunk || splitIdx === 1)) {
                     html += `<img src="${mockupUrl}" alt="mockup" class="dp-mockup" loading="lazy" onerror="this.style.display='none'">`;
                 }
-                html += `<span class="dp-name">${name}</span>`;
+                html += `<span class="dp-name">${name}${splitChunk ? '<span class="dp-split-chip">✂ ' + splitIdx + '/' + splitTotal + '</span>' : ''}</span>`;
                 html += `<div class="dp-meta">`;
                 html += `<span class="dp-dept" style="background:${color};color:white;">${dept}</span>`;
                 // Quantity badge
@@ -1061,15 +1129,19 @@ function renderWeek(monday, projects) {
                 } else if (p.payment_status === 'rejected') {
                     html += `<span class="dp-status" style="color:#842029;font-weight:600;">❌</span>`;
                 }
-                if (!IS_SALES_AGENT && !IS_GA) {
+                if (!IS_SALES_AGENT && !IS_GA && !splitChunk) {
                     html += `<span class="dp-amount">${curr(amt)}</span>`;
+                }
+                if (canSplitHere) {
+                    html += `<button type="button" class="dp-split-btn" data-id="${p.id}" title="${splitChunk ? 'Ayusin o alisin ang split' : 'I-split sa ilang dates (Class)'}" onclick="event.stopPropagation();openSplitModal(${p.id})">✂</button>`;
                 }
                 html += `</div>`;
                 // Production stage tagging (same rules as manager order list) — hidden for sales agents/reps
+                // Sa split cards: sa unang chunk lang para hindi maulit-ulit sa bawat araw
                 const curStage = p.production_stage || STATUS_TO_STAGE[p.kanban_status] || 'HOLD';
                 // Photo lock — same rule as manager order list: locked for EVERYONE (incl. admin/manager) when photos missing
                 const lockedNoPhotos = !p.has_photos;
-                if (!IS_SALES_AGENT && !IS_GA) {
+                if (!IS_SALES_AGENT && !IS_GA && (!splitChunk || splitIdx === 1)) {
                     let stageOpts = '';
                     Object.keys(PROD_STAGE_MAP).forEach(function(st) {
                         const stStatus = PROD_STAGE_MAP[st];
@@ -1307,6 +1379,181 @@ function showCalToast(msg) {
     document.body.appendChild(toast);
     setTimeout(function() { toast.remove(); }, 4000);
 }
+
+// ========== SPLIT PROJECT ACROSS MULTIPLE DATES (Class big projects) ==========
+// Same garment grouping as server getSplitChunkMap(): evenly divides each garment
+// group across the date range, remainder goes to the earliest dates (84/83/83...).
+function splitChunkPreview(p, startStr, endStr) {
+    const s = parseD(startStr), e = parseD(endStr);
+    if (!s || !e || e < s) return { error: 'End date dapat hindi mauna sa start date.' };
+    const n = Math.round((e - s) / 86400000) + 1;
+    if (n < 2) return { error: 'Pumili ng hindi bababa sa 2 araw.' };
+    if (n > 45) return { error: 'Masyadong mahaba (max 45 araw).' };
+    const t = getProjectGarmentTotals(p);
+    function splitQ(Q) {
+        if (Q <= 0) return Array(n).fill(0);
+        const base = Math.floor(Q / n), rem = Q % n;
+        const out = [];
+        for (let i = 0; i < n; i++) out.push(base + (i < rem ? 1 : 0));
+        return out;
+    }
+    const a1 = splitQ(t.g1), a2 = splitQ(t.g2), a3 = splitQ(t.g3);
+    const rows = [];
+    for (let i = 0; i < n; i++) {
+        const d = new Date(s); d.setDate(d.getDate() + i);
+        rows.push({
+            date: fmt(d),
+            label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            qty: a1[i] + a2[i] + a3[i],
+            eff: a1[i] + (a2[i] * 2) + a3[i]
+        });
+    }
+    return { rows: rows, n: n };
+}
+
+let splitTargetId = null;
+
+function openSplitModal(id) {
+    const p = (window.calProjects || []).find(x => String(x.id) === String(id));
+    if (!p) { showCalInfo('error', 'Project data not found. Reload calendar.'); return; }
+    const dept = String(p.department_name || '').toLowerCase();
+    if (dept !== 'class') {
+        showCalInfo('error', 'Pwede lang i-split ang <strong>Class</strong> department projects.');
+        return;
+    }
+    splitTargetId = id;
+    const name = (p.product_label ? p.product_label + (p.sales_agent_name ? ' - ' + p.sales_agent_name : '') : (p.customer_name || 'Unknown'));
+    const t = getProjectGarmentTotals(p);
+    const totalQty = parseInt(p.total_qty) || 0;
+    const eff = t.g1 + (t.g2 * 2) + t.g3;
+    const isSplitNow = !!(p.split_start_date && p.split_end_date);
+    // Suggestion: start = original effective date (kung future) o ngayon; end = sapat na araw para ≤180 eff/day
+    const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    let startVal = isSplitNow ? p.split_start_date : (p.rescheduled_date || p.estimated_completion_date || manilaToday);
+    if (startVal < manilaToday) startVal = manilaToday;
+    let endVal = isSplitNow ? p.split_end_date : startVal;
+    if (!isSplitNow) {
+        const needDays = Math.max(2, Math.ceil(eff / 180));
+        const d = new Date(startVal + 'T00:00:00');
+        d.setDate(d.getDate() + needDays - 1);
+        endVal = fmt(d);
+    }
+    const startLabel = parseD(startVal) ? parseD(startVal).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : startVal;
+    const endLabel = parseD(endVal) ? parseD(endVal).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : endVal;
+    let html = `
+        <p class="mb-1"><strong>${name}</strong></p>
+        <p class="mb-2 small text-muted">Qty: <strong>${totalQty}</strong> pcs · Effective: <strong>${eff}</strong> (Class 180/day max).
+        <br>Hahatiin nang pantay sa mga dates na pipiliin mo. Original date placement mananatili sa sale.</p>`;
+    html += isSplitNow ? `<div class="alert alert-warning py-2 small">⚠️ Naka-split na ang project na ito (${startLabel} → ${endLabel}). Pwede mong baguhin o alisin ang split.</div>` : '';
+    html += `
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label small mb-1 fw-semibold">Start date</label>
+                <input type="date" class="form-control form-control-sm" id="calSplitStart" min="${manilaToday}" value="${startVal}">
+            </div>
+            <div class="col-6">
+                <label class="form-label small mb-1 fw-semibold">End date</label>
+                <input type="date" class="form-control form-control-sm" id="calSplitEnd" min="${manilaToday}" value="${endVal}">
+            </div>
+        </div>
+        <div id="calSplitPreview" class="small"></div>`;
+    document.getElementById('calSplitBody').innerHTML = html;
+    const rmBtn = document.getElementById('calSplitRemoveBtn');
+    if (rmBtn) rmBtn.style.display = isSplitNow ? '' : 'none';
+    updateSplitPreview(p);
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('calSplitModal')).show();
+}
+
+function updateSplitPreview(p) {
+    const startStr = document.getElementById('calSplitStart') ? document.getElementById('calSplitStart').value : '';
+    const endStr = document.getElementById('calSplitEnd') ? document.getElementById('calSplitEnd').value : '';
+    const box = document.getElementById('calSplitPreview');
+    if (!box) return;
+    if (!startStr || !endStr) { box.innerHTML = '<span class="text-muted">Pumili ng start at end date.</span>'; return; }
+    const res = splitChunkPreview(p, startStr, endStr);
+    if (res.error) { box.innerHTML = '<span class="text-danger">⚠️ ' + res.error + '</span>'; return; }
+    const manilaToday = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    if (startStr < manilaToday) { box.innerHTML = '<span class="text-danger">⚠️ Hindi pwedeng pumili ng nakaraang araw (PH).</span>'; return; }
+    let rowsHtml = '';
+    let hasOver = false;
+    res.rows.forEach(function(r) {
+        const over = r.eff > 180;
+        if (over) hasOver = true;
+        rowsHtml += `<div class="d-flex justify-content-between border-bottom py-1 ${over ? 'text-danger fw-bold' : ''}"><span>${r.label}</span><span>${r.qty} pcs · eff ${r.eff}${over ? ' ⚠️' : ''}</span></div>`;
+    });
+    box.innerHTML = '<div class="fw-semibold mb-1">📅 Preview — ' + res.n + ' araw:</div>' + rowsHtml +
+        (hasOver ? '<div class="text-danger mt-1 fw-bold">⚠️ May araw na lalampas sa 180 effective pcs — pumili ng mas maraming araw.</div>' : '');
+}
+
+function submitSplit() {
+    if (!splitTargetId) return;
+    const startStr = document.getElementById('calSplitStart') ? document.getElementById('calSplitStart').value : '';
+    const endStr = document.getElementById('calSplitEnd') ? document.getElementById('calSplitEnd').value : '';
+    if (!startStr || !endStr) { showCalInfo('error', 'Pumili ng start at end date.'); return; }
+    fetch('/sales/prototype/' + splitTargetId + '/split', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({ split_start_date: startStr, split_end_date: endStr })
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('calSplitModal')).hide();
+        if (res.ok && res.data.success) {
+            loadCal();
+            showCalToast('✅ ' + res.data.message);
+        } else {
+            showCalInfo('error', res.data.message || 'Failed to split project.');
+        }
+    })
+    .catch(function() {
+        showCalInfo('error', 'Network error. Please try again.');
+    });
+}
+
+function removeSplit() {
+    if (!splitTargetId) return;
+    fetch('/sales/prototype/' + splitTargetId + '/remove-split', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('calSplitModal')).hide();
+        if (res.ok && res.data.success) {
+            loadCal();
+            showCalToast('✅ ' + res.data.message);
+        } else {
+            showCalInfo('error', res.data.message || 'Failed to remove split.');
+        }
+    })
+    .catch(function() {
+        showCalInfo('error', 'Network error. Please try again.');
+    });
+}
+
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.dp-split-btn')) {
+        const id = e.target.closest('.dp-split-btn').getAttribute('data-id');
+        if (id) openSplitModal(id);
+    }
+});
+document.addEventListener('click', function(e) {
+    if (e.target.closest('#calSplitOkBtn')) submitSplit();
+    if (e.target.closest('#calSplitRemoveBtn')) removeSplit();
+});
+document.addEventListener('change', function(e) {
+    if (e.target.closest('#calSplitStart') || e.target.closest('#calSplitEnd')) {
+        const p = (window.calProjects || []).find(x => String(x.id) === String(splitTargetId));
+        if (p) updateSplitPreview(p);
+    }
+});
 
 // ========== PRODUCTION STAGE TAGGING (same rules as manager order list) ==========
 document.addEventListener('change', function(e) {
