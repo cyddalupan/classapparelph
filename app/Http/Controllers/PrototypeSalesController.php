@@ -4850,6 +4850,21 @@ $services = json_decode($sale->services, true);
             return response()->json(['success' => false, 'message' => 'Project is already archived.'], 422);
         }
 
+        // ARCHIVE LOCK (payment review): hindi pa ma-archive habang may ACCEPTED
+        // payment review request na pending pa ang CEO/COO review (Andrew 2026-09-09).
+        // Status 'accepted' = na-verify na ng Accountant (balance = 0, DONE unlocked)
+        // pero hindi pa na-ma-mark na 'reviewed' ng CEO/COO.
+        $pendingExecReview = \DB::table('payment_review_requests')
+            ->where('prototype_sale_id', $id)
+            ->where('status', 'accepted')
+            ->exists();
+        if ($pendingExecReview) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hindi pa ma-archive: may payment review na in-accept ng Accountant pero pending pa ang CEO/COO review. I-mark muna itong reviewed sa payment review list.',
+            ], 422);
+        }
+
         $sale->archived_at = now();
         $sale->save();
 

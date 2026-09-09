@@ -165,11 +165,16 @@ class PrototypeSale extends Model
     }
 
     /**
-     * Balance due computed from net paid (never negative).
+     * Balance due computed from net paid, minus amounts settled via ACCEPTED
+     * payment review requests (review_settled_amount — close-out for EWT/taxes/
+     * bawas na hindi kayang i-zero ng normal payment). Never negative.
+     * Kapag na-accept ng Accountant ang isang full close-out review, ang
+     * review_settled_amount ay sumasakop sa natitirang balance → zero →
+     * ma-u-unlock ang DONE/completed (payment lock stays intact).
      */
     public function getBalanceDueComputedAttribute()
     {
-        return max((float) ($this->total_amount ?? 0) - $this->net_paid, 0);
+        return max((float) ($this->total_amount ?? 0) - $this->net_paid - (float) ($this->review_settled_amount ?? 0), 0);
     }
 
     public function verifiedPayments()
