@@ -80,18 +80,88 @@
             <div class="lj-stat">
                 <div class="lbl">My Available Credit (Total Layout)</div>
                 <div class="val">₱{{ number_format($credit, 2) }}</div>
-                <div class="lj-muted">done + verified na layout jobs, minus na-request nang payout</div>
+                <div class="lj-muted">done + verified na layout jobs, minus lahat ng na-request nang payout (requested/paid/verified). Bawas agad pag nag-request ka para hindi mag-double.</div>
             </div>
         </div>
         <div class="col-md-8">
             <div class="lj-stat d-flex align-items-center justify-content-between flex-wrap gap-2" style="min-height:100%;">
                 <div>
                     <div class="lbl">Payout Request</div>
-                    <div class="lj-muted">I-request ang buong available credit — mapupunta sa review ng approver.</div>
+                    <div class="lj-muted">Mag-request ng payout — buo o partial (max ₱{{ number_format($credit, 2) }}). Pwede kang maglagay ng amount, account number/name, picture proof, at notes.</div>
                 </div>
                 <button class="btn btn-dark btn-sm" onclick="openPayoutModal()" {{ $credit <= 0 ? 'disabled' : '' }}>
                     <i class="fas fa-hand-holding-usd"></i> Request Payout
                 </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if(($mode ?? 'personal') === 'global' && isset($payoutRequests) && $payoutRequests->isNotEmpty())
+    {{-- Approver: lahat ng pending payout requests (requested/paid) --}}
+    <div class="lj-card mb-3">
+        <div class="p-3">
+            <h6 class="mb-1">💸 Payout Requests <span class="lj-badge requested">{{ $payoutRequests->count() }} pending</span></h6>
+            <div class="lj-muted mb-2">Mga payout request ng layout-doers — i-check ang account details at magbayad. Bawas agad sa available credit nila pag na-request.</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>#</th><th>Layout Doer</th><th>Amount</th><th>Account Details</th><th>Notes</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+                    <tbody>
+                    @foreach($payoutRequests as $p)
+                    <tr>
+                        <td>#{{ $p->id }}</td>
+                        <td>{{ $p->gaUser?->name ?: '—' }}</td>
+                        <td class="lj-amount">₱{{ number_format($p->amount, 2) }}</td>
+                        <td>
+                            <div>{{ $p->account_name ?: '—' }} {{ $p->account_number ? '· ' . $p->account_number : '' }}</div>
+                            @if($p->account_proof_path)
+                            <a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $p->account_proof_path) }}')"><i class="fas fa-image"></i> view proof</a>
+                            @endif
+                        </td>
+                        <td class="lj-muted" style="max-width:200px;">{{ $p->request_notes ?: '—' }}</td>
+                        <td><span class="lj-badge {{ $p->status === 'paid' ? 'pending' : 'requested' }}">{{ $p->status }}</span></td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-warning lj-btn-mini" onclick="openPayPayout({{ $p->id }})">💸 Pay</button>
+                        </td>
+                    </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if(($mode ?? 'personal') !== 'global' && isset($payoutRequests) && $payoutRequests->isNotEmpty())
+    {{-- GA: sariling payout requests history --}}
+    <div class="lj-card mb-3">
+        <div class="p-3">
+            <h6 class="mb-1">📤 My Payout Requests</h6>
+            <div class="lj-muted mb-2">Nasa review ng approver ang requested. Bawas agad sa available credit mo ang requested/paid/verified.</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>#</th><th>Amount</th><th>Account Details</th><th>Notes</th><th>Status</th><th>Requested</th></tr></thead>
+                    <tbody>
+                    @foreach($payoutRequests as $p)
+                    <tr>
+                        <td>#{{ $p->id }}</td>
+                        <td class="lj-amount">₱{{ number_format($p->amount, 2) }}</td>
+                        <td>
+                            <div>{{ $p->account_name ?: '—' }} {{ $p->account_number ? '· ' . $p->account_number : '' }}</div>
+                            @if($p->account_proof_path)
+                            <a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $p->account_proof_path) }}')"><i class="fas fa-image"></i> view proof</a>
+                            @endif
+                            @if($p->reject_reason)
+                            <div class="text-danger" style="font-size:11px;">✗ {{ $p->reject_reason }}</div>
+                            @endif
+                        </td>
+                        <td class="lj-muted" style="max-width:200px;">{{ $p->request_notes ?: '—' }}</td>
+                        <td><span class="lj-badge {{ in_array($p->status, ['requested', 'pending']) ? 'requested' : ($p->status === 'rejected' ? 'rejected' : 'verified') }}">{{ $p->status }}</span></td>
+                        <td class="lj-muted">{{ $p->requested_at?->format('M d, Y h:i A') }}</td>
+                    </tr>
+                    @endforeach
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -150,12 +220,8 @@
                         <th>Type</th>
                         <th>Amount</th>
                         <th>Payment</th>
-                        @if(($mode ?? 'personal') === 'global')
                         <th>Layout Doer</th>
                         <th>Galing kay</th>
-                        @else
-                        <th>Galing kay</th>
-                        @endif
                         <th>Status</th>
                         <th class="text-end">Actions</th>
                     </tr>
@@ -205,12 +271,8 @@
                             <span class="lj-muted">N/A (libre)</span>
                             @endif
                         </td>
-                        @if(($mode ?? 'personal') === 'global')
                         <td>{{ $job->gaUser?->name ?: '—' }}</td>
                         <td>{{ $job->creator?->name ?: '—' }}</td>
-                        @else
-                        <td>{{ $job->creator?->name ?: '—' }}</td>
-                        @endif
                         <td>
                             @if($job->payout_id)
                             <span class="lj-badge requested">💸 Payout #{{ $job->payout_id }} ({{ $job->payout?->status ?? '' }})</span>
@@ -234,9 +296,10 @@
                                 @if($job->isFree() && $job->amount === null && $job->status !== 'done')
                                 <button class="btn btn-sm btn-dark lj-btn-mini mb-1" onclick="openSetAmount({{ $job->id }}, '{{ $job->job_no }}')">Set Amount</button>
                                 @endif
-                                @if($job->isPaid() && $job->payment_status === 'verified' && !$job->sale_id)
+                            @endif
+                            @if($job->isPaid() && $job->payment_status === 'verified' && !$job->sale_id && auth()->id() === $job->created_by)
+                                {{-- Spec (2026-09-09): verified + ang nag-create ng job lang ang pwedeng mag-link ng sale --}}
                                 <button class="btn btn-sm btn-outline-primary lj-btn-mini mb-1" onclick="openLinkSale({{ $job->id }}, '{{ $job->job_no }}')">Link Sale</button>
-                                @endif
                             @endif
                             @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id)
                             <button class="btn btn-sm btn-primary lj-btn-mini mb-1" onclick="markDone({{ $job->id }})">✓ Done</button>
@@ -294,7 +357,21 @@
 <div class="modal fade" id="payoutModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h6 class="modal-title">💸 Request Payout</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
-        <p class="lj-muted">Ire-request ang buong available credit mo. Mapupunta ito sa Layout Job List ng approver para i-check at bayaran.</p>
+        <p class="lj-muted">Buo o partial — hanggang sa available credit mo. <b>Bawas agad</b> sa credit mo ang amount na ire-request para hindi mag-double request.</p>
+        <label class="lj-muted">Amount (₱) — max {{ number_format($credit ?? 0, 2) }}</label>
+        <input type="number" id="payoutAmount" class="form-control mb-2" min="0.01" max="{{ $credit ?? 0 }}" step="0.01" placeholder="0.00">
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="lj-muted">Account Name</label>
+                <input type="text" id="payoutAccountName" class="form-control" placeholder="e.g. Juan Dela Cruz">
+            </div>
+            <div class="col-6">
+                <label class="lj-muted">Account Number</label>
+                <input type="text" id="payoutAccountNumber" class="form-control" placeholder="e.g. GCash/Maya/Bank #">
+            </div>
+        </div>
+        <label class="lj-muted">Account Proof (screenshot, optional)</label>
+        <input type="file" id="payoutProof" class="form-control mb-2" accept="image/*">
         <label class="lj-muted">Notes (optional)</label>
         <textarea id="payoutNotes" class="form-control" rows="2"></textarea>
     </div>
@@ -306,6 +383,7 @@
     <div class="modal-header"><h6 class="modal-title">💸 Bayaran ang Payout Request</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
         <input type="hidden" id="payPayoutId">
+        <div id="payPayoutSummary" class="mb-2 p-2 rounded" style="background:#fffbeb;border:1px solid #fef08a;font-size:13px;"></div>
         <div class="row g-2 mb-2">
             <div class="col-6">
                 <label class="lj-muted">Payment Account (pambayad sa GA)</label>
@@ -337,6 +415,7 @@
 @push('scripts')
 <script>
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+const PAYOUT_MAP = @json($payoutMap ?? []);
 
 function showImage(src) {
     document.getElementById('imgModalSrc').src = src;
@@ -392,24 +471,61 @@ function submitLinkSale() {
         method: 'POST',
         headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: JSON.stringify({sale_id: saleId})
-    }).then(r => r.json()).then(d => { alert(d.error || 'Naka-link na sa sale ✓'); location.reload(); });
+    }).then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (r.ok) { alert('Naka-link na sa sale ✓'); location.reload(); }
+        else { alert(d.error || d.message || 'May error — hindi na-save. Pakisubukan muli.'); }
+    }).catch(() => alert('Network error — hindi na-save. Pakisubukan muli.'));
 }
 
 function openPayoutModal() {
+    const amountEl = document.getElementById('payoutAmount');
+    const maxVal = parseFloat(amountEl.max || '0');
+    amountEl.value = maxVal > 0 ? maxVal.toFixed(2) : '';
     bootstrap.Modal.getOrCreateInstance(document.getElementById('payoutModal')).show();
 }
 
 function submitPayout() {
+    const amount = document.getElementById('payoutAmount').value;
+    const accountName = document.getElementById('payoutAccountName').value.trim();
+    const accountNumber = document.getElementById('payoutAccountNumber').value.trim();
     const notes = document.getElementById('payoutNotes').value;
+    const proof = document.getElementById('payoutProof').files[0];
+
+    if (!amount || parseFloat(amount) <= 0) return alert('Ilagay ang amount.');
+    const maxVal = parseFloat(document.getElementById('payoutAmount').max || '0');
+    if (parseFloat(amount) > maxVal + 0.001) return alert('Lampas sa available credit mo (₱' + maxVal.toFixed(2) + ').');
+    if (!accountName) return alert('Ilagay ang account name.');
+    if (!accountNumber) return alert('Ilagay ang account number.');
+
+    const fd = new FormData();
+    fd.append('amount', amount);
+    fd.append('account_name', accountName);
+    fd.append('account_number', accountNumber);
+    fd.append('notes', notes);
+    if (proof) fd.append('account_proof', proof);
+
     fetch('/sales/layout-jobs/payout-request', {
         method: 'POST',
-        headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
-        body: JSON.stringify({notes: notes})
-    }).then(r => r.json()).then(d => { alert(d.error || 'Payout request sent — nasa approver review na ✓'); location.reload(); });
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
+        body: fd
+    }).then(r => r.json()).then(d => {
+        if (d.error) return alert(d.error);
+        alert('Payout request sent — bawas agad sa credit mo ✓');
+        location.reload();
+    }).catch(() => alert('May error sa pag-request.'));
 }
 
 function openPayPayout(payoutId) {
     document.getElementById('payPayoutId').value = payoutId;
+    const p = PAYOUT_MAP[payoutId] || {};
+    const sum = document.getElementById('payPayoutSummary');
+    let html = '<b>Payout #' + payoutId + '</b> — ₱' + (p.amount ?? 0).toLocaleString(undefined, {minimumFractionDigits: 2}) + '<br>';
+    html += '<span class="lj-muted">Para kay:</span> ' + (p.ga || '—');
+    if (p.account) html += '<br><span class="lj-muted">Account:</span> ' + p.account;
+    if (p.notes) html += '<br><span class="lj-muted">Notes:</span> ' + p.notes;
+    if (p.proof) html += '<br><a href="javascript:void(0)" onclick="showImage(\'' + p.proof + '\')" class="lj-muted"><i class="fas fa-image"></i> view account proof</a>';
+    sum.innerHTML = html;
     bootstrap.Modal.getOrCreateInstance(document.getElementById('payPayoutModal')).show();
 }
 

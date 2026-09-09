@@ -11,6 +11,7 @@ class LayoutJobPayout extends Model
     protected $fillable = [
         'ga_user_id', 'amount', 'status',
         'requested_by', 'requested_at', 'request_notes',
+        'account_name', 'account_number', 'account_proof_path',
         'payment_method', 'payment_reference', 'payment_proof_path',
         'paid_by', 'paid_at',
         'verified_by', 'verified_at', 'reject_reason',

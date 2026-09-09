@@ -114,13 +114,17 @@
                 $count = $totals ? $totals->total_count : 0;
                 $amount = $totals ? $totals->total_deposit : 0;
 
+                $layoutTotals = $layoutAccountTotals->get($account->id);
+                $layoutCount = $layoutTotals ? $layoutTotals->layout_count : 0;
+                $layoutAmount = $layoutTotals ? (float) $layoutTotals->total_deposit : 0;
+
                 $saleTotals = $accountSaleTotals->get($account->id);
                 $saleCount = $saleTotals ? $saleTotals->sale_count : 0;
-                // Net collected = verified payments minus completed refunds
+                // Net collected = verified payments minus completed refunds, plus verified layout payments
                 $refundTotal = $accountRefundTotals->get($account->id)->total_refunded ?? 0;
-                $netAmount = max($amount - $refundTotal, 0);
+                $netAmount = max($amount - $refundTotal, 0) + $layoutAmount;
 
-                $pendingCount = ($pendingCounts->get($account->id)->pending_count ?? 0) + ($pendingDepositCounts->get($account->id)->pending_count ?? 0);
+                $pendingCount = ($pendingCounts->get($account->id)->pending_count ?? 0) + ($pendingDepositCounts->get($account->id)->pending_count ?? 0) + ($pendingLayoutCounts->get($account->id)->pending_count ?? 0);
                 $isActive = $accountId == $account->id;
             @endphp
             <div class="col-xl-3 col-lg-4 col-md-6">
@@ -160,6 +164,12 @@
                                 <span class="text-muted small"><i class="fas fa-coins me-1"></i> Payments</span>
                                 <span class="fw-semibold">{{ $count }}</span>
                             </div>
+                            @if($layoutCount > 0)
+                            <div class="d-flex justify-content-between mt-1">
+                                <span class="text-muted small"><i class="fas fa-palette me-1"></i> Layout jobs</span>
+                                <span class="fw-semibold">{{ $layoutCount }} &middot; ₱{{ number_format($layoutAmount, 2) }}</span>
+                            </div>
+                            @endif
                             @if($refundTotal > 0)
                             <div class="d-flex justify-content-between mt-1">
                                 <span class="text-muted small"><i class="fas fa-undo me-1"></i> Refunded</span>
@@ -363,7 +373,7 @@
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Sales #</th>
+                                    <th>Sales / Job #</th>
                                     <th>Customer</th>
                                     <th>Account</th>
                                     <th>Type</th>
@@ -376,9 +386,16 @@
                                 @foreach($payments as $sale)
                                     <tr>
                                         <td>
-                                            <a href="{{ route('sales.prototype.show', $sale->sale_id) }}" class="text-decoration-none">
-                                                {{ $sale->sales_number }}
-                                            </a>
+                                            @if(($sale->source ?? 'prototype') === 'layout')
+                                                <a href="{{ route('sales.layout-jobs.all') }}" class="text-decoration-none">
+                                                    {{ $sale->sales_number }}
+                                                </a>
+                                                <span class="badge bg-dark ms-1">Layout</span>
+                                            @else
+                                                <a href="{{ route('sales.prototype.show', $sale->sale_id) }}" class="text-decoration-none">
+                                                    {{ $sale->sales_number }}
+                                                </a>
+                                            @endif
                                         </td>
                                         <td>{{ $sale->customer_name }}</td>
                                         <td>
@@ -388,12 +405,16 @@
                                         </td>
                                         <td>
                                             @php
-                                                $payType = match($sale->payment_type) {
-                                                    'down_payment' => ['Down Payment', 'info'],
-                                                    'additional' => ['Additional', 'primary'],
-                                                    'fullpayment', 'full_payment' => ['Full Payment', 'success'],
-                                                    default => [ucwords(str_replace('_', ' ', $sale->payment_type ?? 'Payment')), 'secondary'],
-                                                };
+                                                if (($sale->source ?? 'prototype') === 'layout') {
+                                                    $payType = ['Layout Payment', 'dark'];
+                                                } else {
+                                                    $payType = match($sale->payment_type) {
+                                                        'down_payment' => ['Down Payment', 'info'],
+                                                        'additional' => ['Additional', 'primary'],
+                                                        'fullpayment', 'full_payment' => ['Full Payment', 'success'],
+                                                        default => [ucwords(str_replace('_', ' ', $sale->payment_type ?? 'Payment')), 'secondary'],
+                                                    };
+                                                }
                                             @endphp
                                             <span class="badge bg-{{ $payType[1] }}">{{ $payType[0] }}</span>
                                         </td>

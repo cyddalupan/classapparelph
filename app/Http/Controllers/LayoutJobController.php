@@ -108,7 +108,16 @@ class LayoutJobController extends Controller
         $paymentAccounts = $this->paymentAccounts();
         $mode = 'personal';
 
-        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode'));
+        // Sariling payout requests (reservation-based statuses) para sa personal list
+        $payoutRequests = collect();
+        if ($this->isLayoutDoer()) {
+            $payoutRequests = LayoutJobPayout::with('gaUser')
+                ->where('ga_user_id', $u->id)
+                ->orderByDesc('id')->limit(10)->get();
+        }
+        $payoutMap = $this->buildPayoutMap($jobs, $payoutRequests);
+
+        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode', 'payoutRequests', 'payoutMap'));
     }
 
     /**
@@ -133,7 +142,37 @@ class LayoutJobController extends Controller
         $credit = null;
         $mode = 'global';
 
-        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode'));
+        // Pending payout requests (requested/paid) — para sa review panel ng approver
+        $payoutRequests = LayoutJobPayout::with('gaUser')
+            ->whereIn('status', ['requested', 'paid'])
+            ->orderByDesc('id')->get();
+        $payoutMap = $this->buildPayoutMap($jobs, $payoutRequests);
+
+        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode', 'payoutRequests', 'payoutMap'));
+    }
+
+    /**
+     * Payout info map (id => details) para sa Pay modal — galing sa payout list
+     * at sa mga payout na naka-link sa kasalukuyang jobs (legacy links).
+     */
+    private function buildPayoutMap($jobs, $payoutRequests)
+    {
+        $map = [];
+        $collect = function ($p) use (&$map) {
+            if (!$p) return;
+            $map[$p->id] = [
+                'id'      => $p->id,
+                'amount'  => (float) $p->amount,
+                'ga'      => $p->gaUser?->name ?? '',
+                'account' => trim(($p->account_name ?? '') . ' / ' . ($p->account_number ?? '')),
+                'notes'   => $p->request_notes ?? '',
+                'proof'   => $p->account_proof_path ? asset('storage/' . $p->account_proof_path) : '',
+                'status'  => $p->status,
+            ];
+        };
+        foreach ($payoutRequests as $p) $collect($p);
+        foreach ($jobs as $j) $collect($j->payout ?? null);
+        return $map;
     }
 
     /** Shared filter logic para sa index() at all() */
@@ -188,11 +227,13 @@ class LayoutJobController extends Controller
             })
             ->sum('amount');
 
-        $paidOut = (float) LayoutJobPayout::where('ga_user_id', $gaUserId)
-            ->whereIn('status', ['verified'])
+        // Reservation-based: lahat ng hindi pa rejected (requested/paid/verified)
+        // ay bawas agad sa available credit para hindi mag-double request.
+        $reserved = (float) LayoutJobPayout::where('ga_user_id', $gaUserId)
+            ->whereIn('status', ['requested', 'paid', 'verified'])
             ->sum('amount');
 
-        return max(0, $earned - $paidOut);
+        return max(0, round($earned - $reserved, 2));
     }
 
     /**
@@ -378,8 +419,9 @@ class LayoutJobController extends Controller
     }
 
     /**
-     * Layout-doer: mag-request ng payout ng kanyang total layout credit.
-     * Self-service — para sa lahat ng layout-doers (admin/coo/cpo/cmo/ga).
+     * Layout-doer: mag-request ng payout (buo o partial) ng available layout credit.
+     * Reservation-based: ang amount na nirequest (status requested/paid/verified)
+     * ay bawas agad sa available credit para hindi mag-double request.
      * Approvers ay pwedeng mag-request on behalf (ga_user_id param) kung hindi sarili.
      */
     public function requestPayout(Request $request)
@@ -398,43 +440,43 @@ class LayoutJobController extends Controller
             return response()->json(['error' => 'Hindi ka pwedeng mag-request para sa iba.'], 403);
         }
 
-        // Earning + done + belum linked sa payout
-        $eligible = LayoutJob::where('ga_user_id', $gaUserId)
-            ->where('status', 'done')
-            ->whereNull('payout_id')
-            ->where(function ($q) {
-                $q->where(function ($sub) {
-                    $sub->where('type', 'paid')->where('payment_status', 'verified');
-                })->orWhere(function ($sub) {
-                    $sub->where('type', 'free')->whereNotNull('amount');
-                });
-            })
-            ->get();
+        $data = $request->validate([
+            'amount'         => 'required|numeric|min:0.01',
+            'account_name'   => 'required|string|max:255',
+            'account_number' => 'required|string|max:100',
+            'notes'          => 'nullable|string|max:1000',
+            'account_proof'  => 'nullable|image|max:5120',
+        ]);
 
-        if ($eligible->isEmpty()) {
-            return response()->json(['error' => 'Wala pang eligible na layout jobs (done + verified/may amount).'], 422);
+        $amount = round((float) $data['amount'], 2);
+        $available = $this->gaCredit($gaUserId);
+        if ($amount > $available + 0.001) {
+            return response()->json([
+                'error' => 'Halagang ₱' . number_format($amount, 2) . ' ay lampas sa available credit mo (₱' . number_format($available, 2) . ').',
+            ], 422);
         }
 
-        $total = (float) $eligible->sum('amount');
+        $proofPath = null;
+        if ($request->hasFile('account_proof')) {
+            $proofPath = $request->file('account_proof')->store('layout-jobs/payout-proofs', 'public');
+        }
 
-        DB::transaction(function () use ($eligible, $total, $u, $gaUserId, $request) {
-            $payout = LayoutJobPayout::create([
-                'ga_user_id' => $gaUserId,
-                'amount' => $total,
-                'status' => 'requested',
-                'requested_by' => $u->id,
-                'requested_at' => now(),
-                'request_notes' => $request->get('notes'),
-            ]);
-            $eligible->each(function ($job) use ($payout) {
-                $job->update([
-                    'payout_id' => $payout->id,
-                    'payout_requested_at' => now(),
-                ]);
-            });
-        });
+        $payout = LayoutJobPayout::create([
+            'ga_user_id'         => $gaUserId,
+            'amount'             => $amount,
+            'status'             => 'requested',
+            'requested_by'       => $u->id,
+            'requested_at'       => now(),
+            'request_notes'      => $data['notes'] ?? null,
+            'account_name'       => $data['account_name'],
+            'account_number'     => $data['account_number'],
+            'account_proof_path' => $proofPath,
+        ]);
 
-        return response()->json(['ok' => true, 'amount' => $total]);
+        return response()->json([
+            'ok' => true, 'payout_id' => $payout->id, 'amount' => $amount,
+            'available' => round($available - $amount, 2),
+        ]);
     }
 
     /**
@@ -514,14 +556,28 @@ class LayoutJobController extends Controller
         if ($job->payment_status !== 'verified') {
             return response()->json(['error' => 'I-verify muna ang payment bago i-link sa sale.'], 422);
         }
-        if (!$this->canReview() && $job->created_by !== $u->id) {
-            return response()->json(['error' => 'Unauthorized.'], 403);
+        // Spec (2026-09-09): pagkatapos ma-verify, ang nag-create ng job (sales agent/user) lang ang
+        // pwedeng mag-link ng sale — sila ang nakakaalam ng sales number.
+        if ($job->created_by !== $u->id) {
+            return response()->json(['error' => 'Ikaw lang ang gumawa ng job na ito ang pwedeng mag-link ng sale.'], 403);
         }
 
-        $saleId = (int) $request->validate(['sale_id' => 'required|integer'])['sale_id'];
+        // Tanggapin ang numeric prototype_sales.id O ang sales_number (e.g. SALE-2026-...)
+        $input = trim((string) $request->input('sale_id', ''));
+        if ($input === '') {
+            return response()->json(['error' => 'Ilagay ang Sale ID o Sales #.'], 422);
+        }
+
+        $sale = \App\Models\PrototypeSale::where('id', $input)
+            ->orWhere('sales_number', $input)
+            ->first();
+
+        if (!$sale) {
+            return response()->json(['error' => 'Hindi nahanap ang sale — i-check ang Sales # o ID na nilagay.'], 422);
+        }
 
         $job->update([
-            'sale_id' => $saleId,
+            'sale_id' => $sale->id,
             'linked_to_sale_at' => now(),
         ]);
 

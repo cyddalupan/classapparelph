@@ -950,6 +950,72 @@
             </div>
             @endif
 
+            <!-- Linked Layout Fee (paid layout jobs na naka-link sa sale) — display-only, hidden for GA -->
+            @if(!$isGa && isset($linkedLayoutJobs) && $linkedLayoutJobs->count() > 0)
+            <div class="detail-section">
+                <h5 class="detail-title"><i class="fas fa-palette me-2"></i>Linked Layout Fee ({{ $linkedLayoutJobs->count() }})</h5>
+                @foreach($linkedLayoutJobs as $lj)
+                    <div class="p-2 mb-2 border rounded {{ $lj->payment_status === 'verified' ? 'border-success' : 'border-warning' }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge bg-dark">🎨 {{ $lj->job_no }}</span>
+                                    @if($lj->payment_status === 'verified')
+                                        <span class="badge bg-success">✓ Verified</span>
+                                    @elseif($lj->payment_status === 'rejected')
+                                        <span class="badge bg-danger">✗ Rejected</span>
+                                    @else
+                                        <span class="badge bg-warning text-dark">⏳ Pending</span>
+                                    @endif
+                                    <a href="{{ route('sales.layout-jobs') }}" class="small lj-muted">View in Layout Jobs</a>
+                                </div>
+                                @if($lj->description)
+                                    <div class="small text-muted">{{ $lj->description }}</div>
+                                @endif
+                                <div class="fw-bold mt-1">₱{{ number_format($lj->amount ?? 0, 2) }}</div>
+                                <div class="small text-muted">
+                                    {{ ucfirst($lj->payment_method ?? 'N/A') }}
+                                    @if($lj->paymentAccount) · {{ $lj->paymentAccount->name }} @endif
+                                    @if($lj->payment_reference) · <i class="fas fa-hashtag me-1"></i>{{ $lj->payment_reference }} @endif
+                                </div>
+                                @if($lj->payment_verified_at)
+                                    <div class="small text-success mt-1">
+                                        <i class="fas fa-user-check me-1"></i>Na-verify {{ $lj->payment_verified_at->format('M d, g:i A') }}
+                                        @if($lj->payment_verified_by && ($v = \App\Models\User::find($lj->payment_verified_by))) · {{ $v->name }} @endif
+                                    </div>
+                                @endif
+                                @if($lj->gaUser)
+                                    <div class="small text-muted mt-1"><i class="fas fa-paint-brush me-1"></i>GA: {{ $lj->gaUser->name }}</div>
+                                @endif
+                            </div>
+                            @if($lj->payment_screenshot_path)
+                                <div class="ms-2">
+                                    <img src="{{ asset('storage/' . $lj->payment_screenshot_path) }}" alt="Layout payment proof" class="rounded" style="width:70px;height:70px;object-fit:cover;cursor:pointer;border:1px solid #ccc;" onclick="openLightbox('{{ asset('storage/' . $lj->payment_screenshot_path) }}')">
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+                @if($layoutFeeTotal > 0)
+                <div class="border-top pt-2 mt-2">
+                    <div class="d-flex justify-content-between">
+                        <span>Order Payments (net)</span>
+                        <span>₱{{ number_format($netPaid ?? 0, 2) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Layout Fee (verified)</span>
+                        <span class="text-success">+ ₱{{ number_format($layoutFeeTotal, 2) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-bold mt-1">
+                        <span>Total Collected (order + layout)</span>
+                        <span>₱{{ number_format($collectedWithLayout ?? 0, 2) }}</span>
+                    </div>
+                    <div class="small text-muted mt-1"><i class="fas fa-info-circle me-1"></i>Display reference lang — hindi binabago ang order total o balance. Ang layout fee ay may sariling record sa Cash Flow.</div>
+                </div>
+                @endif
+            </div>
+            @endif
+
             <!-- Refund History (all refunds incl. completed) — hidden for GA -->
             @if(!$isGa && isset($refunds) && $refunds->count() > 0)
             <div class="detail-section">

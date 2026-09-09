@@ -969,6 +969,15 @@ public function details(Request $request, string $id)
             ->orderByDesc('created_at')
             ->get();
 
+        // Linked paid layout jobs (display-only sa Sale page — hindi binabago ang sale totals o cash flow)
+        $linkedLayoutJobs = \App\Models\LayoutJob::with(['paymentAccount', 'gaUser'])
+            ->where('sale_id', $id)
+            ->where('type', 'paid')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        $layoutFeeTotal = (float) $linkedLayoutJobs->where('payment_status', 'verified')->sum('amount');
+        $collectedWithLayout = (float) $netPaid + $layoutFeeTotal;
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
@@ -976,7 +985,8 @@ public function details(Request $request, string $id)
             'productionStarted', 'canOverrideReprocess',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
-            'productionFeedbacks', 'artists', 'damageReports'
+            'productionFeedbacks', 'artists', 'damageReports',
+            'linkedLayoutJobs', 'layoutFeeTotal', 'collectedWithLayout'
         ));
     }
 
@@ -5958,6 +5968,8 @@ $services = json_decode($sale->services, true);
             ->select([
                 'prototype_payments.*',
                 'prototype_sales.id as sale_id',
+                \DB::raw('NULL as layout_id'),
+                \DB::raw("'prototype' as source"),
                 'prototype_sales.sales_number',
                 'prototype_sales.customer_name',
                 'prototype_sales.total_amount',
@@ -5997,6 +6009,53 @@ $services = json_decode($sale->services, true);
         }
 
         $payments = $query->orderBy('prototype_payments.verified_at', 'desc')->get();
+
+        // Verified layout job payments (paid layout jobs) — kasama sa cash flow para isang tingin
+        $layoutQuery = \DB::table('layout_jobs')
+            ->leftJoin('payment_accounts', 'layout_jobs.payment_account_id', '=', 'payment_accounts.id')
+            ->leftJoin('users as verifier', 'layout_jobs.payment_verified_by', '=', 'verifier.id')
+            ->select([
+                'layout_jobs.id as layout_id',
+                \DB::raw('NULL as sale_id'),
+                \DB::raw("'layout' as source"),
+                'layout_jobs.job_no as sales_number',
+                'layout_jobs.customer_name',
+                \DB::raw("'layout' as payment_type"),
+                'layout_jobs.amount',
+                'layout_jobs.payment_reference as reference_number',
+                'layout_jobs.payment_verified_at as verified_at',
+                'payment_accounts.name as account_name',
+                'layout_jobs.payment_account_id',
+                'verifier.name as verified_by_name',
+            ])
+            ->where('layout_jobs.type', 'paid')
+            ->where('layout_jobs.payment_status', 'verified')
+            ->whereNotNull('layout_jobs.payment_account_id');
+
+        if ($accountId) {
+            $layoutQuery->where('layout_jobs.payment_account_id', $accountId);
+        }
+
+        if ($dateFrom) {
+            $layoutQuery->whereDate('layout_jobs.payment_verified_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $layoutQuery->whereDate('layout_jobs.payment_verified_at', '<=', $dateTo);
+        }
+
+        if ($search) {
+            $layoutQuery->where(function ($q) use ($search) {
+                $q->where('layout_jobs.customer_name', 'like', '%' . $search . '%')
+                  ->orWhere('layout_jobs.job_no', 'like', '%' . $search . '%')
+                  ->orWhere('layout_jobs.payment_reference', 'like', '%' . $search . '%');
+            });
+        }
+
+        $layoutPayments = $layoutQuery->get();
+
+        // Merge prototype + layout payments, newest verification first
+        $payments = $payments->concat($layoutPayments)->sortByDesc('verified_at')->values();
 
         // Calculate totals per account for the summary
         $accountTotals = \DB::table('prototype_payments')
@@ -6057,6 +6116,33 @@ $services = json_decode($sale->services, true);
                     ->from('prototype_payments')
                     ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id');
             })
+            ->groupBy('payment_account_id')
+            ->get()
+            ->keyBy('payment_account_id');
+
+        // Verified layout job amounts per account (kasama sa Collected)
+        $layoutAccountTotals = \DB::table('layout_jobs')
+            ->select([
+                'payment_account_id',
+                \DB::raw('COUNT(*) as layout_count'),
+                \DB::raw('COALESCE(SUM(amount), 0) as total_deposit'),
+            ])
+            ->where('type', 'paid')
+            ->where('payment_status', 'verified')
+            ->whereNotNull('payment_account_id')
+            ->groupBy('payment_account_id')
+            ->get()
+            ->keyBy('payment_account_id');
+
+        // Layout jobs awaiting payment verification (badge per account)
+        $pendingLayoutCounts = \DB::table('layout_jobs')
+            ->select([
+                'payment_account_id',
+                \DB::raw('COUNT(*) as pending_count'),
+            ])
+            ->where('type', 'paid')
+            ->where('payment_status', 'pending')
+            ->whereNotNull('payment_account_id')
             ->groupBy('payment_account_id')
             ->get()
             ->keyBy('payment_account_id');
@@ -6191,7 +6277,7 @@ $services = json_decode($sale->services, true);
             ->orderBy('edit_requested_at', 'desc')
             ->get();
 
-        return view('sales.prototype.cashflow', compact('accounts', 'agents', 'paymentMethods', 'payments', 'accountTotals', 'accountSaleTotals', 'accountRefundTotals', 'pendingCounts', 'pendingDepositCounts', 'auditLogs', 'pendingRejections', 'pendingEdits', 'accountId', 'agentId', 'method', 'dateFrom', 'dateTo', 'search'));
+        return view('sales.prototype.cashflow', compact('accounts', 'agents', 'paymentMethods', 'payments', 'accountTotals', 'accountSaleTotals', 'accountRefundTotals', 'pendingCounts', 'pendingDepositCounts', 'layoutAccountTotals', 'pendingLayoutCounts', 'auditLogs', 'pendingRejections', 'pendingEdits', 'accountId', 'agentId', 'method', 'dateFrom', 'dateTo', 'search'));
     }
 
     /**
