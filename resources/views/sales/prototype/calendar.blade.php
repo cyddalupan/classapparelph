@@ -347,6 +347,21 @@
     color: #fff;
 }
 .cal-view-btn.active:hover { color: #fff; }
+.day-project .dp-title-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+}
+.day-project .dp-title-row .dp-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.day-project .dp-title-row .dp-split-btn {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    padding: 3px 6px;
+}
 .day-project .dp-name {
     font-weight: 700;
     display: block;
@@ -829,6 +844,9 @@
                 <a href="#" id="calendarPrintSlipBtn" class="btn btn-success" target="_blank" style="display:none;">
                     <i class="fas fa-print"></i> Print Slip
                 </a>
+                <button type="button" id="calendarSplitBtn" class="btn btn-warning" style="display:none;" title="Hatiin sa ilang dates (Class projects)">
+                    <i class="fas fa-scissors me-1"></i>I-split
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -1115,7 +1133,12 @@ function renderWeek(monday, projects) {
                 if (mockupUrl && (!splitChunk || splitIdx === 1)) {
                     html += `<img src="${mockupUrl}" alt="mockup" class="dp-mockup" loading="lazy" onerror="this.style.display='none'">`;
                 }
+                html += `<div class="dp-title-row">`;
                 html += `<span class="dp-name">${name}${splitChunk ? '<span class="dp-split-chip">✂ ' + splitIdx + '/' + splitTotal + '</span>' : ''}</span>`;
+                if (canSplitHere) {
+                    html += `<button type="button" class="dp-split-btn" data-id="${p.id}" title="${splitChunk ? 'Ayusin o alisin ang split' : 'I-split sa ilang dates (Class)'}" onclick="event.stopPropagation();openSplitModal(${p.id})">✂</button>`;
+                }
+                html += `</div>`;
                 html += `<div class="dp-meta">`;
                 html += `<span class="dp-dept" style="background:${color};color:white;">${dept}</span>`;
                 // Quantity badge
@@ -1131,9 +1154,6 @@ function renderWeek(monday, projects) {
                 }
                 if (!IS_SALES_AGENT && !IS_GA && !splitChunk) {
                     html += `<span class="dp-amount">${curr(amt)}</span>`;
-                }
-                if (canSplitHere) {
-                    html += `<button type="button" class="dp-split-btn" data-id="${p.id}" title="${splitChunk ? 'Ayusin o alisin ang split' : 'I-split sa ilang dates (Class)'}" onclick="event.stopPropagation();openSplitModal(${p.id})">✂</button>`;
                 }
                 html += `</div>`;
                 // Production stage tagging (same rules as manager order list) — hidden for sales agents/reps
@@ -1924,6 +1944,19 @@ function showDetail(id) {
             if (printBtn) {
                 printBtn.href = '/sales/prototype/' + id + '/print-slip';
                 printBtn.style.display = '';
+            }
+            // Split (Class) — backup entry point para sa maliit na screen / laptop
+            var splitModalBtn = document.getElementById('calendarSplitBtn');
+            if (splitModalBtn) {
+                var proj = (window.calProjects || []).find(function(x){ return String(x.id) === String(id); });
+                var isClassProj = proj && String(proj.department_name || '').toLowerCase() === 'class';
+                var canSplitHere2 = CAN_SPLIT && !IS_SALES_AGENT && !IS_GA && !IS_QA && isClassProj;
+                splitModalBtn.style.display = canSplitHere2 ? '' : 'none';
+                splitModalBtn.onclick = function() {
+                    var pm = bootstrap.Modal.getInstance(document.getElementById('projectModal'));
+                    if (pm) pm.hide();
+                    openSplitModal(id);
+                };
             }
         })
         .catch(()=>{ body.innerHTML = '<p class="text-danger">Failed to load details.</p>'; });
