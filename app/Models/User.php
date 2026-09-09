@@ -177,6 +177,16 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Accountant — verifies payment review requests (balance close-out):
+     * proof image check, then ACCEPT (zeroes balance → unlocks DONE)
+     * or REJECT (required reason). Accepted requests go to CEO/COO queue.
+     */
+    public function isAccountant(): bool
+    {
+        return $this->role === 'accountant';
+    }
+
+    /**
      * Manager-level access: admins, 'manager' role, and production managers.
      * Used by add-on approval, change/reprocess approval, refunds, etc.
      */
