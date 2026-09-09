@@ -6642,10 +6642,17 @@ $services = json_decode($sale->services, true);
                 $rawName = $item['name'] ?? ($item['garment']['name'] ?? null);
                 if (!$rawName) continue;
 
-                // Real product spec (e.g. "TSHIRT VNECK - DRIFIT | RAGLAN") instead of the
-                // project name (which often defaults to "Additional Order - <customer>")
-                $spec = \App\Models\PrototypeSale::itemSpecSummary($item);
-                $name = ($spec && $spec !== 'Item') ? $spec : $rawName;
+                // Group by BASE GARMENT TYPE (e.g. "POLO BUTTON") instead of the full
+                // spec/project name — para mag-add up ang parehong product kahit iba ang
+                // project name, GSM, o fabric. (Andrew 2026-09-09)
+                $sf = $item['sublimationForm'] ?? [];
+                $garmentName = trim((string) ($sf['garment']['name'] ?? ''));
+                if ($garmentName !== '') {
+                    $name = strtoupper($garmentName);
+                } else {
+                    $spec = \App\Models\PrototypeSale::itemSpecSummary($item);
+                    $name = ($spec && $spec !== 'Item') ? $spec : $rawName;
+                }
 
                 $qty = (int) ($item['quantity'] ?? 0);
                 $unitPrice = (float) ($item['unitPrice'] ?? 0);
