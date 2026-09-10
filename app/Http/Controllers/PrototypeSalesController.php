@@ -3458,6 +3458,7 @@ $services = json_decode($sale->services, true);
         $myJobs = $request->boolean('my_jobs');
         $gaFilter = $request->get('ga', '');
         $dueFilter = trim((string) $request->get('due', '')); // '' | overdue | today | soon | week | none
+        $dueSort = trim((string) $request->get('due_sort', '')); // '' | asc | desc
 
         // Same production stage map + reverse map as the manager order list
         $prodStageMap = [
@@ -3566,8 +3567,17 @@ $services = json_decode($sale->services, true);
             ->when($dueFilter === 'none', function ($query) {
                 $query->whereNull('rescheduled_date')->whereNull('estimated_completion_date');
             })
-            // Kapag may due filter, i-sort by effective due date (pinaka-malapit/malalauna muna) para actionable agad.
-            ->when(in_array($dueFilter, ['overdue', 'today', 'soon', 'week'], true), function ($query) {
+            // Due-date SORT control (Andrew 2026-09-10): asc = pinakamaaga muna, desc = pinakamalayo muna.
+            ->when($dueSort === 'asc', function ($query) {
+                $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
+                    ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) ASC');
+            })
+            ->when($dueSort === 'desc', function ($query) {
+                $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
+                    ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) DESC');
+            })
+            // Kapag may due filter pero walang explicit sort, default na pinakamaaga muna para actionable agad.
+            ->when($dueSort === '' && in_array($dueFilter, ['overdue', 'today', 'soon', 'week'], true), function ($query) {
                 $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
                     ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) ASC');
             })
@@ -3604,7 +3614,7 @@ $services = json_decode($sale->services, true);
             ->distinct()
             ->count('prototype_sale_id');
 
-        return view('sales.prototype.ga-order-list', compact('sales', 'prodStageMap', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'myJobs', 'gaFilter', 'gaUsers', 'assignments', 'activityLogs', 'completedCount', 'dueFilter'));
+        return view('sales.prototype.ga-order-list', compact('sales', 'prodStageMap', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'myJobs', 'gaFilter', 'gaUsers', 'assignments', 'activityLogs', 'completedCount', 'dueFilter', 'dueSort'));
     }
 
     /**

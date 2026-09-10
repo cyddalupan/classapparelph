@@ -575,6 +575,14 @@
                 </select>
             </div>
             <div class="col-6 col-md-2">
+                <label class="form-label small text-muted mb-1 fw-semibold">↕ Sort due date</label>
+                <select name="due_sort" class="form-select">
+                    <option value="">Default</option>
+                    <option value="asc" {{ $dueSort === 'asc' ? 'selected' : '' }}>↑ Earliest first (asc)</option>
+                    <option value="desc" {{ $dueSort === 'desc' ? 'selected' : '' }}>↓ Latest first (desc)</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
                 <label class="form-label small text-muted mb-1 fw-semibold">Date from</label>
                 <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control">
             </div>
@@ -589,7 +597,7 @@
                 <button type="submit" name="my_jobs" value="1" class="ga-myjobs-btn {{ $myJobs ? 'active-mine' : '' }}" onclick="this.form.my_jobs.value = this.classList.contains('active-mine') ? '' : '1'"><i class="fas fa-user-check"></i> My Jobs</button>
                 <button type="submit" name="delayed" value="1" class="ga-toggle-btn {{ $delayedOnly ? 'active' : '' }}" onclick="this.form.delayed.value = this.classList.contains('active') ? '' : '1'">⏰ Delayed only</button>
                 <button type="submit" name="priority" value="1" class="ga-toggle-btn {{ $priorityOnly ? 'active-prio' : '' }}" onclick="this.form.priority.value = this.classList.contains('active-prio') ? '' : '1'">⭐ With priority</button>
-                @if($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter) || $dueFilter !== '')
+                @if($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter) || $dueFilter !== '' || $dueSort !== '')
                 <a href="{{ route('sales.prototype.ga-order-list') }}" class="ga-clear-btn"><i class="fas fa-times"></i> Clear</a>
                 @endif
             </div>
