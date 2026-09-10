@@ -883,6 +883,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
 
         // PRIORITY MOCKUP SLIDESHOW — read-only, para sa Manager na i-play sa screen ayon sa priority order (Andrew 2026-09-10)
         Route::get('/sales/prototype/priority-slideshow', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshow'])->name('sales.prototype.priority-slideshow');
+        Route::get('/sales/prototype/priority-slideshow/data', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowData'])->name('sales.prototype.priority-slideshow.data');
 
         // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
         Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');

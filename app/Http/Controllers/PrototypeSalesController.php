@@ -3619,9 +3619,12 @@ $services = json_decode($sale->services, true);
 
     /**
      * PRIORITY MOCKUP SLIDESHOW (Andrew 2026-09-10) — read-only full-screen player
-     * para sa Manager: ipinapakita ang WIP jobs ayon sa priority (1,2,3...) kasama ang
+     * para sa Manager: ipinapakita ang jobs ayon sa priority (1,2,3...) kasama ang
      * main mockup image, quantity, customer, department, stage, at due date.
-     * scope=prio (default: may priority lang) | all (lahat ng WIP, priority muna).
+     *
+     * NOTE: hindi na naka-limit sa 6 GA stages — IPINAPAKITA LAHAT ng may priority
+     * (kahit QA / SEWING / DISPATCH atbp) para kumpleto ang 1,2,3... na sequence.
+     * scope=prio (default: may priority lang) | all (lahat ng active job, priority muna).
      */
     public function prioritySlideshow()
     {
@@ -3630,9 +3633,39 @@ $services = json_decode($sale->services, true);
             abort(403, 'Unauthorized access.');
         }
 
-        $request = request();
-        $scope = $request->get('scope', 'prio') === 'all' ? 'all' : 'prio';
+        $scope = request()->get('scope', 'prio') === 'all' ? 'all' : 'prio';
+        $slides = $this->buildSlideshowSlides($user, $scope);
 
+        return view('sales.prototype.priority-slideshow', compact('slides', 'scope'));
+    }
+
+    /**
+     * Lightweight endpoint para sa auto-refresh ng slideshow: ibinabalik ang signature
+     * ng kasalukuyang priority order. Kapag nagbago (nag-update ng priority ang Manager),
+     * ire-reload ng client ang deck para live ang sequence.
+     */
+    public function prioritySlideshowData()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isCoo() || $user->isQa() || $user->isAdmin())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $scope = request()->get('scope', 'prio') === 'all' ? 'all' : 'prio';
+        $slides = $this->buildSlideshowSlides($user, $scope);
+
+        $sig = md5(collect($slides)->map(function ($s) {
+            return $s['sales_number'] . ':' . ($s['priority'] ?? '-') . ':' . (empty($s['img']) ? '0' : '1');
+        })->implode('|'));
+
+        return response()->json(['sig' => $sig, 'count' => count($slides)]);
+    }
+
+    /**
+     * Build ang slides array mula sa live DB (walang cache) — shared ng page at data endpoint.
+     */
+    private function buildSlideshowSlides($user, $scope)
+    {
         $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
 
         $sales = \App\Models\PrototypeSale::query()
@@ -3641,7 +3674,7 @@ $services = json_decode($sale->services, true);
             ->when($user->isClassScoped(), function ($query) {
                 $query->where('department_id', 4);
             })
-            ->whereIn('production_stage', ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING'])
+            // scope=prio → lahat ng may priority (kahit anong stage); scope=all → lahat ng active job
             ->when($scope === 'prio', function ($query) {
                 $query->whereNotNull('priority');
             })
@@ -3687,7 +3720,7 @@ $services = json_decode($sale->services, true);
             ];
         }
 
-        return view('sales.prototype.priority-slideshow', compact('slides', 'scope'));
+        return $slides;
     }
 
     /**

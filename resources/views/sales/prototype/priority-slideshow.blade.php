@@ -63,7 +63,7 @@
 @else
 <div id="deck">
     @foreach($slides as $i => $s)
-        <div class="slide {{ $i === 0 ? 'active' : '' }}" data-idx="{{ $i }}">
+        <div class="slide {{ $i === 0 ? 'active' : '' }}" data-idx="{{ $i }}" data-sale="{{ $s['sales_number'] }}">
             <div class="frame">
                 <div class="img-wrap">
                     @if(!empty($s['img']))
@@ -132,6 +132,9 @@
         slides.forEach((sl, i) => sl.classList.toggle('active', i === idx));
         dots.forEach((d, i) => d.classList.toggle('on', i === idx));
         counter.textContent = (idx + 1) + ' / ' + total;
+        // tandaan ang kasalukuyang sale para ma-resume pag na-refresh (auto-update ng priority)
+        const cur = slides[idx]?.getAttribute('data-sale');
+        if (cur) { try { sessionStorage.setItem('slideshow_cur', cur); } catch (e) {} }
     }
     function go(i) { idx = ((i % total) + total) % total; render(); restart(); }
     function next() { go(idx + 1); }
@@ -183,6 +186,30 @@
 
     render();
     setPlaying(true);
+
+    // ── AUTO-REFRESH: kapag nag-update ng priority ang Manager, live na magre-reload ──
+    const SIG_URL = '{{ route('sales.prototype.priority-slideshow.data') }}?scope={{ $scope }}';
+    let lastSig = null;
+    async function checkSig() {
+        try {
+            const r = await fetch(SIG_URL, { headers: { 'Accept': 'application/json' } });
+            if (!r.ok) return;
+            const j = await r.json();
+            if (lastSig === null) { lastSig = j.sig; return; }
+            if (j.sig !== lastSig) { window.location.reload(); }
+        } catch (e) { /* ignore */ }
+    }
+    checkSig();
+    setInterval(checkSig, 20000);
+
+    // resume sa dating slide (kung may naka-save) pagkatapos ng auto-refresh reload
+    try {
+        const saved = sessionStorage.getItem('slideshow_cur');
+        if (saved) {
+            const j = slides.findIndex(sl => sl.getAttribute('data-sale') === saved);
+            if (j >= 0) { idx = j; render(); restart(); }
+        }
+    } catch (e) {}
 })();
 </script>
 @endif
