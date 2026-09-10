@@ -69,6 +69,10 @@ class CheckProdManagerClassAccess
         'sales.prototype.ga-unassign',
         'sales.prototype.ga-complete',
 
+        // Nav: Production → Priority Mockup Slideshow (read-only; Class only, scoped in controller)
+        'sales.prototype.priority-slideshow',
+        'sales.prototype.priority-slideshow.data',
+
         // Nav: Production → Backjob List (Class only, scoped in controller)
         'sales.prototype.backjobs',
 
