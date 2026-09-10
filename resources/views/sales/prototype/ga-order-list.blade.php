@@ -108,6 +108,13 @@
         gap: 6px;
     }
     .ga-clear-btn:hover { background: #f8f9fa; color: #111827; }
+    .ga-clear-active {
+        border-color: #dc3545;
+        color: #dc3545;
+        background: #fff5f5;
+        font-weight: 700;
+    }
+    .ga-clear-active:hover { background: #dc3545; color: #fff; border-color: #dc3545; }
 
     /* ── Table ─────────────────────────────────── */
     .ga-table-card {
@@ -590,16 +597,14 @@
                 <label class="form-label small text-muted mb-1 fw-semibold">Date to</label>
                 <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control">
             </div>
-            <div class="col-12 col-md-1 d-flex gap-2 justify-content-md-end">
+            <div class="col-12 col-md-2 d-flex gap-2 justify-content-md-end">
                 <button type="submit" class="btn btn-primary btn-sm px-3" style="background:linear-gradient(135deg,#6f42c1,#8e5bd8);border:none;border-radius:9px;font-weight:600;">Filter</button>
+                <a href="{{ route('sales.prototype.ga-order-list') }}" class="ga-clear-btn {{ ($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter) || $dueFilter !== '' || $dueSort !== '') ? 'ga-clear-active' : '' }}" title="Reset lahat ng filter"><i class="fas fa-undo"></i> Reset</a>
             </div>
             <div class="col-12 d-flex gap-2 flex-wrap pt-1">
                 <button type="submit" name="my_jobs" value="1" class="ga-myjobs-btn {{ $myJobs ? 'active-mine' : '' }}" onclick="this.form.my_jobs.value = this.classList.contains('active-mine') ? '' : '1'"><i class="fas fa-user-check"></i> My Jobs</button>
                 <button type="submit" name="delayed" value="1" class="ga-toggle-btn {{ $delayedOnly ? 'active' : '' }}" onclick="this.form.delayed.value = this.classList.contains('active') ? '' : '1'">⏰ Delayed only</button>
                 <button type="submit" name="priority" value="1" class="ga-toggle-btn {{ $priorityOnly ? 'active-prio' : '' }}" onclick="this.form.priority.value = this.classList.contains('active-prio') ? '' : '1'">⭐ With priority</button>
-                @if($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter) || $dueFilter !== '' || $dueSort !== '')
-                <a href="{{ route('sales.prototype.ga-order-list') }}" class="ga-clear-btn"><i class="fas fa-times"></i> Clear</a>
-                @endif
             </div>
             @if($gaUsers->count() > 0)
             <div class="col-12 col-md-3">
