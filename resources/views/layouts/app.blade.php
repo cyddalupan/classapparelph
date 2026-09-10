@@ -292,10 +292,6 @@
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
                         </a>
-                        <a href="{{ route('sales.prototype.priority-slideshow') }}" class="nav-item {{ request()->routeIs('sales.prototype.priority-slideshow*') ? 'active' : '' }}">
-                            <i class="fas fa-play-circle"></i>
-                            <span class="nav-text">Priority Slideshow</span>
-                        </a>
                         <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
                             <i class="fas fa-tools"></i>
                             <span class="nav-text">Backjob List</span>
@@ -663,10 +659,6 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
-                        </a>
-                        <a href="{{ route('sales.prototype.priority-slideshow') }}" class="nav-item {{ request()->routeIs('sales.prototype.priority-slideshow*') ? 'active' : '' }}">
-                            <i class="fas fa-play-circle"></i>
-                            <span class="nav-text">Priority Slideshow</span>
                         </a>
                         <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
                             <i class="fas fa-tools"></i>

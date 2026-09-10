@@ -3629,7 +3629,7 @@ $services = json_decode($sale->services, true);
     public function prioritySlideshow()
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager() || $user->isProdManager() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isQa() || $user->isAdmin())) {
+        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -3647,7 +3647,7 @@ $services = json_decode($sale->services, true);
     public function prioritySlideshowData()
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager() || $user->isProdManager() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isQa() || $user->isAdmin())) {
+        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
