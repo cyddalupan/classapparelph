@@ -475,6 +475,9 @@
             <div class="sub">Orders tagged <b>FOR SAMPLE</b> / <b>FOR FORMAT</b> / <b>PRINTING</b> — read-only view</div>
         </div>
         <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('sales.prototype.priority-slideshow') }}" class="btn btn-sm fw-semibold" style="border-radius:10px;background:#fff;border:none;color:#6f42c1;font-weight:700;" title="I-play sa screen ang mockups ayon sa priority (1,2,3...)">
+                <i class="fas fa-play-circle me-1"></i> Play Mockup Slideshow
+            </a>
             <a href="{{ route('sales.prototype.backjobs') }}" class="btn btn-sm fw-semibold" style="border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);color:#fff;">
                 <i class="fas fa-tools me-1"></i> Backjob List
             </a>

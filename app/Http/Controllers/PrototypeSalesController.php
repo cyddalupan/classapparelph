@@ -3618,6 +3618,79 @@ $services = json_decode($sale->services, true);
     }
 
     /**
+     * PRIORITY MOCKUP SLIDESHOW (Andrew 2026-09-10) — read-only full-screen player
+     * para sa Manager: ipinapakita ang WIP jobs ayon sa priority (1,2,3...) kasama ang
+     * main mockup image, quantity, customer, department, stage, at due date.
+     * scope=prio (default: may priority lang) | all (lahat ng WIP, priority muna).
+     */
+    public function prioritySlideshow()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isCoo() || $user->isQa() || $user->isAdmin())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $request = request();
+        $scope = $request->get('scope', 'prio') === 'all' ? 'all' : 'prio';
+
+        $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
+
+        $sales = \App\Models\PrototypeSale::query()
+            ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at')
+            ->when($user->isClassScoped(), function ($query) {
+                $query->where('department_id', 4);
+            })
+            ->whereIn('production_stage', ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING'])
+            ->when($scope === 'prio', function ($query) {
+                $query->whereNotNull('priority');
+            })
+            ->orderByRaw('priority IS NULL')      // may priority muna (1,2,3...)
+            ->orderBy('priority', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $slides = [];
+        foreach ($sales as $s) {
+            $mockups = is_array($s->mockup_images) ? $s->mockup_images : (json_decode($s->mockup_images ?? '[]', true) ?: []);
+            $img = '';
+            foreach ($mockups as $m) {
+                if (is_array($m) && !empty($m['is_main']) && !empty($m['url'])) {
+                    $img = $m['url'];
+                    break;
+                }
+            }
+            if (!$img) {
+                foreach ($mockups as $m) {
+                    $u = is_array($m) ? ($m['url'] ?? '') : $m;
+                    if ($u) { $img = $u; break; }
+                }
+            }
+
+            $services = is_array($s->services) ? $s->services : (json_decode($s->services ?? '[]', true) ?: []);
+            $qty = 0;
+            foreach ($services as $svc) {
+                $qty += (int) ($svc['quantity'] ?? 1);
+            }
+
+            $effDue = $s->rescheduled_date ?: $s->estimated_completion_date;
+
+            $slides[] = [
+                'sales_number' => $s->sales_number,
+                'customer'     => $s->customer_name,
+                'priority'     => $s->priority,
+                'qty'          => $qty,
+                'stage'        => $s->production_stage,
+                'dept'         => $departmentLabels[$s->department_id] ?? ($s->department_name ?: '—'),
+                'due'          => $effDue ? \Carbon\Carbon::parse($effDue)->format('M d, Y') : null,
+                'img'          => $img,
+            ];
+        }
+
+        return view('sales.prototype.priority-slideshow', compact('slides', 'scope'));
+    }
+
+    /**
      * GA Dashboard — performance breakdown per GA, per stage, at monthly stats.
      * Counted lang ang mga sale na na-tag na ng Manager as SEWING or beyond (ga_counted_at set).
      */

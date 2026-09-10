@@ -881,6 +881,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // GA ORDER LIST route — read-only, only orders tagged FOR SAMPLE / FOR APPROVAL / FOR FORMAT / PRINTING
         Route::get('/sales/prototype/ga-order-list', [App\Http\Controllers\PrototypeSalesController::class, 'gaOrderList'])->name('sales.prototype.ga-order-list');
 
+        // PRIORITY MOCKUP SLIDESHOW — read-only, para sa Manager na i-play sa screen ayon sa priority order (Andrew 2026-09-10)
+        Route::get('/sales/prototype/priority-slideshow', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshow'])->name('sales.prototype.priority-slideshow');
+
         // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
         Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');
 
