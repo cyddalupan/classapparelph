@@ -109,6 +109,18 @@ class CheckProdManagerClassAccess
         'sales.prototype.process-refund',
         'sales.prototype.refunds',
 
+        // Freebie Slips (🎁 section sa sale show page + Freebie List page)
+        // Class only, scoped in FreebieSlipController (dept 4) — same as add-ons/refunds
+        'sales.prototype.freebie-list',
+        'sales.prototype.freebie.pending',
+        'sales.prototype.freebie.all-pending',
+        'sales.prototype.freebie.pending-count',
+        'sales.prototype.freebie.request',
+        'sales.prototype.freebie.approve',
+        'sales.prototype.freebie.reject',
+        'sales.prototype.freebie.audit',
+        'sales.prototype.freebie.done',
+
         // Comments & notifications
         'sales.prototype.add-comment',
         'sales.prototype.audit-history',
