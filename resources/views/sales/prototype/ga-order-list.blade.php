@@ -564,6 +564,17 @@
                 </select>
             </div>
             <div class="col-6 col-md-2">
+                <label class="form-label small text-muted mb-1 fw-semibold">⏰ Due date</label>
+                <select name="due" class="form-select">
+                    <option value="">All due dates</option>
+                    <option value="overdue" {{ $dueFilter === 'overdue' ? 'selected' : '' }}>🔴 Overdue</option>
+                    <option value="today" {{ $dueFilter === 'today' ? 'selected' : '' }}>🟠 Due today</option>
+                    <option value="soon" {{ $dueFilter === 'soon' ? 'selected' : '' }}>🟡 Due in 3 days</option>
+                    <option value="week" {{ $dueFilter === 'week' ? 'selected' : '' }}>🔵 Due this week</option>
+                    <option value="none" {{ $dueFilter === 'none' ? 'selected' : '' }}>⚪ No due date</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
                 <label class="form-label small text-muted mb-1 fw-semibold">Date from</label>
                 <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control">
             </div>
@@ -578,7 +589,7 @@
                 <button type="submit" name="my_jobs" value="1" class="ga-myjobs-btn {{ $myJobs ? 'active-mine' : '' }}" onclick="this.form.my_jobs.value = this.classList.contains('active-mine') ? '' : '1'"><i class="fas fa-user-check"></i> My Jobs</button>
                 <button type="submit" name="delayed" value="1" class="ga-toggle-btn {{ $delayedOnly ? 'active' : '' }}" onclick="this.form.delayed.value = this.classList.contains('active') ? '' : '1'">⏰ Delayed only</button>
                 <button type="submit" name="priority" value="1" class="ga-toggle-btn {{ $priorityOnly ? 'active-prio' : '' }}" onclick="this.form.priority.value = this.classList.contains('active-prio') ? '' : '1'">⭐ With priority</button>
-                @if($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter))
+                @if($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter) || $dueFilter !== '')
                 <a href="{{ route('sales.prototype.ga-order-list') }}" class="ga-clear-btn"><i class="fas fa-times"></i> Clear</a>
                 @endif
             </div>
@@ -607,6 +618,7 @@
                         <th>Description</th>
                         <th class="text-center">Qty</th>
                         <th>Production Status</th>
+                        <th>Due Date</th>
                         <th>Department</th>
                         <th>Customer</th>
                         <th>GA Assignment</th>
@@ -659,6 +671,21 @@
                             $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
                             // PAYMENT LOCK (restored 2026-09-05): hindi ma-DONE habang may balance (kahit ₱1)
                             $balanceDue = (float) $sale->balance_due_computed;
+
+                            // DUE DATE (Andrew 2026-09-10): effective = rescheduled_date kung meron, else estimated_completion_date.
+                            // Ipakita dito para hindi na kailangan pang pumunta sa Calendar.
+                            $effDue = $sale->rescheduled_date ?: $sale->estimated_completion_date;
+                            $dueInfo = null;
+                            if ($effDue) {
+                                $dueD = \Carbon\Carbon::parse($effDue)->startOfDay();
+                                $todayD = \Carbon\Carbon::now()->startOfDay();
+                                $diffDays = (int) floor(($dueD->getTimestamp() - $todayD->getTimestamp()) / 86400);
+                                if ($diffDays < 0)       { $dueInfo = ['#dc3545', '🔴 ' . abs($diffDays) . 'd overdue']; }
+                                elseif ($diffDays === 0) { $dueInfo = ['#fd7e14', '🟠 Due today']; }
+                                elseif ($diffDays <= 3)  { $dueInfo = ['#f59e0b', '🟡 ' . $diffDays . 'd left']; }
+                                elseif ($diffDays <= 7)  { $dueInfo = ['#0ea5e9', '🔵 ' . $diffDays . 'd left']; }
+                                else                     { $dueInfo = ['#10b981', '🟢 ' . $diffDays . 'd left']; }
+                            }
                         @endphp
                         <tr data-sale-id="{{ $sale->id }}">
                             <td style="max-width:150px;">
@@ -691,6 +718,17 @@
                             <td class="text-center" style="font-weight:700;color:#374151;">{{ $totalQty ?: '—' }}</td>
                             <td>
                                 <span class="stage-badge" style="background:{{ $stageBg }};">{{ $stageLabel }}</span>
+                            </td>
+                            <td style="white-space:nowrap;">
+                                @if($effDue)
+                                    <div style="font-weight:600;font-size:12px;color:#374151;">{{ \Carbon\Carbon::parse($effDue)->format('M d, Y') }}</div>
+                                    <span class="badge" style="background:{{ $dueInfo[0] }};font-size:10px;">{{ $dueInfo[1] }}</span>
+                                    @if($sale->rescheduled_date && $sale->estimated_completion_date && \Carbon\Carbon::parse($sale->rescheduled_date)->ne($sale->estimated_completion_date))
+                                        <div style="font-size:10px;color:#9ca3af;">orig: {{ \Carbon\Carbon::parse($sale->estimated_completion_date)->format('M d') }}</div>
+                                    @endif
+                                @else
+                                    <span class="text-muted" style="font-size:11px;">—</span>
+                                @endif
                             </td>
                             <td>
                                 <span class="dept-badge" style="background:{{ $deptColor }};">{{ $deptName }}</span>
@@ -771,7 +809,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="empty-state">
+                            <td colspan="9" class="empty-state">
                                 <div class="ico"><i class="fas fa-palette"></i></div>
                                 <h6>Walang nahanap na jobs</h6>
                                 <p>Subukan mong baguhin ang filters o i-clear ang lahat para makita ang lahat ng GA jobs.</p>

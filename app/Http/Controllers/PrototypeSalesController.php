@@ -3457,6 +3457,7 @@ $services = json_decode($sale->services, true);
         $priorityOnly = $request->boolean('priority');
         $myJobs = $request->boolean('my_jobs');
         $gaFilter = $request->get('ga', '');
+        $dueFilter = trim((string) $request->get('due', '')); // '' | overdue | today | soon | week | none
 
         // Same production stage map + reverse map as the manager order list
         $prodStageMap = [
@@ -3545,6 +3546,31 @@ $services = json_decode($sale->services, true);
                         ->where('user_id', (int) $gaFilter);
                 });
             })
+            // DUE-DATE FILTERS (Andrew 2026-09-10): effective due = rescheduled_date kung meron, else estimated_completion_date.
+            // Para hindi na kailangang pumunta sa Calendar para makita kung ano ang due/overdue.
+            ->when($dueFilter === 'overdue', function ($query) {
+                $query->whereNotNull(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'))
+                    ->whereRaw('COALESCE(rescheduled_date, estimated_completion_date) < ?', [now()->toDateString()]);
+            })
+            ->when($dueFilter === 'today', function ($query) {
+                $query->whereRaw('DATE(COALESCE(rescheduled_date, estimated_completion_date)) = ?', [now()->toDateString()]);
+            })
+            ->when($dueFilter === 'soon', function ($query) {
+                $query->whereNotNull(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'))
+                    ->whereRaw('COALESCE(rescheduled_date, estimated_completion_date) BETWEEN ? AND ?', [now()->toDateString(), now()->addDays(3)->toDateString()]);
+            })
+            ->when($dueFilter === 'week', function ($query) {
+                $query->whereNotNull(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'))
+                    ->whereRaw('COALESCE(rescheduled_date, estimated_completion_date) BETWEEN ? AND ?', [now()->toDateString(), now()->addDays(7)->toDateString()]);
+            })
+            ->when($dueFilter === 'none', function ($query) {
+                $query->whereNull('rescheduled_date')->whereNull('estimated_completion_date');
+            })
+            // Kapag may due filter, i-sort by effective due date (pinaka-malapit/malalauna muna) para actionable agad.
+            ->when(in_array($dueFilter, ['overdue', 'today', 'soon', 'week'], true), function ($query) {
+                $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
+                    ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) ASC');
+            })
             ->orderByRaw("CASE WHEN is_delayed = 1 THEN 0 ELSE 1 END")
             ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
             ->orderBy('priority', 'asc')
@@ -3578,7 +3604,7 @@ $services = json_decode($sale->services, true);
             ->distinct()
             ->count('prototype_sale_id');
 
-        return view('sales.prototype.ga-order-list', compact('sales', 'prodStageMap', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'myJobs', 'gaFilter', 'gaUsers', 'assignments', 'activityLogs', 'completedCount'));
+        return view('sales.prototype.ga-order-list', compact('sales', 'prodStageMap', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'myJobs', 'gaFilter', 'gaUsers', 'assignments', 'activityLogs', 'completedCount', 'dueFilter'));
     }
 
     /**
