@@ -91,6 +91,7 @@
                                 <option value="procurement" {{ old('role') === 'procurement' ? 'selected' : '' }}>Procurement</option>
                                 <option value="artist" {{ old('role') === 'artist' ? 'selected' : '' }}>Artist</option>
                                 <option value="coo" {{ old('role') === 'coo' ? 'selected' : '' }}>C.O.O.</option>
+                                <option value="hr_accountant_agent" {{ old('role') === 'hr_accountant_agent' ? 'selected' : '' }}>HR / Accountant / Agent</option>
                             </select>
                             @error('role') <span class="invalid-feedback">{{ $message }}</span> @enderror
                             <div class="role-description" id="roleDescription">
@@ -294,6 +295,7 @@ const roleDescriptions = {
     staff: 'Can manage production, orders, and inventory. No sales management access.',
     procurement: 'Manages supplier relationships and purchase orders.',
     artist: 'Handles mockup/design creation. Receives production feedback from managers for revisions.',
+    hr_accountant_agent: 'Combined role: Sales Agent features (own customers/sales, calendar, layout) plus Accountant duties (Payment Review + Payment Verification).',
 };
 
 function toggleRoleFields() {

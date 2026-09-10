@@ -231,7 +231,7 @@
                     <!-- Main Navigation -->
                     <div class="nav-section">
                         <div class="nav-section-title">Main</div>
-                        @if(!Auth::user()->isQa())
+                        @if(!Auth::user()->isQa() && !Auth::user()->isHrAccountantAgent())
                         <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-tachometer-alt"></i>
                             <span class="nav-text">Dashboard</span>
@@ -597,6 +597,25 @@
                     </div>
                     @endif
 
+                <!-- HR/Accountant/Agent (combined) — Finance (accountant side) -->
+                @if(Auth::user()->isHrAccountantAgent())
+                <div class="nav-section">
+                    <div class="nav-section-title">Finance</div>
+                    <a href="{{ route('sales.prototype.payment-review.accountant') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.accountant') ? 'active' : '' }}">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span class="nav-text">Payment Review</span>
+                    </a>
+                    <a href="{{ route('sales.verification') }}" class="nav-item {{ request()->routeIs('sales.verification') ? 'active' : '' }}">
+                        <i class="fas fa-check-circle"></i>
+                        <span class="nav-text">Payment Verification</span>
+                    </a>
+                    <a href="{{ route('sales.cash-flow') }}" class="nav-item {{ request()->routeIs('sales.cash-flow') ? 'active' : '' }}">
+                        <i class="fas fa-chart-line"></i>
+                        <span class="nav-text">Cash Flow</span>
+                    </a>
+                </div>
+                @endif
+
                     <!-- Sales Agent Navigation (Only for Sales Agents/Reps) -->
                     @if(Auth::user()->isAdmin() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
                     <div class="nav-section">
@@ -788,7 +807,7 @@
                     <!-- User Account -->
                     <div class="nav-section">
                         <div class="nav-section-title">Account</div>
-                        @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo() || Auth::user()->isProdManager() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative() || Auth::user()->isGa())
+                        @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo() || Auth::user()->isProdManager() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative() || Auth::user()->isGa() || Auth::user()->isHrAccountantAgent())
                         <span class="nav-item nav-disabled">
                             <i class="fas fa-user"></i>
                             <span class="nav-text">Profile</span>

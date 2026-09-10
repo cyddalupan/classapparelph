@@ -91,6 +91,7 @@
                                 <option value="procurement" {{ $user->role === 'procurement' ? 'selected' : '' }}>Procurement</option>
                                 <option value="artist" {{ $user->role === 'artist' ? 'selected' : '' }}>Artist</option>
                                 <option value="coo" {{ $user->role === 'coo' ? 'selected' : '' }}>C.O.O.</option>
+                                <option value="hr_accountant_agent" {{ $user->role === 'hr_accountant_agent' ? 'selected' : '' }}>HR / Accountant / Agent</option>
                             </select>
                             @error('role') <span class="invalid-feedback">{{ $message }}</span> @enderror
                         </div>

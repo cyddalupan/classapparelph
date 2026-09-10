@@ -39,7 +39,7 @@ class LayoutJobController extends Controller
         if (!$u) return false;
         return in_array($u->role, [
             'admin', 'staff', 'coo', 'cpo', 'cmo', 'sales_agent', 'sales_representative',
-            'prod_manager', 'qa',
+            'prod_manager', 'qa', 'hr_accountant_agent',
         ]);
     }
 

@@ -67,7 +67,7 @@ class AdminUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo,ga,qa'],
+            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo,ga,qa,hr_accountant_agent'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'employee_id' => ['nullable', 'string', 'max:50', 'unique:users'],
@@ -138,7 +138,7 @@ class AdminUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo,ga,qa'],
+            'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo,ga,qa,hr_accountant_agent'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'employee_id' => ['nullable', 'string', 'max:50', 'unique:users,employee_id,'.$user->id],

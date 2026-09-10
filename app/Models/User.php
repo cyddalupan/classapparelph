@@ -92,10 +92,14 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * Check if user has sales agent role
+     * NOTE: 'hr_accountant_agent' (HR/Accountant/Agent) is treated as a sales agent
+     * so it inherits ALL Sales Agent features (own customers/sales/layout/calendar).
      */
     public function isSalesAgent(): bool
     {
-        return $this->role === 'sales_agent' || $this->role === 'sales_representative';
+        return $this->role === 'sales_agent'
+            || $this->role === 'sales_representative'
+            || $this->role === 'hr_accountant_agent';
     }
 
     /**
@@ -183,7 +187,17 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isAccountant(): bool
     {
-        return $this->role === 'accountant';
+        return $this->role === 'accountant' || $this->role === 'hr_accountant_agent';
+    }
+
+    /**
+     * HR/Accountant/Agent — combined role.
+     * Agent (like Sales Agent) + Accountant (payment review + payment verification).
+     * HR is title-only for now (no HR features yet).
+     */
+    public function isHrAccountantAgent(): bool
+    {
+        return $this->role === 'hr_accountant_agent';
     }
 
     /**
