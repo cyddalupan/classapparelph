@@ -135,6 +135,7 @@
                             <th>Employee ID</th>
                             <th>Name</th>
                             <th>Email</th>
+                            <th>Username</th>
                             <th>Role</th>
                             <th>Department</th>
                             <th>Sales Target</th>
@@ -172,6 +173,7 @@
                                 </div>
                             </td>
                             <td>{{ $u->email }}</td>
+                            <td>@if($u->username)<span class="badge badge-light" style="font-weight:600;">{{ $u->username }}</span>@else<span class="text-muted">—</span>@endif</td>
                             <td>
                                 @php
                                     $roleStyles = [

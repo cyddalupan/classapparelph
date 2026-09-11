@@ -184,7 +184,7 @@
             <i class="fas fa-at"></i>
             <div>
                 <h5>Change Username</h5>
-                <div class="sub">Letters, numbers, dot, underscore at hyphen lang (3–30 characters).</div>
+                <div class="sub">Laging may <strong>@classapparelph.com</strong> sa dulo (hal. <em>aja@classapparelph.com</em>).</div>
             </div>
         </div>
         <div class="pf-card-body">
@@ -194,9 +194,14 @@
                 <div class="row">
                     <div class="col-md-6">
                         <div class="pf-label">New Username</div>
-                        <input id="username" name="username" type="text" class="pf-input"
-                               value="{{ old('username', $user->username) }}"
-                               placeholder="hal. andrew.ceo" required>
+                        <div style="display:flex;align-items:stretch;">
+                            <input id="username" name="username" type="text" class="pf-input"
+                                   value="{{ old('username', $user->username ? \Illuminate\Support\Str::before($user->username, '@') : '') }}"
+                                   placeholder="hal. andrew.ceo" required
+                                   style="border-top-right-radius:0;border-bottom-right-radius:0;">
+                            <span style="display:inline-flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1px solid #d7dbe3;border-left:0;border-top-right-radius:9px;border-bottom-right-radius:9px;font-size:13px;font-weight:600;color:#475569;white-space:nowrap;">@@classapparelph.com</span>
+                        </div>
+                        <div class="pf-hint">Laging may <strong>@@classapparelph.com</strong> sa dulo. Letters, numbers, dot, underscore at hyphen lang (2–30 characters).</div>
                         @if($errors->updateUsername->get('username'))
                             <div class="pf-alert err mt-2">{{ $errors->updateUsername->first('username') }}</div>
                         @endif

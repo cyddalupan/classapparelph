@@ -67,6 +67,10 @@
                         <td class="info-value">{{ $user->email }}</td>
                     </tr>
                     <tr>
+                        <td class="info-label">Username</td>
+                        <td class="info-value">{{ $user->username ?? 'Not set' }}</td>
+                    </tr>
+                    <tr>
                         <td class="info-label">Phone</td>
                         <td class="info-value">{{ $user->phone ?? 'Not set' }}</td>
                     </tr>

@@ -66,6 +66,7 @@ class AdminUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'username' => ['nullable', 'string', 'max:30', 'regex:/^[a-zA-Z0-9._-]+$/', 'unique:users,username'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo,ga,qa,hr_accountant_agent'],
             'position' => ['nullable', 'string', 'max:255'],
@@ -81,6 +82,7 @@ class AdminUserController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
+            'username' => $request->filled('username') ? strtolower(trim($request->username)) . '@classapparelph.com' : null,
             'password' => Hash::make($request->password),
             'role' => $request->role,
             'position' => $request->position,
@@ -138,6 +140,7 @@ class AdminUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email,'.$user->id],
+            'username' => ['nullable', 'string', 'max:30', 'regex:/^[a-zA-Z0-9._-]+$/', 'unique:users,username,'.$user->id],
             'role' => ['required', 'in:admin,sales_agent,sales_representative,staff,procurement,artist,coo,ga,qa,hr_accountant_agent'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
@@ -153,6 +156,7 @@ class AdminUserController extends Controller
         $user->update([
             'name' => $request->name,
             'email' => $request->email,
+            'username' => $request->filled('username') ? strtolower(trim($request->username)) . '@classapparelph.com' : null,
             'role' => $request->role,
             'position' => $request->position,
             'phone' => $request->phone,

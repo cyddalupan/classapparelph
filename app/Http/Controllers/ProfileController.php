@@ -12,6 +12,10 @@ use Illuminate\View\View;
 class ProfileController extends Controller
 {
     /**
+     * Domain suffix used for all usernames.
+     */
+    public const USERNAME_DOMAIN = 'classapparelph.com';
+    /**
      * Display the user's profile form.
      */
     public function edit(Request $request): View
@@ -54,23 +58,29 @@ class ProfileController extends Controller
 
     /**
      * Update the user's username only.
+     * Usernames always use the @classapparelph.com domain suffix.
      */
     public function updateUsername(Request $request): RedirectResponse
     {
         $user = $request->user();
 
+        // Accept either a bare local part ("aja") or a full address ("aja@classapparelph.com").
+        $raw = trim((string) $request->input('username'));
+        $raw = preg_replace('/@classapparelph\.com$/i', '', $raw);
+        $request->merge(['username' => $raw]);
+
         $validated = $request->validateWithBag('updateUsername', [
             'username' => [
                 'required',
                 'string',
-                'min:3',
+                'min:2',
                 'max:30',
                 'regex:/^[a-zA-Z0-9._-]+$/',
                 \Illuminate\Validation\Rule::unique('users', 'username')->ignore($user->id),
             ],
         ]);
 
-        $user->username = $validated['username'];
+        $user->username = strtolower($validated['username']) . '@' . self::USERNAME_DOMAIN;
         $user->save();
 
         return back()->with('status', 'username-updated');

@@ -64,6 +64,19 @@
                         </div>
 
                         <div class="form-group">
+                            <label for="username">Username</label>
+                            <div style="display:flex;align-items:stretch;">
+                                <input type="text" id="username" name="username" class="form-control @error('username') is-invalid @enderror"
+                                       value="{{ old('username', $user->username ? \Illuminate\Support\Str::before($user->username, '@') : '') }}"
+                                       placeholder="hal. aja"
+                                       style="border-top-right-radius:0;border-bottom-right-radius:0;">
+                                <span style="display:inline-flex;align-items:center;padding:0 12px;background:#f1f5f9;border:1px solid #ced4da;border-left:0;border-top-right-radius:.375rem;border-bottom-right-radius:.375rem;font-size:13px;font-weight:600;color:#475569;white-space:nowrap;">@@classapparelph.com</span>
+                            </div>
+                            <small class="text-muted">Laging may @@classapparelph.com sa dulo.</small>
+                            @error('username') <span class="invalid-feedback d-block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="form-group">
                             <label for="password">New Password <small class="text-muted">(leave blank to keep current)</small></label>
                             <input type="password" id="password" name="password" class="form-control @error('password') is-invalid @enderror" 
                                    placeholder="Minimum 8 characters">
