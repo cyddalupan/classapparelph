@@ -28,8 +28,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // QA/Sales Agent has NO dashboard access — send them to My Sales instead
-        if (auth()->user() && auth()->user()->isQa()) {
+        $user = $request->user();
+
+        // QA/Sales Agent have NO dashboard access — send them straight to My Sales
+        // (their landing page) instead of the empty Dashboard.
+        if ($user && ($user->isQa() || $user->isSalesAgent())) {
             return redirect()->intended(route('sales.team.dashboard', absolute: false));
         }
 
