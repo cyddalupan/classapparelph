@@ -31,6 +31,18 @@ Route::middleware(['auth'])->get('/test-navigation', function () {
 // Account switcher para sa LINKED accounts (isang login, maraming account)
 Route::middleware(['auth'])->post('/switch-account', [App\Http\Controllers\AccountSwitchController::class, 'switch'])->name('account.switch');
 
+// Profile — available to ALL authenticated users, regardless of role.
+// (Kept OUT of the role-restricted group below so COO/CPO/CMO/ProdManager/QA
+//  can use their own profile too, not just the roles that were already allowed.)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
+    Route::put('/profile/username', [ProfileController::class, 'updateUsername'])->name('profile.username.update');
+    Route::put('/profile/contact', [ProfileController::class, 'updateContact'])->name('profile.contact.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
 Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
     // INVENTORY CATEGORY SELECTION PAGE
     Route::get('/inventory/select-category', function () {
@@ -54,12 +66,6 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
     Route::get('/inventory/select-category-test', function () {
         return view('inventory.select-category-ultra-simple');
     })->name('inventory.select-category-test');
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
-    Route::put('/profile/username', [ProfileController::class, 'updateUsername'])->name('profile.username.update');
-    Route::put('/profile/contact', [ProfileController::class, 'updateContact'])->name('profile.contact.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
     // Printing Pricing Calculator
     Route::get('/productpricing/printing', [App\Http\Controllers\PrintingPricingController::class, 'index'])->name('printing.pricing');

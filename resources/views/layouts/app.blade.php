@@ -825,18 +825,10 @@
                     <!-- User Account -->
                     <div class="nav-section">
                         <div class="nav-section-title">Account</div>
-                        @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo() || Auth::user()->isProdManager() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative() || Auth::user()->isGa() || Auth::user()->isHrAccountantAgent())
-                        <span class="nav-item nav-disabled">
-                            <i class="fas fa-user"></i>
-                            <span class="nav-text">Profile</span>
-                            <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
-                        </span>
-                        @else
                         <a href="{{ route('profile.edit') }}" class="nav-item {{ request()->routeIs('profile.*') ? 'active' : '' }}">
                             <i class="fas fa-user"></i>
                             <span class="nav-text">Profile</span>
                         </a>
-                        @endif
                         <form method="POST" action="{{ route('logout') }}" class="logout-form">
                             @csrf
                             <button type="submit" class="nav-item logout-btn">
