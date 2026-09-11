@@ -53,6 +53,30 @@ class ProfileController extends Controller
     }
 
     /**
+     * Update the user's username only.
+     */
+    public function updateUsername(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validateWithBag('updateUsername', [
+            'username' => [
+                'required',
+                'string',
+                'min:3',
+                'max:30',
+                'regex:/^[a-zA-Z0-9._-]+$/',
+                \Illuminate\Validation\Rule::unique('users', 'username')->ignore($user->id),
+            ],
+        ]);
+
+        $user->username = $validated['username'];
+        $user->save();
+
+        return back()->with('status', 'username-updated');
+    }
+
+    /**
      * Update the user's avatar only (click-to-upload from the navbar).
      */
     public function updateAvatar(Request $request): RedirectResponse

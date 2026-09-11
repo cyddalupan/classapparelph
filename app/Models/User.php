@@ -28,6 +28,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'tax_id',
         'is_active',
         'last_login_at',
+        'username',
         'employee_id',
         'department',
         'sales_target',

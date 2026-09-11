@@ -57,6 +57,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar.update');
+    Route::put('/profile/username', [ProfileController::class, 'updateUsername'])->name('profile.username.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
     // Printing Pricing Calculator
