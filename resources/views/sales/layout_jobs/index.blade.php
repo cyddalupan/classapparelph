@@ -68,7 +68,7 @@
                 <h4 class="mb-0">🎨 {{ ($mode ?? 'personal') === 'global' ? 'Layout Job List (All)' : 'My Layout Jobs' }}</h4>
                 <div class="sub">{{ ($mode ?? 'personal') === 'global' ? 'Lahat ng bayad / libre na layout jobs — para sa review at payout ng approver.' : 'Bayad / libre na layout jobs mo — assigned sa iyo o ikaw ang gumawa. May GA tag, payment verification, at payout requests.' }}</div>
             </div>
-            @if(auth()->user()->isAdmin() || auth()->user()->isCoo() || in_array(auth()->user()->role, ['staff','sales_agent','sales_representative','prod_manager','qa']))
+            @if(in_array(auth()->user()->role, ['admin','staff','coo','cpo','cmo','sales_agent','sales_representative','prod_manager','qa','hr_accountant_agent']))
             <a href="{{ route('sales.layout-jobs.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New Layout Job</a>
             @endif
         </div>

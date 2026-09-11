@@ -297,6 +297,16 @@ class PricingRulesController extends Controller
             ->orderBy('order')
             ->get(['id', 'name', 'category', 'price', 'agent_price']);
 
+        // Pricing tier: kung ang naka-login na user ay 'agent' tier, gamitin ang agent_price.
+        // WALANG fallback sa sales price — kung 0/blank ang agent_price, 0 ang ipapasa.
+        // Default tier = 'sales' (gumagamit ng sales price).
+        $user = auth()->user();
+        if ($user && method_exists($user, 'usesAgentPricing') && $user->usesAgentPricing()) {
+            $items->each(function ($it) {
+                $it->setAttribute('price', $it->agent_price ?? 0);
+            });
+        }
+
         return response()->json([
             'garments' => $items->where('category', 'garment')->values(),
             'fabrics'  => $items->where('category', 'fabric')->values(),

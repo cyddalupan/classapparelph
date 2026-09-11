@@ -28,6 +28,9 @@ Route::middleware(['auth'])->get('/test-navigation', function () {
     return view('test-navigation');
 })->name('test-navigation');
 
+// Account switcher para sa LINKED accounts (isang login, maraming account)
+Route::middleware(['auth'])->post('/switch-account', [App\Http\Controllers\AccountSwitchController::class, 'switch'])->name('account.switch');
+
 Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanager.access', 'qa.access'])->group(function () {
     // INVENTORY CATEGORY SELECTION PAGE
     Route::get('/inventory/select-category', function () {

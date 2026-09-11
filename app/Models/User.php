@@ -103,6 +103,32 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Pricing tier: gumagamit ba ng AGENT pricing ang user?
+     * Per-user override (`users.price_tier`); default 'sales'.
+     * Sales price → default; Agent price → 'agent'.
+     */
+    public function usesAgentPricing(): bool
+    {
+        return ($this->price_tier ?? 'sales') === 'agent';
+    }
+
+    /**
+     * Naka-link na account (parehong tao, magkaibang account — hal. Sales Agent <-> Agent).
+     */
+    public function linkedUser()
+    {
+        return $this->belongsTo(User::class, 'linked_user_id');
+    }
+
+    /**
+     * May naka-link na account ba (kaya may account switcher)?
+     */
+    public function canSwitchAccount(): bool
+    {
+        return !is_null($this->linked_user_id);
+    }
+
+    /**
      * Check if user has sales representative role
      */
     public function isSalesRepresentative(): bool

@@ -986,6 +986,16 @@
                                         System Settings
                                     </a>
                                     @endif
+
+                                    @if(Auth::user()->canSwitchAccount() && Auth::user()->linkedUser)
+                                    <form method="POST" action="{{ route('account.switch') }}" class="logout-form">
+                                        @csrf
+                                        <button type="submit" class="user-menu-item">
+                                            <i class="fas fa-exchange-alt"></i>
+                                            Switch to {{ Auth::user()->linkedUser->position ?: 'Agent' }}
+                                        </button>
+                                    </form>
+                                    @endif
                                     
                                     <div class="user-menu-divider"></div>
                                     
