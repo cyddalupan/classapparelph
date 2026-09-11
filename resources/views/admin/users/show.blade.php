@@ -26,8 +26,12 @@
     <!-- User Profile Card -->
     <div class="profile-card">
         <div class="profile-avatar">
-            <div class="avatar-circle" style="background: {{ $user->role === 'admin' ? '#ef4444' : ($user->role === 'sales_agent' ? '#3b82f6' : ($user->role === 'sales_representative' ? '#8b5cf6' : ($user->role === 'staff' ? '#10b981' : '#f59e0b'))) }}">
+            <div class="avatar-circle" style="background: {{ $user->role === 'admin' ? '#ef4444' : ($user->role === 'sales_agent' ? '#3b82f6' : ($user->role === 'sales_representative' ? '#8b5cf6' : ($user->role === 'staff' ? '#10b981' : '#f59e0b'))) }}; overflow: hidden;">
+                @if($user->avatar_url)
+                <img src="{{ $user->avatar_url }}" alt="{{ $user->name }}">
+                @else
                 {{ strtoupper(substr($user->name, 0, 1)) }}
+                @endif
             </div>
             <div class="avatar-info">
                 <h2>{{ $user->name }}</h2>
@@ -180,7 +184,9 @@
     font-size: 2rem;
     font-weight: 700;
     flex-shrink: 0;
+    overflow: hidden;
 }
+.avatar-circle img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
 .avatar-info h2 {
     margin: 0 0 0.5rem 0;

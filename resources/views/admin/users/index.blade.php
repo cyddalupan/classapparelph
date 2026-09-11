@@ -155,7 +155,11 @@
                             <td>
                                 <div class="user-info">
                                     <div class="user-avatar-small">
+                                        @if($u->avatar_url)
+                                        <img src="{{ $u->avatar_url }}" alt="{{ $u->name }}">
+                                        @else
                                         {{ strtoupper(substr($u->name, 0, 1)) }}
+                                        @endif
                                     </div>
                                     <div class="user-details">
                                         <div class="user-name">
@@ -378,7 +382,9 @@
     font-weight: 600;
     font-size: 0.875rem;
     flex-shrink: 0;
+    overflow: hidden;
 }
+.user-avatar-small img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
 .user-details { flex: 1; min-width: 0; }
 .user-name { font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
