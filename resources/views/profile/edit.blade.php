@@ -121,22 +121,10 @@
                     <div class="pf-label">Position / Title</div>
                     <div class="pf-value">{{ $user->position ?: '—' }}</div>
                 </div>
-                @if($user->phone)
-                <div class="col-md-6">
-                    <div class="pf-label">Phone</div>
-                    <div class="pf-value">{{ $user->phone }}</div>
-                </div>
-                @endif
                 @if($user->company_name)
                 <div class="col-md-6">
                     <div class="pf-label">Company</div>
                     <div class="pf-value">{{ $user->company_name }}</div>
-                </div>
-                @endif
-                @if($user->address)
-                <div class="col-md-12">
-                    <div class="pf-label">Address</div>
-                    <div class="pf-value">{{ $user->address }}</div>
                 </div>
                 @endif
                 <div class="col-md-6">
@@ -144,6 +132,47 @@
                     <div class="pf-value">{{ optional($user->created_at)->format('M d, Y') ?: '—' }}</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    {{-- Contact Information (editable) --}}
+    <div class="pf-card">
+        <div class="pf-card-head">
+            <i class="fas fa-address-book"></i>
+            <div>
+                <h5>Contact Information</h5>
+                <div class="sub">Pwede mong i-edit ang phone at address mo.</div>
+            </div>
+        </div>
+        <div class="pf-card-body">
+            @if (session('status') === 'contact-updated')
+                <div class="pf-alert ok"><i class="fas fa-check-circle"></i> Na-update na ang contact information mo.</div>
+            @endif
+            <form method="POST" action="{{ route('profile.contact.update') }}">
+                @csrf
+                @method('PUT')
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="pf-label">Phone</div>
+                        <input id="phone" name="phone" type="text" class="pf-input"
+                               value="{{ old('phone', $user->phone) }}" placeholder="hal. 0917 123 4567">
+                        @if($errors->updateContact->get('phone'))
+                            <div class="pf-alert err mt-2">{{ $errors->updateContact->first('phone') }}</div>
+                        @endif
+                    </div>
+                    <div class="col-md-12">
+                        <div class="pf-label" style="margin-top:12px;">Address</div>
+                        <input id="address" name="address" type="text" class="pf-input"
+                               value="{{ old('address', $user->address) }}" placeholder="hal. 123 Street, Barangay, City, Province">
+                        @if($errors->updateContact->get('address'))
+                            <div class="pf-alert err mt-2">{{ $errors->updateContact->first('address') }}</div>
+                        @endif
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="pf-btn"><i class="fas fa-save"></i> Save Contact Info</button>
+                </div>
+            </form>
         </div>
     </div>
 

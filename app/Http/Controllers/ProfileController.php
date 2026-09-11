@@ -87,6 +87,25 @@ class ProfileController extends Controller
     }
 
     /**
+     * Update the user's contact info (phone + address) from the Profile page.
+     */
+    public function updateContact(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validateWithBag('updateContact', [
+            'phone' => ['nullable', 'string', 'max:20'],
+            'address' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $user->phone = $validated['phone'] ?? null;
+        $user->address = $validated['address'] ?? null;
+        $user->save();
+
+        return back()->with('status', 'contact-updated');
+    }
+
+    /**
      * Update the user's avatar only (click-to-upload from the navbar).
      */
     public function updateAvatar(Request $request): RedirectResponse

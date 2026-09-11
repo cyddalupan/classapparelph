@@ -155,6 +155,24 @@
             .sidebar-user .user-avatar img {
                 border-radius: inherit;
             }
+
+            /* Fix (2026-09-11): wide content (e.g. User Management table) overflowing the
+               viewport on laptops. Flex children default to min-width:auto, so a wide
+               table pushes the whole layout past the screen; body{overflow-x:hidden}
+               then makes it unscrollable. min-width:0 lets the inner overflow-x:auto
+               containers do the scrolling instead. */
+            .main-content,
+            .content-area,
+            .page-content {
+                min-width: 0;
+                max-width: 100%;
+            }
+            .table-responsive {
+                width: 100%;
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
         </style>
     </head>
     <body class="app-body">
