@@ -208,7 +208,23 @@ class PrototypeSalesController extends Controller
             ->whereNull('archived_at')
             ->orderBy('created_at', 'desc')
             ->get();
-        return view('sales.prototype.pending-approvals', compact('pendingApprovals'));
+
+        // Needed-date context (Andrew 2026-09-12): ipakita KUNG KAILAN (effective due) kailangan
+        // bawat pending sale + ang Class day-load sa petsang iyon, para kitang-kita agad ng manager
+        // kung gaano ka-over at hindi na kailangang silipin muna manually ang Calendar.
+        $capacity = 180;
+        $dayLoads = [];
+        foreach ($pendingApprovals as $pa) {
+            $need = $pa->rescheduled_date ?: $pa->estimated_completion_date;
+            if ($need) {
+                $key = date('Y-m-d', strtotime($need));
+                if (!array_key_exists($key, $dayLoads)) {
+                    $dayLoads[$key] = $this->getClassDayLoad($key);
+                }
+            }
+        }
+
+        return view('sales.prototype.pending-approvals', compact('pendingApprovals', 'capacity', 'dayLoads'));
     }
 
     /**
@@ -4808,7 +4824,14 @@ $services = json_decode($sale->services, true);
             'completed'          => 'DONE',
         ];
 
-        return view('sales.prototype.calendar', compact('departments', 'prodStageMap', 'statusToStage'));
+        // Optional: ?date=YYYY-MM-DD para direkta sa araw na iyon (ginagamit ng Pending Approval
+        // "Silipin sa Calendar" link — Andrew 2026-09-12).
+        $focusDate = trim((string) request()->get('date', ''));
+        if ($focusDate && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $focusDate)) {
+            $focusDate = '';
+        }
+
+        return view('sales.prototype.calendar', compact('departments', 'prodStageMap', 'statusToStage', 'focusDate'));
     }
 
     public function calendarData(Request $request)

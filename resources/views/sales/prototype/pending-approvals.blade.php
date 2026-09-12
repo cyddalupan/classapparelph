@@ -84,6 +84,50 @@
         color: #be185d;
         border: 1px solid #f9a8d4;
     }
+    .pa-need-chip {
+        display: inline-block;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        background: #eef2ff;
+        color: #3730a3;
+        border: 1px solid #c7d2fe;
+    }
+    .pa-need-chip.pa-need-none {
+        background: #f8f9fa;
+        color: #6c757d;
+        border-color: #dee2e6;
+        font-weight: 600;
+    }
+    .pa-load-chip {
+        display: inline-block;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #fff7ed;
+        color: #9a3412;
+        border: 1px solid #fed7aa;
+    }
+    .pa-load-chip.pa-load-over {
+        background: #fef2f2;
+        color: #b91c1c;
+        border-color: #fecaca;
+        font-weight: 700;
+    }
+    .pa-cal-link {
+        display: inline-block;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        text-decoration: none;
+    }
+    .pa-cal-link:hover { background: #dbeafe; color: #1e40af; text-decoration: none; }
     .pa-action-btn {
         border-radius: 20px;
         padding: 6px 16px;
@@ -167,6 +211,29 @@
                     {{ $pa->customer_name ?: '—' }} · {{ $pa->department_name }}
                     @if($pa->approval_requested_at)
                         <span class="pa-req-chip ms-1"><i class="fas fa-clock me-1"></i>Requested {{ \Carbon\Carbon::parse($pa->approval_requested_at)->diffForHumans() }}</span>
+                    @endif
+                </div>
+                @php
+                    // Effective due: rescheduled_date kung meron, else estimated_completion_date
+                    $paNeed = $pa->rescheduled_date ?: $pa->estimated_completion_date;
+                    $paNeedKey = $paNeed ? \Carbon\Carbon::parse($paNeed)->format('Y-m-d') : null;
+                    $paLoad = ($paNeedKey && array_key_exists($paNeedKey, $dayLoads ?? [])) ? $dayLoads[$paNeedKey] : null;
+                    $paProjected = $paLoad !== null ? ($paLoad + $paEff) : null;
+                    $paOver = $paProjected !== null ? max(0, $paProjected - ($capacity ?? 180)) : null;
+                @endphp
+                <div class="pa-meta mt-1 d-flex flex-wrap gap-1 align-items-center">
+                    @if($paNeed)
+                        <span class="pa-need-chip"><i class="fas fa-calendar-day me-1"></i>Needed: {{ \Carbon\Carbon::parse($paNeed)->format('M d, Y') }}</span>
+                    @else
+                        <span class="pa-need-chip pa-need-none"><i class="fas fa-calendar-day me-1"></i>Walang date needed</span>
+                    @endif
+                    @if($paProjected !== null)
+                        <span class="pa-load-chip {{ $paOver > 0 ? 'pa-load-over' : '' }}">
+                            Load {{ \Carbon\Carbon::parse($paNeedKey)->format('M d') }}: {{ $paLoad }}/{{ $capacity ?? 180 }} → {{ $paProjected }}@if($paOver > 0) (+{{ $paOver }} over)@endif
+                        </span>
+                    @endif
+                    @if($paNeedKey)
+                        <a href="{{ route('sales.prototype.calendar', ['date' => $paNeedKey]) }}" target="_blank" class="pa-cal-link"><i class="fas fa-calendar-alt me-1"></i>Silipin sa Class Calendar</a>
                     @endif
                 </div>
             </div>

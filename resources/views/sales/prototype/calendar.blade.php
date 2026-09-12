@@ -954,6 +954,7 @@ const STAGE_COLORS = {
 };
 
 let curDate = new Date();
+@if(!empty($focusDate)) curDate = new Date('{{ $focusDate }}T00:00:00'); @endif
 let activeDept = 'all';
 let customRange = null; // null = nav mode, {start, end} = range mode
 let currentView = 'week'; // 'week' | 'month'
