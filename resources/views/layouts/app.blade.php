@@ -24,6 +24,18 @@
         
         <!-- Custom Styles for Inventory Dropdown -->
         <style>
+            /* Legacy Bootstrap-4-style badge variants (removed in Bootstrap 5).
+               Without these, `.badge` keeps Bootstrap's default white text and
+               renders invisible (white-on-white) e.g. the Username badge in
+               User Management. These additive overrides restore visible colors. */
+            .badge.badge-light     { background: #eef2f7; color: #334155 !important; }
+            .badge.badge-secondary { background: #e2e8f0; color: #475569 !important; }
+            .badge.badge-primary   { background: #dbeafe; color: #1e40af !important; }
+            .badge.badge-info      { background: #cffafe; color: #155e75 !important; }
+            .badge.badge-success   { background: #dcfce7; color: #166534 !important; }
+            .badge.badge-warning   { background: #fef3c7; color: #92400e !important; }
+            .badge.badge-danger    { background: #fee2e2; color: #b91c1c !important; }
+
             /* Demo mode: visually hides selected sidebar items (see config app.demo_hide_nav) */
             .nav-demo-hidden { display: none !important; }
             .nav-dropdown {
