@@ -417,17 +417,17 @@
                 <div class="form-group">
                     <label for="email" class="form-label">
                         <i class="fas fa-envelope"></i>
-                        Email Address
+                        Email or Username
                     </label>
                     <input 
                         id="email" 
-                        type="email" 
+                        type="text" 
                         name="email" 
                         value="{{ old('email') }}" 
                         required 
                         autofocus 
                         autocomplete="username"
-                        placeholder="Enter your email address"
+                        placeholder="Email o username"
                         class="form-input @error('email') error @enderror"
                     >
                     @error('email')

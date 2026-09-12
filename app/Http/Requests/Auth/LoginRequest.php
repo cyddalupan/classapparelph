@@ -27,7 +27,9 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            // Accepts EITHER the account email OR the username (e.g. "kimdoroja93"
+            // or "kimdoroja93@classapparelph.com").
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ];
     }
@@ -41,7 +43,17 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $login = trim((string) $this->input('email'));
+        $password = (string) $this->input('password');
+        $remember = $this->boolean('remember');
+
+        // 1) email  2) exact username  3) username + @classapparelph.com suffix
+        $authenticated = Auth::attempt(['email' => $login, 'password' => $password], $remember)
+            || Auth::attempt(['username' => $login, 'password' => $password], $remember)
+            || (! str_contains($login, '@')
+                && Auth::attempt(['username' => $login . '@classapparelph.com', 'password' => $password], $remember));
+
+        if (! $authenticated) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
