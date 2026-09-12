@@ -103,6 +103,12 @@
                                 <option value="procurement" {{ old('role') === 'procurement' ? 'selected' : '' }}>Procurement</option>
                                 <option value="artist" {{ old('role') === 'artist' ? 'selected' : '' }}>Artist</option>
                                 <option value="coo" {{ old('role') === 'coo' ? 'selected' : '' }}>C.O.O.</option>
+                                <option value="cpo" {{ old('role') === 'cpo' ? 'selected' : '' }}>C.P.O.</option>
+                                <option value="cmo" {{ old('role') === 'cmo' ? 'selected' : '' }}>C.M.O.</option>
+                                <option value="prod_manager" {{ old('role') === 'prod_manager' ? 'selected' : '' }}>Production Manager</option>
+                                <option value="ga" {{ old('role') === 'ga' ? 'selected' : '' }}>G.A. / Agent</option>
+                                <option value="qa" {{ old('role') === 'qa' ? 'selected' : '' }}>Q.A.</option>
+                                <option value="accountant" {{ old('role') === 'accountant' ? 'selected' : '' }}>Accountant</option>
                                 <option value="hr_accountant_agent" {{ old('role') === 'hr_accountant_agent' ? 'selected' : '' }}>HR / Accountant / Agent</option>
                             </select>
                             @error('role') <span class="invalid-feedback">{{ $message }}</span> @enderror

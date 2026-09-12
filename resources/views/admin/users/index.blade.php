@@ -94,6 +94,60 @@
                 <div class="stat-label">GA/Agents</div>
             </div>
         </div>
+        <div class="stat-card {{ $roleFilter === 'coo' ? 'active' : '' }}" onclick="filterRole('coo')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #334155;">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['coo'] }}</div>
+                <div class="stat-label">COO</div>
+            </div>
+        </div>
+        <div class="stat-card {{ $roleFilter === 'cpo' ? 'active' : '' }}" onclick="filterRole('cpo')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #334155;">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['cpo'] }}</div>
+                <div class="stat-label">CPO</div>
+            </div>
+        </div>
+        <div class="stat-card {{ $roleFilter === 'cmo' ? 'active' : '' }}" onclick="filterRole('cmo')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #334155;">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['cmo'] }}</div>
+                <div class="stat-label">CMO</div>
+            </div>
+        </div>
+        <div class="stat-card {{ $roleFilter === 'prod_manager' ? 'active' : '' }}" onclick="filterRole('prod_manager')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #7c3aed;">
+                <i class="fas fa-industry"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['prod_manager'] }}</div>
+                <div class="stat-label">Prod Manager</div>
+            </div>
+        </div>
+        <div class="stat-card {{ $roleFilter === 'qa' ? 'active' : '' }}" onclick="filterRole('qa')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #0d9488;">
+                <i class="fas fa-clipboard-check"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['qa'] }}</div>
+                <div class="stat-label">QA</div>
+            </div>
+        </div>
+        <div class="stat-card {{ $roleFilter === 'hr_accountant_agent' ? 'active' : '' }}" onclick="filterRole('hr_accountant_agent')" style="cursor:pointer;">
+            <div class="stat-icon" style="background: #0891b2;">
+                <i class="fas fa-user-tie"></i>
+            </div>
+            <div class="stat-content">
+                <div class="stat-value">{{ $roleCounts['hr_accountant_agent'] }}</div>
+                <div class="stat-label">HR / Acctg / Agent</div>
+            </div>
+        </div>
     </div>
 
     @if(session('success'))
