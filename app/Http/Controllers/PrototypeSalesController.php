@@ -3976,7 +3976,9 @@ $services = json_decode($sale->services, true);
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
-        $sales = $query->orderByRaw("CASE WHEN is_delayed = 1 THEN 0 ELSE 1 END")
+        // Delayed → top, PERO kapag DISPATCH na (o UNPAID/DONE) hindi na ito dapat harangin ang tuktok
+        // ng list — pababa na ito para umangat ang iba (Andrew 2026-09-12). Nananatili pa rin ang DELAYED icon.
+        $sales = $query->orderByRaw("CASE WHEN is_delayed = 1 AND (production_stage IS NULL OR production_stage NOT IN ('DISPATCH','UNPAID','DONE')) THEN 0 ELSE 1 END")
             ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
             ->orderBy('priority', 'asc')
             ->orderBy("created_at", "desc")
