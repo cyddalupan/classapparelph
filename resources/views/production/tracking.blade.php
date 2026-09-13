@@ -73,6 +73,44 @@
     .chart-card { background: #fff; border-radius: 14px; padding: 1.15rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid #f1f5f9; }
     .chart-card .card-title { margin-bottom: .6rem; }
     .chart-wrap { position: relative; height: 260px; }
+
+    /* ---- PRODUCTION DASHBOARD: MOBILE view (additive — desktop/tablet >=768px untouched) ---- */
+    @media (max-width: 767.98px) {
+        /* Reclaim stacked page paddings so cards use the full phone width */
+        .content-area:has(.prod-header),
+        .page-content:has(> .prod-header) { padding-left: 8px; padding-right: 8px; }
+
+        /* Header: title on top, action buttons 2-up full width */
+        .prod-header { align-items: flex-start; }
+        .prod-header h2 { font-size: 1.1rem; }
+        .prod-header .actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+        .prod-header .actions .action-btn { width: 100%; justify-content: center; }
+
+        /* Filter bar: stack every field full width */
+        .filter-card { flex-direction: column; align-items: stretch; gap: .6rem; }
+        .filter-card > div, .filter-card > .d-flex { flex: 1 1 100% !important; width: 100%; min-width: 0 !important; }
+        .filter-card .form-control, .filter-card .form-select { width: 100%; }
+        .filter-card .d-flex .action-btn { flex: 1 1 0; justify-content: center; }
+
+        /* KPI cards: tighter, 2-up */
+        .kpi-grid { grid-template-columns: 1fr 1fr; gap: .7rem; }
+        .kpi-card { padding: .8rem .85rem; }
+        .kpi-value { font-size: 1.2rem; }
+
+        /* Recent Orders table -> stacked cards (labels from data-label) */
+        .mini-table { width: 100%; min-width: 0; display: block; }
+        .mini-table thead { display: none; }
+        .mini-table tbody { display: block; width: 100%; }
+        .mini-table tbody tr { display: block; border: 1px solid #e2e8f0; border-radius: 10px; padding: .55rem .65rem; margin-bottom: .55rem; }
+        .mini-table tbody tr:last-child { margin-bottom: 0; }
+        .mini-table tbody td { display: block; border: 0; padding: .12rem 0; text-align: left !important; }
+        .mini-table tbody td::before { content: attr(data-label); display: inline-block; min-width: 74px; font-size: .68rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #94a3b8; }
+        .mini-table tbody td:first-child { font-size: .95rem; margin-bottom: .2rem; }
+
+        /* Analytics tables keep their horizontal scroll, just constrained */
+        .chart-card .table-responsive { max-width: 100%; }
+        .chart-wrap { height: 220px; }
+    }
 </style>
 
 <div class="prod-header">
@@ -318,8 +356,8 @@
                                     <a class="sale-link" href="{{ route('sales.prototype.show', $sale->id) }}">{{ $sale->sales_number }}</a>
                                     <div style="font-size:.7rem;color:#94a3b8;">{{ $sale->created_at ? $sale->created_at->format('M d, Y') : '' }}</div>
                                 </td>
-                                <td>{{ $sale->customer_name }}</td>
-                                <td>
+                                <td data-label="Customer">{{ $sale->customer_name }}</td>
+                                <td data-label="Status">
                                     @if($sale->is_delayed)
                                         <span class="badge-soft b-delayed">Delayed</span>
                                     @endif
@@ -328,7 +366,7 @@
                                     @endif
                                     <span class="badge-soft b-{{ $sale->kanban_status }}">{{ $kanbanLabels[$sale->kanban_status] ?? ucfirst($sale->kanban_status) }}</span>
                                 </td>
-                                <td>₱{{ number_format($sale->total_amount, 2) }}</td>
+                                <td data-label="Amount">₱{{ number_format($sale->total_amount, 2) }}</td>
                             </tr>
                         @endforeach
                     </tbody>
