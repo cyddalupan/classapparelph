@@ -497,6 +497,101 @@
         border-radius: 6px;
         font-size: 12.5px;
     }
+
+    /* ================= MOBILE VIEW (<=767.98px) — additive; desktop untouched =================
+       Manager List: 12-col table -> labelled stacked cards. Pure CSS (labels via :nth-child),
+       so the DOM is unchanged and all JS (td:nth-child(8)/(12), closest('tr'), filters,
+       sorting, priority/status selects) keeps working exactly as before. */
+    @media (max-width: 767.98px) {
+        /* Release the fixed-height horizontal scroll box so the card list flows normally */
+        .ml-table-wrap { max-height: none !important; overflow: visible !important; }
+
+        /* Reclaim stacked page paddings so cards use the full phone width */
+        .page-content:has(> .container-fluid) { padding-left: 8px !important; padding-right: 8px !important; }
+        .page-content > .container-fluid { padding-left: 6px; padding-right: 6px; }
+
+        /* Header: stack title + action buttons */
+        .list-header { padding: 16px 18px; }
+        .list-header h2 { font-size: 18px; }
+        .list-actions { width: 100%; flex-wrap: wrap; }
+        .list-actions .btn { flex: 1 1 46%; justify-content: center; }
+
+        /* Filter bar: full-width fields */
+        .filter-bar { align-items: stretch; }
+        .filter-bar input, .filter-bar select, .filter-bar .prio-toggle { width: 100%; }
+        .filter-bar input { min-width: 0; }
+
+        /* Table -> labelled stacked cards */
+        .pipeline-table { display: block; font-size: 12.5px; }
+        .pipeline-table thead { display: none; }
+        .pipeline-table tbody { display: block; }
+        .pipeline-table tbody tr {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .45rem .7rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: .7rem .75rem;
+            margin: 0 0 .7rem;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(16,24,40,.06);
+        }
+        .pipeline-table tbody tr:hover td { background: transparent !important; }
+        .pipeline-table tbody td {
+            display: block;
+            border: 0;
+            padding: 0;
+            min-width: 0;
+            max-width: none !important;
+            overflow-wrap: anywhere;
+        }
+        .pipeline-table tbody td::before {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 2px;
+        }
+        /* Labels — DOM order matches the 12 header cells */
+        .pipeline-table tbody td:nth-child(1)::before  { content: "Order"; }
+        .pipeline-table tbody td:nth-child(2)::before  { content: "Mock Up"; }
+        .pipeline-table tbody td:nth-child(3)::before  { content: "Description"; }
+        .pipeline-table tbody td:nth-child(4)::before  { content: "Qty"; }
+        .pipeline-table tbody td:nth-child(5)::before  { content: "Production Status"; }
+        .pipeline-table tbody td:nth-child(6)::before  { content: "Photos"; }
+        .pipeline-table tbody td:nth-child(7)::before  { content: "Total"; }
+        .pipeline-table tbody td:nth-child(8)::before  { content: "Payment"; }
+        .pipeline-table tbody td:nth-child(9)::before  { content: "Progress"; }
+        .pipeline-table tbody td:nth-child(10)::before { content: "Dept"; }
+        .pipeline-table tbody td:nth-child(11)::before { content: "Customer"; }
+        .pipeline-table tbody td:nth-child(12)::before { content: "Agent"; }
+
+        /* Placement: pack small fields 2-up, full width for the busy ones */
+        .pipeline-table tbody td:nth-child(1)  { grid-row: 1; grid-column: 1 / -1; }
+        .pipeline-table tbody td:nth-child(2)  { grid-row: 2; grid-column: 1; }
+        .pipeline-table tbody td:nth-child(4)  { grid-row: 2; grid-column: 2; }
+        .pipeline-table tbody td:nth-child(3)  { grid-row: 3; grid-column: 1 / -1; }
+        .pipeline-table tbody td:nth-child(5)  { grid-row: 4; grid-column: 1 / -1; }
+        .pipeline-table tbody td:nth-child(6)  { grid-row: 5; grid-column: 1 / -1; }
+        .pipeline-table tbody td:nth-child(7)  { grid-row: 6; grid-column: 1; }
+        .pipeline-table tbody td:nth-child(10) { grid-row: 6; grid-column: 2; }
+        .pipeline-table tbody td:nth-child(8)  { grid-row: 7; grid-column: 1 / -1; }
+        .pipeline-table tbody td:nth-child(9)  { grid-row: 8; grid-column: 1 / -1; }
+        .pipeline-table tbody td:nth-child(11) { grid-row: 9; grid-column: 1; }
+        .pipeline-table tbody td:nth-child(12) { grid-row: 9; grid-column: 2; }
+
+        /* Inner controls shrink to the cell */
+        .pipeline-table td select,
+        .pipeline-table td .form-select { width: 100% !important; min-width: 0 !important; }
+        .pipeline-table .pipeline { min-width: 0; flex-wrap: wrap; }
+        .pipeline-table td img { max-width: 100%; height: auto; max-height: 80px; }
+
+        /* Empty state (single colspan cell): centre it, no field label */
+        .pipeline-table tbody td[colspan] { grid-row: auto !important; grid-column: 1 / -1 !important; text-align: center; }
+        .pipeline-table tbody td[colspan]::before { display: none; }
+    }
 </style>
 @endpush
 
@@ -682,7 +777,7 @@
     @endif
 
     <!-- Table -->
-    <div style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 460px);">
+    <div class="ml-table-wrap" style="overflow-x:auto; overflow-y:auto; max-height:calc(100vh - 460px);">
         <table class="pipeline-table" id="orderTable">
             <thead>
                 <tr>
