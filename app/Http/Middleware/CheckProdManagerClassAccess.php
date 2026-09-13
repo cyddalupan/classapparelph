@@ -82,6 +82,7 @@ class CheckProdManagerClassAccess
         'sales.prototype.production-feedback.status',
         'sales.prototype.delays',
         'sales.prototype.delay-review',
+        'sales.prototype.delay-review.submit',
 
         // Notify agent (🔔/🚨 buttons on Manager Order List) — Class only, scoped in controller
         'sales.prototype.notify-agent',
