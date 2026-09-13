@@ -24,6 +24,38 @@
     .amount-display .amount-value { font-size: 1.1rem; font-weight: 700; color: #15803d; }
     .payment-amount-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
     .payment-type-badge { font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+    /* ================= MOBILE VIEW (<=767.98px) — additive; desktop untouched ================= */
+    @media (max-width: 767.98px) {
+        /* Reclaim stacked page paddings so cards use the full phone width */
+        .page-content:has(> .container-fluid) { padding-left: 8px !important; padding-right: 8px !important; }
+        .page-content > .container-fluid { padding-left: 6px; padding-right: 6px; }
+
+        /* Page header: stack title + Cash Flow button */
+        .container-fluid > .d-flex.justify-content-between { flex-direction: column; align-items: stretch !important; gap: .5rem; }
+        .container-fluid > .d-flex.justify-content-between .btn,
+        .container-fluid > .d-flex.justify-content-between > div:last-child { width: 100%; }
+
+        /* Payment card: stack content above the action buttons (fixes the button overflow) */
+        .payment-card > .d-flex { flex-direction: column; align-items: stretch !important; }
+        .payment-card .flex-grow-1.me-3 { margin-right: 0 !important; }
+        .payment-card > .d-flex > .text-end,
+        .payment-card > .d-flex > .btn-group { width: 100%; min-width: 0 !important; margin-top: .6rem; text-align: left !important; }
+
+        /* Buttons row: full-width, evenly spread (Verify on top, then the icon group) */
+        .payment-card .text-end > .btn,
+        .payment-card .text-end > .btn-group { width: 100%; }
+        .payment-card .btn-group { display: flex; width: 100%; }
+        .payment-card .btn-group > .btn { flex: 1 1 0; }
+
+        /* Right sidebar: no longer sticky on phones */
+        .verification-sidebar { position: static; top: auto; }
+        #auditLogBody { max-height: none !important; }
+
+        /* Amount chip + badges flow full width */
+        .amount-display { display: block; width: 100%; }
+        .payment-amount-row { gap: .5rem; }
+    }
 </style>
 @endpush
 
