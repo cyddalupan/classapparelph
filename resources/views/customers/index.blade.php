@@ -3,7 +3,7 @@
 @section('page-title', 'Customers')
 
 @section('content')
-<div class="page-content">
+<div class="page-content customers-page">
     <div class="page-header">
         <div class="page-header-content">
             <h1 class="page-title">
@@ -115,20 +115,20 @@
                     <tbody>
                         @forelse($customers as $customer)
                         <tr class="customer-row" data-id="{{ $customer->id }}">
-                            <td><code>{{ $customer->customer_id_number }}</code></td>
-                            <td>
+                            <td data-label="Customer ID"><code>{{ $customer->customer_id_number }}</code></td>
+                            <td data-label="Name">
                                 <strong>{{ $customer->name }}</strong>
                                 @if($customer->company)
                                     <br><small class="text-muted">{{ $customer->company }}</small>
                                 @endif
                             </td>
-                            <td>
+                            <td data-label="Contact">
                                 @if($customer->phone)<small><i class="fas fa-phone me-1"></i>{{ $customer->phone }}</small><br>@endif
                                 @if($customer->email)<small><i class="fas fa-envelope me-1"></i>{{ $customer->email }}</small>@endif
                             </td>
-                            <td class="text-center">{{ $customer->total_orders }}</td>
-                            <td class="text-end">₱{{ number_format($customer->total_spent, 2) }}</td>
-                            <td class="text-end">
+                            <td class="text-center" data-label="Orders">{{ $customer->total_orders }}</td>
+                            <td class="text-end" data-label="Total Spent">₱{{ number_format($customer->total_spent, 2) }}</td>
+                            <td class="text-end" data-label="Outstanding">
                                 @php $custOut = (float) ($outstanding[$customer->id] ?? 0); @endphp
                                 @if($custOut > 0)
                                     <span class="badge bg-danger">₱{{ number_format($custOut, 2) }}</span>
@@ -136,7 +136,7 @@
                                     <span class="badge bg-success">₱0.00</span>
                                 @endif
                             </td>
-                            <td>
+                            <td data-label="Tier">
                                 @php
                                     $tierColors = ['bronze' => '#cd7f32', 'silver' => '#a8a8a8', 'gold' => '#ffd700', 'platinum' => '#e5e4e2'];
                                     $tierColor = $tierColors[$customer->customer_tier] ?? '#cd7f32';
@@ -145,9 +145,9 @@
                                     {{ ucfirst($customer->customer_tier) }}
                                 </span>
                             </td>
-                            <td><small>{{ $customer->last_order_date ? $customer->last_order_date->format('M d, Y') : 'N/A' }}</small></td>
-                            <td><small>{{ $customer->creator ? $customer->creator->display_label : '—' }}</small></td>
-                            <td>
+                            <td data-label="Last Order"><small>{{ $customer->last_order_date ? $customer->last_order_date->format('M d, Y') : 'N/A' }}</small></td>
+                            <td data-label="Created By"><small>{{ $customer->creator ? $customer->creator->display_label : '—' }}</small></td>
+                            <td data-label="Actions">
                                 <div class="btn-group btn-group-sm">
                                     <a href="{{ route('customers.show', $customer->id) }}" class="btn btn-outline-primary" title="View Details">
                                         <i class="fas fa-eye"></i>
@@ -199,6 +199,63 @@
     </div>
 </div>
 @endsection
+
+@push('styles')
+<style>
+/* ---- Customers LIST: MOBILE view (additive — desktop/tablet >=768px untouched) ---- */
+@media (max-width: 767.98px) {
+    /* Reclaim the stacked page paddings so the card uses the full phone width */
+    .content-area:has(.customers-page),
+    .page-content:has(> .customers-page) { padding-left: 8px; padding-right: 8px; }
+    .customers-page { padding-left: 0; padding-right: 0; }
+    .customers-page .card-body { padding: 12px 10px; }
+
+    /* Header actions: stack + full-width buttons */
+    .customers-page .row.mb-3 > .col-md-6 { margin-bottom: .5rem; }
+    .customers-page .row.mb-3 > .col-md-6.text-end { text-align: left !important; display: flex; gap: .5rem; }
+    .customers-page .row.mb-3 > .col-md-6.text-end .btn { flex: 1 1 0; }
+    .customers-page .input-group { width: 100%; }
+
+    /* Table -> compact 2-column cards (labels from data-label) */
+    .customers-page #customerTable thead { display: none; }
+    .customers-page #customerTable,
+    .customers-page #customerTable tbody { display: block; width: 100%; border: 0; }
+    .customers-page #customerTable tr.customer-row {
+        display: grid; grid-template-columns: repeat(12, 1fr); gap: .5rem .6rem;
+        border: 1px solid #e3e6ea; border-radius: 12px; background: #fff;
+        padding: .65rem .75rem; margin: 0 0 .7rem;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+    }
+    .customers-page #customerTable tr.customer-row > td {
+        display: block; border: 0; padding: 0; margin: 0; text-align: left;
+        overflow-wrap: anywhere;
+    }
+    .customers-page #customerTable tr.customer-row > td::before {
+        content: attr(data-label); display: block;
+        font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+        color: #8a94a6; margin-bottom: 1px;
+    }
+    .customers-page #customerTable tr.customer-row > td[data-label="Name"] { grid-row: 1; grid-column: 1 / span 8; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Tier"] { grid-row: 1; grid-column: 9 / span 4; text-align: right; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Tier"]::before { text-align: right; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Customer ID"] { grid-row: 2; grid-column: 1 / span 6; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Orders"] { grid-row: 2; grid-column: 7 / span 6; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Total Spent"] { grid-row: 3; grid-column: 1 / span 6; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Outstanding"] { grid-row: 3; grid-column: 7 / span 6; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Last Order"] { grid-row: 4; grid-column: 1 / span 6; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Created By"] { grid-row: 4; grid-column: 7 / span 6; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Contact"] { grid-row: 5; grid-column: 1 / span 12; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Actions"] { grid-row: 6; grid-column: 1 / span 12; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Name"] strong { font-size: 15px; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Actions"] .btn-group { width: 100%; }
+    .customers-page #customerTable tr.customer-row > td[data-label="Actions"] .btn-group .btn { flex: 1 1 0; }
+
+    /* Empty / status rows */
+    .customers-page #customerTable tbody tr:not(.customer-row) { display: block; }
+    .customers-page #customerTable tbody tr:not(.customer-row) td { display: block; width: 100%; border: 0; }
+}
+</style>
+@endpush
 
 @push('scripts')
 <script>
@@ -287,24 +344,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
             tbody.innerHTML += `
                 <tr class="customer-row" data-id="${c.id}">
-                    <td><code>${c.customer_id_number || '—'}</code></td>
-                    <td>
+                    <td data-label="Customer ID"><code>${c.customer_id_number || '—'}</code></td>
+                    <td data-label="Name">
                         <strong>${c.name}</strong>
                         ${c.company ? '<br><small class="text-muted">' + c.company + '</small>' : ''}
                     </td>
-                    <td>
+                    <td data-label="Contact">
                         ${c.phone ? '<small><i class="fas fa-phone me-1"></i>' + c.phone + '</small><br>' : ''}
                         ${c.email ? '<small><i class="fas fa-envelope me-1"></i>' + c.email + '</small>' : ''}
                     </td>
-                    <td class="text-center">${c.total_orders}</td>
-                    <td class="text-end">₱${parseFloat(c.total_spent).toFixed(2)}</td>
-                    <td class="text-end">${parseFloat(c.outstanding_balance || 0) > 0
+                    <td class="text-center" data-label="Orders">${c.total_orders}</td>
+                    <td class="text-end" data-label="Total Spent">₱${parseFloat(c.total_spent).toFixed(2)}</td>
+                    <td class="text-end" data-label="Outstanding">${parseFloat(c.outstanding_balance || 0) > 0
                         ? '<span class="badge bg-danger">₱' + parseFloat(c.outstanding_balance).toFixed(2) + '</span>'
                         : '<span class="badge bg-success">₱0.00</span>'}</td>
-                    <td><span class="badge" style="background: ${tierColor}; color: #000;">${c.customer_tier.charAt(0).toUpperCase() + c.customer_tier.slice(1)}</span></td>
-                    <td><small>${lastOrder}</small></td>
-                    <td><small>${c.creator ? c.creator.name : '—'}</small></td>
-                    <td>
+                    <td data-label="Tier"><span class="badge" style="background: ${tierColor}; color: #000;">${c.customer_tier.charAt(0).toUpperCase() + c.customer_tier.slice(1)}</span></td>
+                    <td data-label="Last Order"><small>${lastOrder}</small></td>
+                    <td data-label="Created By"><small>${c.creator ? c.creator.name : '—'}</small></td>
+                    <td data-label="Actions">
                         <div class="btn-group btn-group-sm">
                             <a href="/customers/${c.id}" class="btn btn-outline-primary" title="View Details">
                                 <i class="fas fa-eye"></i>

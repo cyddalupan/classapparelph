@@ -3,8 +3,8 @@
 @section('page-title', $customer->name . ' | Customers')
 
 @section('content')
-<div class="page-content">
-    <div class="d-flex justify-content-between align-items-start mb-4">
+<div class="page-content customer-detail-page">
+    <div class="d-flex justify-content-between align-items-start mb-4 cust-detail-head">
         <div>
             <a href="{{ route('customers.index') }}" class="text-muted text-decoration-none mb-2 d-inline-block">
                 <i class="fas fa-arrow-left me-1"></i> Back to Customers
@@ -32,7 +32,7 @@
     </div>
 
     <!-- Stats Cards Row -->
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4 cust-stats-row">
         <div class="col-md-3">
             <div class="card border-0 shadow-sm">
                 <div class="card-body text-center">
@@ -259,6 +259,28 @@
     </div>
 </div>
 @endsection
+
+@push('styles')
+<style>
+/* ---- Customer DETAIL: MOBILE view (additive — desktop/tablet >=768px untouched) ---- */
+@media (max-width: 767.98px) {
+    /* Reclaim stacked page paddings so content uses the full phone width */
+    .content-area:has(.customer-detail-page),
+    .page-content:has(> .customer-detail-page) { padding-left: 8px; padding-right: 8px; }
+    .customer-detail-page { padding-left: 0; padding-right: 0; }
+
+    .customer-detail-page .cust-detail-head { flex-direction: column; gap: .75rem; }
+    .customer-detail-page .cust-detail-head h1.page-title { font-size: 1.35rem; line-height: 1.3; }
+    .customer-detail-page .cust-detail-head .d-flex.gap-2 { width: 100%; }
+    .customer-detail-page .cust-detail-head .d-flex.gap-2 .btn { flex: 1 1 0; }
+
+    /* Stats: 2-up on phones */
+    .customer-detail-page .cust-stats-row { --bs-gutter-x: .75rem; --bs-gutter-y: .75rem; }
+    .customer-detail-page .cust-stats-row > [class*="col-"] { flex: 0 0 50%; max-width: 50%; }
+    .customer-detail-page .cust-stats-row .display-6 { font-size: 1.4rem; }
+}
+</style>
+@endpush
 
 @push('scripts')
 <script>
