@@ -93,6 +93,29 @@
                 </div>
             </div>
 
+            <!-- REVIEW HISTORY (append-only — hindi nabubura ang dating review) -->
+            @if(isset($reviewHistory) && $reviewHistory->count())
+            <div class="card shadow-sm mb-3" style="border-left:4px solid #64748b;">
+                <div class="card-header bg-white fw-bold"><i class="fas fa-clock-rotate-left me-2 text-secondary"></i>Review History ({{ $reviewHistory->count() }})</div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        @foreach($reviewHistory as $h)
+                        <li class="d-flex gap-2 {{ !$loop->last ? 'pb-2 mb-2 border-bottom' : '' }}">
+                            <i class="fas fa-circle-check text-secondary mt-1" style="font-size:0.7rem;"></i>
+                            <div class="flex-grow-1">
+                                <div class="small" style="white-space:pre-wrap;">{{ $h->description }}</div>
+                                <div class="text-muted" style="font-size:11px;">
+                                    <i class="far fa-clock me-1"></i>{{ \Carbon\Carbon::parse($h->created_at)->format('M d, Y h:i A') }}
+                                    — {{ $h->user_name ?? 'Reviewer' }}@if($h->user_position) ({{ $h->user_position }})@endif
+                                </div>
+                            </div>
+                        </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+            @endif
+
             <!-- PROJECT INFO -->
             <div class="card shadow-sm">
                 <div class="card-header bg-white fw-bold"><i class="fas fa-info-circle me-2"></i>Project Information</div>

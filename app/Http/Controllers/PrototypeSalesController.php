@@ -4087,8 +4087,11 @@ $services = json_decode($sale->services, true);
             $openFeedbackCount = $fbQuery->count();
         }
 
-        // ⚠️ Delay count — same scope as delayList()
-        $delayCount = \App\Models\PrototypeSale::where('is_delayed', 1);
+        // ⚠️ Delay count — ONLY delays still needing manager review (unreviewed).
+        // Once acknowledged/resolved/dismissed, it drops out of the count (Andrew/CEO 2026-09-14).
+        // The full history stays visible on the Delay List page.
+        $delayCount = \App\Models\PrototypeSale::where('is_delayed', 1)
+            ->whereNull('delay_review_status');
         if ($user && $user->isClassScoped()) {
             $delayCount->where('department_id', 4);
         }
@@ -7564,7 +7567,17 @@ $services = json_decode($sale->services, true);
             'DONE' => '#198754',
         ];
 
-        return view('sales.prototype.delay-review', compact('sale', 'items', 'mainMockupUrl', 'stageColors'));
+        // Append-only review history — so every review (who/when/status/notes) is kept
+        // and nothing gets overwritten when another manager re-saves (Andrew/CEO 2026-09-14).
+        $reviewHistory = \DB::table('prototype_sale_audit_logs')
+            ->where('sale_id', $sale->id)
+            ->where('action', 'delay_reviewed')
+            ->leftJoin('users', 'prototype_sale_audit_logs.user_id', '=', 'users.id')
+            ->select('prototype_sale_audit_logs.*', 'users.name as user_name', 'users.position as user_position')
+            ->orderBy('prototype_sale_audit_logs.created_at', 'asc')
+            ->get();
+
+        return view('sales.prototype.delay-review', compact('sale', 'items', 'mainMockupUrl', 'stageColors', 'reviewHistory'));
     }
 
     /**
@@ -7584,11 +7597,40 @@ $services = json_decode($sale->services, true);
             return back()->with('error', 'Invalid review status.');
         }
 
+        $newNotes = trim((string) $request->input('delay_review_notes'));
+        $isFirstReview = empty($sale->delay_review_status);
+        $oldStatus = $sale->delay_review_status;
+        $oldNotes = $sale->delay_review_notes;
+
         $sale->delay_review_status = $status;
-        $sale->delay_review_notes = trim((string) $request->input('delay_review_notes'));
-        $sale->delay_reviewed_by = $user->id;
-        $sale->delay_reviewed_at = now();
+        // Notes: only overwrite kapag may bagong nilagay — para hindi mabura ang naunang notes.
+        if ($newNotes !== '') {
+            $sale->delay_review_notes = $newNotes;
+        }
+        // Preserve the ORIGINAL reviewer attribution; huling re-save = tracked sa Review History.
+        if ($isFirstReview) {
+            $sale->delay_reviewed_by = $user->id;
+            $sale->delay_reviewed_at = now();
+        }
         $sale->save();
+
+        // Append a review-history entry (never overwrite a previous review).
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'delay_reviewed',
+            'description' => 'Delay review: ' . ucfirst($status)
+                . (!$isFirstReview ? ' (updated from ' . ucfirst((string) $oldStatus) . ')' : '')
+                . ($newNotes !== '' ? ' — ' . $newNotes : ' (walang binagong notes)'),
+            'details' => json_encode([
+                'status_before' => $oldStatus,
+                'status_after' => $status,
+                'notes_before' => $oldNotes,
+                'notes_after' => $newNotes !== '' ? $newNotes : $oldNotes,
+                'first_review' => $isFirstReview,
+            ]),
+            'created_at' => now(),
+        ]);
 
         // Notify the agent who owns this sale
         if ($sale->sales_agent_id) {
