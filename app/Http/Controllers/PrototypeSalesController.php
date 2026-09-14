@@ -8743,6 +8743,29 @@ $services = json_decode($sale->services, true);
         $sale->design_images = $images;
         $sale->save();
 
+        // Audit history entry — upload trail (parallel sa delete trail sa ibaba).
+        // Wrapped: audit write must NEVER break the upload itself.
+        try {
+            $typeLabel = $request->type === 'sample_color' ? 'Approved Sample Color' : 'File Screenshot';
+            \DB::table('prototype_sale_audit_logs')->insert([
+                'sale_id' => $sale->id,
+                'user_id' => auth()->id() ?? 1,
+                'action' => 'design_image_uploaded',
+                'description' => 'Uploaded ' . $typeLabel . ' ("' . $file->getClientOriginalName() . '")',
+                'details' => json_encode([
+                    'type' => $request->type,
+                    'url' => $url,
+                    'name' => $file->getClientOriginalName(),
+                    'uploaded_by' => auth()->user()->name ?? 'Unknown',
+                    'uploaded_at' => now()->toDateTimeString(),
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('design_image_uploaded audit failed: ' . $e->getMessage());
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Image uploaded successfully.',
@@ -8873,6 +8896,27 @@ $services = json_decode($sale->services, true);
         ];
         $sale->mockup_images = $images;
         $sale->save();
+
+        // Audit history entry — upload trail. Wrapped: audit write must NEVER break the upload.
+        try {
+            \DB::table('prototype_sale_audit_logs')->insert([
+                'sale_id' => $sale->id,
+                'user_id' => auth()->id() ?? 1,
+                'action' => 'mockup_uploaded',
+                'description' => 'Uploaded mockup "' . $file->getClientOriginalName() . '"' . ($isFirst ? ' (set as main cover)' : ''),
+                'details' => json_encode([
+                    'url' => $url,
+                    'name' => $file->getClientOriginalName(),
+                    'is_main' => $isFirst,
+                    'uploaded_by' => auth()->user()->name ?? 'Unknown',
+                    'uploaded_at' => now()->toDateTimeString(),
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('mockup_uploaded audit failed: ' . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,
