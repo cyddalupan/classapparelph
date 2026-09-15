@@ -140,15 +140,21 @@ class NotificationComposer
             $counts['navCountFeedback'] = (int) $q->count();
         }
 
-        // 🎁 Freebie List — page requires isManager() || isCoo() (canApprove)
+        // 🎁 Freebie List — page requires isManager() || isCoo() (canApprove).
+        // Badge = needs-action: pending (need approve) + approved-but-not-yet-audited (need audit).
         if ($isManager || $isCoo) {
-            $q = DB::table('freebie_requests')
+            $pendingQ = DB::table('freebie_requests')
                 ->join('prototype_sales', 'freebie_requests.sale_id', '=', 'prototype_sales.id')
                 ->where('freebie_requests.status', 'pending');
+            $auditQ = DB::table('freebie_requests')
+                ->join('prototype_sales', 'freebie_requests.sale_id', '=', 'prototype_sales.id')
+                ->where('freebie_requests.status', 'approved')
+                ->whereNull('freebie_requests.audited_at');
             if ($classDept !== null) {
-                $q->where('prototype_sales.department_id', $classDept);
+                $pendingQ->where('prototype_sales.department_id', $classDept);
+                $auditQ->where('prototype_sales.department_id', $classDept);
             }
-            $counts['navCountFreebie'] = (int) $q->count();
+            $counts['navCountFreebie'] = (int) ($pendingQ->count() + $auditQ->count());
         }
 
         // ➕ Add-ons — pending add-on + change requests (matches SaleAddonController::pendingCount)
@@ -190,14 +196,15 @@ class NotificationComposer
         // 🗂️ Kanban Board — sales with a pending add-on/change request (mirrors PrototypeSalesController::kanban)
         $counts['navCountKanban'] = $this->kanbanPendingCount($user, $classDept);
 
-        // 📋 GA Job List — delayed active jobs (mirrors the GA Job List "Delayed" stat)
-        $counts['navCountGa'] = $this->gaDelayedCount($classDept);
-
-        // 🎨 Layout Job List — pending payout requests (matches the page's "N pending" panel)
-        if ($user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo()) {
-            $counts['navCountLayoutPayout'] = (int) DB::table('layout_job_payouts')
-                ->whereIn('status', ['requested', 'paid'])->count();
+        // 📋 GA Job List — the list itself: active jobs in the 6 GA stages (mirrors gaOrderList()).
+        // Only roles allowed to open the page (ga | manager | coo | qa) get a count.
+        if ($user->isGa() || $isManager || $isCoo || $user->isQa()) {
+            $counts['navCountGa'] = $this->gaJobListCount($classDept);
         }
+
+        // 🎨 Layout Job List — needs action: not-yet-done projects + paid-but-unverified payments
+        // (reviewers → global; GA/HR → sariling jobs lang, katulad ng personal list)
+        $counts['navCountLayoutPayout'] = $this->layoutJobNeedsActionCount($user);
 
         // ✅ Payment Verification — pending payments on the verifier's own accounts
         // (own-account scoped for EVERY role, incl. admin — mirrors paymentVerification())
@@ -278,8 +285,42 @@ class NotificationComposer
     }
 
     /**
-     * Delayed active jobs (matches the "Delayed" stat on the GA Job List page).
-     * Class dept (4) when classScoped; otherwise all departments.
+     * Layout Job List needs-action count: projects not yet done + paid jobs whose payment
+     * is still unverified. Reviewers see ALL; GA/HR see only their own (assigned or created).
+     */
+    private function layoutJobNeedsActionCount($user): int
+    {
+        $q = DB::table('layout_jobs')->where(function ($sub) {
+            $sub->where('status', 'open')
+                ->orWhere(function ($p) {
+                    $p->where('type', 'paid')->where('payment_status', 'pending');
+                });
+        });
+        if (!($user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo())) {
+            $q->where(function ($sub) use ($user) {
+                $sub->where('ga_user_id', $user->id)->orWhere('created_by', $user->id);
+            });
+        }
+        return (int) $q->count();
+    }
+
+    /**
+     * GA Job List total — active jobs in the GA production stages (mirrors gaOrderList()'s
+     * base list query: same statuses, archived filter, class scope, and 6 GA stages).
+     */
+    private function gaJobListCount(?int $classDept): int
+    {
+        $q = PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at')
+            ->whereIn('production_stage', ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING']);
+        if ($classDept !== null) {
+            $q->where('department_id', $classDept);
+        }
+        return (int) $q->count();
+    }
+
+    /**
+     * Legacy helper (kept): delayed active jobs only.
      */
     private function gaDelayedCount(?int $classDept): int
     {
@@ -295,7 +336,8 @@ class NotificationComposer
 
     /**
      * Pending payment verifications on the verifier's own payment accounts
-     * (mirrors PrototypeSalesController::paymentVerification()'s merged list count).
+     * (mirrors PrototypeSalesController::paymentVerification()'s merged list: pending
+     * prototype_payments + initial deposits WITHOUT a payment row + pending LAYOUT job payments).
      */
     private function pendingVerificationCount(int $uid): int
     {
@@ -321,7 +363,15 @@ class NotificationComposer
             })
             ->count();
 
-        return (int) ($payments + $initial);
+        // Layout job payments pending verification (type=paid, payment_status=pending) — own accounts
+        $layoutPending = DB::table('layout_jobs')
+            ->join('payment_accounts', 'layout_jobs.payment_account_id', '=', 'payment_accounts.id')
+            ->where('payment_accounts.user_id', $uid)
+            ->where('layout_jobs.type', 'paid')
+            ->where('layout_jobs.payment_status', 'pending')
+            ->count();
+
+        return (int) ($payments + $initial + $layoutPending);
     }
 
     /**
