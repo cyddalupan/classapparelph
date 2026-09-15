@@ -35,6 +35,9 @@
             .badge.badge-success   { background: #dcfce7; color: #166534 !important; }
             .badge.badge-warning   { background: #fef3c7; color: #92400e !important; }
             .badge.badge-danger    { background: #fee2e2; color: #b91c1c !important; }
+            .badge.badge-dark      { background: #334155; color: #f1f5f9 !important; }
+            .badge.badge-pink      { background: #fce7f3; color: #9d174d !important; }
+            .badge.badge-purple    { background: #ede9fe; color: #5b21b6 !important; }
 
             /* Demo mode: visually hides selected sidebar items (see config app.demo_hide_nav) */
             .nav-demo-hidden { display: none !important; }

@@ -645,6 +645,9 @@ class PrototypeSalesController extends Controller
                     break;
                 }
             }
+
+            // Keep base64 mockups out of the DB (services + mockup_images).
+            $this->externalizeSaleMockups($saleId);
         }
         
         // Update customer LTV stats (once per transaction)
@@ -1374,6 +1377,9 @@ public function details(Request $request, string $id)
                     ->update(['mockup_images' => json_encode($mockupImages)]);
             }
         }
+
+        // Keep base64 mockups out of the DB (services + mockup_images).
+        $this->externalizeSaleMockups($change->sale_id);
 
         // Reprocess replaces the product entirely — drop any stale production
         // checklist so it regenerates with the correct sizes/quantities
@@ -2488,6 +2494,40 @@ $services = json_decode($sale->services, true);
         return 'data:image/jpeg;base64,' . base64_encode($compressed);
     }
 
+    /**
+     * Safety net: if a sale's services/mockup_images still hold inline base64
+     * mockups (legacy posts, raw DB writes), move them to storage files and
+     * store the /storage/... URL instead. Idempotent + fully wrapped so it can
+     * never break the calling request.
+     */
+    private function externalizeSaleMockups($saleId): void
+    {
+        try {
+            $row = \DB::table('prototype_sales')
+                ->select('id', 'services', 'mockup_images')
+                ->find($saleId);
+            if (!$row) {
+                return;
+            }
+
+            $update = [];
+            [$svc, $ch1] = \App\Support\MockupStorage::externalizeJson($row->services, (int) $saleId, 'services');
+            if ($ch1) {
+                $update['services'] = $svc;
+            }
+            [$mks, $ch2] = \App\Support\MockupStorage::externalizeJson($row->mockup_images, (int) $saleId, 'mockup_images');
+            if ($ch2) {
+                $update['mockup_images'] = $mks;
+            }
+
+            if (!empty($update)) {
+                \DB::table('prototype_sales')->where('id', $saleId)->update($update);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('externalizeSaleMockups failed for sale ' . $saleId . ': ' . $e->getMessage());
+        }
+    }
+
     public function printSlipPdf(string $id, Request $request)
     {
         $sale = \DB::table('prototype_sales')->find($id);
@@ -2520,15 +2560,17 @@ $services = json_decode($sale->services, true);
             }
         }
         
-        // Compress large mockup images before generating PDF
+        // Mockups for the PDF must be inline data URIs: DomPDF runs with
+        // isRemoteEnabled = false, so /storage/... URLs would render broken.
+        // Resolve stored files back to data URIs, then compress.
         foreach ($services as &$svc) {
             $sf = &$svc['sublimationForm'];
             if (!empty($sf)) {
                 if (!empty($sf['mockupUrl'])) {
-                    $sf['mockupUrl'] = $this->compressMockupImage($sf['mockupUrl']);
+                    $sf['mockupUrl'] = $this->compressMockupImage(\App\Support\MockupStorage::toPdfSrc($sf['mockupUrl']));
                 }
                 if (!empty($sf['mockup'])) {
-                    $sf['mockup'] = $this->compressMockupImage($sf['mockup']);
+                    $sf['mockup'] = $this->compressMockupImage(\App\Support\MockupStorage::toPdfSrc($sf['mockup']));
                 }
             }
         }
@@ -3258,7 +3300,10 @@ $services = json_decode($sale->services, true);
                 break;
             }
         }
-        
+
+        // Keep base64 mockups out of the DB (services + mockup_images).
+        $this->externalizeSaleMockups($id);
+
         return redirect()->route('sales.prototype.edit', $id)
             ->with('success', 'Order updated successfully! New total: ₱' . number_format($totalAmount, 2));
     }
@@ -4849,7 +4894,20 @@ $services = json_decode($sale->services, true);
             $department = 'Class';
         }
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed'])
+        // MEMORY FIX (2026-09-15): `prototype_sales.services` embeds the full mockup as a base64
+        // data URI (up to ~4 MB per row). Loading it for every Class sale blew the 256M PHP limit
+        // (calendar 500 / "failed to load calendar" for CEO, Prod Manager, COO, QA).
+        // We strip the inline base64 BEFORE hydration (MySQL-side). The cover thumbnail still comes
+        // from `mockup_images` (mockup_url) below, so the calendar's mockup display is unaffected.
+        // NOTE: keep every other column so the formatter below keeps working.
+        $servicesExpr = <<<'SQL'
+REGEXP_REPLACE(services, '"mockup":\\s*"data:[^"]*"', '"mockup":""') as services
+SQL;
+
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->select(array_diff(\Schema::getColumnListing('prototype_sales'), ['services']))
+            ->addSelect(\DB::raw($servicesExpr))
+            ->whereIn('status', ['pending', 'confirmed', 'in_production', 'completed'])
             // Hide archived projects (consistent with kanban — archived = filed away)
             ->whereNull('archived_at');
         
@@ -4996,7 +5054,6 @@ $services = json_decode($sale->services, true);
                 'production_stage' => $p->production_stage,
                 'priority' => $p->priority,
                 'services' => $items,
-                'services_raw' => $services,
                 'total_qty' => $totalQty,
                 'mockup_url' => $isRestrictedViewer ? null : $firstMockupUrl,
                 'description' => $description,
@@ -8392,7 +8449,9 @@ $services = json_decode($sale->services, true);
     public function agentAddPayment($id)
     {
         $user = auth()->user();
-        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+        // QA also acts as a Sales Agent (see CheckQaAccess allowlist); scope still
+        // enforced by the own-sales ownership check below.
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isQa()) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -8415,7 +8474,9 @@ $services = json_decode($sale->services, true);
     public function agentPaymentStore(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+        // QA also acts as a Sales Agent (see CheckQaAccess allowlist); scope still
+        // enforced by the own-sales ownership check below.
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isQa()) {
             abort(403, 'Unauthorized access.');
         }
 
