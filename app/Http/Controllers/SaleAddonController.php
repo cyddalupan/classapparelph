@@ -25,7 +25,7 @@ class SaleAddonController extends Controller
      * Get all pending requests (for manager view)
      * Includes both add-on requests AND change requests (Add Product from sales page)
      */
-    public function allPending()
+    public function allPending(Request $request)
     {
         $user = auth()->user();
         $isManager = $user && $user->isManager();
@@ -113,7 +113,15 @@ class SaleAddonController extends Controller
         // Merge both lists, newest first
         $merged = collect($changeRequests)->concat($requests)->sortByDesc('created_at')->values();
 
-        return response()->json($merged);
+        // AJAX (kanban modal polling) → JSON. Plain browser visit (sidebar "Add-ons") → full page.
+        if ($request->ajax() || $request->expectsJson()) {
+            return response()->json($merged);
+        }
+
+        return view('sales.prototype.addon-pending', [
+            'requests' => $merged,
+            'isManager' => $isManager,
+        ]);
     }
 
     /**
