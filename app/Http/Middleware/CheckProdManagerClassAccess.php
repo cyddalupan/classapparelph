@@ -69,6 +69,12 @@ class CheckProdManagerClassAccess
         'sales.prototype.ga-unassign',
         'sales.prototype.ga-complete',
 
+        // Rejected & Cancelled review page + restore (Class-scoped in controller).
+        // Added 2026-09-15 together with the Manager Order List sidebar shortcuts.
+        'sales.prototype.rejected-cancelled',
+        'sales.prototype.restore-cancelled',
+        'sales.prototype.restore-change',
+
         // Nav: Production → Priority Mockup Slideshow (read-only; Class only, scoped in controller)
         'sales.prototype.priority-slideshow',
         'sales.prototype.priority-slideshow.data',

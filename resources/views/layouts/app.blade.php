@@ -308,6 +308,50 @@
                             <span class="nav-text">Calendar</span>
                         </a>
                     </div>
+                    <!-- Manager Order List shortcuts — same buttons as the Manager List page (Class-scoped).
+                         Purely additive: existing items above are untouched. -->
+                    <div class="nav-section">
+                        <div class="nav-section-title">Manager Order List</div>
+                        <a href="{{ route('sales.prototype.pending-approvals') }}" class="nav-item {{ request()->routeIs('sales.prototype.pending-approvals') ? 'active' : '' }}">
+                            <i class="fas fa-hourglass-half"></i>
+                            <span class="nav-text">Pending Approval</span>
+                            @if(($navProdApprovalCount ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#be185d;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navProdApprovalCount }}</span>@endif
+                        </a>
+                        <a href="{{ route('sales.prototype.delays') }}" class="nav-item {{ request()->routeIs('sales.prototype.delays') ? 'active' : '' }}">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span class="nav-text">Delay List</span>
+                            @if(($navProdDelayCount ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#dc3545;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navProdDelayCount }}</span>@endif
+                        </a>
+                        <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
+                            <i class="fas fa-tools"></i>
+                            <span class="nav-text">Backjob List</span>
+                            @if(($navProdBjCount ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#6d28d9;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navProdBjCount }}</span>@endif
+                        </a>
+                        <a href="{{ route('sales.prototype.production-feedback.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.production-feedback*') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span class="nav-text">Production Feedback</span>
+                            @if(($navProdFeedbackCount ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#d97706;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navProdFeedbackCount }}</span>@endif
+                        </a>
+                        <a href="{{ route('sales.prototype.freebie-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.freebie-list') ? 'active' : '' }}">
+                            <i class="fas fa-gift"></i>
+                            <span class="nav-text">Freebie List</span>
+                            @if(($navProdFreebieCount ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#7c3aed;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navProdFreebieCount }}</span>@endif
+                        </a>
+                        <a href="{{ route('sales.prototype.addon.all-pending') }}" class="nav-item {{ request()->routeIs('sales.prototype.addon.all-pending') ? 'active' : '' }}">
+                            <i class="fas fa-plus-circle"></i>
+                            <span class="nav-text">Add-ons</span>
+                            @if(($navProdAddonCount ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#0d9488;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navProdAddonCount }}</span>@endif
+                        </a>
+                        <a href="{{ route('sales.prototype.refunds') }}" class="nav-item {{ request()->routeIs('sales.prototype.refunds') ? 'active' : '' }}">
+                            <i class="fas fa-undo-alt"></i>
+                            <span class="nav-text">Refunds</span>
+                            @if(($navProdRefundCount ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#16a34a;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navProdRefundCount }}</span>@endif
+                        </a>
+                        <a href="{{ route('sales.prototype.rejected-cancelled') }}" class="nav-item {{ request()->routeIs('sales.prototype.rejected-cancelled') ? 'active' : '' }}">
+                            <i class="fas fa-recycle"></i>
+                            <span class="nav-text">Rejected &amp; Cancelled</span>
+                        </a>
+                    </div>
                     @endif
                     @if(Auth::user()->isQa())
                     <!-- QA / Sales Agent Navigation -->
