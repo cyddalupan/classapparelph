@@ -248,6 +248,237 @@ class PrototypeSalesController extends Controller
     }
 
     /**
+     * Rejected & Cancelled review page — manager/COO only (Andrew 2026-09-15).
+     * Long-term solution: isang lugar para i-review at i-restore ang mga terminal-state items:
+     *   • Cancelled sales (Class overload rejects) → capacity-aware restore
+     *   • Rejected change/reprocess requests → balik sa pending approval queue
+     *   • Rejected add-on requests → balik sa pending approval queue
+     * Purely additive: walang binabago sa existing approve/reject flows.
+     */
+    public function rejectedCancelledPage()
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->isManager() && !$user->isCoo())) {
+            abort(403, 'Only managers can view rejected & cancelled items.');
+        }
+
+        $cancelledSales = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->where('status', 'cancelled')
+            ->whereNull('archived_at')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // Kapasidad context para makita agad kung kakasya kapag ni-restore.
+        $capacity = 180;
+        $dayLoads = [];
+        $saleEff = [];
+        foreach ($cancelledSales as $s) {
+            $svc = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
+            $saleEff[$s->id] = $this->computeEffectivePcsFromItems($svc);
+            $need = $s->rescheduled_date ?: $s->estimated_completion_date;
+            if ($need) {
+                $key = date('Y-m-d', strtotime($need));
+                if (!array_key_exists($key, $dayLoads)) {
+                    $dayLoads[$key] = $this->getClassDayLoad($key);
+                }
+            }
+        }
+
+        $rejectedChanges = \DB::table('prototype_sale_changes')
+            ->join('prototype_sales', 'prototype_sale_changes.sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('users', 'prototype_sale_changes.submitted_by', '=', 'users.id')
+            ->where('prototype_sale_changes.status', 'rejected')
+            ->orderBy('prototype_sale_changes.updated_at', 'desc')
+            ->select(
+                'prototype_sale_changes.id as change_id',
+                'prototype_sale_changes.sale_id',
+                'prototype_sale_changes.type',
+                'prototype_sale_changes.change_summary',
+                'prototype_sale_changes.total_before',
+                'prototype_sale_changes.total_after',
+                'prototype_sale_changes.rejection_reason',
+                'prototype_sale_changes.rejected_at',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.status as sale_status',
+                'users.name as submitted_by_name'
+            )
+            ->get();
+
+        $rejectedAddons = \DB::table('sale_addon_requests')
+            ->join('prototype_sales', 'sale_addon_requests.sale_id', '=', 'prototype_sales.id')
+            ->where('sale_addon_requests.status', 'rejected')
+            ->orderBy('sale_addon_requests.updated_at', 'desc')
+            ->select(
+                'sale_addon_requests.id as addon_id',
+                'sale_addon_requests.sale_id',
+                'sale_addon_requests.requested_items',
+                'sale_addon_requests.reason',
+                'sale_addon_requests.requested_by',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.status as sale_status'
+            )
+            ->get();
+
+        return view('sales.prototype.rejected-cancelled', compact(
+            'cancelledSales',
+            'rejectedChanges',
+            'rejectedAddons',
+            'capacity',
+            'dayLoads',
+            'saleEff'
+        ));
+    }
+
+    /**
+     * Restore a cancelled (overload-rejected) sale. Capacity-aware:
+     *   • kung kakasya na ngayon (day load + eff pcs <= limit) → 'pending'
+     *   • kung over pa rin → 'pending_approval' (balik sa approval queue)
+     */
+    public function restoreCancelledSale(string $id)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->isManager() && !$user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers can restore cancelled sales.'], 403);
+        }
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale || $sale->status !== 'cancelled') {
+            return response()->json(['success' => false, 'message' => 'This sale is not cancelled.']);
+        }
+
+        // Capacity re-check para sa effective due date ng sale.
+        // getClassDayLoad counts only active statuses → hindi kasama ang cancelled sale na ito.
+        $capacity = 180;
+        $need = $sale->rescheduled_date ?: $sale->estimated_completion_date ?: $sale->created_at;
+        $needKey = $need ? date('Y-m-d', strtotime($need)) : null;
+        $svc = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+        $eff = $this->computeEffectivePcsFromItems($svc);
+        $load = $needKey ? $this->getClassDayLoad($needKey) : 0;
+        $projected = $load + $eff;
+
+        $fits = $projected <= $capacity;
+        $target = $fits ? 'pending' : 'pending_approval';
+
+        $sale->status = $target;
+        if ($target === 'pending_approval') {
+            $sale->approval_requested_at = now();
+            $sale->approval_requested_by = $sale->sales_agent_id;
+        } else {
+            $sale->approval_requested_at = null;
+            $sale->approval_requested_by = null;
+        }
+        $sale->save();
+
+        // Audit log
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'sale_restored',
+            'description' => 'Cancelled sale restored → ' . $target
+                . ($fits
+                    ? ' (kasya sa day load ' . $load . '/' . $capacity . ')'
+                    : ' (over capacity pa: ' . $projected . '/' . $capacity . ')'),
+            'details' => json_encode([
+                'from' => 'cancelled',
+                'to' => $target,
+                'day_load' => $load,
+                'eff_pcs' => $eff,
+                'capacity' => $capacity,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Notify the agent
+        $agentId = $sale->sales_agent_id;
+        if ($agentId && (int) $agentId !== (int) $user->id) {
+            \App\Models\SaleNotification::create([
+                'sale_id' => $sale->id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $agentId,
+                'type' => 'approval',
+                'title' => 'Cancelled Sale Restored ✅',
+                'message' => 'Na-restore na ang sale ' . ($sale->sales_number ?? ('#' . $sale->id))
+                    . ($fits ? ' — active na ulit.' : ' — balik sa Pending Approval (over capacity pa).'),
+            ]);
+        }
+
+        $msg = $fits
+            ? 'Na-restore ang sale — active na ulit (kasya sa day load ' . $load . '/' . $capacity . ').'
+            : 'Na-restore ang sale — balik sa Pending Approval (over capacity pa: ' . $projected . '/' . $capacity . ').';
+
+        return response()->json(['success' => true, 'message' => $msg, 'target' => $target]);
+    }
+
+    /**
+     * Restore a rejected change/reprocess request → balik sa 'pending'.
+     * Hindi dinudublika ang merge/total logic ng approveChange() — babalik lang
+     * ang request sa normal manager approval queue at iyon pa rin ang gagamitin.
+     */
+    public function restoreChange(string $changeId)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isManager()) {
+            return response()->json(['success' => false, 'message' => 'Only managers can restore change requests.'], 403);
+        }
+        $change = \DB::table('prototype_sale_changes')->find($changeId);
+        if (!$change) {
+            return response()->json(['success' => false, 'message' => 'Change request not found.'], 404);
+        }
+        if ($change->status !== 'rejected') {
+            return response()->json(['success' => false, 'message' => 'This change request is not rejected (status: ' . $change->status . ').']);
+        }
+
+        $sale = \DB::table('prototype_sales')->find($change->sale_id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+        if ($sale->status === 'cancelled') {
+            return response()->json(['success' => false, 'message' => 'Hindi ma-restore: cancelled ang sale. I-restore muna ang sale.'], 409);
+        }
+        if ($user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        \DB::table('prototype_sale_changes')
+            ->where('id', $changeId)
+            ->update([
+                'status' => 'pending',
+                'rejection_reason' => null,
+                'rejected_at' => null,
+                'updated_at' => now(),
+            ]);
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $change->sale_id,
+            'user_id' => $user->id,
+            'action' => 'change_restored',
+            'description' => 'Rejected change request restored to pending approval.',
+            'details' => json_encode([
+                'change_id' => $changeId,
+                'type' => $change->type ?? 'addition',
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        if (!empty($change->submitted_by) && (int) $change->submitted_by !== (int) $user->id) {
+            \App\Models\SaleNotification::create([
+                'sale_id' => $change->sale_id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $change->submitted_by,
+                'type' => 'approval',
+                'title' => 'Rejected Request Restored ✅',
+                'message' => 'Na-restore sa pending approval ang na-reject na request sa sale '
+                    . ($sale->sales_number ?? ('#' . $sale->id)) . '.',
+            ]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Na-restore ang request — balik sa pending approval queue.']);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
             public function store(Request $request)

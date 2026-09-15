@@ -880,6 +880,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/{id}/remove-split', [App\Http\Controllers\PrototypeSalesController::class, 'removeSplit'])->name('sales.prototype.remove-split');
         Route::post('/sales/prototype/{id}/approve-overload', [App\Http\Controllers\PrototypeSalesController::class, 'approveOverload'])->name('sales.prototype.approve-overload');
         Route::post('/sales/prototype/{id}/reject-overload', [App\Http\Controllers\PrototypeSalesController::class, 'rejectOverload'])->name('sales.prototype.reject-overload');
+        // RESTORE cancelled sale (capacity-aware) + restore rejected change request (Andrew 2026-09-15)
+        Route::post('/sales/prototype/{id}/restore-cancelled', [App\Http\Controllers\PrototypeSalesController::class, 'restoreCancelledSale'])->name('sales.prototype.restore-cancelled');
+        Route::post('/sales/prototype/change/{changeId}/restore', [App\Http\Controllers\PrototypeSalesController::class, 'restoreChange'])->name('sales.prototype.restore-change');
         Route::post('/sales/prototype/{id}/request-time', [App\Http\Controllers\PrototypeSalesController::class, 'requestTime'])->name('sales.prototype.request-time');
         Route::post('/sales/prototype/request-time-all', [App\Http\Controllers\PrototypeSalesController::class, 'requestTimeAll'])->name('sales.prototype.request-time-all');
 
@@ -888,6 +891,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
 
         // PENDING APPROVALS page — dedicated URL (MUST be before {id} route)
         Route::get('/sales/prototype/pending-approvals', [App\Http\Controllers\PrototypeSalesController::class, 'pendingApprovalsPage'])->name('sales.prototype.pending-approvals');
+
+        // REJECTED & CANCELLED review page — manager/COO only (MUST be before {id} route)
+        Route::get('/sales/prototype/rejected-cancelled', [App\Http\Controllers\PrototypeSalesController::class, 'rejectedCancelledPage'])->name('sales.prototype.rejected-cancelled');
 
         // GA ORDER LIST route — read-only, only orders tagged FOR SAMPLE / FOR APPROVAL / FOR FORMAT / PRINTING
         Route::get('/sales/prototype/ga-order-list', [App\Http\Controllers\PrototypeSalesController::class, 'gaOrderList'])->name('sales.prototype.ga-order-list');
@@ -976,6 +982,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/{id}/addon/request', [App\Http\Controllers\SaleAddonController::class, 'request'])->name('sales.prototype.addon.request');
         Route::post('/sales/prototype/addon/{requestId}/approve', [App\Http\Controllers\SaleAddonController::class, 'approve'])->name('sales.prototype.addon.approve');
         Route::post('/sales/prototype/addon/{requestId}/reject', [App\Http\Controllers\SaleAddonController::class, 'reject'])->name('sales.prototype.addon.reject');
+        Route::post('/sales/prototype/addon/{requestId}/restore', [App\Http\Controllers\SaleAddonController::class, 'restore'])->name('sales.prototype.addon.restore');
         
         // Freebie Slip routes (customer appreciation freebies)
         Route::get('/sales/prototype/freebie/pending', [App\Http\Controllers\FreebieSlipController::class, 'allPending'])->name('sales.prototype.freebie.all-pending');

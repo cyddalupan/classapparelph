@@ -627,6 +627,9 @@
             <a href="{{ route('sales.prototype.pending-approvals') }}" class="btn" id="pendingApprovalsBtn" style="background:#be185d;color:#fff;" title="Class overload sales na naghihintay ng approval">
                 ⏳ Pending Approval @if(isset($pendingApprovals) && count($pendingApprovals) > 0)<span class="badge ms-1" style="background:#fff;color:#be185d;">{{ count($pendingApprovals) }}</span>@endif
             </a>
+            <a href="{{ route('sales.prototype.rejected-cancelled') }}" class="btn" id="rejectedCancelledBtn" style="background:#475569;color:#fff;" title="Cancelled sales + rejected change/add-on requests — review & restore">
+                ♻️ Rejected &amp; Cancelled
+            </a>
             @endif
             @if(!(auth()->user() && auth()->user()->isQa()))
             <a href="{{ route('sales.prototype.delays') }}" class="btn btn-delays" style="background:#dc3545;color:#fff;">⚠️ Delay List @if(($delayCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#dc3545;">{{ $delayCount }}</span>@endif</a>

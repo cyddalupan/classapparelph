@@ -331,6 +331,80 @@ class SaleAddonController extends Controller
     }
 
     /**
+     * Restore a rejected add-on request → 'pending' (balik sa approval queue).
+     * Hindi dinudublika ang merge/pricing logic ng approve() — iyon pa rin ang gagamitin.
+     */
+    public function restore(Request $request, int $requestId)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isManager()) {
+            return response()->json(['error' => 'Unauthorized: admin/manager only'], 403);
+        }
+
+        $addon = DB::table('sale_addon_requests')->find($requestId);
+        if (!$addon) {
+            return response()->json(['error' => 'Request not found'], 404);
+        }
+        if ($addon->status !== 'rejected') {
+            return response()->json(['error' => 'This add-on request is not rejected (status: ' . $addon->status . ').'], 409);
+        }
+
+        $sale = DB::table('prototype_sales')->find($addon->sale_id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        // Prod manager is Class-only
+        if ($user->isProdManager() && (int) $sale->department_id !== 4) {
+            abort(403, 'Unauthorized access.');
+        }
+        if ($sale->status === 'cancelled') {
+            return response()->json(['error' => 'Hindi ma-restore: cancelled ang sale. I-restore muna ang sale.'], 409);
+        }
+
+        DB::table('sale_addon_requests')
+            ->where('id', $requestId)
+            ->update([
+                'status' => 'pending',
+                'approved_by' => null,
+                'approved_at' => null,
+                'updated_at' => now(),
+            ]);
+
+        // Audit log (add-on has no audit FK; log against the sale)
+        DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $addon->sale_id,
+            'user_id' => $user->id,
+            'action' => 'addon_restored',
+            'description' => 'Rejected add-on request restored to pending approval.',
+            'details' => json_encode(['addon_id' => $requestId]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Notify the sale's agent (add-on has no submitted_by user id)
+        $agentId = $sale->sales_agent_id ?? null;
+        if ($agentId && (int) $agentId !== (int) $user->id) {
+            DB::table('sale_notifications')->insert([
+                'sale_id' => $addon->sale_id,
+                'from_user_id' => $user->id,
+                'to_user_id' => $agentId,
+                'type' => 'approval',
+                'title' => 'Rejected Add-on Restored ✅',
+                'message' => 'Na-restore sa pending approval ang na-reject na add-on sa sale '
+                    . ($sale->sales_number ?? ('#' . $sale->id)) . '.',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Na-restore ang add-on — balik sa pending approval queue.',
+        ]);
+    }
+
+    /**
      * Get pricing data from database (matching the front-end JS)
      */
     private static function getPricingData(): array
