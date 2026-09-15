@@ -305,6 +305,9 @@
                             @if($fb->status === 'acknowledged' && ($canResolve ?? false))
                             <button class="btn btn-sm btn-outline-success" onclick="updateFeedback({{ $fb->id }}, 'resolved')">Resolve</button>
                             @endif
+                            @if(($canResolve ?? false) && $fb->status !== 'resolved')
+                            <button class="btn btn-sm btn-outline-warning ms-1" onclick="renotifyFeedback({{ $fb->id }}, this)" title="I-notify ulit ang recipient — Manager / CEO / COO"><i class="fas fa-bell"></i></button>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -350,6 +353,25 @@ function updateFeedback(feedbackId, status) {
         else { alert(data.message || 'Failed to update.'); }
     })
     .catch(function() { alert('Request failed.'); });
+}
+
+function renotifyFeedback(feedbackId, btn) {
+    if (btn) { btn.disabled = true; }
+    fetch('{{ route('sales.prototype.production-feedback.notify', 'FEEDBACK_ID') }}'.replace('FEEDBACK_ID', feedbackId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content,
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) { alert(data.message || 'Reminder sent. 🔔'); location.reload(); }
+        else { alert(data.message || 'Failed to send reminder.'); if (btn) { btn.disabled = false; } }
+    })
+    .catch(function() { alert('Request failed.'); if (btn) { btn.disabled = false; } });
 }
 </script>
 @endpush

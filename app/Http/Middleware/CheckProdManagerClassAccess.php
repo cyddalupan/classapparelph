@@ -80,6 +80,7 @@ class CheckProdManagerClassAccess
         'sales.prototype.production-feedback.list',
         'sales.prototype.production-feedback.store',
         'sales.prototype.production-feedback.status',
+        'sales.prototype.production-feedback.notify',
         'sales.prototype.delays',
         'sales.prototype.delay-review',
         'sales.prototype.delay-review.submit',

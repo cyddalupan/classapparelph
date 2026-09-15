@@ -1003,6 +1003,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/{id}/production-feedback', [App\Http\Controllers\PrototypeSalesController::class, 'storeProductionFeedback'])->name('sales.prototype.production-feedback.store');
         Route::post('/sales/prototype/production-feedback/{feedbackId}/status', [App\Http\Controllers\PrototypeSalesController::class, 'updateProductionFeedback'])->name('sales.prototype.production-feedback.status');
         Route::get('/sales/prototype/production-feedback/list', [App\Http\Controllers\PrototypeSalesController::class, 'productionFeedbackList'])->name('sales.prototype.production-feedback.list');
+        Route::post('/sales/prototype/production-feedback/{feedbackId}/notify', [App\Http\Controllers\PrototypeSalesController::class, 'renotifyFeedback'])->name('sales.prototype.production-feedback.notify');
         Route::get('/sales/prototype/{id}/audit-history', [App\Http\Controllers\PrototypeSalesController::class, 'auditHistory'])->name('sales.prototype.audit-history');
         Route::post('/sales/prototype/{id}/add-product', [App\Http\Controllers\PrototypeSalesController::class, 'addProduct'])->name('sales.prototype.add-product');
         Route::post('/sales/prototype/{id}/reprocess-order', [App\Http\Controllers\PrototypeSalesController::class, 'reprocessOrder'])->name('sales.prototype.reprocess-order');

@@ -1999,6 +1999,129 @@ public function details(Request $request, string $id)
     }
 
     /**
+     * Re-notify (🔔 bell) the feedback recipient(s) when they ignore / never
+     * acknowledge a production feedback. Only managers, the CEO/COO may send it.
+     *
+     * Mirrors the notifyAgent() cooldown + escalation pattern:
+     *   1st reminder  → normal notification
+     *   2nd+ reminder → auto-escalates to URGENT so the agent dashboard surfaces
+     *                   it in the forced-response queue (addresses "hindi nila
+     *                   pinapansin ang production feedback").
+     */
+    public function renotifyFeedback(Request $request, string $feedbackId)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers, the CEO, and the COO can send a reminder.'], 403);
+        }
+
+        $feedback = \App\Models\ProductionFeedback::with(['sale', 'toUser'])->find($feedbackId);
+        if (!$feedback) {
+            return response()->json(['success' => false, 'message' => 'Feedback not found.'], 404);
+        }
+
+        // Class Production Manager: Class department only (same scope as the list).
+        if ($user->isClassScoped() && $feedback->sale && (int) $feedback->sale->department_id !== 4) {
+            return response()->json(['success' => false, 'message' => 'Class department only.'], 403);
+        }
+
+        if ($feedback->status === 'resolved') {
+            return response()->json(['success' => false, 'message' => 'Resolved na ang feedback — hindi na kailangan ng reminder.']);
+        }
+
+        // Recipients: the primary recipient (sales agent) + any tagged/involved user.
+        $recipientIds = array_values(array_unique(array_filter([
+            (int) $feedback->to_user_id,
+            (int) $feedback->involved_user_id,
+        ])));
+        if (empty($recipientIds)) {
+            return response()->json(['success' => false, 'message' => 'Walang recipient ang feedback na ito.']);
+        }
+
+        $saleId = $feedback->sale_id;
+        $categoryLabel = \App\Models\ProductionFeedback::CATEGORIES[$feedback->category] ?? $feedback->category;
+        $customer = $feedback->sale->customer_name ?? 'customer';
+        $fromName = $user->display_label ?? 'Manager';
+
+        $sent = 0;
+        $cooldownLeft = null;
+
+        foreach ($recipientIds as $toId) {
+            // Cooldown check (non-urgent only): last reminder for this sale+recipient within 24h blocks it.
+            $lastReminder = \App\Models\SaleNotification::where('sale_id', $saleId)
+                ->where('to_user_id', $toId)
+                ->where('type', 'production_feedback_reminder')
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            if ($lastReminder) {
+                $minutesSince = (int) $lastReminder->created_at->diffInMinutes(now());
+                if ($minutesSince < 1440) {
+                    $remainingMin = 1440 - $minutesSince;
+                    $remainingText = $remainingMin < 60 ? $remainingMin . ' min' : round($remainingMin / 60) . 'h';
+                    $cooldownLeft = $remainingText;
+                    continue;
+                }
+            }
+
+            // Reminder count for this sale+recipient (reminders only, not the original feedback).
+            $reminderCount = \App\Models\SaleNotification::where('sale_id', $saleId)
+                ->where('to_user_id', $toId)
+                ->where('type', 'production_feedback_reminder')
+                ->count() + 1;
+
+            // 2nd+ reminder auto-escalates to URGENT (forced-response queue).
+            $isUrgent = $reminderCount >= 2;
+
+            $baseMessage = "Paalala: may production feedback ({$categoryLabel}) para sa order ni {$customer} na hindi pa na-a-acknowledge. Paki-buksan at i-acknowledge na po.";
+
+            if ($isUrgent) {
+                $title = "🚨 URGENT ({$reminderCount} reminder): Production Feedback";
+                $message = '⚠️ URGENT — ' . $baseMessage;
+            } else {
+                $title = '🔔 Reminder: Production Feedback';
+                $message = $baseMessage;
+            }
+
+            \App\Models\SaleNotification::create([
+                'sale_id' => $saleId,
+                'from_user_id' => $user->id,
+                'to_user_id' => $toId,
+                'type' => 'production_feedback_reminder',
+                'is_urgent' => $isUrgent,
+                'reminder_count' => $reminderCount,
+                'title' => $title,
+                'message' => $message,
+            ]);
+
+            $sent++;
+        }
+
+        if ($sent === 0) {
+            return response()->json([
+                'success' => false,
+                'cooldown' => true,
+                'message' => "Na-remind na ang recipient. Pwede ulit i-notify pagkatapos ng {$cooldownLeft}.",
+            ]);
+        }
+
+        // Audit log — one entry per reminder action.
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $saleId,
+            'user_id' => $user->id,
+            'action' => 'production_feedback_reminder',
+            'description' => 'Sent a production feedback reminder to ' . $sent . ' recipient(s) for feedback #' . $feedback->id . ' (' . $categoryLabel . ').',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $sent === 1 ? 'Na-notify ulit ang recipient. 🔔' : "Na-notify ulit ang {$sent} recipients. 🔔",
+        ]);
+    }
+
+    /**
      * Agent responds to an urgent notification (2nd reminder+).
      * The reason is posted to the sale's Comments section so the notifier can see it.
      */
