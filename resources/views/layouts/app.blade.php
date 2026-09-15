@@ -274,6 +274,7 @@
                         <a href="{{ route('damage.index') }}" class="nav-item {{ request()->routeIs('damage.*') ? 'active' : '' }}">
                             <i class="fas fa-exclamation-triangle"></i>
                             <span class="nav-text">Damage Reports</span>
+                            @if(($navCountDamage ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountDamage }}</span>@endif
                         </a>
                         @endif
                     </div>
@@ -290,6 +291,7 @@
                         <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
                             <i class="fas fa-columns"></i>
                             <span class="nav-text">Kanban Board</span>
+                            @if(($navCountKanban ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#2563eb;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountKanban }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
                             <i class="fas fa-list"></i>
@@ -298,6 +300,7 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
+                            @if(($navCountGa ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#0891b2;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountGa }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.priority-slideshow') }}" class="nav-item {{ request()->routeIs('sales.prototype.priority-slideshow*') ? 'active' : '' }}">
                             <i class="fas fa-play-circle"></i>
@@ -350,6 +353,7 @@
                         <a href="{{ route('sales.prototype.rejected-cancelled') }}" class="nav-item {{ request()->routeIs('sales.prototype.rejected-cancelled') ? 'active' : '' }}">
                             <i class="fas fa-recycle"></i>
                             <span class="nav-text">Rejected &amp; Cancelled</span>
+                            @if(($navCountRejected ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#b91c1c;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountRejected }}</span>@endif
                         </a>
                     </div>
                     @endif
@@ -360,6 +364,7 @@
                         <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
                             <i class="fas fa-columns"></i>
                             <span class="nav-text">Kanban Board</span>
+                            @if(($navCountKanban ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#2563eb;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountKanban }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
                             <i class="fas fa-list"></i>
@@ -368,6 +373,7 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
+                            @if(($navCountGa ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#0891b2;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountGa }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
                             <i class="fas fa-tools"></i>
@@ -429,11 +435,13 @@
                         <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
                             <i class="fas fa-palette"></i>
                             <span class="nav-text">Layout Job List</span>
+                            @if(($navCountLayoutPayout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#c026d3;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountLayoutPayout }}</span>@endif
                         </a>
                         @else
                         <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
                             <i class="fas fa-columns"></i>
                             <span class="nav-text">Kanban Board</span>
+                            @if(($navCountKanban ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#2563eb;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountKanban }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
                             <i class="fas fa-list"></i>
@@ -442,6 +450,7 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
+                            @if(($navCountGa ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#0891b2;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountGa }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.priority-slideshow') }}" class="nav-item {{ request()->routeIs('sales.prototype.priority-slideshow*') ? 'active' : '' }}">
                             <i class="fas fa-play-circle"></i>
@@ -450,6 +459,7 @@
                         <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
                             <i class="fas fa-palette"></i>
                             <span class="nav-text">Layout Job List</span>
+                            @if(($navCountLayoutPayout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#c026d3;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountLayoutPayout }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
                             <i class="fas fa-tags"></i>
@@ -467,12 +477,14 @@
                         <a href="{{ route('sales.prototype.payment-review.accountant') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.accountant') ? 'active' : '' }}">
                             <i class="fas fa-file-invoice-dollar"></i>
                             <span class="nav-text">Payment Review</span>
+                            @if(($navCountPaymentReview ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#ea580c;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountPaymentReview }}</span>@endif
                         </a>
                         @endif
                         @if(auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
                         <a href="{{ route('sales.prototype.payment-review.executive') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.executive') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-check"></i>
                             <span class="nav-text">Close-out Review</span>
+                            @if(($navCountCloseout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#4f46e5;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountCloseout }}</span>@endif
                         </a>
                         @endif
                         @endif
@@ -488,6 +500,7 @@
                         <a href="{{ route('sales.verification') }}" class="nav-item {{ request()->routeIs('sales.verification') ? 'active' : '' }}">
                             <i class="fas fa-check-circle"></i>
                             <span class="nav-text">Payment Verification</span>
+                            @if(($navCountPaymentVerify ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#059669;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountPaymentVerify }}</span>@endif
                         </a>
                         <a href="{{ route('sales.cash-flow') }}" class="nav-item {{ request()->routeIs('sales.cash-flow') ? 'active' : '' }}">
                             <i class="fas fa-chart-line"></i>
@@ -520,6 +533,7 @@
                         <a href="{{ route('sales.prototype.rejected-cancelled') }}" class="nav-item {{ request()->routeIs('sales.prototype.rejected-cancelled') ? 'active' : '' }}">
                             <i class="fas fa-recycle"></i>
                             <span class="nav-text">Rejected &amp; Cancelled</span>
+                            @if(($navCountRejected ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#b91c1c;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountRejected }}</span>@endif
                         </a>
                     </div>
                     <div class="nav-section">
@@ -633,6 +647,7 @@
                         <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
                             <i class="fas fa-columns"></i>
                             <span class="nav-text">Kanban Board</span>
+                            @if(($navCountKanban ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#2563eb;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountKanban }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.list') ? 'active' : '' }}">
                             <i class="fas fa-list"></i>
@@ -642,6 +657,7 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
+                            @if(($navCountGa ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#0891b2;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountGa }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.priority-slideshow') }}" class="nav-item {{ request()->routeIs('sales.prototype.priority-slideshow*') ? 'active' : '' }}">
                             <i class="fas fa-play-circle"></i>
@@ -650,6 +666,7 @@
                         <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
                             <i class="fas fa-palette"></i>
                             <span class="nav-text">Layout Job List</span>
+                            @if(($navCountLayoutPayout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#c026d3;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountLayoutPayout }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
                             <i class="fas fa-tags"></i>
@@ -667,12 +684,14 @@
                         <a href="{{ route('sales.prototype.payment-review.accountant') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.accountant') ? 'active' : '' }}">
                             <i class="fas fa-file-invoice-dollar"></i>
                             <span class="nav-text">Payment Review</span>
+                            @if(($navCountPaymentReview ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#ea580c;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountPaymentReview }}</span>@endif
                         </a>
                         @endif
                         @if(auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
                         <a href="{{ route('sales.prototype.payment-review.executive') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.executive') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-check"></i>
                             <span class="nav-text">Close-out Review</span>
+                            @if(($navCountCloseout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#4f46e5;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountCloseout }}</span>@endif
                         </a>
                         @endif
                         @endif
@@ -688,6 +707,7 @@
                         <a href="{{ route('sales.verification') }}" class="nav-item {{ request()->routeIs('sales.verification') ? 'active' : '' }}">
                             <i class="fas fa-check-circle"></i>
                             <span class="nav-text">Payment Verification</span>
+                            @if(($navCountPaymentVerify ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#059669;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountPaymentVerify }}</span>@endif
                         </a>
                         <a href="{{ route('procurement.orders.create') }}" class="nav-item {{ request()->routeIs('procurement.orders.create') || request()->routeIs('procurement.orders.*') ? 'active' : '' }}{{ $navDemoHide ? ' nav-demo-hidden' : '' }}">
                             <i class="fas fa-plus-circle"></i>
@@ -726,6 +746,7 @@
                         <a href="{{ route('sales.prototype.rejected-cancelled') }}" class="nav-item {{ request()->routeIs('sales.prototype.rejected-cancelled') ? 'active' : '' }}">
                             <i class="fas fa-recycle"></i>
                             <span class="nav-text">Rejected &amp; Cancelled</span>
+                            @if(($navCountRejected ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#b91c1c;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountRejected }}</span>@endif
                         </a>
                     </div>
                     @endif
@@ -748,10 +769,12 @@
                     <a href="{{ route('sales.prototype.payment-review.accountant') }}" class="nav-item {{ request()->routeIs('sales.prototype.payment-review.accountant') ? 'active' : '' }}">
                         <i class="fas fa-file-invoice-dollar"></i>
                         <span class="nav-text">Payment Review</span>
+                        @if(($navCountPaymentReview ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#ea580c;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountPaymentReview }}</span>@endif
                     </a>
                     <a href="{{ route('sales.verification') }}" class="nav-item {{ request()->routeIs('sales.verification') ? 'active' : '' }}">
                         <i class="fas fa-check-circle"></i>
                         <span class="nav-text">Payment Verification</span>
+                        @if(($navCountPaymentVerify ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#059669;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountPaymentVerify }}</span>@endif
                     </a>
                     <a href="{{ route('sales.cash-flow') }}" class="nav-item {{ request()->routeIs('sales.cash-flow') ? 'active' : '' }}">
                         <i class="fas fa-chart-line"></i>
@@ -822,6 +845,7 @@
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
                             <span class="nav-text">GA Job List</span>
+                            @if(($navCountGa ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#0891b2;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountGa }}</span>@endif
                         </a>
                         <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
                             <i class="fas fa-tools"></i>
@@ -863,6 +887,7 @@
                         <a href="{{ route('sales.team.delays') }}" class="nav-item {{ request()->routeIs('sales.team.delays') ? 'active' : '' }}">
                             <i class="fas fa-exclamation-triangle"></i>
                             <span class="nav-text">My Delays</span>
+                            @if(($navCountAgentDelay ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#b45309;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountAgentDelay }}</span>@endif
                         </a>
                     </div>
                     @endif

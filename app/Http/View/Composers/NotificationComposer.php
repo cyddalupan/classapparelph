@@ -72,6 +72,15 @@ class NotificationComposer
             'navCountAddon' => 0,
             'navCountRefund' => 0,
             'navCountSpecialPrice' => 0,
+            'navCountDamage' => 0,
+            'navCountKanban' => 0,
+            'navCountGa' => 0,
+            'navCountLayoutPayout' => 0,
+            'navCountPaymentVerify' => 0,
+            'navCountPaymentReview' => 0,
+            'navCountCloseout' => 0,
+            'navCountRejected' => 0,
+            'navCountAgentDelay' => 0,
         ];
     }
 
@@ -175,7 +184,156 @@ class NotificationComposer
             $counts['navCountSpecialPrice'] = $this->specialPriceUncheckedCount($classDept);
         }
 
+        // 🛠️ Damage Reports — open reports in the user's own scope (mirrors DamageReportController::index)
+        $counts['navCountDamage'] = $this->damageOpenCount($user);
+
+        // 🗂️ Kanban Board — sales with a pending add-on/change request (mirrors PrototypeSalesController::kanban)
+        $counts['navCountKanban'] = $this->kanbanPendingCount($user, $classDept);
+
+        // 📋 GA Job List — delayed active jobs (mirrors the GA Job List "Delayed" stat)
+        $counts['navCountGa'] = $this->gaDelayedCount($classDept);
+
+        // 🎨 Layout Job List — pending payout requests (matches the page's "N pending" panel)
+        if ($user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo()) {
+            $counts['navCountLayoutPayout'] = (int) DB::table('layout_job_payouts')
+                ->whereIn('status', ['requested', 'paid'])->count();
+        }
+
+        // ✅ Payment Verification — pending payments on the verifier's own accounts
+        // (own-account scoped for EVERY role, incl. admin — mirrors paymentVerification())
+        $counts['navCountPaymentVerify'] = $this->pendingVerificationCount((int) $user->id);
+
+        // 🧾 Payment Review (accountant) — requests awaiting accountant review
+        if ($user->isAccountant() || $user->isAdmin() || $user->isHrAccountantAgent()) {
+            $counts['navCountPaymentReview'] = (int) DB::table('payment_review_requests')
+                ->where('status', 'requested')->count();
+        }
+
+        // 🗄️ Close-out Review (executive) — accepted requests awaiting exec review
+        if ($user->isAdmin() || $user->isCoo()) {
+            $counts['navCountCloseout'] = (int) DB::table('payment_review_requests')
+                ->where('status', 'accepted')->count();
+        }
+
+        // ♻️ Rejected & Cancelled — cancelled sales + rejected changes + rejected add-ons
+        if ($isManager || $isCoo) {
+            $counts['navCountRejected'] = $this->rejectedCancelledCount();
+        }
+
+        // ⏰ My Delays (GA) — own delayed jobs
+        if ($user->isGa()) {
+            $counts['navCountAgentDelay'] = (int) PrototypeSale::where('is_delayed', 1)
+                ->where('sales_agent_id', $user->id)->count();
+        }
+
         return $counts;
+    }
+
+    /**
+     * Open damage reports in the user's scope (mirrors DamageReportController::index).
+     * Reviewers (admin/coo/cpo/cmo) see all; others see their shop (+ reports they filed/were tagged in).
+     */
+    private function damageOpenCount($user): int
+    {
+        $open = ['submitted', 'under_review', 'issued', 'acknowledged', 'contested'];
+        $q = \App\Models\DamageReport::whereIn('status', $open);
+        if (in_array($user->role, ['admin', 'coo', 'cpo', 'cmo'], true)) {
+            return (int) $q->count();
+        }
+        $uid = $user->id;
+        $managedShop = SalesDepartment::where('manager_id', $uid)->first();
+        $q->where(function ($sub) use ($managedShop, $uid) {
+            if ($managedShop) {
+                $sub->where('shop_id', $managedShop->id);
+            }
+            $sub->orWhere('reporter_id', $uid)
+                ->orWhereHas('accountableUsers', fn ($u) => $u->where('user_id', $uid));
+        });
+        return (int) $q->count();
+    }
+
+    /**
+     * Distinct sales with a pending add-on or change request, scoped like the Kanban board
+     * (Class dept for classScoped; own sales for agents/staff; all for admin/COO).
+     */
+    private function kanbanPendingCount($user, ?int $classDept): int
+    {
+        $sales = PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at');
+        if ($classDept !== null) {
+            $sales->where('department_id', $classDept);
+        }
+        if (!($user->isAdmin() || $user->isCoo() || $user->isClassScoped())) {
+            $sales->where('sales_agent_id', $user->id);
+        }
+        $ids = $sales->pluck('id');
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+        $addon = DB::table('sale_addon_requests')->where('status', 'pending')
+            ->whereIn('sale_id', $ids)->pluck('sale_id')->all();
+        $change = DB::table('prototype_sale_changes')->where('status', 'pending')
+            ->whereIn('sale_id', $ids)->pluck('sale_id')->all();
+        return count(array_unique(array_merge($addon, $change)));
+    }
+
+    /**
+     * Delayed active jobs (matches the "Delayed" stat on the GA Job List page).
+     * Class dept (4) when classScoped; otherwise all departments.
+     */
+    private function gaDelayedCount(?int $classDept): int
+    {
+        $q = PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at')
+            ->where('is_delayed', 1)
+            ->whereIn('production_stage', ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING']);
+        if ($classDept !== null) {
+            $q->where('department_id', $classDept);
+        }
+        return (int) $q->count();
+    }
+
+    /**
+     * Pending payment verifications on the verifier's own payment accounts
+     * (mirrors PrototypeSalesController::paymentVerification()'s merged list count).
+     */
+    private function pendingVerificationCount(int $uid): int
+    {
+        $payments = DB::table('prototype_payments')
+            ->join('payment_accounts', 'prototype_payments.payment_account_id', '=', 'payment_accounts.id')
+            ->where('payment_accounts.user_id', $uid)
+            ->where('prototype_payments.payment_status', 'pending')
+            ->count();
+
+        $initial = DB::table('prototype_sales')
+            ->join('payment_accounts', 'prototype_sales.payment_account_id', '=', 'payment_accounts.id')
+            ->where('payment_accounts.user_id', $uid)
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))->from('prototype_payments')
+                  ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id');
+            })
+            ->where('prototype_sales.deposit_paid', '>', 0)
+            ->whereNull('prototype_sales.deleted_at')
+            ->whereNull('prototype_sales.archived_at')
+            ->where(function ($q) {
+                $q->where('prototype_sales.payment_status', 'pending')
+                  ->orWhereNull('prototype_sales.payment_status');
+            })
+            ->count();
+
+        return (int) ($payments + $initial);
+    }
+
+    /**
+     * Cancelled sales + rejected change requests + rejected add-on requests
+     * (mirrors PrototypeSalesController::rejectedCancelledPage()).
+     */
+    private function rejectedCancelledCount(): int
+    {
+        $n = PrototypeSale::where('status', 'cancelled')->whereNull('archived_at')->count();
+        $n += DB::table('prototype_sale_changes')->where('status', 'rejected')->count();
+        $n += DB::table('sale_addon_requests')->where('status', 'rejected')->count();
+        return (int) $n;
     }
 
     /**
