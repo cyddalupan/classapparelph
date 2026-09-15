@@ -4417,6 +4417,9 @@ $services = json_decode($sale->services, true);
         // Force-insert Prio: Manager (admin/manager/prod_manager) + COO lang ang pwedeng
         // mag-override ng Taken number (mag-shift pababa ng +1 ang iba).
         $canForcePriority = $user && ($user->isManager() || $user->isCoo());
+
+        // Max priority slot (Prio 1..15) — requested by Andrew 2026-09-15
+        $priorityMax = 15;
         
         // Count pending changes per sale for manager notification badges
         $pendingCounts = [];
@@ -4599,7 +4602,8 @@ $services = json_decode($sale->services, true);
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
             "delayCount", "backjobCount", "backjobLockSaleIds", "repeatCustomers", "repeatEmails",
-            "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds", "freebiePendingCount"
+            "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds", "freebiePendingCount",
+            "priorityMax"
         ));
     }
 
@@ -4829,8 +4833,9 @@ $services = json_decode($sale->services, true);
      */
     public function updatePriority(Request $request, $id)
     {
+        $prioMax = 15; // max priority slot (1..15) — requested by Andrew 2026-09-15
         $request->validate([
-            'priority' => 'nullable|integer|min:1|max:10',
+            'priority' => 'nullable|integer|min:1|max:' . $prioMax,
         ]);
 
         $sale = \App\Models\PrototypeSale::findOrFail($id);
@@ -4855,7 +4860,7 @@ $services = json_decode($sale->services, true);
         // Unique priority enforcement: a priority number can only be used by ONE sale at a time.
         // FORCE INSERT (2026-09-09, by Andrew): Manager/CEO/COO lang ang pwedeng mag-override ng
         // Taken number — cascade shift: lahat ng may Prio >= chosen ay uurong +1, at ang makalampas
-        // sa Prio 10 ay mawawalan ng tag. Ang target sale ang kukuha ng chosen number.
+        // sa max (Prio 15) ay mawawalan ng tag. Ang target sale ang kukuha ng chosen number.
         if ($request->filled('priority')) {
             $prio = (int) $request->priority;
             $holder = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
@@ -4877,7 +4882,7 @@ $services = json_decode($sale->services, true);
                 }
 
                 // Cascade: i-shift +1 ang bawat occupied slot simula sa chosen number pataas.
-                // Hihinto kapag may bakanteng slot; ang malampas sa 10 ay made-default sa null (mawalan ng tag).
+                // Hihinto kapag may bakanteng slot; ang malampas sa max (Prio 15) ay made-default sa null (mawalan ng tag).
                 $toShift = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
                     ->whereNull('deleted_at')
                     ->whereNotNull('priority')
@@ -4892,7 +4897,7 @@ $services = json_decode($sale->services, true);
                     $cur = (int) $s->priority;
                     if ($cur === $slot) {
                         $newPrio = $cur + 1;
-                        if ($newPrio > 10) {
+                        if ($newPrio > $prioMax) {
                             $clearedNumber = $s->sales_number;
                             $clearedId = $s->id;
                             $s->priority = null;
@@ -4908,7 +4913,7 @@ $services = json_decode($sale->services, true);
                 $sale->priority = $prio;
                 $sale->save();
 
-                // Buong priority map para sa instant UI (kabilang ang na-clear na dating Prio 10)
+                // Buong priority map para sa instant UI (kabilang ang na-clear na dating max Prio)
                 $all = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
                     ->whereNull('deleted_at')
                     ->whereNotNull('priority')
@@ -4920,12 +4925,12 @@ $services = json_decode($sale->services, true);
                 }
                 $map[$sale->id] = $prio;
                 if ($clearedId) {
-                    $map[$clearedId] = null; // bump-off: ang dating Prio 10 ay mawawalan ng tag sa UI agad
+                    $map[$clearedId] = null; // bump-off: ang dating max Prio ay mawawalan ng tag sa UI agad
                 }
 
                 $msg = '✅ Force insert: Prio ' . $prio . ' na ang order na ito — na-shift pababa (+1) ang mga naunang may Prio ≥ ' . $prio . '.';
                 if ($clearedNumber) {
-                    $msg .= ' Ang dating Prio 10 (' . $clearedNumber . ') ay nawalan ng tag.';
+                    $msg .= ' Ang dating Prio ' . $prioMax . ' (' . $clearedNumber . ') ay nawalan ng tag.';
                 }
 
                 return response()->json([

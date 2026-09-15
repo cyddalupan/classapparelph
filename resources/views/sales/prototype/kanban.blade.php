@@ -682,7 +682,7 @@
                         <div class="kanban-card" data-id="{{ $sale->id }}" draggable="true" data-department="{{ $sale->department_id }}" data-photos="{{ $allPhotos ? 'ok' : 'missing' }}" data-balance="{{ $sale->balance_due_computed }}" data-priority="{{ $sale->priority ?? '' }}">
 
                             @if($sale->priority)
-                                @php $prioHue = max(0, min(45, ($sale->priority - 1) * 5)); @endphp
+                                @php $prioHue = max(0, min(45, (int) round(($sale->priority - 1) * 45 / (($priorityMax ?? 15) - 1)))); @endphp
                                 <div style="display:flex;gap:4px;margin-bottom:6px;">
                                     <span class="card-badge" style="background:hsl({{ $prioHue }}, 85%, 45%);color:#fff;font-weight:700;font-size:10px;">PRIO {{ $sale->priority }}</span>
                                 </div>

@@ -860,7 +860,7 @@
                         <td style="max-width:130px;">
                             <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:80px;padding:1px 4px;margin-bottom:3px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}" title="Priority tag — nagamit na sa ibang order ang may (Taken)">
                                 <option value="" {{ !$sale->priority ? 'selected' : '' }}>Prio —</option>
-                                @for($i = 1; $i <= 10; $i++)
+                                @for($i = 1; $i <= ($priorityMax ?? 15); $i++)
                                 @php
                                     // Taken = ginagamit na ng ibang sales (unique prio per number).
                                     // Managers (admin/manager/prod_manager) + COO lang ang pwedeng mag-force
@@ -1587,7 +1587,8 @@ document.addEventListener('change', function(e) {
     });
 });
 
-// === PRIORITY DROPDOWN — tag Prio 1-10 (Manager/CEO/COO may force insert) ===
+// === PRIORITY DROPDOWN — tag Prio 1-15 (Manager/CEO/COO may force insert) ===
+var priorityMax = @json($priorityMax ?? 15);
 var canForcePriority = @json($canForcePriority ?? false);
 // Custom styled confirm dialog (replaces plain browser confirm())
 function prioForceDialog(prio, holder, onYes) {
@@ -1604,7 +1605,7 @@ function prioForceDialog(prio, holder, onYes) {
                 '<div class="prio-confirm-sub">Taken na ang slot na ito &mdash; hawak ni <span class="prio-confirm-holder">' + (holder || 'isa pang order') + '</span></div>' +
             '</div>' +
             '<div class="prio-confirm-body">' +
-                '<div class="prio-confirm-warn">⚠️ Kapag itinuloy: uurong ng <b>+1</b> ang lahat ng may Prio &ge; <b>' + prio + '</b>, at ang kasalukuyang <b>Prio 10</b> ay mawawalan ng tag. Ang order na ito ang kukuha ng Prio <b>' + prio + '</b>.</div>' +
+                '<div class="prio-confirm-warn">⚠️ Kapag itinuloy: uurong ng <b>+1</b> ang lahat ng may Prio &ge; <b>' + prio + '</b>, at ang kasalukuyang <b>Prio ' + priorityMax + '</b> ay mawawalan ng tag. Ang order na ito ang kukuha ng Prio <b>' + prio + '</b>.</div>' +
             '</div>' +
             '<div class="prio-confirm-foot">' +
                 '<button type="button" class="prio-confirm-btn prio-confirm-cancel">Cancel</button>' +
