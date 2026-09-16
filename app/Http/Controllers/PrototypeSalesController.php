@@ -1318,6 +1318,7 @@ public function details(Request $request, string $id)
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
             'progressPercent', 'pendingChanges', 'isManager', 'isGa', 'canGiveFeedback', 'canEdit', 'canEditProdSlip',
+            'currentUser',
             'productionStarted', 'canOverrideReprocess',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
