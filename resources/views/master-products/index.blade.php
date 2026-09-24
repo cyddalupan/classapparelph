@@ -237,9 +237,12 @@
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ route('product-pricing.edit', $item->id) }}" class="btn btn-outline-primary" title="Edit Pricing"><i class="fas fa-money-bill-wave"></i></a>
-                                            <a href="{{ route('master-items.edit', $item->id) }}" class="btn btn-outline-secondary" title="Edit Product"><i class="fas fa-cog"></i></a>
+                                            <a href="{{ route('master-products.edit', $item->id) }}" class="btn btn-outline-primary" title="Edit (tabbed: details, pricing, sales box)"><i class="fas fa-pen-to-square"></i></a>
+                                            <a href="{{ route('product-pricing.edit', $item->id) }}" class="btn btn-outline-secondary" title="Old pricing page"><i class="fas fa-money-bill-wave"></i></a>
+                                            <a href="{{ route('master-items.edit', $item->id) }}" class="btn btn-outline-secondary" title="Old product page"><i class="fas fa-cog"></i></a>
                                         </div>
+
+                                    </td>
                                     </td>
                                 </tr>
                             @endforeach

@@ -18,6 +18,18 @@ use Illuminate\Http\Request;
  */
 class MasterProductsController extends Controller
 {
+    public function edit($id)
+    {
+        $item = MasterItem::with(['productPricings', 'volumeDiscounts'])->findOrFail($id);
+
+        // Pricing tiers (same shape as the Product Pricing edit screen).
+        $supplierPricing = $item->productPricings->firstWhere('price_tier', 'supplier_cost');
+        $salesPricing    = $item->productPricings->firstWhere('price_tier', 'sales_team');
+        $agentPricing    = $item->productPricings->firstWhere('price_tier', 'agent_cost');
+
+        return view('master-products.edit', compact('item', 'supplierPricing', 'salesPricing', 'agentPricing'));
+    }
+
     public function index(Request $request)
     {
         $category   = $request->input('category');

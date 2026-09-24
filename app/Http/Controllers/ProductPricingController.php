@@ -134,7 +134,7 @@ class ProductPricingController extends Controller
         
         DB::transaction(function() use ($request, $item, $userId) {
             // Update master item
-            $item->update([
+            $itemFields = [
                 'name' => $request->input('name'),
                 'category' => $request->input('category'),
                 'description' => $request->input('description'),
@@ -143,7 +143,17 @@ class ProductPricingController extends Controller
                 'barcode' => $request->input('barcode'),
                 'sales_box' => $request->input('sales_box'),
                 'updated_by' => $userId,
-            ]);
+            ];
+
+            // Optional catalog attributes — only updated when present in the request,
+            // so existing callers (which don't send them) keep their current behavior.
+            foreach (['brand', 'shirt_type', 'color', 'size'] as $attr) {
+                if ($request->has($attr)) {
+                    $itemFields[$attr] = $request->input($attr);
+                }
+            }
+
+            $item->update($itemFields);
             
             // Update or create pricing for each tier
             foreach (['supplier_cost', 'sales_team', 'agent_cost'] as $tier) {

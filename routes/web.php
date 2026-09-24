@@ -236,6 +236,9 @@ Route::get('/printing-calculator', function() {
     // Master Products & Pricing — unified hub (Phase 1 draft, additive; does not touch existing pages)
     Route::get('/master-products', [App\Http\Controllers\MasterProductsController::class, 'index'])
         ->name('master-products.index');
+    Route::get('/master-products/{id}/edit', [App\Http\Controllers\MasterProductsController::class, 'edit'])
+        ->name('master-products.edit');
+    // Note: saving uses the existing product-pricing.update + volume-discounts.store endpoints.
 
     # API: Products for sales box
     
