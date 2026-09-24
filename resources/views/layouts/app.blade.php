@@ -637,9 +637,9 @@
                             <span class="nav-text">Orders</span>
                             <span class="nav-badge">24</span>
                         </a>
-                        <a href="{{ route('product-pricing.index') }}" class="nav-item {{ request()->routeIs('product-pricing.*') ? 'active' : '' }}{{ $navDemoHide ? ' nav-demo-hidden' : '' }}">
-                            <i class="fas fa-money-bill-wave"></i>
-                            <span class="nav-text">Product Pricing</span>
+                        <a href="{{ route('master-products.index') }}" class="nav-item {{ request()->routeIs('master-products.*') || request()->routeIs('master-items.*') || request()->routeIs('product-pricing.*') ? 'active' : '' }}{{ $navDemoHide ? ' nav-demo-hidden' : '' }}">
+                            <i class="fas fa-boxes-stacked"></i>
+                            <span class="nav-text">Master Products &amp; Pricing</span>
                         </a>
                         <a href="{{ route('printing.public') }}" class="nav-item {{ request()->routeIs('printing.*') ? 'active' : '' }}{{ $navDemoHide ? ' nav-demo-hidden' : '' }}">
                             <i class="fas fa-calculator"></i>

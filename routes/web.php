@@ -204,8 +204,11 @@ Route::get('/printing-calculator', function() {
         ->name('inventories.index');
     
     // MASTER ITEMS PAGE - Product catalog management (no stock quantities)
-    Route::get('/master-items', [App\Http\Controllers\MasterItemsController::class, 'index'])
-        ->name('master-items.index');
+    // Phase 3: /master-items now redirects to the unified hub (route name kept for backward compat).
+    // The create/store/edit/update/destroy routes below remain unchanged.
+    Route::get('/master-items', function () {
+        return redirect()->route('master-products.index', request()->query());
+    })->name('master-items.index');
     Route::get('/master-items/create', [App\Http\Controllers\MasterItemsController::class, 'create'])
         ->name('master-items.create');
     Route::post('/master-items', [App\Http\Controllers\MasterItemsController::class, 'store'])

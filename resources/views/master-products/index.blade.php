@@ -22,23 +22,23 @@
     <div class="row mb-4 align-items-center">
         <div class="col">
             <h1 class="h3 mb-0"><i class="fas fa-boxes-stacked me-2"></i>Master Products &amp; Pricing</h1>
-            <p class="text-muted mb-0">Catalog + per-tier pricing + Sales Box assignment — in one place (Phase 1 draft, view only)</p>
+            <p class="text-muted mb-0">Catalog + per-tier pricing + Sales Box assignment — in one place</p>
         </div>
         <div class="col-auto">
             <div class="btn-group" role="group">
-                <a href="{{ route('master-items.index') }}" class="btn btn-outline-secondary">
-                    <i class="fas fa-boxes me-1"></i> Master Items (old)
+                <a href="{{ route('master-items.create') }}{{ $category ? '?category='.urlencode($category) : '' }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Add New Product
                 </a>
-                <a href="{{ route('product-pricing.index') }}" class="btn btn-outline-primary">
-                    <i class="fas fa-tags me-1"></i> Product Pricing (old)
+                <a href="{{ route('product-pricing.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-tags me-1"></i> Old Pricing Page
                 </a>
             </div>
         </div>
     </div>
 
-    <div class="alert alert-info d-flex align-items-center">
-        <i class="fas fa-flask me-2"></i>
-        <div><strong>Phase 1 — read-only draft.</strong> Walang write dito. Ang mga "Edit" button ay pupunta pa rin sa lumang pages. Wala pang nabago sa live system.</div>
+    <div class="alert alert-light border d-flex align-items-center">
+        <i class="fas fa-circle-info me-2"></i>
+        <div><strong>Bukas na lahat dito:</strong> pwede nang i-edit ang details, pricing, Sales Box, at volume discounts mula sa isang pahina lang.</div>
     </div>
 
     <!-- Stats -->

@@ -310,7 +310,7 @@
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ route('master-items.index') }}" class="btn btn-secondary me-md-2">
+                            <a href="{{ route('master-products.index') }}" class="btn btn-secondary me-md-2">
                                 <i class="fas fa-arrow-left me-1"></i> Back to Catalog
                             </a>
                             <button type="submit" class="btn btn-primary">
