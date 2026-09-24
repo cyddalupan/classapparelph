@@ -1007,6 +1007,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/freebie/{requestId}/audit', [App\Http\Controllers\FreebieSlipController::class, 'audit'])->name('sales.prototype.freebie.audit');
         Route::post('/sales/prototype/freebie/{requestId}/reject', [App\Http\Controllers\FreebieSlipController::class, 'reject'])->name('sales.prototype.freebie.reject');
         Route::post('/sales/prototype/freebie/{requestId}/done', [App\Http\Controllers\FreebieSlipController::class, 'done'])->name('sales.prototype.freebie.done');
+        Route::post('/sales/prototype/freebie/{requestId}/check', [App\Http\Controllers\FreebieSlipController::class, 'check'])->name('sales.prototype.freebie.check');
         
         // Edit Transaction (Add/Remove/Change items during production)
         Route::get('/sales/prototype/{id}/edit-items', [App\Http\Controllers\PrototypeSalesController::class, 'editItems'])->name('sales.prototype.edit-items');

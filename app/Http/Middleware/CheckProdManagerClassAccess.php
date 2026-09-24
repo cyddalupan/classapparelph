@@ -141,6 +141,7 @@ class CheckProdManagerClassAccess
         'sales.prototype.freebie.reject',
         'sales.prototype.freebie.audit',
         'sales.prototype.freebie.done',
+        'sales.prototype.freebie.check',
 
         // Comments & notifications
         'sales.prototype.add-comment',

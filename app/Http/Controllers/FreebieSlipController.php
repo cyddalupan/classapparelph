@@ -106,20 +106,36 @@ class FreebieSlipController extends Controller
                 return $it;
             })->values();
             $slip = $slips->get($r->id);
+            $r->slip_id = $slip->id ?? null;
             $r->slip_status = $slip->status ?? null;
             $r->slip_done_by = $slip->done_by ?? null;
             $r->slip_done_at = $slip->done_at ?? null;
+            // Per-role Done checkboxes (GA / QA / Manager) — 2026-09-24
+            $r->slip_ga_by = $slip->ga_done_by ?? null;
+            $r->slip_ga_at = $slip->ga_done_at ?? null;
+            $r->slip_qa_by = $slip->qa_done_by ?? null;
+            $r->slip_qa_at = $slip->qa_done_at ?? null;
+            $r->slip_mgr_by = $slip->mgr_done_by ?? null;
+            $r->slip_mgr_at = $slip->mgr_done_at ?? null;
             $r->age_hours = round((now()->timestamp - strtotime($r->created_at)) / 3600, 1);
             $r->approved_by_name = $this->userName($r->approved_by);
             $r->rejected_by_name = $this->userName($r->rejected_by);
             $r->done_by_name = $this->userName($r->slip_done_by);
+            $r->slip_ga_name = $this->userName($r->slip_ga_by);
+            $r->slip_qa_name = $this->userName($r->slip_qa_by);
+            $r->slip_mgr_name = $this->userName($r->slip_mgr_by);
         });
+
+        $u = auth()->user();
 
         return response()->json([
             'requests' => $requests,
             'can_request' => $this->canRequest(),
             'can_approve' => $this->canApprove(),
             'can_done' => $this->canDone(),
+            'can_ga' => (bool) ($u && ($u->isGa() || $u->isAdmin())),
+            'can_qa' => (bool) ($u && ($u->isQa() || $u->isAdmin())),
+            'can_mgr' => (bool) ($u && $u->isManager()),
         ]);
     }
 
@@ -672,6 +688,101 @@ class FreebieSlipController extends Controller
         ]);
 
         return response()->json(['success' => true, 'message' => 'Freebie slip marked done.']);
+    }
+
+    /**
+     * Toggle ONE per-role Done checkbox on a freebie slip (GA / QA / Manager).
+     * Body: { role: ga|qa|mgr, checked: true|false }. Default = toggle.
+     * Slip becomes `done` (green, leaves backjob) kapag lahat ng tatlo ticked.
+     */
+    public function check(Request $request, int $requestId)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $role = strtolower(trim((string) $request->input('role')));
+        if (!in_array($role, ['ga', 'qa', 'mgr'], true)) {
+            return response()->json(['error' => 'Invalid role.'], 422);
+        }
+
+        $allowed = $user->isAdmin()
+            || ($role === 'ga' && $user->isGa())
+            || ($role === 'qa' && $user->isQa())
+            || ($role === 'mgr' && $user->isManager());
+        if (!$allowed) {
+            return response()->json(['error' => 'Unauthorized for this checkbox.'], 403);
+        }
+
+        $fb = DB::table('freebie_requests')->find($requestId);
+        if (!$fb || $fb->status !== 'approved') {
+            return response()->json(['error' => 'No approved freebie request found for this slip.'], 404);
+        }
+        $sale = DB::table('prototype_sales')->find($fb->sale_id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+        $this->classScopeAbortIfBlocked($sale);
+
+        $slip = DB::table('freebie_slips')->where('freebie_request_id', $fb->id)->first();
+        if (!$slip) {
+            return response()->json(['error' => 'Freebie slip not found.'], 404);
+        }
+
+        $byCol = $role . '_done_by';
+        $atCol = $role . '_done_at';
+
+        $newState = $request->has('checked')
+            ? $request->boolean('checked')
+            : empty($slip->$byCol);
+
+        DB::table('freebie_slips')->where('id', $slip->id)->update([
+            $byCol => $newState ? $user->id : null,
+            $atCol => $newState ? now() : null,
+            'updated_at' => now(),
+        ]);
+
+        $fresh = DB::table('freebie_slips')->find($slip->id);
+        $allDone = $fresh->ga_done_by && $fresh->qa_done_by && $fresh->mgr_done_by;
+
+        DB::table('freebie_slips')->where('id', $slip->id)->update([
+            'status'   => $allDone ? 'done' : 'open',
+            'done_by'  => $allDone ? $user->id : null,
+            'done_at'  => $allDone ? now() : null,
+            'updated_at' => now(),
+        ]);
+
+        $roleLabel = ['ga' => 'GA', 'qa' => 'QA', 'mgr' => 'Manager'][$role];
+        $items = DB::table('freebie_request_items')->where('freebie_request_id', $fb->id)->get();
+        $summary = $items->map(fn($it) => $it->quantity . '\u00d7 ' . $it->description)->join(', ');
+
+        DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'freebie_check',
+            'description' => 'Freebie Slip ' . $roleLabel . ' check ' . ($newState ? 'ticked' : 'unticked')
+                . ' \u2014 ' . $summary . ($allDone ? ' (slip now DONE)' : ''),
+            'details' => json_encode([
+                'freebie_request_id' => $fb->id,
+                'freebie_slip_id' => $slip->id,
+                'role' => $role,
+                'checked' => (bool) $newState,
+                'slip_done' => (bool) $allDone,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'role' => $role,
+            'checked' => (bool) $newState,
+            'checked_by_name' => $newState ? $this->userName($user->id) : null,
+            'slip_status' => $allDone ? 'done' : 'open',
+            'all_done' => (bool) $allDone,
+            'message' => $allDone ? 'Freebie slip DONE.' : $roleLabel . ' checked.',
+        ]);
     }
 
     /* ------------------------------------------------------------------

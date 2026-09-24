@@ -99,6 +99,7 @@ class CheckQaAccess
         'sales.prototype.freebie.pending',
         'sales.prototype.freebie.request',
         'sales.prototype.freebie.done',
+        'sales.prototype.freebie.check',
 
         // Damage Reports — QA/Sales Agent can FILE + manage their own/reported damage reports
         // (same self-service set as the Prod Manager fix). Reviewer-only routes

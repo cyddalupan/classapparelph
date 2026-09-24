@@ -1543,6 +1543,9 @@
                 <button class="prod-tab" data-tab="addProdSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
                     <i class="fas fa-plus-circle me-1"></i>Additional Production Slip
                 </button>
+                <button class="prod-tab" data-tab="freebieSlip" style="background:none;border:none;padding:10px 16px;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;cursor:pointer;margin-bottom:-2px;">
+                    <i class="fas fa-gift me-1" style="color:#7c3aed;"></i>Freebie Slip
+                </button>
             </div>
             <div class="modal-body" id="modalProdSlipBody">
                 <div class="text-center text-muted py-4">
@@ -1551,6 +1554,7 @@
                 </div>
             </div>
             <div class="modal-body" id="modalAddProdSlipBody" style="display:none;"></div>
+            <div class="modal-body" id="modalFreebieSlipBody" style="display:none;"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
@@ -2848,6 +2852,7 @@ function openProdSlipModal() {
     var modalEl = document.getElementById('prodSlipModal');
     var prodBody = document.getElementById('modalProdSlipBody');
     var addProdBody = document.getElementById('modalAddProdSlipBody');
+    var fbBody = document.getElementById('modalFreebieSlipBody');
     if (!modalEl || !prodBody) return;
 
     // Reset tabs to prodSlip
@@ -2865,10 +2870,12 @@ function openProdSlipModal() {
     }
     prodBody.style.display = '';
     addProdBody.style.display = 'none';
+    if (fbBody) fbBody.style.display = 'none';
 
     // Clear caches
     prodBody.dataset.loaded = '';
     addProdBody.dataset.loaded = '';
+    if (fbBody) fbBody.dataset.loaded = '';
 
     // Load production slip
     prodBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading production slip...</p></div>';
@@ -2896,18 +2903,28 @@ document.addEventListener('click', function(e) {
 
     var prodBody = document.getElementById('modalProdSlipBody');
     var addProdBody = document.getElementById('modalAddProdSlipBody');
+    var fbBody = document.getElementById('modalFreebieSlipBody');
+
+    prodBody.style.display = 'none';
+    addProdBody.style.display = 'none';
+    if (fbBody) fbBody.style.display = 'none';
 
     if (tabName === 'addProdSlip') {
-        prodBody.style.display = 'none';
         addProdBody.style.display = '';
         if (!addProdBody.dataset.loaded || addProdBody.dataset.saleId !== String(psSaleId)) {
             addProdBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading additional production slip...</p></div>';
             addProdBody.dataset.loaded = '';
             loadAdditionalProductionSlip(psSaleId);
         }
+    } else if (tabName === 'freebieSlip') {
+        if (fbBody) {
+            fbBody.style.display = '';
+            if (!fbBody.dataset.loaded || fbBody.dataset.saleId !== String(psSaleId)) {
+                loadFreebieSlipTab(psSaleId);
+            }
+        }
     } else {
         prodBody.style.display = '';
-        addProdBody.style.display = 'none';
         if (!prodBody.dataset.loaded || prodBody.dataset.saleId !== String(psSaleId)) {
             prodBody.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading production slip...</p></div>';
             prodBody.dataset.loaded = '';
@@ -4479,6 +4496,102 @@ function updateFeedbackStatus(feedbackId, status) {
         else { alert(data.message || 'Failed to update.'); }
     })
     .catch(function() { alert('Request failed.'); });
+}
+
+/* ===== Freebie Slip tab (Production Slip modal) — GA/QA/Manager Done checkboxes ===== */
+var FREEBIE_PENDING_TPL = '{{ route('sales.prototype.freebie.pending', 'SALE_ID') }}';
+var FREEBIE_CHECK_TPL = '{{ route('sales.prototype.freebie.check', 'REQUEST_ID') }}';
+
+function loadFreebieSlipTab(saleId) {
+    var body = document.getElementById('modalFreebieSlipBody');
+    if (!body) return;
+    saleId = saleId || (typeof psSaleId !== 'undefined' ? psSaleId : null);
+    if (!saleId) { body.innerHTML = '<div class="alert alert-warning">Sale not found.</div>'; return; }
+    body.dataset.saleId = String(saleId);
+    body.dataset.loaded = '1';
+    body.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading freebie slips...</p></div>';
+    fetch(FREEBIE_PENDING_TPL.replace('SALE_ID', saleId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) { renderFreebieSlipTab(data); })
+        .catch(function() { body.innerHTML = '<div class="alert alert-danger">Failed to load freebie slips.</div>'; });
+}
+
+function renderFreebieSlipTab(data) {
+    var body = document.getElementById('modalFreebieSlipBody');
+    if (!body) return;
+    if (data.error) { body.innerHTML = '<div class="alert alert-danger">' + escHtml(data.error) + '</div>'; return; }
+
+    var slips = (data.requests || []).filter(function(r) { return r.slip_status; });
+    if (slips.length === 0) {
+        body.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-gift fa-2x" style="color:#c4b5fd;"></i><p class="mt-2">Walang freebie slip para sa order na ito.</p></div>';
+        return;
+    }
+
+    var html = '';
+    slips.forEach(function(r) {
+        var checkedCount = [r.slip_ga_by, r.slip_qa_by, r.slip_mgr_by].filter(Boolean).length;
+        var done = (r.slip_status === 'done');
+        var badge = done
+            ? '<span class="badge" style="background:#059669;color:#fff;"><i class="fas fa-check-double me-1"></i>DONE</span>'
+            : '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half me-1"></i>' + checkedCount + '/3 checked</span>';
+
+        html += '<div class="border rounded p-3 mb-3" style="border-color:#e5e7eb !important;">';
+        html += '<div class="d-flex justify-content-between align-items-center mb-2">';
+        html += '<div><i class="fas fa-gift me-1" style="color:#7c3aed;"></i><strong>Freebie Slip</strong> <span class="text-muted small">#' + r.id + '</span></div>';
+        html += badge + '</div>';
+
+        html += '<div class="mb-2">';
+        (r.items || []).forEach(function(it) {
+            html += '<div class="d-flex align-items-start gap-2 py-1" style="font-size:13px;">';
+            html += '<span class="badge bg-secondary">' + it.quantity + '\u00d7</span>';
+            html += '<div class="flex-grow-1">' + escHtml(it.description) + (it.purpose ? ' <span class="text-muted small">(' + escHtml(it.purpose) + ')</span>' : '');
+            if (it.reference_image_url) {
+                html += ' <a href="javascript:void(0)" class="small text-primary" onclick="if(typeof openLightbox===\'function\')openLightbox(\'' + it.reference_image_url + '\')"><i class="fas fa-image"></i> ref</a>';
+            }
+            html += '</div></div>';
+        });
+        html += '</div>';
+
+        html += '<div class="d-flex flex-wrap gap-4 align-items-center" style="border-top:1px dashed #e5e7eb;padding-top:10px;">';
+        html += freebieCheckBox(r, 'ga', 'GA', data.can_ga);
+        html += freebieCheckBox(r, 'qa', 'QA', data.can_qa);
+        html += freebieCheckBox(r, 'mgr', 'Manager', data.can_mgr);
+        html += '</div>';
+        html += '</div>';
+    });
+    body.innerHTML = html;
+}
+
+function freebieCheckBox(r, role, label, enabled) {
+    var by = r['slip_' + role + '_by'];
+    var at = r['slip_' + role + '_at'];
+    var nm = r['slip_' + role + '_name'];
+    var id = 'fbchk_' + r.id + '_' + role;
+    var s = '<label for="' + id + '" class="d-flex align-items-center gap-2 mb-0" style="cursor:' + (enabled ? 'pointer' : 'not-allowed') + ';font-size:13px;' + (enabled ? '' : 'opacity:.55;') + '">';
+    s += '<input class="form-check-input mt-0" type="checkbox" id="' + id + '" ' + (by ? 'checked' : '') + ' ' + (enabled ? '' : 'disabled') + ' onchange="freebieToggleCheck(' + r.id + ', \'' + role + '\', this)">';
+    s += '<span><strong>' + label + '</strong>';
+    if (by && nm) s += ' <span class="text-success"><i class="fas fa-check"></i> ' + escHtml(nm) + '</span>' + (at ? ' <span class="text-muted small">\u00b7 ' + new Date(at).toLocaleString() + '</span>' : '');
+    s += '</span></label>';
+    return s;
+}
+
+function freebieToggleCheck(requestId, role, el) {
+    var checked = el.checked;
+    el.disabled = true;
+    fetch(FREEBIE_CHECK_TPL.replace('REQUEST_ID', requestId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content, 'Accept': 'application/json' },
+        body: JSON.stringify({ role: role, checked: checked })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        el.disabled = false;
+        if (data.error) { el.checked = !checked; alert(data.error); return; }
+        loadFreebieSlipTab();
+        if (typeof loadFreebies === 'function') loadFreebies();
+        if (typeof FREEBIE_REFRESH === 'function') FREEBIE_REFRESH();
+    })
+    .catch(function() { el.disabled = false; el.checked = !checked; alert('Request failed.'); });
 }
 
 /* ================= Freebie Slips ================= */
