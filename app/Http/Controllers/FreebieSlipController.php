@@ -544,7 +544,11 @@ class FreebieSlipController extends Controller
         if ($fb->audited_at) {
             return response()->json(['error' => 'This freebie request is already audited.'], 422);
         }
-        if ((int) $fb->approved_by === (int) $user->id) {
+        // CEO/Admin exemption (Andrew 2026-09-22): pwedeng i-audit ng CEO ang
+        // sarili niyang approval. Nananatili pa rin ang double-check rule para sa
+        // manager/COO (kailangan pa rin ng IBANG approver-level user).
+        $isCeo = $user->isAdmin();
+        if (!$isCeo && (int) $fb->approved_by === (int) $user->id) {
             return response()->json(['error' => 'Double-check rule: hindi mo maaaring i-audit ang sarili mong approval — kailangan ng ibang manager/CEO/COO.'], 422);
         }
 

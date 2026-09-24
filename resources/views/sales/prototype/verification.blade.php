@@ -68,6 +68,12 @@
             <p class="text-muted mb-0">Verify, re-tag, or manage individual payment records</p>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ route('sales.verification.duplicates') }}" class="btn btn-outline-danger">
+                <i class="fas fa-clone"></i> Duplicate Refs
+                @if(!empty($dupRefCount))
+                    <span class="badge bg-danger ms-1">{{ $dupRefCount }}</span>
+                @endif
+            </a>
             <a href="{{ route('sales.cash-flow') }}" class="btn btn-outline-success">
                 <i class="fas fa-chart-line"></i> Cash Flow
             </a>
@@ -130,12 +136,29 @@
                                                         <i class="fas fa-hashtag"></i> {{ $payment->reference_number }}
                                                     </span>
                                                 @endif
+                                                @if(!empty($payment->dup_matches))
+                                                    @if(!empty($payment->dup_verified_count))
+                                                        <span class="badge bg-danger me-1" title="May katulad nang reference # na NABERIFY na sa ibang sale">
+                                                            <i class="fas fa-exclamation-triangle"></i> Duplicate ref (verified)
+                                                        </span>
+                                                    @endif
+                                                    @if(!empty($payment->dup_pending_count))
+                                                        <span class="badge bg-warning text-dark me-1" title="May katulad na reference # sa isa pang PENDING pa lang na payment (hindi pa verified)">
+                                                            <i class="fas fa-exclamation-triangle"></i> Duplicate ref (pending)
+                                                        </span>
+                                                    @endif
+                                                @endif
                                                 @if($payment->payment_date)
                                                     <span class="badge bg-light text-dark me-1">
                                                         <i class="fas fa-calendar"></i> {{ \Carbon\Carbon::parse($payment->payment_date)->format('M d, Y') }}
                                                     </span>
                                                 @endif
                                             </div>
+                                            @if(!empty($payment->notes) && $payment->notes !== 'Initial deposit')
+                                                <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                                    <i class="fas fa-sticky-note me-1"></i><strong>Note:</strong> {!! nl2br(e($payment->notes)) !!}
+                                                </div>
+                                            @endif
                                             <div class="mt-2">
                                                 @if($payment->screenshot_path)
                                                     <a href="#" onclick="window.openScreenshot('{{ $payment->screenshot_path }}');return false;" class="text-primary text-decoration-none" title="View Payment Screenshot">
@@ -221,6 +244,18 @@
                                                     <span class="badge bg-light text-dark me-1">
                                                         <i class="fas fa-hashtag"></i> {{ $lj->payment_reference }}
                                                     </span>
+                                                @endif
+                                                @if(!empty($lj->dup_matches))
+                                                    @if(!empty($lj->dup_verified_count))
+                                                        <span class="badge bg-danger me-1" title="May katulad nang reference # na NABERIFY na sa ibang sale">
+                                                            <i class="fas fa-exclamation-triangle"></i> Duplicate ref (verified)
+                                                        </span>
+                                                    @endif
+                                                    @if(!empty($lj->dup_pending_count))
+                                                        <span class="badge bg-warning text-dark me-1" title="May katulad na reference # sa isa pang PENDING pa lang na payment (hindi pa verified)">
+                                                            <i class="fas fa-exclamation-triangle"></i> Duplicate ref (pending)
+                                                        </span>
+                                                    @endif
                                                 @endif
                                                 <span class="badge bg-light text-dark me-1">
                                                     <i class="fas fa-clock"></i> {{ \Carbon\Carbon::parse($lj->created_at)->format('M d, g:i A') }}
@@ -370,6 +405,20 @@
                                                     <div class="text-muted">Amount: <span class="text-decoration-line-through">₱{{ number_format((float) $pe->amount ?? $pe->deposit_paid, 2) }}</span> → <strong class="text-info">₱{{ number_format((float) $pe->pending_amount, 2) }}</strong></div>
                                                 @endif
                                             </div>
+                                            @if(!empty($pe->dup_matches))
+                                                <div class="small mt-1">
+                                                    @if(!empty($pe->dup_verified_count))
+                                                        <span class="badge bg-danger me-1" title="Ang bagong reference # ay may katulad nang NABERIFY na sa ibang sale.">
+                                                            <i class="fas fa-exclamation-triangle"></i> Duplicate ref (verified)
+                                                        </span>
+                                                    @endif
+                                                    @if(!empty($pe->dup_pending_count))
+                                                        <span class="badge bg-warning text-dark me-1" title="Ang bagong reference # ay may katulad sa isa pang PENDING pa lang (hindi pa verified).">
+                                                            <i class="fas fa-exclamation-triangle"></i> Duplicate ref (pending)
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            @endif
                                             @if($pe->payment_screenshot_path)
                                                 <div class="mt-2">
                                                     <img src="{{ $pe->payment_screenshot_path }}" alt="Payment screenshot"

@@ -68,9 +68,20 @@
                 <h4 class="mb-0">🎨 {{ ($mode ?? 'personal') === 'global' ? 'Layout Job List (All)' : 'My Layout Jobs' }}</h4>
                 <div class="sub">{{ ($mode ?? 'personal') === 'global' ? 'Lahat ng bayad / libre na layout jobs — para sa review at payout ng approver.' : 'Bayad / libre na layout jobs mo — assigned sa iyo o ikaw ang gumawa. May GA tag, payment verification, at payout requests.' }}</div>
             </div>
-            @if(in_array(auth()->user()->role, ['admin','staff','coo','cpo','cmo','sales_agent','sales_representative','prod_manager','qa','hr_accountant_agent']))
-            <a href="{{ route('sales.layout-jobs.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New Layout Job</a>
-            @endif
+            <div class="d-flex gap-2 flex-wrap">
+                @if(($mode ?? 'personal') === 'global')
+                <button class="btn btn-warning btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#payoutReqPanel" aria-expanded="{{ (isset($payoutRequests) && $payoutRequests->isNotEmpty()) ? 'true' : 'false' }}">
+                    <i class="fas fa-hand-holding-usd"></i> Payout Requests
+                    <span class="badge bg-dark ms-1">{{ isset($payoutRequests) ? $payoutRequests->count() : 0 }}</span>
+                </button>
+                @endif
+                @if(in_array(auth()->user()->role, ['admin','coo','cpo','cmo']))
+                <a href="{{ route('sales.layout-jobs.dashboard') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-chart-line"></i> Layout Dashboard</a>
+                @endif
+                @if(in_array(auth()->user()->role, ['admin','staff','coo','cpo','cmo','sales_agent','sales_representative','prod_manager','qa','hr_accountant_agent']))
+                <a href="{{ route('sales.layout-jobs.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New Layout Job</a>
+                @endif
+            </div>
         </div>
     </div>
 
@@ -97,7 +108,9 @@
     </div>
     @endif
 
-    @if(($mode ?? 'personal') === 'global' && isset($payoutRequests) && $payoutRequests->isNotEmpty())
+    @if(($mode ?? 'personal') === 'global')
+    <div class="collapse {{ (isset($payoutRequests) && $payoutRequests->isNotEmpty()) ? 'show' : '' }}" id="payoutReqPanel">
+    @if(isset($payoutRequests) && $payoutRequests->isNotEmpty())
     {{-- Approver: lahat ng pending payout requests (requested/paid) --}}
     <div class="lj-card mb-3">
         <div class="p-3">
@@ -129,6 +142,10 @@
                 </table>
             </div>
         </div>
+    </div>
+    @else
+    <div class="lj-card mb-3"><div class="p-3 lj-muted text-center">Walang pending payout request ngayon. 👍</div></div>
+    @endif
     </div>
     @endif
 
@@ -170,7 +187,7 @@
     <div class="lj-card mb-3">
         <div class="lj-card-header p-3 bg-white">
             <form method="GET" class="row g-2 align-items-end">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="lj-muted">Search</label>
                     <input type="text" name="q" value="{{ request('q') }}" class="form-control form-control-sm" placeholder="Job #, customer, description...">
                 </div>
@@ -202,8 +219,17 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="col-md-2">
+                    <label class="lj-muted">Galing kay (Agent)</label>
+                    <select name="agent" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        @foreach($agentUsers ?? [] as $ag)
+                        <option value="{{ $ag->id }}" {{ request('agent')==$ag->id?'selected':'' }}>{{ $ag->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 @endif
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <button class="btn btn-sm btn-outline-primary"><i class="fas fa-filter"></i> Filter</button>
                     <a href="{{ ($mode ?? 'personal') === 'global' ? route('sales.layout-jobs.all') : route('sales.layout-jobs') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
                 </div>
@@ -239,7 +265,7 @@
                                 <span class="text-truncate d-block" style="font-size:.85rem;">{{ $job->description ?: '—' }}</span>
                             </div>
                             @if($job->sale_id)
-                            <span class="lj-badge verified mt-1 d-inline-block"><i class="fas fa-link"></i> Sale #{{ $job->sale_id }}</span>
+                            <a href="{{ route('sales.prototype.show', $job->sale_id) }}" target="_blank" rel="noopener" class="lj-badge verified mt-1 d-inline-block" style="text-decoration:none;"><i class="fas fa-link"></i> Sale #{{ $job->sale_id }}</a>
                             @endif
                         </td>
                         <td>
@@ -293,12 +319,12 @@
                                 <button class="btn btn-sm btn-danger lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'reject')">Reject</button>
                             @endif
                             @if($isApprover)
-                                @if($job->isFree() && $job->amount === null && $job->status !== 'done')
+                                @if($job->isFree() && $job->amount === null && $job->sale_id)
                                 <button class="btn btn-sm btn-dark lj-btn-mini mb-1" onclick="openSetAmount({{ $job->id }}, '{{ $job->job_no }}')">Set Amount</button>
                                 @endif
                             @endif
-                            @if($job->isPaid() && $job->payment_status === 'verified' && !$job->sale_id && auth()->id() === $job->created_by)
-                                {{-- Spec (2026-09-09): verified + ang nag-create ng job lang ang pwedeng mag-link ng sale --}}
+                            @if(!$job->sale_id && auth()->id() === $job->created_by && ($job->isFree() || ($job->isPaid() && $job->payment_status === 'verified')))
+                                {{-- Spec: ang nag-create lang ang pwedeng mag-link; bayad = verified muna, libre = pwede agad (Andrew 2026-09-17) --}}
                                 <button class="btn btn-sm btn-outline-primary lj-btn-mini mb-1" onclick="openLinkSale({{ $job->id }}, '{{ $job->job_no }}')">Link Sale</button>
                             @endif
                             @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id)
@@ -324,6 +350,44 @@
         <div class="p-3">{{ $jobs->links() }}</div>
         @endif
     </div>
+
+    @if(($mode ?? 'personal') === 'global')
+    {{-- Set Amount history — sino ang nag-set ng amount sa libreng layout job (Andrew 2026-09-17) --}}
+    <div class="lj-card mb-3" id="amountSetHistory">
+        <div class="p-3">
+            <h6 class="mb-1">📝 Set Amount History <span class="lj-badge">{{ isset($amountSetHistory) ? $amountSetHistory->count() : 0 }}</span></h6>
+            <div class="lj-muted mb-2">Sino ang nag-set ng amount sa libreng layout job at kailan (pinakahuling 45). Dito makikita ang approval trail ng amount.</div>
+            @if(isset($amountSetHistory) && $amountSetHistory->isNotEmpty())
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>#</th><th>Job No</th><th>Customer</th><th>Layout Doer</th><th class="text-end">Amount</th><th>Pinagmulan</th><th>Set By</th><th>Set At</th></tr></thead>
+                    <tbody>
+                    @foreach($amountSetHistory as $h)
+                    @php
+                        $isSetAction = $h->amount_set_by !== null;
+                        $actor = $isSetAction ? $h->amountSetter?->name : $h->creator?->name;
+                        $when  = $isSetAction ? $h->amount_set_at : $h->created_at;
+                    @endphp
+                    <tr>
+                        <td>#{{ $h->id }}</td>
+                        <td><span class="fw-bold">{{ $h->job_no }}</span>@if($h->sale_id) <span class="lj-badge done ms-1">Sale #{{ $h->sale_id }}</span>@endif</td>
+                        <td>{{ $h->displayCustomer() }}</td>
+                        <td>{{ $h->gaUser?->name ?: '—' }}</td>
+                        <td class="text-end lj-amount">₱{{ number_format((float) $h->amount, 2) }}</td>
+                        <td><span class="lj-badge {{ $h->isFree() ? 'free' : 'paid' }}">{{ $h->isFree() ? 'Libre · Set Amount' : 'Bayad · created' }}</span></td>
+                        <td>{{ $actor ?: '—' }}</td>
+                        <td class="lj-muted">{{ $when?->format('M d, Y h:i A') ?: '—' }}</td>
+                    </tr>
+                    @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @else
+            <div class="lj-muted text-center py-3">Wala pa pang naka-set na amount. 👍</div>
+            @endif
+        </div>
+    </div>
+    @endif
 </div>
 
 {{-- Image lightbox modal --}}
@@ -531,6 +595,11 @@ function openPayPayout(payoutId) {
 
 function submitPayPayout(action) {
     const id = document.getElementById('payPayoutId').value;
+    // Reference # minimum 6 characters (Andrew 2026-09-17)
+    if (window.refLenOK && !window.refLenOK(document.getElementById('payPayoutRef'))) {
+        alert('Minimum 6 characters ang Reference #. Pakihabaan muna bago mag-submit.');
+        return;
+    }
     const fd = new FormData();
     fd.append('action', action);
     fd.append('payment_method', document.getElementById('payPayoutMethod').value);

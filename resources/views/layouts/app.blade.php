@@ -264,7 +264,7 @@
                     <!-- Main Navigation -->
                     <div class="nav-section">
                         <div class="nav-section-title">Main</div>
-                        @if(!Auth::user()->isQa() && !Auth::user()->isHrAccountantAgent())
+                        @if(!Auth::user()->isQa() && !Auth::user()->isHrAccountantAgent() && !Auth::user()->isExternalGa())
                         <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-tachometer-alt"></i>
                             <span class="nav-text">Dashboard</span>
@@ -315,6 +315,11 @@
                          Purely additive: existing items above are untouched. -->
                     <div class="nav-section">
                         <div class="nav-section-title">Manager Order List</div>
+                        <a href="{{ route('sales.prototype.set-time-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.set-time-list*') ? 'active' : '' }}">
+                            <i class="fas fa-clock"></i>
+                            <span class="nav-text">Set Time List</span>
+                            @if(($navCountSetTime ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#2563eb;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountSetTime }}</span>@endif
+                        </a>
                         <a href="{{ route('sales.prototype.pending-approvals') }}" class="nav-item {{ request()->routeIs('sales.prototype.pending-approvals') ? 'active' : '' }}">
                             <i class="fas fa-hourglass-half"></i>
                             <span class="nav-text">Pending Approval</span>
@@ -437,6 +442,12 @@
                             <span class="nav-text">Layout Job List</span>
                             @if(($navCountLayoutPayout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#c026d3;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountLayoutPayout }}</span>@endif
                         </a>
+                        @if(Auth::user()->isCmo())
+                        <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span class="nav-text">GA Job List</span>
+                        </a>
+                        @endif
                         @else
                         <a href="{{ route('sales.prototype.kanban') }}" class="nav-item {{ request()->routeIs('sales.prototype.kanban') ? 'active' : '' }}">
                             <i class="fas fa-columns"></i>
@@ -510,6 +521,11 @@
                     <!-- Manager Order List shortcuts — same buttons as the Manager List page -->
                     <div class="nav-section">
                         <div class="nav-section-title">Manager Order List</div>
+                        <a href="{{ route('sales.prototype.set-time-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.set-time-list*') ? 'active' : '' }}">
+                            <i class="fas fa-clock"></i>
+                            <span class="nav-text">Set Time List</span>
+                            @if(($navCountSetTime ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#2563eb;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountSetTime }}</span>@endif
+                        </a>
                         <a href="{{ route('sales.prototype.pending-approvals') }}" class="nav-item {{ request()->routeIs('sales.prototype.pending-approvals') ? 'active' : '' }}">
                             <i class="fas fa-hourglass-half"></i>
                             <span class="nav-text">Pending Approval</span>
@@ -718,6 +734,11 @@
                     <!-- Manager Order List shortcuts — same buttons as the Manager List page -->
                     <div class="nav-section">
                         <div class="nav-section-title">Manager Order List</div>
+                        <a href="{{ route('sales.prototype.set-time-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.set-time-list*') ? 'active' : '' }}">
+                            <i class="fas fa-clock"></i>
+                            <span class="nav-text">Set Time List</span>
+                            @if(($navCountSetTime ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#2563eb;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountSetTime }}</span>@endif
+                        </a>
                         <a href="{{ route('sales.prototype.pending-approvals') }}" class="nav-item {{ request()->routeIs('sales.prototype.pending-approvals') ? 'active' : '' }}">
                             <i class="fas fa-hourglass-half"></i>
                             <span class="nav-text">Pending Approval</span>
@@ -830,7 +851,7 @@
 
                     <!-- GA Navigation (Only for GA/Agent users) -->
                     @if(Auth::user()->isGa())
-                    @php $gaIsAgent = str_contains(strtolower(Auth::user()->position ?? ''), 'agent'); @endphp
+                    @php $gaIsAgent = str_contains(strtolower(Auth::user()->position ?? ''), 'agent'); $gaIsExternal = Auth::user()->isExternalGa(); @endphp
                     @if($gaIsAgent)
                     <div class="nav-section">
                         <div class="nav-section-title">Business</div>
@@ -847,6 +868,7 @@
                             <span class="nav-text">GA Job List</span>
                             @if(($navCountGa ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#0891b2;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountGa }}</span>@endif
                         </a>
+                        @if(!$gaIsExternal)
                         <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
                             <i class="fas fa-tools"></i>
                             <span class="nav-text">Backjob List</span>
@@ -855,6 +877,7 @@
                             <i class="fas fa-calendar-alt"></i>
                             <span class="nav-text">Calendar</span>
                         </a>
+                        @endif
                     </div>
                     @if($gaIsAgent)
                     <div class="nav-section">
@@ -878,6 +901,7 @@
                             <span class="nav-text">Layout Job</span>
                         </a>
                     </div>
+                    @if(!$gaIsExternal)
                     <div class="nav-section">
                         <div class="nav-section-title">My Work</div>
                         <a href="{{ route('sales.prototype.production-feedback.list') }}" class="nav-item {{ request()->routeIs('sales.prototype.production-feedback.list') ? 'active' : '' }}">
@@ -890,6 +914,7 @@
                             @if(($navCountAgentDelay ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#b45309;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountAgentDelay }}</span>@endif
                         </a>
                     </div>
+                    @endif
                     @endif
 
                     <!-- Artist Navigation (Only for Artists) -->
@@ -1335,6 +1360,65 @@
             <input type="file" name="avatar" id="avatarInput" accept="image/*">
         </form>
         @endauth
+
+        {{-- Reference # minimum-length guard (Andrew 2026-09-17)
+             Rule: reference number dapat minimum 6 characters; kapag 1-5 chars → warning + block sa submit.
+             Central ito: awtomatikong sumasakop sa lahat ng reference inputs (native forms, AJAX forms). --}}
+        <script>
+        (function () {
+            var MIN = 6;
+            var SEL = 'input[name="reference_number"], input[name="payment_reference"], input[name="new_reference_number"]';
+
+            function anchorFor(el) { return el.closest('.input-group') || el; }
+            function noteFor(el) {
+                var a = anchorFor(el);
+                var n = a.nextElementSibling;
+                return (n && n.classList && n.classList.contains('ref-min-note')) ? n : null;
+            }
+            function check(el) {
+                if (!el || !el.value && el.value !== '') return true;
+                var v = (el.value || '').trim();
+                var bad = v.length > 0 && v.length < MIN;
+                var note = noteFor(el);
+                if (bad) {
+                    el.classList.add('is-invalid');
+                    if (!note) {
+                        note = document.createElement('div');
+                        note.className = 'ref-min-note text-danger small mt-1';
+                        anchorFor(el).insertAdjacentElement('afterend', note);
+                    }
+                    note.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Masyadong maikli ang Reference # (' + v.length + ' characters). Minimum 6 characters.';
+                } else {
+                    el.classList.remove('is-invalid');
+                    if (note) note.remove();
+                }
+                return !bad;
+            }
+            // Global helper — matawag sa custom JS submit handlers (fetch/AJAX).
+            window.refLenOK = function (el) { return check(el); };
+            window.refLenScan = function (scope) {
+                var bad = [];
+                (scope || document).querySelectorAll(SEL).forEach(function (el) { if (!check(el)) bad.push(el); });
+                return bad;
+            };
+
+            // Live warning habang nagta-type / pag-alis ng focus (delegated — sakop pati dynamic/modal inputs).
+            document.addEventListener('input', function (e) { if (e.target && e.target.matches && e.target.matches(SEL)) check(e.target); }, true);
+            document.addEventListener('blur',  function (e) { if (e.target && e.target.matches && e.target.matches(SEL)) check(e.target); }, true);
+
+            // Block ang native/AJAX form submit kung may kulang sa 6 characters.
+            document.addEventListener('submit', function (e) {
+                if (!e.target || !e.target.querySelectorAll) return;
+                var bad = window.refLenScan(e.target);
+                if (bad.length) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    alert('Minimum 6 characters ang Reference #. Pakihabaan muna bago i-submit.');
+                    bad[0].focus();
+                }
+            }, true);
+        })();
+        </script>
 
         @stack('scripts')
     </body>

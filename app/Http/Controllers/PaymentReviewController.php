@@ -158,6 +158,7 @@ class PaymentReviewController extends Controller
                 'prototype_sales.customer_name',
                 'prototype_sales.department_id',
                 'prototype_sales.total_amount',
+                \DB::raw("(SELECT pp.notes FROM prototype_payments pp WHERE pp.prototype_sale_id = prototype_sales.id AND pp.notes IS NOT NULL AND pp.notes <> 'Initial deposit' ORDER BY pp.id ASC LIMIT 1) as sale_payment_note"),
                 'requester.name as requested_by_name',
                 'accountant.name as accountant_name'
             );
@@ -330,6 +331,7 @@ class PaymentReviewController extends Controller
                 'prototype_sales.customer_name',
                 'prototype_sales.department_id',
                 'prototype_sales.total_amount',
+                \DB::raw("(SELECT pp.notes FROM prototype_payments pp WHERE pp.prototype_sale_id = prototype_sales.id AND pp.notes IS NOT NULL AND pp.notes <> 'Initial deposit' ORDER BY pp.id ASC LIMIT 1) as sale_payment_note"),
                 'requester.name as requested_by_name',
                 'accountant.name as accountant_name',
                 'reviewer.name as reviewed_by_name'

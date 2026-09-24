@@ -9,6 +9,7 @@ class ProductionChecklist extends Model
     protected $fillable = [
         'sale_id',
         'items',
+        'additional_items',
         'ga_done',
         'ga_done_at',
         'ga_notes',
@@ -26,6 +27,7 @@ class ProductionChecklist extends Model
 
     protected $casts = [
         'items' => 'array',
+        'additional_items' => 'array',
         'ga_done' => 'boolean',
         'qa1_done' => 'boolean',
         'press_done' => 'boolean',

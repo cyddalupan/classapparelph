@@ -1255,6 +1255,34 @@ function _normalizeSize(s) {
     return map[s.toLowerCase()] || s.toUpperCase();
 }
 
+// ===== Auto-arrange ng roster rows ayon sa size (XS → 8XL) =====
+// Ginagamit pagkatapos mag-upload ng Excel: kung hindi pa nakaayos ang sizes,
+// awtomatikong iaayos ang mga row (name/size/QTY ay mananatiling magkakasama).
+window.SUB_SIZE_ORDER = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL'];
+window.sub_sizeRank = function(sizeStr) {
+    var s = _normalizeSize(String(sizeStr == null ? '' : sizeStr).toUpperCase().trim());
+    // Robust aliases (para tama ang rank kahit full word ang nasa Excel: "SMALL", "MEDIUM"...)
+    var A = {'SMALL':'S','MEDIUM':'M','LARGE':'L','XLARGE':'XL','EXTRA SMALL':'XS','XSMALL':'XS','EXTRA LARGE':'XL',
+             '2XLARGE':'2XL','3XLARGE':'3XL','4XLARGE':'4XL','5XLARGE':'5XL','6XLARGE':'6XL','7XLARGE':'7XL','8XLARGE':'8XL'};
+    if (A[s]) s = A[s];
+    var i = SUB_SIZE_ORDER.indexOf(s);
+    if (i >= 0) return i;                 // XS..8XL -> 0..11
+    var n = parseFloat(s);
+    if (!isNaN(n)) return 1000 + n;       // numeric sizes (waist) -> pagkatapos ng letter sizes
+    return 99999;                         // hindi kilala -> hulihan (stable)
+};
+window.sub_sortRowsBySize = function(rows, sizeCol) {
+    if (!rows || sizeCol < 0) return rows;   // walang size column -> huwag galawin
+    return rows.map(function(r, i) { return { r: r, i: i }; })
+        .sort(function(a, b) {
+            var ra = sub_sizeRank(a.r ? a.r[sizeCol] : '');
+            var rb = sub_sizeRank(b.r ? b.r[sizeCol] : '');
+            if (ra !== rb) return ra - rb;
+            return a.i - b.i;             // stable: pantay na size -> ayon sa orihinal na order
+        })
+        .map(function(x) { return x.r; });
+};
+
 window.sub_autoBuildFromExcel = function(headers, rows) {
     // Store for mapping reference
     window.sub_excelHeaders = headers;
@@ -1289,6 +1317,12 @@ window.sub_autoBuildFromExcel = function(headers, rows) {
                 numCol = idx;
             }
         });
+    }
+    
+    // I-ayos ang rows ayon sa size (XS → 8XL) bago i-render — kung may size column.
+    // Stable sort: mananatiling magkakasama ang name/size/QTY ng bawat row.
+    if (sizeCol >= 0) {
+        rows = sub_sortRowsBySize(rows, sizeCol);
     }
     
     // Build displayCols — ALL columns preserved, with cssClass for auto-detected roles
@@ -1479,7 +1513,9 @@ window.sub_addItemToOrder = function() {
             var name = row.querySelector('.roster-name');
             var size = row.querySelector('.roster-size');
             var number = row.querySelector('.roster-number');
-            if (name && size) {
+            if (size) {
+                // Name ay OPTIONAL: ang Excel na puro size/qty (walang name column)
+                // ay dapat pa ring ma-detect ang sizes (Andrew 2026-09-18).
                 // Use qty=1 for manual additions; for Excel imports, use number column value
                 var qty = number ? (parseInt(number.value) || 1) : 1;
                 // Extract ALL Excel columns from the roster row (preserves headers for print-slip)
@@ -1490,7 +1526,7 @@ window.sub_addItemToOrder = function() {
                         columns.push([header, input.value]);
                     }
                 });
-                var entry = {name: name.value, size: size.value, number: number ? number.value : '', qty: qty};
+                var entry = {name: name ? name.value : '', size: size.value, number: number ? number.value : '', qty: qty};
                 if (columns.length > 0) {
                     entry.columns = columns;
                 }

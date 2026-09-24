@@ -100,6 +100,19 @@ class CheckQaAccess
         'sales.prototype.freebie.request',
         'sales.prototype.freebie.done',
 
+        // Damage Reports — QA/Sales Agent can FILE + manage their own/reported damage reports
+        // (same self-service set as the Prod Manager fix). Reviewer-only routes
+        // (damage.review / damage.resolve / damage.dismiss) are EXCLUDED — the
+        // controller's isReviewer() still guards them.
+        'damage.index',
+        'damage.create',
+        'damage.store',
+        'damage.show',
+        'damage.update',
+        'damage.comment',
+        'damage.acknowledge',
+        'damage.contest',
+
         // Layout Jobs — QA/Sales Agent: view list + create (tag GA) + link sa sale
         'sales.layout-jobs',
         'sales.layout-jobs.create',

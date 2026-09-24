@@ -162,6 +162,17 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * External GA (position "External GA"): isang GA na restricted ang access.
+     * Makikita lang: Damage Reports, GA Job List (assign sa kanya na FOR FORMAT),
+     * at Layout Job.
+     */
+    public function isExternalGa(): bool
+    {
+        return $this->role === 'ga'
+            && str_contains(strtolower($this->position ?? ''), 'external');
+    }
+
+    /**
      * Check if user has COO role
      */
     public function isCoo(): bool

@@ -91,6 +91,19 @@ class CheckProdManagerClassAccess
         'sales.prototype.delay-review',
         'sales.prototype.delay-review.submit',
 
+        // Damage Reports (Main nav) — file / view / edit / comment / ack / contest.
+        // Reviewer-only actions (review/resolve/dismiss) are intentionally NOT here:
+        // the controller's isReviewer() restricts issuing to admin/coo/cpo/cmo.
+        // Added 2026-09-17: prod_manager clicking "Report Damage" on the sale page got 403.
+        'damage.index',
+        'damage.create',
+        'damage.store',
+        'damage.show',
+        'damage.update',
+        'damage.comment',
+        'damage.acknowledge',
+        'damage.contest',
+
         // Notify agent (🔔/🚨 buttons on Manager Order List) — Class only, scoped in controller
         'sales.prototype.notify-agent',
 

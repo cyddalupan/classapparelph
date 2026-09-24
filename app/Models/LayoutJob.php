@@ -49,6 +49,12 @@ class LayoutJob extends Model
         return $this->belongsTo(PrototypeSale::class, 'sale_id');
     }
 
+    /** Sino ang nag-set ng amount (para sa Set Amount history) */
+    public function amountSetter()
+    {
+        return $this->belongsTo(User::class, 'amount_set_by');
+    }
+
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id');

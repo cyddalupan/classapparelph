@@ -343,8 +343,8 @@
                         @endif
                     </div>
                     <div class="d-flex gap-2">
-                        @php $canAudit = auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()); @endphp
-                        @if($r->status === 'approved' && !$r->audited_at && $canAudit && auth()->id() !== (int) $r->approved_by)
+                        @php $canAudit = auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()); $isCeoAudit = auth()->user() && auth()->user()->isAdmin(); @endphp
+                        @if($r->status === 'approved' && !$r->audited_at && $canAudit && ($isCeoAudit || auth()->id() !== (int) $r->approved_by))
                             <button class="btn btn-sm" style="background:#4338ca;color:#fff;" onclick="auditFreebieReq({{ $r->id }}, this)" title="Double-check: i-verify ang approval na ito"><i class="fas fa-shield-alt me-1"></i>Audit</button>
                         @endif
                         @if($r->status === 'pending' && auth()->user() && auth()->user()->isManager())

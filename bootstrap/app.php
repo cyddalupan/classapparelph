@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'cmo.access' => \App\Http\Middleware\CheckCmoAccess::class,
             'prodmanager.access' => \App\Http\Middleware\CheckProdManagerClassAccess::class,
             'qa.access' => \App\Http\Middleware\CheckQaAccess::class,
+            'agent.cleared' => \App\Http\Middleware\EnsureAgentActionsCleared::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             '/api/production/*',

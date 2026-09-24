@@ -148,6 +148,63 @@
         color: #6c757d;
     }
     .empty-state i { font-size: 48px; color: #d1c4e9; display: block; margin-bottom: 12px; }
+
+    /* Backjob History (audit trail) */
+    .bj-history {
+        margin-top: 24px;
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .bj-history-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        flex-wrap: wrap;
+    }
+    .bj-history-head h5 {
+        margin: 0;
+        font-weight: 700;
+        color: #3a2d6b;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .bj-history table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .bj-history th {
+        background: #fff;
+        padding: 8px 12px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+        white-space: nowrap;
+        color: #6c757d;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
+    .bj-history td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    .bj-history tr:hover td { background: #faf9ff; }
+    .bj-action {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+    }
+    .bj-action.done { background: #198754; }
+    .bj-action.deleted { background: #dc3545; }
+    .bj-hist-text { max-width: 280px; color: #333; }
+    .bj-hist-sub { font-size: 10px; color: #999; }
 </style>
 @endpush
 
@@ -274,6 +331,53 @@
             </tbody>
         </table>
     </div>
+
+    <!-- 🕘 Backjob History — simpleng audit trail (read-only) -->
+    <div class="bj-history">
+        <div class="bj-history-head">
+            <h5>🕘 Backjob History <span style="font-weight:500;color:#6c757d;font-size:12px;">({{ count($history) }} event{{ count($history) == 1 ? '' : 's' }})</span></h5>
+            <input type="text" id="histSearch" placeholder="Search history..." onkeyup="filterHistory()" style="border:1px solid #dee2e6;border-radius:8px;padding:5px 10px;font-size:12px;min-width:200px;">
+        </div>
+        @if(empty($history))
+            <div class="text-center py-4 text-muted"><small>Wala pang backjob history.</small></div>
+        @else
+        <div style="overflow-x:auto;max-height:440px;overflow-y:auto;">
+            <table id="histTable">
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Sales #</th>
+                        <th>Backjob Comment</th>
+                        <th>Project</th>
+                        <th>Added</th>
+                        <th>Finished / When</th>
+                        <th>By</th>
+                        <th>Customer</th>
+                        <th>Department</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($history as $h)
+                    <tr>
+                        <td><span class="bj-action {{ $h['action'] }}">{{ $h['action'] === 'deleted' ? '🗑 Deleted' : '✅ Done' }}</span></td>
+                        <td style="white-space:nowrap;"><a href="{{ route('sales.prototype.show', $h['sale_id']) }}" style="font-size:11px;font-weight:600;">{{ $h['sales_number'] }}</a></td>
+                        <td class="bj-hist-text">{{ $h['text'] ?: '—' }}</td>
+                        <td style="max-width:160px;"><span style="font-size:11px;">{{ \Illuminate\Support\Str::limit($h['project'], 30) }}</span></td>
+                        <td><span class="bj-hist-sub">{{ $h['added_at'] ?: '—' }}</span></td>
+                        <td style="white-space:nowrap;"><span style="font-size:11px;font-weight:600;color:#3a2d6b;">{{ $h['at'] ?: '—' }}</span></td>
+                        <td style="white-space:nowrap;font-size:11px;">{{ $h['by'] ?: '—' }}</td>
+                        <td style="font-size:11px;">{{ $h['customer'] ?: '—' }}</td>
+                        <td>
+                            @php $dl = $departmentLabels[$h['department_id']] ?? 'Other'; $dc = [1=>"#0d6efd",2=>"#198754",3=>"#dc3545",4=>"#6f42c1",5=>"#fd7e14",6=>"#6c757d"][$h['department_id']] ?? "#6c757d"; @endphp
+                            <span class="bj-dept" style="background:{{ $dc }};">{{ $dl }}</span>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+    </div>
 </div>
 @endsection
 
@@ -293,6 +397,15 @@ function filterTable() {
         if (search && text.indexOf(search) === -1) show = false;
         if (dept && rowDept !== dept) show = false;
         if (agent && rowAgent !== agent) show = false;
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+function filterHistory() {
+    var search = (document.getElementById('histSearch').value || '').toLowerCase();
+    var rows = document.querySelectorAll('#histTable tbody tr');
+    rows.forEach(function(row) {
+        var show = !search || row.textContent.toLowerCase().indexOf(search) !== -1;
         row.style.display = show ? '' : 'none';
     });
 }

@@ -290,7 +290,30 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             @endif
-            
+
+            {{-- Server-side validation feedback (Andrew 2026-09-23).
+                 Dati, kapag pumapalya ang validation sa server, tahimik lang na
+                 nagre-redirect pabalik dito (302 -> create) na walang mensahe,
+                 kaya akala ng agent "walang nangyari" at hindi na-save. --}}
+            @if($errors->any())
+                <div class="alert alert-danger alert-dismissible fade show mb-4" id="saleValidationErrors">
+                    <strong><i class="fas fa-exclamation-triangle me-2"></i>Hindi na-save ang sale.</strong>
+                    <ul class="mb-0 mt-2">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show mb-4">
+                    {{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
             <h3 class="section-title">Step 1: Customer Information</h3>
             
             <!-- Smart Customer Detection -->
@@ -425,10 +448,15 @@
             <!-- 6 Product Boxes -->
             <div class="row g-4" id="productBoxesContainer">
                 <!-- Box 1: Garment Printing -->
+                {{-- Garment Printing: enabled ONLY for Andrew's account (admin id 1) while still under test.
+                     Everyone else keeps the greyed-out "Soon" box (purely additive gate, no other behavior touched). --}}
+                @php $garmentBoxEnabled = auth()->check() && (int) auth()->id() === 1; @endphp
                 <div class="col-md-6 col-lg-4">
-                    <div class="product-box card h-100 disabled" data-product-type="garment" data-department="iprint">
+                    <div class="product-box card h-100 {{ $garmentBoxEnabled ? '' : 'disabled' }}" data-product-type="garment" data-department="iprint">
                         <div class="card-body text-center">
+                            @unless($garmentBoxEnabled)
                             <span class="soon-badge">Soon</span>
+                            @endunless
                             <div class="product-icon mb-3">
                                 <i class="fas fa-tshirt fa-3x text-primary"></i>
                             </div>
@@ -678,6 +706,13 @@
             
 
             
+            <!-- Note for the verifier -->
+            <div class="mb-3">
+                <label for="payment_note" class="form-label">Note <span class="text-muted">(Optional)</span></label>
+                <textarea class="form-control" id="payment_note" name="payment_note" rows="2" maxlength="500" placeholder="Isulat dito ang note para sa verifier (hal. detalye ng bayad, paalala)..."></textarea>
+                <small class="text-muted">Makikita ito ng mga verifier sa kanilang <strong>Payment Verification</strong> page.</small>
+            </div>
+
             <!-- Hidden fields -->
             <input type="hidden" name="payment_type" id="payment_type_hidden" value="">
             <input type="hidden" name="deposit_paid" id="deposit_paid_hidden" value="0">
@@ -5750,6 +5785,30 @@ function normalizeSize(raw) {
     return raw;
 }
 
+// ===== Auto-arrange ng roster rows ayon sa size (XS → 8XL) =====
+// Ginagamit pagkatapos mag-upload ng Excel: kung hindi pa nakaayos ang sizes,
+// awtomatikong iaayos ang mga row (name/size/QTY ay mananatiling magkakasama).
+window.SUB_SIZE_ORDER = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL'];
+window.sublimation_sizeRank = function(sizeStr) {
+    var s = normalizeSize(String(sizeStr == null ? '' : sizeStr).toUpperCase().trim());
+    var i = SUB_SIZE_ORDER.indexOf(s);
+    if (i >= 0) return i;                 // XS..8XL -> 0..11
+    var n = parseFloat(s);
+    if (!isNaN(n)) return 1000 + n;       // numeric sizes (waist) -> pagkatapos ng letter sizes
+    return 99999;                         // hindi kilala -> hulihan (stable)
+};
+window.sublimation_sortRowsBySize = function(rows, sizeCol) {
+    if (!rows || sizeCol < 0) return rows;   // walang size column -> huwag galawin
+    return rows.map(function(r, i) { return { r: r, i: i }; })
+        .sort(function(a, b) {
+            var ra = sublimation_sizeRank(a.r ? a.r[sizeCol] : '');
+            var rb = sublimation_sizeRank(b.r ? b.r[sizeCol] : '');
+            if (ra !== rb) return ra - rb;
+            return a.i - b.i;             // stable: pantay na size -> ayon sa orihinal na order
+        })
+        .map(function(x) { return x.r; });
+};
+
 // Upload Excel file → show column mapping dialog
 var sublimation_excelData = null; // stores parsed rows for later
 var sublimation_excelHeaders = null; // stores headers for column mapping
@@ -6127,6 +6186,12 @@ function sublimation_autoBuildFromExcel(headers, rows) {
             qtyCol = idx;
         }
     });
+    
+    // I-ayos ang rows ayon sa size (XS → 8XL) bago i-render — kung may size column.
+    // Stable sort: mananatiling magkakasama ang name/size/QTY ng bawat row.
+    if (sizeCol >= 0) {
+        rows = sublimation_sortRowsBySize(rows, sizeCol);
+    }
     
     // Build displayCols — ALL columns preserved, with cssClass for auto-detected roles
     var displayCols = [];

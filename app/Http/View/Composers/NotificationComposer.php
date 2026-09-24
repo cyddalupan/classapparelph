@@ -81,6 +81,7 @@ class NotificationComposer
             'navCountCloseout' => 0,
             'navCountRejected' => 0,
             'navCountAgentDelay' => 0,
+            'navCountSetTime' => 0,
         ];
     }
 
@@ -112,6 +113,15 @@ class NotificationComposer
                 $q->where('department_id', $classDept);
             }
             $counts['navCountApproval'] = (int) $q->count();
+        }
+
+        // 🕒 Set Time List — page allows isManager() || isCoo(); badge = orders with a set needed time
+        if ($isManager || $isCoo) {
+            $q = PrototypeSale::whereNotNull('needed_by')->whereNull('archived_at');
+            if ($classDept !== null) {
+                $q->where('department_id', $classDept);
+            }
+            $counts['navCountSetTime'] = (int) $q->count();
         }
 
         // ⚠️ Delay List — page allows admin | role=manager | coo | classScoped(prod_manager/qa)

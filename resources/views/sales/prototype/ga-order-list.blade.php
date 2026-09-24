@@ -51,6 +51,7 @@
     }
     .ga-stat .val { font-size: 22px; font-weight: 800; line-height: 1.1; color: #111827; }
     .ga-stat .lbl { font-size: 11.5px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+    .ga-stat .pcs { font-size: 10.5px; color: #6f42c1; font-weight: 700; margin-top: 1px; }
 
     /* ── Filter bar ────────────────────────────── */
     .ga-filterbar {
@@ -490,9 +491,17 @@
     {{-- ── Stats row ── --}}
     @php
         $stageCounts = [];
+        $stagePcs = [];
         foreach ($sales->items() as $s) {
             $sl = $s->production_stage ?: ($statusToStage[$s->kanban_status ?? 'new'] ?? 'HOLD');
             $stageCounts[$sl] = ($stageCounts[$sl] ?? 0) + 1;
+            // Bilang ng pcs (total quantity) per stage (Andrew 2026-09-18)
+            $svcItems = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
+            $pcs = 0;
+            foreach ((array) $svcItems as $svc) {
+                if (is_array($svc)) $pcs += (int) ($svc['quantity'] ?? 1);
+            }
+            $stagePcs[$sl] = ($stagePcs[$sl] ?? 0) + $pcs;
         }
         $delayedCount = collect($sales->items())->where('is_delayed', 1)->count();
         $prioCount = collect($sales->items())->whereNotNull('priority')->count();
@@ -510,7 +519,7 @@
             <div class="ga-stat">
                 <div class="ico" style="background:linear-gradient(135deg,#6f42c1,#8e5bd8);"><i class="fas fa-palette"></i></div>
                 <div>
-                    <div class="val">{{ $sales->total() }}</div>
+                    <div class="val" id="gaStatTotal">{{ $sales->total() }}</div>
                     <div class="lbl">Total Jobs</div>
                 </div>
             </div>
@@ -520,8 +529,9 @@
             <div class="ga-stat">
                 <div class="ico" style="background:{{ $stageColors[$st][0] }};">{{ $stageColors[$st][1] }}</div>
                 <div>
-                    <div class="val">{{ $stageCounts[$st] ?? 0 }}</div>
+                    <div class="val" data-ga-stage="{{ $st }}">{{ $stageCounts[$st] ?? 0 }}</div>
                     <div class="lbl">{{ $lbl }}</div>
+                    <div class="pcs">{{ number_format($stagePcs[$st] ?? 0) }} pcs</div>
                 </div>
             </div>
         </div>
@@ -1063,6 +1073,19 @@
         'HOLD': ['#6c757d', ''], 'SEWING': ['#198754', ''], 'QA': ['#6f42c1', ''],
         'DISPATCH': ['#fd7e14', ''], 'UNPAID': ['#dc3545', ''], 'DONE': ['#198754', '']
     });
+    // === In-place stat counters (para hindi na mag-full reload kapag nagpalit ng production status) ===
+    function gaAdjustCounts(removeDelta, newStage, oldStage) {
+        var readInt = function (el) { return parseInt((el.textContent || '').replace(/[^0-9]/g, ''), 10) || 0; };
+        var totalEl = document.getElementById('gaStatTotal');
+        if (totalEl && removeDelta < 0) totalEl.textContent = Math.max(0, readInt(totalEl) + removeDelta);
+        var bump = function (stage, d) {
+            var el = document.querySelector('[data-ga-stage="' + stage + '"]');
+            if (el) el.textContent = Math.max(0, readInt(el) + d);
+        };
+        if (oldStage && oldStage !== newStage) bump(oldStage, -1);
+        if (newStage && oldStage !== newStage) bump(newStage, 1);
+    }
+
     document.addEventListener('change', function (e) {
         const sel = e.target.closest('.prod-status-select');
         if (!sel) return;
@@ -1090,7 +1113,19 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const hasStageFilter = !!urlParams.get('stage');
                 if (GA_FILTER_STAGES.indexOf(stage) === -1 || hasStageFilter) {
-                    setTimeout(function () { location.reload(); }, 900); // nawala sa GA list scope o may stage filter → refresh
+                    // Umalis sa GA scope / may stage filter → alisin na lang in place (fade),
+                    // HINDI na kailangan i-refresh ang buong page (Andrew 2026-09-24).
+                    if (row) {
+                        row.style.transition = 'opacity .3s';
+                        row.style.opacity = '0';
+                        setTimeout(function () {
+                            row.remove();
+                            gaAdjustCounts(-1, stage, oldStage);
+                        }, 320);
+                    }
+                } else {
+                    // Nanatili sa scope → i-update lang ang stage counters in place.
+                    gaAdjustCounts(0, stage, oldStage);
                 }
             } else {
                 sel.value = oldStage;

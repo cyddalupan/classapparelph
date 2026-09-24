@@ -148,7 +148,141 @@ class LayoutJobController extends Controller
             ->orderByDesc('id')->get();
         $payoutMap = $this->buildPayoutMap($jobs, $payoutRequests);
 
-        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode', 'payoutRequests', 'payoutMap'));
+        // Set Amount history (Andrew 2026-09-17) — sino ang nag-set ng amount at kailan.
+        //  • Libre: via "Set Amount" ni approver (amount_set_by / amount_set_at)
+        //  • Bayad: amount na naisama nung ginawa ang job (created_by / created_at)
+        // Sinusundan din ang parehong filters ng main list (type/status/ga/agent/q).
+        $historyQ = LayoutJob::with(['gaUser', 'amountSetter', 'creator', 'customer', 'sale'])
+            ->where(function ($q) {
+                $q->whereNotNull('amount_set_by')
+                  ->orWhere(function ($q2) {
+                      $q2->where('type', 'paid')->whereNotNull('amount');
+                  });
+            });
+        $this->applyFilters($historyQ, $request, $u);
+        $amountSetHistory = $historyQ
+            ->orderByDesc(DB::raw('COALESCE(amount_set_at, created_at)'))
+            ->limit(45)
+            ->get();
+
+        // Galing kay (Agent / Sales Agent) — mga user na gumawa ng layout jobs
+        $agentUsers = DB::table('users')
+            ->whereIn('id', function ($sub) {
+                $sub->select('created_by')->from('layout_jobs')->whereNotNull('created_by');
+            })
+            ->orderBy('name')->get(['id', 'name']);
+
+        return view('sales.layout_jobs.index', compact('jobs', 'gaUsers', 'credit', 'paymentAccounts', 'mode', 'payoutRequests', 'payoutMap', 'amountSetHistory', 'agentUsers'));
+    }
+
+    /**
+     * Layout Dashboard (Andrew 2026-09-17) — per layout-doer money view:
+     *   Earned (nakamagkano na) · Nabigay na (given) · Pending request · Available (pwede pa makuha).
+     * Approvers (admin/coo/cpo/cmo) lang ang may access.
+     * Filter: GA + period (this/last month, this year, custom range).
+     */
+    public function dashboard(Request $request)
+    {
+        if (!$this->canReview()) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $gaFilter = $request->get('ga', '');
+        $period   = $request->get('period', 'all'); // all|this_month|last_month|this_year|custom
+        $fromIn   = $request->get('from', '');
+        $toIn     = $request->get('to', '');
+
+        // Resolve period → [from, to] (Y-m-d) o null para sa "all".
+        $dFrom = $dTo = null;
+        $now = now();
+        if ($period === 'this_month') {
+            $dFrom = $now->copy()->startOfMonth()->toDateString();
+            $dTo   = $now->copy()->endOfMonth()->toDateString();
+        } elseif ($period === 'last_month') {
+            $prev = $now->copy()->subMonthNoOverflow();
+            $dFrom = $prev->copy()->startOfMonth()->toDateString();
+            $dTo   = $prev->copy()->endOfMonth()->toDateString();
+        } elseif ($period === 'this_year') {
+            $dFrom = $now->copy()->startOfYear()->toDateString();
+            $dTo   = $now->copy()->endOfYear()->toDateString();
+        } elseif ($period === 'custom') {
+            $dFrom = $fromIn ?: null;
+            $dTo   = $toIn ?: null;
+        }
+
+        // --- Earned (kita): done + naka-link sa sales + (paid verified | free na may amount) ---
+        $earnedQ = DB::table('layout_jobs')
+            ->where('status', 'done')
+            ->whereNotNull('sale_id')
+            ->where(function ($q) {
+                $q->where(function ($s) { $s->where('type', 'paid')->where('payment_status', 'verified'); })
+                  ->orWhere(function ($s) { $s->where('type', 'free')->whereNotNull('amount'); });
+            })
+            ->when($gaFilter, fn($q) => $q->where('ga_user_id', $gaFilter))
+            ->when($dFrom, fn($q) => $q->whereRaw('DATE(COALESCE(done_at, created_at)) >= ?', [$dFrom]))
+            ->when($dTo, fn($q) => $q->whereRaw('DATE(COALESCE(done_at, created_at)) <= ?', [$dTo]));
+        $earnedByGa = $earnedQ->groupBy('ga_user_id')
+            ->select('ga_user_id', DB::raw('SUM(amount) as earned'), DB::raw('COUNT(*) as jobs'))
+            ->get()->keyBy('ga_user_id');
+
+        // --- Payouts: nabigay na / pending request (period-filtered) ---
+        $payQ = DB::table('layout_job_payouts')
+            ->whereIn('status', ['requested', 'paid', 'verified'])
+            ->when($gaFilter, fn($q) => $q->where('ga_user_id', $gaFilter))
+            ->when($dFrom, fn($q) => $q->whereRaw('DATE(COALESCE(paid_at, requested_at, created_at)) >= ?', [$dFrom]))
+            ->when($dTo, fn($q) => $q->whereRaw('DATE(COALESCE(paid_at, requested_at, created_at)) <= ?', [$dTo]));
+        $payAgg = $payQ->groupBy('ga_user_id')
+            ->select('ga_user_id',
+                DB::raw("SUM(CASE WHEN status IN ('paid','verified') THEN amount ELSE 0 END) as given"),
+                DB::raw("SUM(CASE WHEN status = 'requested' THEN amount ELSE 0 END) as pending"))
+            ->get()->keyBy('ga_user_id');
+
+        // --- Available (kasalukuyang balanse, all-time): earned_all - reserved(requested/paid/verified) ---
+        $earnedAllAgg = DB::table('layout_jobs')
+            ->where('status', 'done')->whereNotNull('sale_id')
+            ->where(function ($q) {
+                $q->where(function ($s) { $s->where('type', 'paid')->where('payment_status', 'verified'); })
+                  ->orWhere(function ($s) { $s->where('type', 'free')->whereNotNull('amount'); });
+            })
+            ->when($gaFilter, fn($q) => $q->where('ga_user_id', $gaFilter))
+            ->groupBy('ga_user_id')
+            ->select('ga_user_id', DB::raw('SUM(amount) as earned_all'))
+            ->get()->keyBy('ga_user_id');
+        $reservedAgg = DB::table('layout_job_payouts')
+            ->whereIn('status', ['requested', 'paid', 'verified'])
+            ->when($gaFilter, fn($q) => $q->where('ga_user_id', $gaFilter))
+            ->groupBy('ga_user_id')
+            ->select('ga_user_id', DB::raw('SUM(amount) as reserved'))
+            ->get()->keyBy('ga_user_id');
+
+        // --- Buuin ang per-doer rows ---
+        $doers = $this->layoutDoerUsers()->when($gaFilter, fn($c) => $c->where('id', (int) $gaFilter));
+        $rows = [];
+        $totals = ['jobs' => 0, 'earned' => 0.0, 'given' => 0.0, 'pending' => 0.0, 'available' => 0.0];
+        foreach ($doers as $d) {
+            $earned = (float) optional($earnedByGa->get($d->id))->earned;
+            $jobs   = (int) optional($earnedByGa->get($d->id))->jobs;
+            $given  = (float) optional($payAgg->get($d->id))->given;
+            $pending = (float) optional($payAgg->get($d->id))->pending;
+            $earnedAll = (float) optional($earnedAllAgg->get($d->id))->earned_all;
+            $reserved  = (float) optional($reservedAgg->get($d->id))->reserved;
+            $available = max(0, round($earnedAll - $reserved, 2));
+
+            $rows[] = (object) [
+                'id' => $d->id, 'name' => $d->name, 'position' => $d->position,
+                'jobs' => $jobs, 'earned' => $earned, 'given' => $given,
+                'pending' => $pending, 'available' => $available,
+            ];
+            $totals['jobs'] += $jobs;
+            $totals['earned'] += $earned;
+            $totals['given'] += $given;
+            $totals['pending'] += $pending;
+            $totals['available'] += $available;
+        }
+
+        $gaUsers = $this->layoutDoerUsers();
+
+        return view('sales.layout_jobs.dashboard', compact('rows', 'totals', 'gaUsers', 'gaFilter', 'period', 'fromIn', 'toIn', 'dFrom', 'dTo'));
     }
 
     /**
@@ -195,6 +329,9 @@ class LayoutJobController extends Controller
         if ($ga = $request->get('ga')) {
             $query->where('ga_user_id', $ga);
         }
+        if ($agent = $request->get('agent')) {
+            $query->where('created_by', $agent);
+        }
         if ($q = trim($request->get('q', ''))) {
             $query->where(function ($sub) use ($q) {
                 $sub->where('job_no', 'like', "%{$q}%")
@@ -218,6 +355,8 @@ class LayoutJobController extends Controller
     {
         $earned = (float) LayoutJob::where('ga_user_id', $gaUserId)
             ->where('status', 'done')
+            // Andrew 2026-09-17: hindi pumapasok sa kita kapag hindi naka-link sa sales.
+            ->whereNotNull('sale_id')
             ->where(function ($q) {
                 $q->where(function ($sub) { // bayad na verified
                     $sub->where('type', 'paid')->where('payment_status', 'verified');
@@ -382,6 +521,12 @@ class LayoutJobController extends Controller
         }
 
         $job = LayoutJob::findOrFail($id);
+        if (!$job->isFree()) {
+            return response()->json(['error' => 'Bayad na layout — may amount na ito.'], 422);
+        }
+        if (!$job->sale_id) {
+            return response()->json(['error' => 'I-link muna sa sale bago mag-set ng amount.'], 422);
+        }
         $amount = (float) $request->validate(['amount' => 'required|numeric|min:0'])['amount'];
 
         $job->update([
@@ -550,11 +695,13 @@ class LayoutJobController extends Controller
     {
         $u = auth()->user();
         $job = LayoutJob::findOrFail($id);
-        if ($job->type !== 'paid') {
-            return response()->json(['error' => 'Libreng layout — hindi ito idinadagdag sa sales.'], 422);
-        }
-        if ($job->payment_status !== 'verified') {
+        // Bayad: verified muna ang payment bago i-link. Libre: pwede agad i-link
+        // (Andrew 2026-09-17: kailangan ng sales link kahit libre para pumasok sa kita).
+        if ($job->type === 'paid' && $job->payment_status !== 'verified') {
             return response()->json(['error' => 'I-verify muna ang payment bago i-link sa sale.'], 422);
+        }
+        if ($job->sale_id) {
+            return response()->json(['error' => 'Naka-link na ang job na ito sa isang sale.'], 422);
         }
         // Spec (2026-09-09): pagkatapos ma-verify, ang nag-create ng job (sales agent/user) lang ang
         // pwedeng mag-link ng sale — sila ang nakakaalam ng sales number.

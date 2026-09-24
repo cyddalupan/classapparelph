@@ -79,6 +79,13 @@
         background: #28a745;
     }
 
+    /* Production check mini-counts (GA/QA1/QA2) sa ilalim ng progress meter */
+    .prod-check-mini { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; font-size: 9.5px; line-height: 1.2; }
+    .prod-check-mini span { padding: 1px 4px; border-radius: 4px; background: #f1f5f9; color: #475569; white-space: nowrap; }
+    .prod-check-mini .pc-ga  { background: #e2e8f0; color: #334155; }
+    .prod-check-mini .pc-qa1 { background: #cff4fc; color: #055160; }
+    .prod-check-mini .pc-qa2 { background: #d1e7dd; color: #0a3622; }
+
     /* Dept badge */
     .dept-badge {
         display: inline-block;
@@ -658,83 +665,82 @@
     </div>
 
         <!-- Filter Bar -->
-    <div class="filter-bar">
-        <input type="text" id="searchInput" placeholder="Search customer, sales #, phone..." onkeyup="filterTable()">
-        <input type="date" id="dateFrom" title="Date from" onchange="filterTable()" style="min-width:140px;">
-        <input type="date" id="dateTo" title="Date to" onchange="filterTable()" style="min-width:140px;">
-        <select id="stageFilter" onchange="filterTable()" title="Filter by production stage">
+    @php
+        $agsel = request('agent');
+        $agopts = collect($agentOptions ?? []);
+        if ($agsel && !$agopts->contains($agsel)) { $agopts = $agopts->prepend($agsel); }
+    @endphp
+    {{-- Filter Bar — SERVER-SIDE (Andrew 2026-09-18). Filters persist across pages
+         via GET query params + withQueryString(). Same semantics as the old client-side JS. --}}
+    <form method="GET" action="/sales/prototype/list" class="filter-bar" id="filterForm">
+        <input type="text" name="q" id="searchInput" value="{{ request('q') }}" placeholder="Search customer, sales #, phone... (Enter)" onkeyup="if(event.key==='Enter'){this.form.submit();}">
+        <input type="date" name="date_from" id="dateFrom" value="{{ request('date_from') }}" title="Date from" onchange="this.form.submit()" style="min-width:140px;">
+        <input type="date" name="date_to" id="dateTo" value="{{ request('date_to') }}" title="Date to" onchange="this.form.submit()" style="min-width:140px;">
+        <select name="stage" id="stageFilter" onchange="this.form.submit()" title="Filter by production stage">
             <option value="">All Stages</option>
             @foreach(array_keys($prodStageMap) as $stageName)
-                <option value="{{ $stageName }}">{{ $stageName }}</option>
+                <option value="{{ $stageName }}" @selected(request('stage') === $stageName)>{{ $stageName }}</option>
             @endforeach
         </select>
-        <select id="deptFilter" onchange="filterTable()">
+        <select name="dept" id="deptFilter" onchange="this.form.submit()">
             <option value="">All Departments</option>
-            <option value="1">iPrint</option>
-            <option value="2">Consol</option>
-            <option value="3">Cinco</option>
-            <option value="4">Class</option>
-            <option value="5">MTO</option>
-            <option value="6">Other</option>
+            @foreach(['1'=>'iPrint','2'=>'Consol','3'=>'Cinco','4'=>'Class','5'=>'MTO','6'=>'Other'] as $dv=>$dl)
+                <option value="{{ $dv }}" @selected((string) request('dept') === (string) $dv)>{{ $dl }}</option>
+            @endforeach
         </select>
-        <select id="statusFilter" onchange="filterTable()">
+        <select name="status" id="statusFilter" onchange="this.form.submit()">
             <option value="">All Statuses</option>
-            <option value="new">New</option>
-            <option value="sample_approval">Sample/Approval</option>
-            <option value="design">Design</option>
-            <option value="production">Production</option>
-            <option value="quality_check">Quality Check</option>
-            <option value="ready_for_delivery">Ready for Delivery</option>
-            <option value="delivered">Delivered</option>
-            <option value="completed">Completed</option>
+            @foreach(['new'=>'New','sample_approval'=>'Sample/Approval','design'=>'Design','production'=>'Production','quality_check'=>'Quality Check','ready_for_delivery'=>'Ready for Delivery','delivered'=>'Delivered','completed'=>'Completed'] as $sv=>$sl)
+                <option value="{{ $sv }}" @selected(request('status') === $sv)>{{ $sl }}</option>
+            @endforeach
         </select>
         <label class="prio-toggle" title="Show only orders with a priority set">
-            <input type="checkbox" id="prioFilter" onchange="filterTable()"> ⭐ With Priority
+            <input type="checkbox" name="prio" value="1" id="prioFilter" @checked(request()->boolean('prio')) onchange="this.form.submit()"> ⭐ With Priority
         </label>
-        <select id="paymentFilter" onchange="filterTable()">
+        <select name="payment" id="paymentFilter" onchange="this.form.submit()">
             <option value="">All Payments</option>
-            <option value="paid">✅ Paid</option>
-            <option value="refunded">↩ Refunded</option>
-            <option value="pending">⏳ Pending</option>
-            <option value="po">📄 P.O. (No Downpayment)</option>
-            <option value="rejected">❌ Rejected</option>
-            <option value="balance">⚠️ With Balance Due</option>
+            @foreach(['paid'=>'✅ Paid','refunded'=>'↩ Refunded','pending'=>'⏳ Pending','po'=>'📄 P.O. (No Downpayment)','rejected'=>'❌ Rejected','balance'=>'⚠️ With Balance Due'] as $pv=>$pl)
+                <option value="{{ $pv }}" @selected(request('payment') === $pv)>{{ $pl }}</option>
+            @endforeach
         </select>
-        <select id="agentFilter" onchange="filterTable()">
+        <select name="agent" id="agentFilter" onchange="this.form.submit()">
             <option value="">All Agents</option>
+            @foreach($agopts as $ag)
+                <option value="{{ $ag }}" @selected(request('agent') === $ag)>{{ $ag }}</option>
+            @endforeach
         </select>
-        <select id="photoFilter" onchange="filterTable()">
+        <select name="photo" id="photoFilter" onchange="this.form.submit()">
             <option value="">All Photos</option>
-            <option value="missing">⚠️ Missing Photos</option>
-            <option value="complete">📄🎨 Complete</option>
+            <option value="missing" @selected(request('photo') === 'missing')>⚠️ Missing Photos</option>
+            <option value="complete" @selected(request('photo') === 'complete')>📄🎨 Complete</option>
         </select>
-        <select id="timeReqFilter" onchange="filterTable()" title="Filter by Set Time status">
+        <select name="time_req" id="timeReqFilter" onchange="this.form.submit()" title="Filter by Set Time status">
             <option value="">All Set Time</option>
-            <option value="requested">⏰ Requested (Waiting)</option>
-            <option value="set">✅ Time Set</option>
-            <option value="none">— No Request</option>
+            <option value="requested" @selected(request('time_req') === 'requested')>⏰ Requested (Waiting)</option>
+            <option value="set" @selected(request('time_req') === 'set')>✅ Time Set</option>
+            <option value="none" @selected(request('time_req') === 'none')>— No Request</option>
         </select>
-        <select id="timeSort" onchange="sortByNeededTime()" title="Sort by Set Time (ascending/descending)" style="max-width:190px;">
+        <select name="time_sort" id="timeSort" onchange="document.getElementById('dueSort').value='';this.form.submit()" title="Sort by Set Time (ascending/descending)" style="max-width:190px;">
             <option value="">Sort: Default</option>
-            <option value="asc">⏫ Set Time: Earliest First</option>
-            <option value="desc">⏬ Set Time: Latest First</option>
+            <option value="asc" @selected(request('time_sort') === 'asc')>⏫ Set Time: Earliest First</option>
+            <option value="desc" @selected(request('time_sort') === 'desc')>⏬ Set Time: Latest First</option>
         </select>
-        <select id="dueSort" onchange="sortByDueDate()" title="Sort by remaining days / due date" style="max-width:200px;">
+        <select name="due_sort" id="dueSort" onchange="document.getElementById('timeSort').value='';this.form.submit()" title="Sort by remaining days / due date" style="max-width:200px;">
             <option value="">Sort: Remaining Days</option>
-            <option value="asc">⏫ Due Soonest First (urgent on top)</option>
-            <option value="desc">⏬ Due Farthest First</option>
+            <option value="asc" @selected(request('due_sort') === 'asc')>⏫ Due Soonest First (urgent on top)</option>
+            <option value="desc" @selected(request('due_sort') === 'desc')>⏬ Due Farthest First</option>
         </select>
-        <select id="daysLeftFilter" onchange="filterTable()" title="Filter by due date / days left">
+        <select name="days_left" id="daysLeftFilter" onchange="this.form.submit()" title="Filter by due date / days left">
             <option value="">All Days Left</option>
-            <option value="overdue">🔴 Overdue</option>
-            <option value="today">⏰ Due Today</option>
-            <option value="soon">🟠 Due in 1-3 Days</option>
-            <option value="later">🟢 Due in 4+ Days</option>
-            <option value="none">— No Due Date</option>
+            <option value="overdue" @selected(request('days_left') === 'overdue')>🔴 Overdue</option>
+            <option value="today" @selected(request('days_left') === 'today')>⏰ Due Today</option>
+            <option value="soon" @selected(request('days_left') === 'soon')>🟠 Due in 1-3 Days</option>
+            <option value="later" @selected(request('days_left') === 'later')>🟢 Due in 4+ Days</option>
+            <option value="none" @selected(request('days_left') === 'none')>— No Due Date</option>
         </select>
-        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetFilters()" title="Reset all filters">↺ Reset</button>
+        <a href="/sales/prototype/list" class="btn btn-outline-secondary btn-sm" title="Reset all filters">↺ Reset</a>
         <span class="text-muted" style="font-size:13px;">{{ $sales->total() }} orders</span>
-    </div>
+    </form>
 
     <!-- Pending Changes Modal -->
     @if(isset($pendingChangesList) && $pendingChangesList->count() > 0)
@@ -856,7 +862,7 @@
                             else $daysLeftBucket = 'later';
                         }
                     @endphp
-                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" data-time-req="{{ !empty($sale->needed_by) ? 'set' : (!empty($sale->time_requested_at) ? 'requested' : 'none') }}" data-needed-by="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d H:i:s') : '' }}" data-days-left="{{ $daysLeftBucket }}" data-due="{{ $dlDate ? \Carbon\Carbon::parse($dlDate)->startOfDay()->format('Y-m-d') : '' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" data-time-req="{{ !empty($sale->needed_by) ? 'set' : (!empty($sale->time_requested_at) ? 'requested' : 'none') }}" data-needed-by="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d H:i:s') : '' }}" data-days-left="{{ $daysLeftBucket }}" data-due="{{ $dlDate ? \Carbon\Carbon::parse($dlDate)->startOfDay()->format('Y-m-d') : '' }}" data-agent="{{ $sale->sales_agent_name ?? '' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
                         <td style="max-width:130px;">
                             <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:80px;padding:1px 4px;margin-bottom:3px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}" title="Priority tag — nagamit na sa ibang order ang may (Taken)">
                                 <option value="" {{ !$sale->priority ? 'selected' : '' }}>Prio —</option>
@@ -918,13 +924,19 @@
                         </td>
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
-                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;{{ !$hasFileShot ? 'background:#e9ecef;color:#adb5bd;cursor:not-allowed;' : '' }}" @if(!$hasFileShot) disabled title="🔒 Kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL" @endif>
-                                @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); $balanceDue = (float) $sale->balance_due_computed; $bjLockedSale = in_array((int) $sale->id, $backjobLockSaleIds ?? [], true); @endphp
+                            @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); $balanceDue = (float) $sale->balance_due_computed; $bjStatusSale = in_array((int) $sale->id, $backjobStatusSaleIds ?? [], true); $bjDispatchLock = in_array((int) $sale->id, $backjobLockSaleIds ?? [], true); @endphp
+                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $currentStage }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;@if($bjStatusSale)background:#fdecea;color:#b02a37;font-weight:700;border-color:#f1aeb5;cursor:not-allowed;@elseif(!$hasFileShot)background:#e9ecef;color:#adb5bd;cursor:not-allowed;@endif" @if($bjStatusSale) disabled title="🔧 BACKJOB — may active backjob. I-clear muna lahat bago makapag-tag ng ibang production status." @elseif(!$hasFileShot) disabled title="🔒 Kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL" @endif>
+                                @if($bjStatusSale)
+                                    <option value="{{ $currentStage }}" selected>BACKJOB</option>
+                                @else
                                 @foreach($prodStageMap as $stage => $st)
-                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if($st === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE" @elseif($stage === 'DISPATCH' && $bjLockedSale && $currentStage !== 'DISPATCH') disabled title="🔒 May active backjob / open freebie slip — i-clear muna lahat bago i-DISPATCH" @elseif(in_array($st, ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed']) && $hasFileShot && !$hasColorShot) disabled title="🔒 Kulang Approved Sample Color — kumpletuhin muna bago lumampas sa FOR SAMPLE / FOR APPROVAL" @endif>{{ $stage }}</option>
+                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if($st === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE" @elseif($stage === 'DISPATCH' && $bjDispatchLock && $currentStage !== 'DISPATCH') disabled title="🔒 May active backjob / open freebie slip — i-clear muna lahat bago i-DISPATCH" @elseif(in_array($st, ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed']) && $hasFileShot && !$hasColorShot) disabled title="🔒 Kulang Approved Sample Color — kumpletuhin muna bago lumampas sa FOR SAMPLE / FOR APPROVAL" @endif>{{ $stage }}</option>
                                 @endforeach
+                                @endif
                             </select>
-                            @if($bjLockedSale && $currentStage !== 'DISPATCH')
+                            @if($bjStatusSale)
+                                <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔧 BACKJOB — hindi makakapag-tag ng ibang production status hangga't may active backjob</div>
+                            @elseif($bjDispatchLock && $currentStage !== 'DISPATCH')
                                 <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔒 may active backjob / open freebie slip — hindi ma-DISPATCH hangga't hindi na-clear</div>
                             @endif
                             @if($balanceDue > 0)
@@ -1034,6 +1046,14 @@
                                     </div>
                                 @endforeach
                             </div>
+                            @php $pcc = $prodCheckCounts[$sale->id] ?? null; @endphp
+                            @if($pcc && (($pcc['ga']['total'] ?? 0) > 0 || ($pcc['qa1']['total'] ?? 0) > 0 || ($pcc['qa2']['total'] ?? 0) > 0))
+                            <div class="prod-check-mini" title="Production Check — rows na-check/kabuuan · piraso tapos/kabuuan">
+                                <span class="pc-ga">GA {{ $pcc['ga']['done'] }}/{{ $pcc['ga']['total'] }} · {{ $pcc['ga']['pcs_done'] }}/{{ $pcc['ga']['pcs_total'] }} pcs</span>
+                                <span class="pc-qa1">QA1 {{ $pcc['qa1']['done'] }}/{{ $pcc['qa1']['total'] }} · {{ $pcc['qa1']['pcs_done'] }}/{{ $pcc['qa1']['pcs_total'] }} pcs</span>
+                                <span class="pc-qa2">QA2 {{ $pcc['qa2']['done'] }}/{{ $pcc['qa2']['total'] }} · {{ $pcc['qa2']['pcs_done'] }}/{{ $pcc['qa2']['pcs_total'] }} pcs</span>
+                            </div>
+                            @endif
                         </td>
                         <td>
                             <span class="dept-badge" style="background:{{ $departmentColors[$sale->department_id] ?? '#6c757d' }};">
@@ -1315,10 +1335,16 @@ function notifyAgent(btn) {
     .then(function(data) {
         if (data.success) {
             showToast('✅ ' + data.message);
-            btn.innerHTML = '✅';
-            btn.classList.remove('btn-outline-warning', 'btn-outline-danger', 'btn-danger');
-            btn.classList.add('btn-success');
-            setTimeout(function() { location.reload(); }, 1200);
+            // Huwag nang mag-full reload (Andrew 2026-09-24) — i-update in place ang badge
+            // para hindi na "naglo-loading" kada notify.
+            var wrap = btn.parentNode;
+            if (wrap) {
+                wrap.innerHTML = '<span class="badge bg-secondary" title="Last notified just now">🔔 just now</span>' +
+                    '<button type="button" class="btn btn-sm btn-danger notify-btn" style="width:26px;height:26px;padding:0;font-size:14px;line-height:1;border-radius:5px;margin-left:4px;display:inline-flex;align-items:center;justify-content:center;" data-sale-id="' + saleId + '" data-sale-number="' + saleNumber + '" data-type="' + type + '" data-urgent="1" title="🚨 URGENT: Notify agent now (bypasses 24h cooldown)" onclick="event.stopPropagation();notifyAgent(this)">🚨</button>';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = urgent ? '🚨' : '🔔';
+            }
         } else if (data.cooldown) {
             showToast('⏳ ' + data.message, 'error');
             btn.disabled = false;
@@ -1433,8 +1459,9 @@ function filterTable() {
             paymentMatch = !!balBadge;
         }
         
-        // Agent filter: match agent cell (12th td)
-        var rowAgent = row.querySelector('td:nth-child(12)') ? row.querySelector('td:nth-child(12)').textContent.trim() : '';
+        // Agent filter: match clean data-agent attribute (raw sales_agent_name),
+        // NOT the whole 12th td (which includes time badge / Waiting… / Request Time text).
+        var rowAgent = (row.getAttribute('data-agent') || '').trim();
         var agentMatch = !agent || rowAgent === agent;
         
         // Photo filter: row has data-photos attribute
@@ -1522,19 +1549,29 @@ function sortByDueDate() {
 }
 
 // Populate agent filter options from table rows
+// NOTE: use the clean data-agent attribute (raw sales_agent_name). Reading the 12th td's
+// textContent would include the time badge / "Waiting…" / "Request Time" button text,
+// which polluted the dropdown with entries like "Joie Dacuyan Sep 18, 2026 5:00 PM".
 function populateAgentFilter() {
     var agentSelect = document.getElementById('agentFilter');
+    // Reset to the placeholder so re-runs don't duplicate options
+    agentSelect.innerHTML = '<option value="">All Agents</option>';
     var seen = {};
+    var names = [];
     document.querySelectorAll('#orderTable tbody tr').forEach(function(row) {
         if (row.querySelector('td[colspan]')) return;
-        var a = row.querySelector('td:nth-child(12)') ? row.querySelector('td:nth-child(12)').textContent.trim() : '';
+        var a = (row.getAttribute('data-agent') || '').trim();
         if (a && !seen[a]) {
             seen[a] = true;
-            var opt = document.createElement('option');
-            opt.value = a;
-            opt.textContent = a;
-            agentSelect.appendChild(opt);
+            names.push(a);
         }
+    });
+    names.sort(function(x, y) { return x.localeCompare(y); });
+    names.forEach(function(a) {
+        var opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        agentSelect.appendChild(opt);
     });
 }
 
@@ -1767,6 +1804,11 @@ function applyPriorityMap(priorityMap) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', populateAgentFilter);
+// Agent options are now rendered server-side (persisted across pages). Only fall back to
+// JS population when the server rendered no options (e.g. empty scope) — Andrew 2026-09-18.
+document.addEventListener('DOMContentLoaded', function () {
+    var ag = document.getElementById('agentFilter');
+    if (ag && ag.options.length <= 1) populateAgentFilter();
+});
 </script>
 @endpush

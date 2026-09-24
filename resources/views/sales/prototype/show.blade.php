@@ -38,6 +38,10 @@
     .pslip .mockup-box { border:2px dashed #999; display:flex; align-items:center; justify-content:center; text-align:center; color:#999; font-size:9pt; overflow:hidden; width:100%; aspect-ratio:4/3; max-height:250px; }
     .pslip .mockup-box img { max-width:100%; max-height:100%; object-fit:contain; cursor:pointer; }
     .pslip .section-title { font-weight:bold; font-size:11pt; margin:2px 0; }
+    .pslip .cut-counts { margin-top:6px; border:1.5px solid #000; padding:4px 6px; background:#fafafa; }
+    .pslip .cut-counts .section-title { margin:0 0 2px; font-size:10pt; }
+    .pslip .cut-counts table { border-collapse:collapse; margin-bottom:4px; }
+    .pslip .cut-counts td { border:none; font-size:9pt; padding:0 2px; }
     .pslip .chk { width:16px; height:16px; cursor:pointer; accent-color:#198754; margin:0; vertical-align:middle; }
     .pslip tr.done td { text-decoration:line-through; color:#999; }
     .pslip .no-border td, .pslip .no-border { border:none; }
@@ -630,6 +634,20 @@
                     </div>
                     <small class="text-muted">{{ $progressPercent }}% complete</small>
                 </div>
+
+                {{-- Production Check counts: ilan na ang na-check na GA / QA1 / QA2 checkbox sa slip.
+                     Read-only, additive (galing sa ProductionCheckCountService). --}}
+                @php $pcc = $prodCheckCounts ?? null; @endphp
+                @if($pcc && (($pcc['ga']['total'] ?? 0) > 0 || ($pcc['qa1']['total'] ?? 0) > 0 || ($pcc['qa2']['total'] ?? 0) > 0))
+                <div class="mb-3">
+                    <div class="info-label"><i class="fas fa-check-square me-1"></i>Production Check (GA / QA1 / QA2)</div>
+                    <div class="d-flex flex-wrap gap-2 mt-1">
+                        <span class="badge bg-secondary" title="Rows na-check / kabuuan · Piraso tapos / kabuuan">GA {{ $pcc['ga']['done'] }}/{{ $pcc['ga']['total'] }} · {{ $pcc['ga']['pcs_done'] }}/{{ $pcc['ga']['pcs_total'] }} pcs</span>
+                        <span class="badge bg-info text-dark" title="Rows na-check / kabuuan · Piraso tapos / kabuuan">QA1 {{ $pcc['qa1']['done'] }}/{{ $pcc['qa1']['total'] }} · {{ $pcc['qa1']['pcs_done'] }}/{{ $pcc['qa1']['pcs_total'] }} pcs</span>
+                        <span class="badge bg-success" title="Rows na-check / kabuuan · Piraso tapos / kabuuan">QA2 {{ $pcc['qa2']['done'] }}/{{ $pcc['qa2']['total'] }} · {{ $pcc['qa2']['pcs_done'] }}/{{ $pcc['qa2']['pcs_total'] }} pcs</span>
+                    </div>
+                </div>
+                @endif
                 <div>
                     <div class="info-label">Created</div>
                     <div>{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y g:i A') }}</div>
@@ -640,7 +658,60 @@
                     <div>{{ \Carbon\Carbon::parse($sale->date_needed)->format('M d, Y') }}</div>
                 </div>
                 @endif
-                
+
+                {{-- Tagging Timeline: time tagged + gaano katagal per stage.
+                     Manager / CEO / COO lang ang nakakakita (gated sa controller). Read-only. --}}
+                @if(!empty($canSeeTagging))
+                <div class="mt-3 pt-3 border-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="info-label mb-0">
+                            <i class="fas fa-tags me-1"></i>Tagging Timeline
+                            <span class="badge bg-dark ms-1">{{ count($stageTimeline) }}</span>
+                        </div>
+                        @if(count($stageTimeline) > 0)
+                        <a class="small" data-bs-toggle="collapse" href="#stageTimelineBody" role="button" aria-expanded="true" aria-controls="stageTimelineBody">
+                            <i class="fas fa-chevron-up"></i> hide/show
+                        </a>
+                        @endif
+                    </div>
+                    <div id="stageTimelineBody" class="collapse show mt-2">
+                        @if(count($stageTimeline) > 0)
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" style="font-size:.82rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Stage</th>
+                                        <th>Time Tagged</th>
+                                        <th>Tagal</th>
+                                        <th>Nag-tag</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($stageTimeline as $tl)
+                                    <tr>
+                                        <td><span class="badge bg-secondary">{{ $tl['label'] }}</span></td>
+                                        <td>{{ $tl['tagged_at'] }}</td>
+                                        <td>
+                                            @if($tl['current'])
+                                                <span class="text-warning fw-semibold">{{ $tl['duration'] }}</span>
+                                                <small class="text-muted">(ongoing)</small>
+                                            @else
+                                                {{ $tl['duration'] }}
+                                            @endif
+                                        </td>
+                                        <td class="text-truncate" style="max-width:120px;" title="{{ $tl['tagged_by'] }}">{{ $tl['tagged_by'] }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @else
+                        <div class="small text-muted">Wala pang naka-log na stage tag para sa sale na ito.</div>
+                        @endif
+                    </div>
+                </div>
+                @endif
+
             </div>
 
             <!-- Pending Changes -->
@@ -937,6 +1008,11 @@
                                 @endif
                                 @if($pay->payment_date)
                                     <div class="small text-muted"><i class="far fa-calendar me-1"></i>{{ \Carbon\Carbon::parse($pay->payment_date)->format('M d, Y') }}</div>
+                                @endif
+                                @if(!empty($pay->notes) && $pay->notes !== 'Initial deposit')
+                                    <div class="small mt-1" style="background:#fffbeb;border-left:3px solid #f59e0b;padding:4px 8px;border-radius:0 6px 6px 0;">
+                                        <i class="fas fa-sticky-note me-1"></i><strong>Note:</strong> {!! nl2br(e($pay->notes)) !!}
+                                    </div>
                                 @endif
                                 @if($pay->verified_by)
                                     <div class="small text-success mt-1">
@@ -2729,11 +2805,42 @@ function psItemChk(saleId, itemIdx, done) {
     }
     return '<input type="checkbox" class="chk" ' + (done ? 'checked' : '') + ' onchange="toggleProdItem(' + saleId + ', ' + itemIdx + ', this.checked)">';
 }
-function psChk(saleId, itemIdx, field, checked) {
-    if (!psCanEdit) {
-        return '<input type="checkbox" disabled ' + (checked ? 'checked' : '') + '>';
-    }
-    return '<input type="checkbox" onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'' + field + '\', this.checked)" ' + (checked ? 'checked' : '') + '>';
+function psChk(saleId, itemIdx, field, checked, scope, count) {
+    var dis = !psCanEdit;
+    var cb = '<input type="checkbox"'
+        + (dis ? ' disabled' : ' onchange="toggleProdCheck(' + saleId + ', ' + itemIdx + ', \'' + field + '\', this.checked, \'' + (scope || 'main') + '\')"')
+        + ' ' + (checked ? 'checked' : '') + '>';
+    // Extra optional number box (hal. QA1/QA2 pirasong tapos). Ipinapasa lang kapag may `count` arg.
+    if (count === undefined || count === null) return cb;
+    var numField = field.replace(/_done$/, '_count');
+    var val = (count === 0 || count) ? count : '';
+    var num = '<input type="number" min="0" step="1" value="' + val + '" title="Piraso na tapos"'
+        + ' style="width:48px;padding:1px 3px;font-size:11px;text-align:center;"'
+        + (dis ? ' disabled' : ' onchange="saveProdCount(' + saleId + ', ' + itemIdx + ', \'' + numField + '\', this.value, \'' + (scope || 'main') + '\')"')
+        + '>';
+    return '<span style="display:inline-flex;align-items:center;gap:3px;justify-content:center;">' + cb + num + '</span>';
+}
+
+// Itala ang bilang ng tapos (hal. QA1: 1 sa 3) — per item, read/write sa parehong items JSON.
+function saveProdCount(saleId, index, field, value, scope) {
+    if (index < 0) return;
+    var n = parseInt(value, 10);
+    if (isNaN(n) || n < 0) n = 0;
+    var itemUpdate = {index: index};
+    itemUpdate[field] = n;
+    var payload = (scope === 'add') ? {additional_items: [itemUpdate]} : {items: [itemUpdate]};
+    fetch('/api/production/checklist/' + saleId + '/save', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify(payload)
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (!data.success) console.error('Failed to save count', data);
+    })
+    .catch(function(err) { console.error('Failed to save count', err); });
 }
 
 
@@ -2848,6 +2955,89 @@ function loadProductionSlip(saleId) {
         .catch(function(err) {
             prodBody.innerHTML = '<div class="alert alert-danger">Failed to load production slip</div>';
         });
+}
+
+// ===== Size auto-arrange (XS → 8XL) para sa NAME LIST ng Production Slip =====
+// Display-side lang: HINDI ginagalaw ang saved data. Ang checkbox mapping
+// (findNthItemIdx) ay nananatili sa ORIGINAL index, kaya tama pa rin ang GA/QA1/QA2.
+function caSizeOrderRank(sizeStr) {
+    var ORDER = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL'];
+    var s = String(sizeStr == null ? '' : sizeStr).toUpperCase().trim();
+    var A = {'SMALL':'S','MEDIUM':'M','LARGE':'L','XLARGE':'XL','EXTRA SMALL':'XS','XSMALL':'XS','EXTRA LARGE':'XL',
+             '2XLARGE':'2XL','3XLARGE':'3XL','4XLARGE':'4XL','5XLARGE':'5XL','6XLARGE':'6XL','7XLARGE':'7XL','8XLARGE':'8XL'};
+    if (A[s]) s = A[s];
+    var i = ORDER.indexOf(s);
+    if (i >= 0) return i;                 // XS..8XL -> 0..11
+    var n = parseFloat(s);
+    if (!isNaN(n)) return 1000 + n;       // numeric sizes (waist) -> pagkatapos ng letter sizes
+    return 99999;                         // unknown/blank -> hulihan (stable)
+}
+function caRowSize(r) {
+    if (!r) return '';
+    if (r.size) return r.size;
+    if (r.label) return r.label;
+    if (r.columns) {
+        if (Array.isArray(r.columns)) {
+            for (var i = 0; i < r.columns.length; i++) { if (String(r.columns[i][0]).toUpperCase().indexOf('SIZE') >= 0) return r.columns[i][1]; }
+        } else {
+            for (var k in r.columns) { if (String(k).toUpperCase().indexOf('SIZE') >= 0) return r.columns[k]; }
+        }
+    }
+    return '';
+}
+function caSortedIdxBySize(list, getter) {
+    var idxs = list.map(function(_, i) { return i; });
+    idxs.sort(function(a, b) {
+        var ra = caSizeOrderRank(getter(list[a])), rb = caSizeOrderRank(getter(list[b]));
+        if (ra !== rb) return ra - rb;
+        return a - b;   // stable: pantay na size -> orihinal na order
+    });
+    return idxs;
+}
+
+// ===== CUT COUNTS (Collar / Placket) sa ilalim ng MOCK UP =====
+// Polo button: COLLAR = bilang ng piraso kada size band (XS-L / XL-3XL / 4XL-8XL),
+// PLUCKET = 2 × kabuuang piraso. Display-side lang, walang DB/schema change.
+function caCutBandCounts(entries) {
+    var xsl = 0, xl3 = 0, x4x8 = 0, total = 0;
+    (entries || []).forEach(function(r) {
+        var rank = caSizeOrderRank(caRowSize(r));
+        var q = parseInt(r && (r.qty != null ? r.qty : (r.quantity != null ? r.quantity : r.number)), 10);
+        if (isNaN(q) || q < 1) q = 1;
+        total += q;
+        if (rank >= 0 && rank <= 3) xsl += q;          // XS, S, M, L
+        else if (rank >= 4 && rank <= 6) xl3 += q;     // XL, 2XL, 3XL
+        else if (rank >= 7 && rank <= 11) x4x8 += q;   // 4XL..8XL
+    });
+    return { xsl: xsl, xl3: xl3, x4x8: x4x8, total: total, placket: total * 2 };
+}
+function caCutCountRules(partRows) {
+    var rows = partRows || [];
+    for (var i = 0; i < rows.length; i++) {
+        var part = String((rows[i] && (rows[i].part || rows[i][0])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        var detail = String((rows[i] && (rows[i].detail || rows[i][1])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        if (part.indexOf('GARMENT') < 0) continue;
+        if (detail === 'POLO BUTTON' || detail.indexOf('POLO BUTTON ') === 0) return { collar: true, placket: true };
+        if (detail === 'POLO ZIPPER' || detail.indexOf('POLO ZIPPER ') === 0) return { collar: true, placket: false };
+    }
+    return null;
+}
+function caCutCountsHtml(partRows, entries) {
+    var rule = caCutCountRules(partRows);
+    if (!rule) return '';
+    var c = caCutBandCounts(entries);
+    if (c.total <= 0) return '';
+    var h = '<div class="cut-counts">';
+    h += '<div class="section-title">COLLAR</div>';
+    h += '<table><tr><td>XS-L</td><td style="text-align:right;">= ' + c.xsl + '</td></tr>';
+    h += '<tr><td>XL-3XL</td><td style="text-align:right;">= ' + c.xl3 + '</td></tr>';
+    h += '<tr><td>4XL-8XL</td><td style="text-align:right;">= ' + c.x4x8 + '</td></tr></table>';
+    if (rule.placket) {
+        h += '<div class="section-title">PLUCKET</div>';
+        h += '<table><tr><td>Total</td><td style="text-align:right;">= ' + c.placket + '</td></tr></table>';
+    }
+    h += '</div>';
+    return h;
 }
 
 function renderProductionSlip(data) {
@@ -2989,6 +3179,7 @@ function renderProductionSlip(data) {
             html += '<span>MOCK UP HERE</span>';
         }
         html += '</div>';
+        html += caCutCountsHtml(partRows, hasRoster ? allRosters : sizes);
         html += '</td>';
         html += '<td style="width:70%;vertical-align:top" class="no-border">';
         html += '<div class="section-title">NAME LIST</div>';
@@ -2997,7 +3188,7 @@ function renderProductionSlip(data) {
         var allColHeaders = [];
         var isArrFormat = false;
         allRosters.forEach(function(r) {
-            if (r.columns) {
+            if (r.columns && (Array.isArray(r.columns) ? r.columns.length > 0 : Object.keys(r.columns).length > 0)) {
                 hasExcelCols = true;
                 // Detect format: array of [header,value] pairs vs object
                 if (!isArrFormat && Array.isArray(r.columns) && r.columns.length > 0 && Array.isArray(r.columns[0])) {
@@ -3039,11 +3230,13 @@ function renderProductionSlip(data) {
             }
             html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
             html += '<tbody>';
-            allRosters.forEach(function(rosterItem, idx) {
+            caSortedIdxBySize(allRosters, caRowSize).forEach(function(origIdx, dispIdx) {
+                var rosterItem = allRosters[origIdx];
+                var idx = origIdx;
                 var itemIdx = findNthItemIdx('roster', idx, product);
                 var done = itemIdx >= 0 && items[itemIdx].status === 'done';
                 html += '<tr' + (done ? ' class="done"' : '') + '>';
-                html += '<td>' + (idx + 1) + '</td>';
+                html += '<td>' + (dispIdx + 1) + '</td>';
                 if (hasExcelCols) {
                     allColHeaders.forEach(function(h) {
                         html += '<td>' + escHtml(getColVal(rosterItem.columns, h)) + '</td>';
@@ -3054,8 +3247,8 @@ function renderProductionSlip(data) {
                     html += '<td>' + (rosterItem.qty || 1) + '</td>';
                 }
                 html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
-                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
-                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done, undefined, (items[itemIdx] && items[itemIdx].qa1_count) || '') + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done, undefined, (items[itemIdx] && items[itemIdx].qa2_count) || '') + '</td>';
                 html += '</tr>';
             });
             html += '</tbody></table>';
@@ -3063,15 +3256,17 @@ function renderProductionSlip(data) {
             html += '<table class="roster-table">';
             html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
             html += '<tbody>';
-            sizes.forEach(function(s, idx) {
+            caSortedIdxBySize(sizes, caRowSize).forEach(function(origIdx, dispIdx) {
+                var s = sizes[origIdx];
+                var idx = origIdx;
                 var itemIdx = findNthItemIdx('size', idx, product);
                 var done = itemIdx >= 0 && items[itemIdx].status === 'done';
                 html += '<tr' + (done ? ' class="done"' : '') + '>';
                 html += '<td>' + escHtml(s.size || '') + '</td>';
                 html += '<td>' + (s.quantity || s.qty || 0) + '</td>';
                 html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
-                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
-                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done, undefined, (items[itemIdx] && items[itemIdx].qa1_count) || '') + '</td>';
+                html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done, undefined, (items[itemIdx] && items[itemIdx].qa2_count) || '') + '</td>';
                 html += '</tr>';
             });
             html += '</tbody></table>';
@@ -3199,7 +3394,9 @@ function renderAdditionalProductionSlip(saleId, data) {
             } else {
                 html += '<span style="color:#999;">No mockup</span>';
             }
-            html += '</div></td>';
+            html += '</div>';
+            html += caCutCountsHtml(partRows, roster.length > 0 ? roster : sizes);
+            html += '</td>';
             
             // Name list
             html += '<td style="width:70%;vertical-align:top" class="no-border">';
@@ -3212,7 +3409,7 @@ function renderAdditionalProductionSlip(saleId, data) {
                 var isArrFormat = false;
                 var rosterData = roster;
                 for (var ri = 0; ri < rosterData.length; ri++) {
-                    if (rosterData[ri].columns) {
+                    if (rosterData[ri].columns && (Array.isArray(rosterData[ri].columns) ? rosterData[ri].columns.length > 0 : Object.keys(rosterData[ri].columns).length > 0)) {
                         hasExcelCols = true;
                         if (!isArrFormat && Array.isArray(rosterData[ri].columns[0])) {
                             isArrFormat = true;
@@ -3247,9 +3444,14 @@ function renderAdditionalProductionSlip(saleId, data) {
                 }
                 html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
                 html += '<tbody>';
-                rosterData.forEach(function(r, ri) {
+                var addChkItems = (data.checklist && data.checklist.items) ? data.checklist.items : [];
+                var rosterItemIdx = prod.roster_item_idx || [];
+                caSortedIdxBySize(rosterData, caRowSize).forEach(function(origRi, dispRi) {
+                    var r = rosterData[origRi];
+                    var ri = origRi;
+                    var rowItem = (rosterItemIdx[ri] !== undefined) ? rosterItemIdx[ri] : -1;
                     html += '<tr>';
-                    html += '<td style="text-align:center;">' + (ri + 1) + '</td>';
+                    html += '<td style="text-align:center;">' + (dispRi + 1) + '</td>';
                     if (hasExcelCols) {
                         allColHeaders.forEach(function(h) {
                             html += '<td>' + escHtml(getColValAddon(r, h)) + '</td>';
@@ -3259,9 +3461,9 @@ function renderAdditionalProductionSlip(saleId, data) {
                         html += '<td>' + escHtml(r.size || '') + '</td>';
                         html += '<td style="text-align:center;">' + (r.qty || 1) + '</td>';
                     }
-                    html += '<td style="text-align:center;">' + psChk(saleId, ri, 'ga_done', false) + '</td>';
-                    html += '<td style="text-align:center;">' + psChk(saleId, ri, 'qa1_done', false) + '</td>';
-                    html += '<td style="text-align:center;">' + psChk(saleId, ri, 'qa2_done', false) + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, rowItem, 'ga_done', addChkItems[rowItem] && addChkItems[rowItem].ga_done, 'add') + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, rowItem, 'qa1_done', addChkItems[rowItem] && addChkItems[rowItem].qa1_done, 'add', (addChkItems[rowItem] && addChkItems[rowItem].qa1_count) || '') + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, rowItem, 'qa2_done', addChkItems[rowItem] && addChkItems[rowItem].qa2_done, 'add', (addChkItems[rowItem] && addChkItems[rowItem].qa2_count) || '') + '</td>';
                     html += '</tr>';
                 });
                 html += '</tbody></table>';
@@ -3269,13 +3471,18 @@ function renderAdditionalProductionSlip(saleId, data) {
                 html += '<table class="roster-table" style="width:100%;font-size:9pt;border-collapse:collapse;">';
                 html += '<thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead>';
                 html += '<tbody>';
-                sizes.forEach(function(s, si) {
+                var addChkItemsS = (data.checklist && data.checklist.items) ? data.checklist.items : [];
+                var sizeItemIdx = prod.size_item_idx || [];
+                caSortedIdxBySize(sizes, caRowSize).forEach(function(origSi, dispSi) {
+                    var s = sizes[origSi];
+                    var si = origSi;
+                    var sItem = (sizeItemIdx[si] !== undefined) ? sizeItemIdx[si] : -1;
                     html += '<tr>';
                     html += '<td>' + escHtml(s.size || '') + '</td>';
                     html += '<td style="text-align:center;">' + (s.qty || s.quantity || 0) + '</td>';
-                    html += '<td style="text-align:center;">' + psChk(saleId, si, 'ga_done', false) + '</td>';
-                    html += '<td style="text-align:center;">' + psChk(saleId, si, 'qa1_done', false) + '</td>';
-                    html += '<td style="text-align:center;">' + psChk(saleId, si, 'qa2_done', false) + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, sItem, 'ga_done', addChkItemsS[sItem] && addChkItemsS[sItem].ga_done, 'add') + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, sItem, 'qa1_done', addChkItemsS[sItem] && addChkItemsS[sItem].qa1_done, 'add', (addChkItemsS[sItem] && addChkItemsS[sItem].qa1_count) || '') + '</td>';
+                    html += '<td style="text-align:center;">' + psChk(saleId, sItem, 'qa2_done', addChkItemsS[sItem] && addChkItemsS[sItem].qa2_done, 'add', (addChkItemsS[sItem] && addChkItemsS[sItem].qa2_count) || '') + '</td>';
                     html += '</tr>';
                 });
                 html += '</tbody></table>';
@@ -3399,7 +3606,9 @@ function renderProductionSlipHtml(data, showProductLabel) {
     } else {
         html += '<span>MOCK UP HERE</span>';
     }
-    html += '</div></td>';
+    html += '</div>';
+    html += caCutCountsHtml(partRows, allRosters.length > 0 ? allRosters : sizes);
+    html += '</td>';
 
     html += '<td style="width:70%;vertical-align:top" class="no-border">';
     html += '<div class="section-title">NAME LIST</div>';
@@ -3410,7 +3619,7 @@ function renderProductionSlipHtml(data, showProductLabel) {
         var isArrFormat = false;
         for (var ri = 0; ri < allRosters.length; ri++) {
             var r = allRosters[ri];
-            if (r.columns) {
+            if (r.columns && (Array.isArray(r.columns) ? r.columns.length > 0 : Object.keys(r.columns).length > 0)) {
                 hasExcelCols = true;
                 if (!isArrFormat && Array.isArray(r.columns[0])) {
                     isArrFormat = true;
@@ -3433,11 +3642,13 @@ function renderProductionSlipHtml(data, showProductLabel) {
             html += '<th>NAME</th><th>SIZE</th><th>QTY</th>';
         }
         html += '<th>GA</th><th>QA1</th><th>QA2</th></tr></thead><tbody>';
-        allRosters.forEach(function(rosterItem, idx) {
+        caSortedIdxBySize(allRosters, caRowSize).forEach(function(origIdx, dispIdx) {
+            var rosterItem = allRosters[origIdx];
+            var idx = origIdx;
             var itemIdx = findNthItemIdx('roster', idx);
             var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
             html += '<tr' + (done ? ' class="done"' : '') + '>';
-            html += '<td>' + (idx + 1) + '</td>';
+            html += '<td>' + (dispIdx + 1) + '</td>';
             if (hasExcelCols) {
                 allColHeaders.forEach(function(h) {
                     html += '<td>' + escHtml(getColVal(rosterItem, h)) + '</td>';
@@ -3448,22 +3659,24 @@ function renderProductionSlipHtml(data, showProductLabel) {
                 html += '<td>' + (rosterItem.qty || 1) + '</td>';
             }
             html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done, undefined, (items[itemIdx] && items[itemIdx].qa1_count) || '') + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done, undefined, (items[itemIdx] && items[itemIdx].qa2_count) || '') + '</td>';
             html += '</tr>';
         });
         html += '</tbody></table>';
     } else if (sizes.length > 0) {
         html += '<table class="roster-table"><thead><tr><th>SIZE</th><th>QUANTITY</th><th>GA</th><th>QA1</th><th>QA2</th></tr></thead><tbody>';
-        sizes.forEach(function(s, idx) {
+        caSortedIdxBySize(sizes, caRowSize).forEach(function(origIdx, dispIdx) {
+            var s = sizes[origIdx];
+            var idx = origIdx;
             var itemIdx = findNthItemIdx('size', idx);
             var done = itemIdx >= 0 && items[itemIdx] && items[itemIdx].status === 'done';
             html += '<tr' + (done ? ' class="done"' : '') + '>';
             html += '<td>' + escHtml(s.size || '') + '</td>';
             html += '<td>' + (s.quantity || s.qty || 0) + '</td>';
             html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'ga_done', items[itemIdx] && items[itemIdx].ga_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done) + '</td>';
-            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done) + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa1_done', items[itemIdx] && items[itemIdx].qa1_done, undefined, (items[itemIdx] && items[itemIdx].qa1_count) || '') + '</td>';
+            html += '<td style="text-align:center;">' + psChk(saleId, itemIdx, 'qa2_done', items[itemIdx] && items[itemIdx].qa2_done, undefined, (items[itemIdx] && items[itemIdx].qa2_count) || '') + '</td>';
             html += '</tr>';
         });
         html += '</tbody></table>';
@@ -3512,19 +3725,18 @@ function toggleProdItem(saleId, index, checked) {
 
 }
 
-function toggleProdCheck(saleId, index, field, checked) {
+function toggleProdCheck(saleId, index, field, checked, scope) {
     if (index < 0) return;
     var itemUpdate = {index: index};
     itemUpdate[field] = checked;
+    var payload = (scope === 'add') ? {additional_items: [itemUpdate]} : {items: [itemUpdate]};
     fetch('/api/production/checklist/' + saleId + '/save', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
         },
-        body: JSON.stringify({
-            items: [itemUpdate]
-        })
+        body: JSON.stringify(payload)
     }).then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.success) {

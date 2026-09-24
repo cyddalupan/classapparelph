@@ -86,6 +86,13 @@
 .pipeline-line { width: 28px; height: 2px; background: #d1d5db; flex-shrink: 0; }
 .pipeline-line.completed { background: #22c55e; }
 
+/* Production check mini-counts (GA/QA1/QA2) sa ilalim ng status progress meter */
+.prod-check-mini { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; font-size: 0.7rem; }
+.prod-check-mini span { padding: 0.1rem 0.45rem; border-radius: 6px; background: #f1f5f9; color: #475569; font-weight: 600; white-space: nowrap; }
+.prod-check-mini .pc-ga  { background: #e2e8f0; color: #334155; }
+.prod-check-mini .pc-qa1 { background: #cff4fc; color: #055160; }
+.prod-check-mini .pc-qa2 { background: #d1e7dd; color: #0a3622; }
+
 .pipeline-labels { display: flex; gap: 0; margin-top: 0.25rem; }
 .pipeline-label { font-size: 0.65rem; color: #94a3b8; text-align: center; width: 48px; }
 .pipeline-label.done { color: #22c55e; font-weight: 600; }
@@ -170,6 +177,9 @@
             </a>
             <a href="{{ route('sales.team.delays') }}" class="action-btn" title="My Delays — lahat ng delay na na-report mo at ang review ng manager" style="border-color:#dc3545;color:#dc3545;">
                 <i class="fas fa-exclamation-triangle"></i> My Delays
+            </a>
+            <a href="{{ route('sales.team.archived') }}" class="action-btn" title="My Archived — mga order mo na ni-archive ng CEO/COO (read-only)" style="border-color:#6c757d;color:#495057;">
+                <i class="fas fa-box-archive"></i> My Archived
             </a>
             <a href="{{ route('sales.prototype.production-feedback.list', ['scope' => 'mine']) }}" class="action-btn" title="Production Feedback" style="border-color:#d97706;color:#d97706;">
                 <i class="fas fa-clipboard-check"></i> Production Feedback
@@ -481,6 +491,16 @@
                 @endforeach
             </div>
 
+            {{-- Production Check counts (GA/QA1/QA2) — read-only, katabi ng status progress meter. --}}
+            @php $pcc = $prodCheckCounts[$sale->id] ?? null; @endphp
+            @if($pcc && (($pcc['ga']['total'] ?? 0) > 0 || ($pcc['qa1']['total'] ?? 0) > 0 || ($pcc['qa2']['total'] ?? 0) > 0))
+            <div class="prod-check-mini" title="Production Check — rows na-check/kabuuan · piraso tapos/kabuuan">
+                <span class="pc-ga">GA {{ $pcc['ga']['done'] }}/{{ $pcc['ga']['total'] }} · {{ $pcc['ga']['pcs_done'] }}/{{ $pcc['ga']['pcs_total'] }} pcs</span>
+                <span class="pc-qa1">QA1 {{ $pcc['qa1']['done'] }}/{{ $pcc['qa1']['total'] }} · {{ $pcc['qa1']['pcs_done'] }}/{{ $pcc['qa1']['pcs_total'] }} pcs</span>
+                <span class="pc-qa2">QA2 {{ $pcc['qa2']['done'] }}/{{ $pcc['qa2']['total'] }} · {{ $pcc['qa2']['pcs_done'] }}/{{ $pcc['qa2']['pcs_total'] }} pcs</span>
+            </div>
+            @endif
+
             <!-- Sale details -->
             <div class="sale-details">
                 <div class="detail-item">
@@ -707,6 +727,9 @@
                             </div>
                         </div>
                         <small class="text-muted">Piliin ang araw at oras kung kailan dapat handa ang project.</small>
+                        <label class="form-label fw-bold small mt-3"><i class="fas fa-comment-alt me-1"></i>Reason / Note <span class="text-danger">*</span></label>
+                        <textarea name="time_note" class="form-control" rows="3" placeholder="Bakit ito ang needed date/time? (hal. rush order, may event, pinaghahandaan...)" required>{{ $sale->time_note ?? '' }}</textarea>
+                        <small class="text-muted">Ipaliwanag nang maikli ang dahilan — makikita ito ng Manager sa Set Time List at pwede niyang i-arrange depende sa bigat ng reason.</small>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

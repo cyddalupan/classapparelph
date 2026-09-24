@@ -1175,6 +1175,14 @@
                 alert('Please enter a valid payment amount');
                 return;
             }
+
+            // Reference # minimum 6 characters (Andrew 2026-09-17)
+            var __refEl = document.getElementById('payment_reference');
+            if (__refEl && window.refLenOK && !window.refLenOK(__refEl)) {
+                alert('Minimum 6 characters ang Reference #. Pakihabaan muna bago mag-submit.');
+                __refEl.focus();
+                return;
+            }
             
             // Calculate order total
             let subtotal = 0;

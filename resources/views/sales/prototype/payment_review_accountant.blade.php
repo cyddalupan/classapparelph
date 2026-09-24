@@ -197,6 +197,11 @@
                         <div class="pr-reason mb-2">
                             <i class="fas fa-comment-dots me-1"></i><strong>Reason:</strong> {{ $rv->reason }}
                         </div>
+                        @if($rv->sale_payment_note)
+                            <div class="pr-note mb-2" style="background:#fffbeb;border-left-color:#f59e0b;">
+                                <i class="fas fa-sticky-note me-1"></i><strong>Note mula sa Sales (Step 3 payment):</strong> {{ $rv->sale_payment_note }}
+                            </div>
+                        @endif
 
                         @if($rv->status === 'rejected' && $rv->accountant_note)
                             <div class="pr-note mt-2">

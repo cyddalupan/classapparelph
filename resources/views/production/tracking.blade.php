@@ -147,6 +147,14 @@
         <label>Search</label>
         <input type="text" name="search" class="form-control form-control-sm" placeholder="Order #, customer, agent..." value="{{ $filters['search'] ?? '' }}">
     </div>
+    <div>
+        <label>Archived</label>
+        <div class="d-flex gap-1">
+            <button type="submit" name="archived" value="all" class="action-btn {{ ($filters['archived'] ?? 'all') === 'all' ? 'primary' : '' }}" title="Kasama ang archived (default)"><i class="fas fa-layer-group"></i> All</button>
+            <button type="submit" name="archived" value="active" class="action-btn {{ ($filters['archived'] ?? '') === 'active' ? 'primary' : '' }}" title="Active lang — walang archived"><i class="fas fa-circle-check"></i> Active</button>
+            <button type="submit" name="archived" value="archived" class="action-btn {{ ($filters['archived'] ?? '') === 'archived' ? 'primary' : '' }}" title="Archived lang"><i class="fas fa-box-archive"></i> Archived</button>
+        </div>
+    </div>
     <div class="d-flex gap-2">
         <button type="submit" class="action-btn primary"><i class="fas fa-filter"></i> Apply</button>
         <a href="{{ route('production.tracking') }}" class="action-btn"><i class="fas fa-undo"></i> Reset</a>
@@ -159,13 +167,19 @@
         <div class="kpi-icon" style="background:#ede9fe;color:#6f42c1;"><i class="fas fa-box"></i></div>
         <div class="kpi-label">Total Orders</div>
         <div class="kpi-value"><a href="{{ route('sales.prototype.list') }}">{{ number_format($totalOrders) }}</a></div>
-        <div class="kpi-sub">Active Class orders</div>
+        <div class="kpi-sub">Kasama ang archived</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-icon" style="background:#ecfdf5;color:#059669;"><i class="fas fa-peso-sign"></i></div>
         <div class="kpi-label">Total Revenue</div>
         <div class="kpi-value">₱{{ number_format($totalRevenue, 2) }}</div>
-        <div class="kpi-sub">All active orders</div>
+        <div class="kpi-sub">Kasama ang archived</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:#f1f5f9;color:#475569;"><i class="fas fa-box-archive"></i></div>
+        <div class="kpi-label">Archived</div>
+        <div class="kpi-value">{{ number_format($archivedCount) }}</div>
+        <div class="kpi-sub">Filed away (kasama sa totals)</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-icon" style="background:#dbeafe;color:#2563eb;"><i class="fas fa-columns"></i></div>
@@ -202,6 +216,12 @@
         <div class="kpi-label">Delayed</div>
         <div class="kpi-value"><a href="{{ route('sales.prototype.delays') }}" style="color:{{ $delayedCount ? '#dc2626' : 'inherit' }};">{{ number_format($delayedCount) }}</a></div>
         <div class="kpi-sub">Marked delayed</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:#dcfce7;color:#15803d;"><i class="fas fa-truck-fast"></i></div>
+        <div class="kpi-label">Released Today</div>
+        <div class="kpi-value" style="color:#15803d;">{{ number_format($releasedToday) }}</div>
+        <div class="kpi-sub">{{ number_format($releasedPcsToday) }} pcs ngayon · {{ number_format($releasedYesterday) }} order kahapon</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-icon" style="background:#e0e7ff;color:#4f46e5;"><i class="fas fa-clock"></i></div>
@@ -248,6 +268,108 @@
     <div class="chart-card">
         <div class="card-title"><i class="fas fa-chart-line"></i> Daily Revenue (₱)</div>
         <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="card-title"><i class="fas fa-truck-fast"></i> Released per Day <span style="font-size:.72rem;color:#94a3b8;font-weight:600;">(DISPATCH · last 14 days)</span></div>
+        <div class="chart-wrap"><canvas id="releasedChart"></canvas></div>
+        <div style="font-size:.75rem;color:#64748b;text-align:center;margin-top:.4rem;">
+            Total: <b>{{ number_format($releasedTotal14) }}</b> order · <b>{{ number_format($releasedPcsTotal14) }}</b> pcs · Avg <b>{{ $releasedAvgPerDay }}</b> order/day — "QA pababa = hindi pa counted"
+        </div>
+    </div>
+</div>
+
+<!-- STAGE TIMING (Andrew 2026-09-18) -->
+@php
+    $st = $stageTiming['stages'] ?? [];
+    $slow = $stageTiming['slowestStage'] ?? null;
+    $slStages = array_values(array_filter($st, fn ($x) => ($x['count'] ?? 0) > 0));
+    usort($slStages, fn ($a, $b) => ($b['avg_hours'] ?? 0) <=> ($a['avg_hours'] ?? 0));
+    $maxAvg = $slStages[0]['avg_hours'] ?? 1;
+    $maxAvg = $maxAvg > 0 ? $maxAvg : 1;
+@endphp
+<div class="chart-card" style="margin-bottom:1.25rem;">
+    <div class="card-title">
+        <i class="fas fa-stopwatch"></i> Average Time per Production Stage
+        <span style="font-size:.72rem;color:#94a3b8;font-weight:600;">
+            (mula sa GA tagging logs @if(!empty($stageTiming['logFrom'])) · {{ \Illuminate\Support\Carbon::parse($stageTiming['logFrom'])->format('M j') }}–{{ \Illuminate\Support\Carbon::parse($stageTiming['logTo'])->format('M j') }} @endif)
+        </span>
+    </div>
+
+    @if($slow)
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:.6rem .85rem;margin-bottom:.9rem;font-size:.83rem;color:#991b1b;">
+            <i class="fas fa-hourglass-half"></i>
+            Pinakamatagal: <b>{{ $st[$slow]['label'] ?? $slow }}</b> — avg <b>{{ \App\Services\ProductionStageTimingService::human($st[$slow]['avg_hours'] ?? null) }}</b>
+            @if(($st[$slow]['count'] ?? 0) > 0) <span style="color:#b91c1c;">({{ $st[$slow]['count'] }} sample)</span>@endif
+        </div>
+    @endif
+
+    <div class="table-responsive">
+        <table class="table table-sm mb-0" style="font-size:.8rem;">
+            <thead>
+                <tr>
+                    <th>Stage</th>
+                    <th class="text-center">Avg</th>
+                    <th class="text-center">Median</th>
+                    <th class="text-center">Samples</th>
+                    <th class="text-center">Pinakamatagal</th>
+                    <th class="text-center">Ongoing</th>
+                    <th style="width:120px;">Relatibong tagal</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($st as $key => $s)
+                <tr>
+                    <td class="fw-semibold">
+                        @if($key === $slow) <i class="fas fa-exclamation-triangle" style="color:#dc2626;"></i> @endif
+                        {{ $s['label'] }}
+                    </td>
+                    <td class="text-center fw-semibold" style="color:{{ $key === $slow ? '#dc2626' : '#1e293b' }};">
+                        {{ \App\Services\ProductionStageTimingService::human($s['avg_hours']) }}
+                    </td>
+                    <td class="text-center text-muted">{{ \App\Services\ProductionStageTimingService::human($s['median_hours']) }}</td>
+                    <td class="text-center">{{ $s['count'] }}</td>
+                    <td class="text-center text-muted">{{ \App\Services\ProductionStageTimingService::human($s['max_hours']) }}</td>
+                    <td class="text-center">
+                        @if(($s['ongoing'] ?? 0) > 0)
+                            <span class="badge" style="background:#fef3c7;color:#b45309;">{{ $s['ongoing'] }}</span>
+                            <span style="font-size:.68rem;color:#94a3b8;">({{ \App\Services\ProductionStageTimingService::human($s['longest_ongoing_hours']) }})</span>
+                        @else
+                            <span class="text-muted">0</span>
+                        @endif
+                    </td>
+                    <td>
+                        <div class="progress" style="height:8px;">
+                            <div class="progress-bar" style="width:{{ min(100, (($s['avg_hours'] ?? 0) / $maxAvg) * 100) }}%;background:{{ $key === $slow ? '#dc2626' : '#3b82f6' }};"></div>
+                        </div>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    @if(!empty($stageTiming['ongoing']))
+    <div style="margin-top:1rem;border-top:1px dashed #e2e8f0;padding-top:.85rem;">
+        <div style="font-size:.74rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem;">
+            <i class="fas fa-hourglass-start"></i> Kasalukuyang tumatagal (nakabinbin ngayon)
+        </div>
+        @foreach(array_slice($stageTiming['ongoing'], 0, 5) as $o)
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.35rem 0;border-bottom:1px solid #f8fafc;font-size:.8rem;">
+                <span>
+                    <a href="{{ route('sales.prototype.show', $o['sale']) }}" target="_blank" rel="noopener" class="fw-semibold" style="text-decoration:none;">Sale #{{ $o['sale'] }}</a>
+                    <span class="text-muted">· {{ $st[$o['stage']]['label'] ?? $o['stage'] }}</span>
+                </span>
+                <span class="badge" style="background:#fee2e2;color:#b91c1c;">{{ \App\Services\ProductionStageTimingService::human($o['hours']) }}</span>
+            </div>
+        @endforeach
+    </div>
+    @endif
+
+    <div style="font-size:.7rem;color:#94a3b8;margin-top:.7rem;">
+        <i class="fas fa-info-circle"></i>
+        Bilang mula nang i-tag ang isang stage hanggang malipat sa susunod (o ma-complete). Hihinto sa dispatch.
+        <br><i class="fas fa-clock"></i>
+        Ang <b>Sewing</b> at <b>QA</b> ay nagsisimula pang mag-log ngayong <b>Sep 18, 2026</b> — bubuo ang average habang tumatagal (may datos na agad ang For Sample / For Format / Printing mula Sep 3).
     </div>
 </div>
 
@@ -586,7 +708,50 @@
             });
         }
 
-        // 5. Top 10 products by pieces (horizontal bar)
+        // 5. Released per day (DISPATCH) — Andrew 2026-09-23
+        const relEl = document.getElementById('releasedChart');
+        if (relEl) {
+            new Chart(relEl, {
+                type: 'bar',
+                data: {
+                    labels: @json($releasedLabels),
+                    datasets: [
+                        {
+                            label: 'Orders (project)',
+                            data: @json($releasedCounts),
+                            backgroundColor: 'rgba(16,185,129,.8)',
+                            borderRadius: 4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Pieces (pcs)',
+                            data: @json($releasedPcsCounts),
+                            type: 'line',
+                            borderColor: '#6f42c1',
+                            backgroundColor: 'rgba(111,66,193,.12)',
+                            fill: false,
+                            tension: .35,
+                            pointRadius: 2.5,
+                            borderWidth: 2,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: fontStyle } } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: fontStyle, maxRotation: 45 } },
+                        y: { position: 'left', grid: { color: gridColor }, ticks: { font: fontStyle, precision: 0 }, beginAtZero: true, title: { display: true, text: 'Orders', font: fontStyle } },
+                        y1: { position: 'right', grid: { display: false }, ticks: { font: fontStyle, precision: 0 }, beginAtZero: true, title: { display: true, text: 'Pieces', font: fontStyle } }
+                    }
+                }
+            });
+        }
+
+        // 6. Top 10 products by pieces (horizontal bar)
         const prodEl = document.getElementById('productChart');
         if (prodEl) {
             new Chart(prodEl, {

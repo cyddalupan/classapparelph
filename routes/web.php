@@ -823,7 +823,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
             return view('sales.prototype.index');
         })->name('sales.prototype');
         
-        Route::get('/sales/prototype/create', [App\Http\Controllers\PrototypeSalesController::class, 'create'])->name('sales.prototype.create');
+        Route::get('/sales/prototype/create', [App\Http\Controllers\PrototypeSalesController::class, 'create'])->middleware('agent.cleared')->name('sales.prototype.create');
         Route::post('/sales/prototype', [App\Http\Controllers\PrototypeSalesController::class, 'store'])->name('sales.prototype.store');
         
         // DAMAGE REPORT SYSTEM
@@ -905,6 +905,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
         Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');
 
+        // SPECIAL PRICE REVIEW DASHBOARD — read-only analytics/aggregates (CEO/COO). Additive; own path, walang conflict sa ibang route.
+        Route::get('/sales/prototype/special-price-list/dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceDashboard'])->name('sales.prototype.special-price-dashboard');
+
         // FREEBIE LIST & REVIEW route — all freebie requests w/ filters + stats (MUST be before {id} route)
         Route::get('/sales/prototype/freebie-list', [App\Http\Controllers\FreebieSlipController::class, 'reviewList'])->name('sales.prototype.freebie-list');
 
@@ -954,13 +957,22 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/api/production/checklist/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'getProductionChecklist'])->name('api.production.checklist.get');
         Route::post('/api/production/checklist/{id}/save', [App\Http\Controllers\PrototypeSalesController::class, 'saveProductionChecklist'])->name('api.production.checklist.save');
         Route::get('/api/production/additional/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'getAdditionalProductionChecklist'])->name('api.production.additional.get');
+        // Set Time List (manager) — lahat ng nag-set ng time + reason; pwedeng i-arrange.
+        // DAPAT nasa ITAAS ng `/sales/prototype/{id}` wildcard, kung hindi 404 (tinatrato na id).
+        Route::get('/sales/prototype/set-time-list', [App\Http\Controllers\PrototypeSalesController::class, 'setTimeList'])->middleware('auth')->name('sales.prototype.set-time-list');
+        Route::post('/sales/prototype/set-time-list/reorder', [App\Http\Controllers\PrototypeSalesController::class, 'setTimeReorder'])->middleware('auth')->name('sales.prototype.set-time-list.reorder');
+        Route::post('/sales/prototype/{id}/set-time-prio', [App\Http\Controllers\PrototypeSalesController::class, 'setTimePrio'])->middleware('auth')->name('sales.prototype.set-time-prio');
+        Route::post('/sales/prototype/{id}/set-time-done', [App\Http\Controllers\PrototypeSalesController::class, 'setTimeDone'])->middleware('auth')->name('sales.prototype.set-time-done');
         Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
         Route::get('/sales/prototype/{id}/edit', [App\Http\Controllers\PrototypeSalesController::class, 'edit'])->name('sales.prototype.edit');
         Route::put('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'update'])->name('sales.prototype.update');
         Route::delete('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'destroy'])->name('sales.prototype.destroy');
 
         // ======== Agent Routes (Sales Team Dashboard & Simplified Sales) ========
-        Route::get('/sales/team', [App\Http\Controllers\PrototypeSalesController::class, 'agentDashboard'])->middleware('auth')->name('sales.team.dashboard');
+        // "Action Required" gate page — hinaharang ang dashboard + create habang may pending items.
+        Route::get('/sales/team/action-required', [App\Http\Controllers\PrototypeSalesController::class, 'agentActionRequired'])->middleware('auth')->name('sales.team.action-required');
+        Route::get('/sales/team', [App\Http\Controllers\PrototypeSalesController::class, 'agentDashboard'])->middleware(['auth', 'agent.cleared'])->name('sales.team.dashboard');
+        Route::get('/sales/team/archived', [App\Http\Controllers\PrototypeSalesController::class, 'agentArchived'])->middleware('auth')->name('sales.team.archived');
         Route::post('/sales/team/{id}/delay', [App\Http\Controllers\PrototypeSalesController::class, 'markDelayed'])->middleware('auth')->name('sales.team.delay');
         Route::post('/sales/team/{id}/submit-time', [App\Http\Controllers\PrototypeSalesController::class, 'submitTime'])->middleware('auth')->name('sales.team.submit-time');
         Route::get('/sales/prototype/agent/create', [App\Http\Controllers\PrototypeSalesController::class, 'agentCreate'])->name('sales.prototype.agent.create');
@@ -971,6 +983,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // Payment verification
         Route::post('/sales/prototype/{id}/verify-payment', [App\Http\Controllers\PrototypeSalesController::class, 'verifyPayment'])->name('sales.prototype.verify-payment');
         Route::get('/sales/verification', [App\Http\Controllers\PrototypeSalesController::class, 'paymentVerification'])->name('sales.verification');
+        // DUPLICATE REFERENCE REPORT — searchable read-only page para sa mga verifier (Andrew 2026-09-21)
+        Route::get('/sales/verification/duplicates', [App\Http\Controllers\PrototypeSalesController::class, 'duplicateReferences'])->name('sales.verification.duplicates');
         Route::get('/sales/cash-flow', [App\Http\Controllers\PrototypeSalesController::class, 'cashFlow'])->name('sales.cash-flow');
         Route::get('/sales/audit-logs/{saleId?}', [App\Http\Controllers\PrototypeSalesController::class, 'getAuditLogs'])->name('sales.audit-logs');
         Route::get('/sales/account-history/{accountId}', [App\Http\Controllers\PrototypeSalesController::class, 'getAccountHistory'])->name('sales.account-history');
@@ -1024,6 +1038,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // LAYOUT JOB SYSTEM (bayad/libre layout jobs — pre-sale at sale-linked)
         Route::get('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'index'])->name('sales.layout-jobs');
         Route::get('/sales/layout-jobs/all', [App\Http\Controllers\LayoutJobController::class, 'all'])->name('sales.layout-jobs.all');
+        Route::get('/sales/layout-jobs/dashboard', [App\Http\Controllers\LayoutJobController::class, 'dashboard'])->name('sales.layout-jobs.dashboard');
         Route::get('/sales/layout-jobs/create', [App\Http\Controllers\LayoutJobController::class, 'create'])->name('sales.layout-jobs.create');
         Route::post('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'store'])->name('sales.layout-jobs.store');
         Route::post('/sales/layout-jobs/{id}/verify-payment', [App\Http\Controllers\LayoutJobController::class, 'verifyPayment'])->name('sales.layout-jobs.verify-payment');

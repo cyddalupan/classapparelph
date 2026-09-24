@@ -153,6 +153,11 @@
                         <div class="px-reason mb-2">
                             <i class="fas fa-comment-dots me-1"></i><strong>Reason (mula sa Sales Agent):</strong> {{ $rv->reason }}
                         </div>
+                        @if($rv->sale_payment_note)
+                            <div class="px-reason mb-2" style="background:#fffbeb;border-left-color:#f59e0b;">
+                                <i class="fas fa-sticky-note me-1"></i><strong>Note mula sa Sales (Step 3 payment):</strong> {{ $rv->sale_payment_note }}
+                            </div>
+                        @endif
                         @if($rv->accountant_note)
                             <div class="px-reason mb-2" style="background:#f0fdf4;border-left-color:#4ade80;">
                                 <i class="fas fa-stamp text-success me-1"></i><strong>Accountant note:</strong> {{ $rv->accountant_note }}

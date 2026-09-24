@@ -484,12 +484,25 @@ class PrototypeSalesController extends Controller
             public function store(Request $request)
     {
         // Validate customer data
-        $request->validate([
-            'customer_name' => 'required|string|max:255',
-            'customer_phone' => 'required|string|max:20',
-            'customer_email' => 'nullable|email',
-            'marketplace' => 'nullable|string',
-        ]);
+        // Naka-wrap para ma-log ang failure (diagnostics) habang HINDI binabago
+        // ang behaviour: re-thrown ang ValidationException kaya normale pa rin
+        // ang redirect pabalik na may error bag. (Andrew 2026-09-23)
+        try {
+            $request->validate([
+                'customer_name' => 'required|string|max:255',
+                'customer_phone' => 'required|string|max:20',
+                'customer_email' => 'nullable|email',
+                'marketplace' => 'nullable|string',
+                'payment_note' => 'nullable|string|max:500',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::warning('prototype_sales.store validation failed', [
+                'user_id' => auth()->id(),
+                'errors' => $e->errors(),
+                'input_keys' => array_keys($request->except('_token')),
+            ]);
+            throw $e;
+        }
         
         // Use existing customer_id if provided and still valid; otherwise fall back to phone lookup/create
         // (stale customer_id from Smart Customer Detection must not block sale creation)
@@ -790,7 +803,7 @@ class PrototypeSalesController extends Controller
                         'screenshot_path' => $paymentScreenshotPath,
                         'payment_status' => 'pending',
                         'payment_date' => $request->payment_date ?: null,
-                        'notes' => 'Initial deposit',
+                        'notes' => $request->filled('payment_note') ? trim((string) $request->payment_note) : 'Initial deposit',
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
@@ -1218,6 +1231,17 @@ public function details(Request $request, string $id)
         // COO can give production feedback too (but is NOT a manager otherwise)
         $canGiveFeedback = $currentUser && ($isManager || $currentUser->isCoo() || $currentUser->isQa());
         
+        // Tagging Timeline (time tagged + gaano katagal per stage) — Manager / CEO / COO only.
+        // Read-only, additive; hindi ito tumatakbo para sa ibang roles para wala naming extra query.
+        $canSeeTagging = $currentUser && ($currentUser->isManager() || $currentUser->isCoo());
+        $stageTimeline = $canSeeTagging
+            ? \App\Services\SaleStageTaggingService::forSale((int) $id)
+            : [];
+
+        // Production check counts (ilan na ang na-check na GA / QA1 / QA2 checkbox sa slip).
+        // Read-only, additive — isang query lang para sa sale na ito.
+        $prodCheckCounts = \App\Services\ProductionCheckCountService::forSale((int) $id);
+
         // Determine if editing is allowed (not delivered/completed)
         $canEdit = !in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled']);
 
@@ -1323,7 +1347,9 @@ public function details(Request $request, string $id)
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists', 'damageReports',
-            'linkedLayoutJobs', 'layoutFeeTotal', 'collectedWithLayout', 'paymentReviews', 'activeReviewRequest'
+            'linkedLayoutJobs', 'layoutFeeTotal', 'collectedWithLayout', 'paymentReviews', 'activeReviewRequest',
+            'canSeeTagging', 'stageTimeline',
+            'prodCheckCounts'
         ));
     }
 
@@ -1919,7 +1945,7 @@ public function details(Request $request, string $id)
         $user = auth()->user();
         $isManager = $user && (in_array($user->role, ['admin', 'manager']) || $user->isClassScoped());
         $isArtist = $user && !$isManager && $user->isArtist();
-        $isAgent = $user && !$isManager && ($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isArtist() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa());
+        $isAgent = $user && !$isManager && ($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isArtist() || $user->isCoo() || $user->isCpo() || $user->isCmo() || ($user->isGa() && !$user->isExternalGa()));
         if (!$isManager && !$isAgent) {
             abort(403);
         }
@@ -3136,26 +3162,12 @@ $services = json_decode($sale->services, true);
                 'items' => $expectedItems,
             ]);
         } else {
-            // Rebuild items from all slips while preserving existing status/GA/QA flags
-            // by matching on (type, label, product).
+            // Rebuild items from all slips while preserving existing status/GA/QA flags.
+            // Matching key is type|label|product PLUS an occurrence counter, so DUPLICATE
+            // labels (e.g. repeated per-piece sizes "SMALL ×1") stay distinct per row
+            // instead of collapsing onto one another (which lost/moved the GA/QA ticks).
             $oldItems = $checklist->items ?? [];
-            $oldMap = [];
-            foreach ($oldItems as $oi) {
-                $key = ($oi['type'] ?? '') . '|' . ($oi['label'] ?? '') . '|' . ($oi['product'] ?? 0);
-                $oldMap[$key] = $oi;
-            }
-            $merged = [];
-            foreach ($expectedItems as $ni) {
-                $key = ($ni['type'] ?? '') . '|' . ($ni['label'] ?? '') . '|' . ($ni['product'] ?? 0);
-                if (isset($oldMap[$key])) {
-                    $oi = $oldMap[$key];
-                    $ni['status'] = $oi['status'] ?? 'pending';
-                    if (isset($oi['ga_done'])) $ni['ga_done'] = $oi['ga_done'];
-                    if (isset($oi['qa1_done'])) $ni['qa1_done'] = $oi['qa1_done'];
-                    if (isset($oi['qa2_done'])) $ni['qa2_done'] = $oi['qa2_done'];
-                }
-                $merged[] = $ni;
-            }
+            $merged = $this->mergeChecklistItems($expectedItems, $oldItems);
             if (json_encode($merged) !== json_encode($oldItems)) {
                 $checklist->items = $merged;
                 $checklist->save();
@@ -3232,26 +3244,59 @@ $services = json_decode($sale->services, true);
      * Get production checklist showing ALL products (not just first one).
      * Used by the "Additional Production Slip" tab on kanban.
      */
-    public function getAdditionalProductionChecklist(string $id)
+    /**
+     * Merge freshly-rebuilt checklist items with previously-saved items so user ticks
+     * (status / GA / QA1 / QA2) survive a rebuild. Matching key =
+     * type|label|product PLUS an occurrence counter, so DUPLICATE labels (e.g. repeated
+     * per-piece sizes "SMALL ×1") stay distinct per row instead of collapsing onto one
+     * another (which silently lost / moved the GA-QA ticks on reload).
+     */
+    private function mergeChecklistItems(array $expectedItems, array $oldItems): array
     {
-        $sale = \DB::table('prototype_sales')->find($id);
-        if (!$sale) {
-            return response()->json(['error' => 'Sale not found'], 404);
+        $oldMap = [];
+        $oldSeen = [];
+        foreach ($oldItems as $oi) {
+            $base = ($oi['type'] ?? '') . '|' . ($oi['label'] ?? '') . '|' . ($oi['product'] ?? 0);
+            $occ = ($oldSeen[$base] ?? 0) + 1;
+            $oldSeen[$base] = $occ;
+            $oldMap[$base . '#' . $occ] = $oi;
         }
-        
-                // Class Production Manager: only Class department sales (department_id = 4)
-        $user = auth()->user();
-        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
-            abort(403, 'Class department only.');
+        $merged = [];
+        $newSeen = [];
+        foreach ($expectedItems as $ni) {
+            $base = ($ni['type'] ?? '') . '|' . ($ni['label'] ?? '') . '|' . ($ni['product'] ?? 0);
+            $occ = ($newSeen[$base] ?? 0) + 1;
+            $newSeen[$base] = $occ;
+            $key = $base . '#' . $occ;
+            if (isset($oldMap[$key])) {
+                $oi = $oldMap[$key];
+                $ni['status'] = $oi['status'] ?? ($ni['status'] ?? 'pending');
+                if (isset($oi['ga_done'])) $ni['ga_done'] = $oi['ga_done'];
+                if (isset($oi['qa1_done'])) $ni['qa1_done'] = $oi['qa1_done'];
+                if (isset($oi['qa2_done'])) $ni['qa2_done'] = $oi['qa2_done'];
+                // Bilang ng tapos (QA1/QA2) — dapat hindi rin mawala sa rebuild.
+                if (isset($oi['qa1_count'])) $ni['qa1_count'] = $oi['qa1_count'];
+                if (isset($oi['qa2_count'])) $ni['qa2_count'] = $oi['qa2_count'];
+            }
+            $merged[] = $ni;
         }
-// Get all approved changes for this sale that added products
-        $approvedChanges = \DB::table('prototype_sale_changes')
-            ->where('sale_id', $id)
-            ->where('status', 'approved')
-            ->whereRaw('JSON_LENGTH(services_after) > JSON_LENGTH(services_before)')
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
+        return $merged;
+    }
+
+    /**
+     * Collect the ADDITIONAL products (items added after the original order via approved
+     * change requests) as enriched "product cards" for the Additional Production Slip.
+     */
+    private function collectAdditionalProducts($allChanges, array $services): array
+    {
+        // Approved changes that added products (services_after longer than services_before)
+        $approvedChanges = $allChanges->filter(function ($c) {
+            if (($c->status ?? '') !== 'approved') return false;
+            $before = json_decode($c->services_before, true) ?: [];
+            $after = json_decode($c->services_after, true) ?: [];
+            return count($after) > count($before);
+        })->sortByDesc('created_at');
+
         // Collect all ADDITIONAL items (items in services_after but NOT in services_before)
         $additionalItems = [];
         foreach ($approvedChanges as $change) {
@@ -3264,17 +3309,7 @@ $services = json_decode($sale->services, true);
                 }
             }
         }
-        
-        // Also check current services for items that didn't exist at sale creation (id > max original)
-        // This handles approved changes that were merged into sale.services
-        $services = json_decode($sale->services, true) ?: [];
-        
-        // Get all submission IDs from change histories to know original items
-        $allChanges = \DB::table('prototype_sale_changes')
-            ->where('sale_id', $id)
-            ->orderBy('created_at', 'asc')
-            ->get();
-        
+
         $originalItemIds = [];
         $additionalFromServices = [];
         if ($allChanges->isNotEmpty()) {
@@ -3282,8 +3317,8 @@ $services = json_decode($sale->services, true);
             $firstChange = $allChanges->first();
             $firstBefore = json_decode($firstChange->services_before, true) ?: [];
             $originalItemIds = array_column($firstBefore, 'id');
-            
-            // Collect all item IDs introduced by reprocess changes (these are replacements, not additions)
+
+            // Collect all item IDs introduced by reprocess changes (replacements, not additions)
             $reprocessedItemIds = [];
             foreach ($allChanges as $c) {
                 if (($c->type ?? '') === 'reprocess' && $c->status === 'approved') {
@@ -3298,22 +3333,19 @@ $services = json_decode($sale->services, true);
                 $itemId = $item['id'] ?? null;
                 // An item is additional only if: (a) its ID wasn't original, AND (b) it didn't come from a reprocess change
                 if ($itemId && !in_array($itemId, $originalItemIds) && !in_array($itemId, $reprocessedItemIds)) {
-                    // This item was added via a change request
                     $additionalFromServices[] = $item;
                 }
             }
         }
-        
+
         // Filter: only include items that still exist in current services (reprocess removes old items)
         $currentServiceIds = array_column($services, 'id');
 
-        // Merge: items in current services take precedence (they have the latest data)
-        // Over change request data (which can become stale)
+        // Merge: items in current services take precedence over change request data (which can become stale)
         $allAdditional = [];
         $seenIds = [];
         foreach (array_merge($additionalFromServices, $additionalItems) as $item) {
             $itemId = $item['id'] ?? 0;
-            // Skip items that were removed from services (e.g., by reprocess)
             if ($itemId && !in_array($itemId, $currentServiceIds)) {
                 continue;
             }
@@ -3322,7 +3354,7 @@ $services = json_decode($sale->services, true);
                 $allAdditional[] = $item;
             }
         }
-        
+
         // Build enriched product response (full CUSTOMER FORM SPECIFICATIONS format)
         $specPartsMap = [
             'neckRibbingColor' => 'Neck Ribbing', 'neckTape' => 'Neck Tape', 'cuffs' => 'Cuffs',
@@ -3332,9 +3364,10 @@ $services = json_decode($sale->services, true);
             'defaultDesign' => 'Design', 'armsleeve' => 'Arm Sleeve', 'shoulder' => 'Shoulder',
             'sizeLabel' => 'Size Label'
         ];
-        
+
         $productCards = [];
         foreach ($allAdditional as $item) {
+            $itemId = $item['id'] ?? null;
             $name = $item['name'] ?? 'Unknown Product';
             $qty = $item['quantity'] ?? 0;
             $price = $item['totalPrice'] ?? 0;
@@ -3343,7 +3376,7 @@ $services = json_decode($sale->services, true);
             $rawFabric = $sf['fabric'] ?? '';
             $fabric = is_string($rawFabric) ? $rawFabric : ($rawFabric['name'] ?? '');
             $sizes = $sf['sizes'] ?? [];
-            
+
             // Build partRows from specs — check both normalized and non-normalized keys
             $partRows = [];
             $garmentType = $sf['garmentType'] ?? '';
@@ -3352,7 +3385,6 @@ $services = json_decode($sale->services, true);
             if ($gName) {
                 $partRows[] = ['part' => 'Garment', 'detail' => $gName];
             }
-            // Check both 'specs' (js key) and 'specifications' (normalized key)
             $specs = $sf['specs'] ?? $sf['specifications'] ?? [];
             foreach ($specs as $label => $val) {
                 $v = is_string($val) ? trim($val) : '';
@@ -3360,7 +3392,6 @@ $services = json_decode($sale->services, true);
                     $partRows[] = ['part' => $label, 'detail' => $v];
                 }
             }
-            // Parts added
             $partsAdded = $sf['parts'] ?? [];
             if (!empty($partsAdded)) {
                 $partDetails = implode(', ', array_map(function($p) { return $p['name'] ?? ''; }, $partsAdded));
@@ -3368,13 +3399,12 @@ $services = json_decode($sale->services, true);
                     $partRows[] = ['part' => 'Parts Added', 'detail' => $partDetails];
                 }
             }
-            
+
             // Use sublimateForm.roster if available (has full Excel columns), otherwise rebuild from sizes
             $rawRoster = $sf['roster'] ?? [];
             $roster = [];
             $cleanSizes = [];
             if (!empty($rawRoster)) {
-                // Preserve full roster data including Excel columns
                 foreach ($rawRoster as $r) {
                     $entry = [
                         'name' => $r['name'] ?? '',
@@ -3383,14 +3413,12 @@ $services = json_decode($sale->services, true);
                         'number' => $r['number'] ?? 1,
                         'qty' => $r['qty'] ?? 1,
                     ];
-                    // Preserve Excel columns for print slip / name list rendering
                     if (!empty($r['columns'])) {
                         $entry['columns'] = $r['columns'];
                     }
                     $roster[] = $entry;
                 }
             } else {
-                // Fallback: rebuild from sizes (backward compat for older data)
                 foreach ($sizes as $s) {
                     if (!empty($s['name'])) {
                         $roster[] = [
@@ -3405,7 +3433,7 @@ $services = json_decode($sale->services, true);
                     }
                 }
             }
-            
+
             $productCards[] = [
                 'item_id' => $itemId,
                 'name' => $name,
@@ -3423,20 +3451,99 @@ $services = json_decode($sale->services, true);
                 'rosterMode' => $sf['rosterMode'] ?? false,
             ];
         }
-        
+
+        return $productCards;
+    }
+
+    public function getAdditionalProductionChecklist(string $id)
+    {
+        $sale = \DB::table('prototype_sales')->find($id);
+        if (!$sale) {
+            return response()->json(['error' => 'Sale not found'], 404);
+        }
+
+        // Class Production Manager: only Class department sales (department_id = 4)
+        $user = auth()->user();
+        if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
+
+        $services = json_decode($sale->services, true) ?: [];
+        $allChanges = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $productCards = $this->collectAdditionalProducts($allChanges, $services);
+
+        // Build the per-row checklist items for the additional products. They live in the
+        // dedicated `additional_items` JSON so they never collide with the MAIN slip rows,
+        // and previously-saved GA/QA1/QA2 ticks are preserved across reloads.
+        $expected = [];
+        foreach ($productCards as $i => $card) {
+            $pkey = 'add:' . $i;
+            foreach ($card['partRows'] as $pr) {
+                $expected[] = ['type' => 'part', 'product' => $pkey, 'label' => ($pr['part'] ?? '') . ': ' . ($pr['detail'] ?? ''), 'value' => '', 'status' => 'pending'];
+            }
+            foreach ($card['roster'] as $r) {
+                $expected[] = ['type' => 'roster', 'product' => $pkey, 'label' => $r['name'] ?? 'Unknown', 'value' => ($r['size'] ?? '') . ' ×' . ($r['number'] ?? 1), 'status' => 'pending'];
+            }
+            foreach ($card['sizes'] as $s) {
+                $expected[] = ['type' => 'size', 'product' => $pkey, 'label' => ($s['size'] ?? 'Size') . ' ×' . ($s['quantity'] ?? $s['qty'] ?? 0), 'value' => '', 'status' => 'pending'];
+            }
+        }
+
+        $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
+        if (!$checklist) {
+            $checklist = \App\Models\ProductionChecklist::create([
+                'sale_id' => $id,
+                'items' => [],
+                'additional_items' => $expected,
+            ]);
+        } else {
+            $old = $checklist->additional_items ?? [];
+            $merged = $this->mergeChecklistItems($expected, $old);
+            if (json_encode($merged) !== json_encode($old)) {
+                $checklist->additional_items = $merged;
+                $checklist->save();
+            }
+        }
+        $items = $checklist->additional_items ?? [];
+
+        // Map every rendered row to its global checklist index so the frontend posts the
+        // correct index when a box is ticked.
+        $idxByProduct = [];
+        foreach ($items as $gi => $it) {
+            $pkey = $it['product'] ?? '';
+            $t = $it['type'] ?? '';
+            $idxByProduct[$pkey][$t][] = $gi;
+        }
+        foreach ($productCards as $i => &$card) {
+            $pkey = 'add:' . $i;
+            $card['product_key'] = $pkey;
+            $card['roster_item_idx'] = array_values($idxByProduct[$pkey]['roster'] ?? []);
+            $card['size_item_idx'] = array_values($idxByProduct[$pkey]['size'] ?? []);
+        }
+        unset($card);
+
         $salesNumber = $sale->sales_number ?? '';
         $customerName = $sale->customer_name ?? '';
         $agentName = $sale->sales_agent_name ?? '';
-        
-        $checklist = \App\Models\ProductionChecklist::where('sale_id', $id)->first();
-        
+
         return response()->json([
             'has_additional' => count($productCards) > 0,
             'products' => $productCards,
             'sales_number' => $salesNumber,
             'customer_name' => $customerName,
             'agent' => $agentName,
-            'additional_comments' => $checklist ? ($checklist->additional_comments ?? '{}') : '{}',
+            'additional_comments' => $checklist->additional_comments ?? '{}',
+            'checklist' => [
+                'sale_id' => $checklist->sale_id,
+                'items' => $items,
+                'ga_done' => $checklist->ga_done,
+                'qa1_done' => $checklist->qa1_done,
+                'qa2_done' => $checklist->qa2_done,
+            ],
         ]);
     }
     
@@ -3487,12 +3594,54 @@ $services = json_decode($sale->services, true);
                         if (isset($update['qa2_done'])) {
                             $currentItems[$idx]['qa2_done'] = filter_var($update['qa2_done'], FILTER_VALIDATE_BOOLEAN);
                         }
+                        // Bilang ng tapos (hal. QA1/QA2: 1 sa 3) — parehong items JSON, walang schema change.
+                        if (isset($update['qa1_count'])) {
+                            $currentItems[$idx]['qa1_count'] = max(0, (int) $update['qa1_count']);
+                        }
+                        if (isset($update['qa2_count'])) {
+                            $currentItems[$idx]['qa2_count'] = max(0, (int) $update['qa2_count']);
+                        }
                     }
                 }
                 $checklist->items = $currentItems;
             } else {
                 // Full replacement
                 $checklist->items = $incomingItems;
+            }
+        }
+
+        // Additional Production Slip rows (stored separately in `additional_items`)
+        if (isset($input['additional_items'])) {
+            $incomingAdd = $input['additional_items'];
+            if (is_array($incomingAdd) && isset($incomingAdd[0]['index'])) {
+                $currentAdd = $checklist->additional_items ?? [];
+                foreach ($incomingAdd as $update) {
+                    $idx = $update['index'] ?? -1;
+                    if ($idx >= 0 && $idx < count($currentAdd)) {
+                        if (isset($update['status'])) {
+                            $currentAdd[$idx]['status'] = $update['status'];
+                        }
+                        if (isset($update['ga_done'])) {
+                            $currentAdd[$idx]['ga_done'] = filter_var($update['ga_done'], FILTER_VALIDATE_BOOLEAN);
+                        }
+                        if (isset($update['qa1_done'])) {
+                            $currentAdd[$idx]['qa1_done'] = filter_var($update['qa1_done'], FILTER_VALIDATE_BOOLEAN);
+                        }
+                        if (isset($update['qa2_done'])) {
+                            $currentAdd[$idx]['qa2_done'] = filter_var($update['qa2_done'], FILTER_VALIDATE_BOOLEAN);
+                        }
+                        // Bilang ng tapos (Additional slip) — QA1/QA2 count.
+                        if (isset($update['qa1_count'])) {
+                            $currentAdd[$idx]['qa1_count'] = max(0, (int) $update['qa1_count']);
+                        }
+                        if (isset($update['qa2_count'])) {
+                            $currentAdd[$idx]['qa2_count'] = max(0, (int) $update['qa2_count']);
+                        }
+                    }
+                }
+                $checklist->additional_items = $currentAdd;
+            } else {
+                $checklist->additional_items = $incomingAdd;
             }
         }
 
@@ -3859,7 +4008,7 @@ $services = json_decode($sale->services, true);
     public function gaOrderList()
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager() || $user->isCoo() || $user->isQa())) {
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isCoo() || $user->isQa() || $user->isCmo())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -3923,6 +4072,25 @@ $services = json_decode($sale->services, true);
             ->whereNull('archived_at')
             ->when($user && $user->isClassScoped(), function ($query) {
                 $query->where('department_id', 4);
+            })
+            // CMO (Andrew 2026-09-17): makikita lang ang jobs na naka-assign sa kanya.
+            ->when($user && $user->isCmo(), function ($query) use ($user) {
+                $query->whereIn('id', function ($sub) use ($user) {
+                    $sub->select('prototype_sale_id')
+                        ->from('ga_assignments')
+                        ->where('user_id', $user->id);
+                });
+            })
+            // External GA (Andrew 2026-09-17): ang makikita lang ay ang mga job na naka-assign
+            // sa kanya para sa FOR FORMAT. Kapag na-unassign na o na-tag nang SEWING, wala na sa listahan.
+            ->when($user && $user->isExternalGa(), function ($query) use ($user) {
+                $query->whereIn('id', function ($sub) use ($user) {
+                    $sub->select('prototype_sale_id')
+                        ->from('ga_assignments')
+                        ->where('user_id', $user->id)
+                        ->where('stage', 'FOR FORMAT')
+                        ->whereNull('completed_at');
+                });
             })
             ->whereIn('production_stage', ['FOR SAMPLE', 'FOR APPROVAL', 'FOR FORMAT', 'PRINTING', 'PRESSING', 'CUTTING'])
             ->when(filled($q), function ($query) use ($q) {
@@ -4005,7 +4173,8 @@ $services = json_decode($sale->services, true);
             ->withQueryString();
 
         // GA users + assignments map for the current page
-        $gaUsers = \App\Models\User::where('role', 'ga')->orderBy('name')->get();
+        // (CMO included so a Manager can tag the CMO user to a stage — Andrew 2026-09-17)
+        $gaUsers = \App\Models\User::whereIn('role', ['ga', 'cmo'])->orderBy('name')->get();
         $saleIds = collect($sales->items())->pluck('id')->all();
         $assignments = \App\Models\GaAssignment::with('user')
             ->whereIn('prototype_sale_id', $saleIds)
@@ -4297,7 +4466,7 @@ $services = json_decode($sale->services, true);
         return view('sales.prototype.ga-dashboard', compact('gaUsers', 'perGa', 'totalCounted', 'monthlyTrend', 'recentCounted', 'month', 'year', 'itemBreakdown', 'itemDetail', 'totalPieces', 'perGaPieces'));
     }
 
-    public function list()
+    public function list(Request $request)
     {
         $deptCodeMap = [
             "iprint" => 1,
@@ -4392,13 +4561,151 @@ $services = json_decode($sale->services, true);
             $query->where('sales_agent_id', $user ? $user->id : null);
         }
         
+        // ============================================================
+        // FILTERS — SERVER-SIDE (Andrew 2026-09-18)
+        // Dating client-side (JS) lang: 50 rows (current page) lang ang
+        // na-fi-filter at nawawala lahat kapag lumipat ng page. Ngayon
+        // server-side na — sakop ang BUONG dataset at tumatagal across
+        // pages (withQueryString sa pagination). Same semantics as the old JS.
+        // ============================================================
+        $filters = [
+            'q'         => trim((string) $request->get('q', '')),
+            'date_from' => (string) $request->get('date_from', ''),
+            'date_to'   => (string) $request->get('date_to', ''),
+            'stage'     => (string) $request->get('stage', ''),
+            'dept'      => (string) $request->get('dept', ''),
+            'status'    => (string) $request->get('status', ''),
+            'prio'      => $request->boolean('prio'),
+            'payment'   => (string) $request->get('payment', ''),
+            'agent'     => (string) $request->get('agent', ''),
+            'photo'     => (string) $request->get('photo', ''),
+            'time_req'  => (string) $request->get('time_req', ''),
+            'days_left' => (string) $request->get('days_left', ''),
+            'time_sort' => (string) $request->get('time_sort', ''),
+            'due_sort'  => (string) $request->get('due_sort', ''),
+        ];
+
+        // --- Cheap SQL filters ---
+        if ($filters['q'] !== '') {
+            $query->where(function ($w) use ($filters) {
+                $w->where('customer_name', 'like', '%' . $filters['q'] . '%')
+                  ->orWhere('sales_number', 'like', '%' . $filters['q'] . '%')
+                  ->orWhere('customer_phone', 'like', '%' . $filters['q'] . '%');
+            });
+        }
+        if ($filters['date_from'] !== '') $query->whereDate('created_at', '>=', $filters['date_from']);
+        if ($filters['date_to'] !== '')   $query->whereDate('created_at', '<=', $filters['date_to']);
+        if ($filters['status'] !== '')    $query->where('kanban_status', $filters['status']);
+        if ($filters['dept'] !== '')      $query->where('department_id', (int) $filters['dept']);
+        if ($filters['agent'] !== '')     $query->where('sales_agent_name', $filters['agent']);
+        if ($filters['prio'])             $query->whereNotNull('priority');
+
+        if ($filters['time_req'] === 'set') {
+            $query->whereNotNull('needed_by');
+        } elseif ($filters['time_req'] === 'requested') {
+            $query->whereNull('needed_by')->whereNotNull('time_requested_at');
+        } elseif ($filters['time_req'] === 'none') {
+            $query->whereNull('needed_by')->whereNull('time_requested_at');
+        }
+
+        // Production-stage filter — mirrors row data-stage = production_stage ?: statusToStage[kanban]
+        if ($filters['stage'] !== '') {
+            $stage = $filters['stage'];
+            $kanbanForStage = array_keys(array_filter($statusToStage, fn ($v) => $v === $stage));
+            $query->where(function ($w) use ($stage, $kanbanForStage) {
+                $w->where('production_stage', $stage);
+                if (!empty($kanbanForStage)) {
+                    $w->orWhere(function ($w2) use ($kanbanForStage) {
+                        $w2->whereNull('production_stage')->whereIn('kanban_status', $kanbanForStage);
+                    });
+                }
+            });
+        }
+
+        // --- Complex filters (photo / payment / days-left): computed in PHP for EXACT
+        //     parity with the previous client-side logic (JSON image types, payment
+        //     accessors, due-date buckets). Small dataset → lightweight select only. ---
+        if ($filters['photo'] !== '' || $filters['payment'] !== '' || $filters['days_left'] !== '') {
+            $candCols = ['id', 'production_stage', 'kanban_status', 'rescheduled_date', 'estimated_completion_date',
+                         'total_amount', 'review_settled_amount', 'deposit_paid', 'payment_status',
+                         'payment_account_id', 'design_images'];
+            $candidates = (clone $query)->select($candCols)->with(['payments', 'refunds', 'completedRefunds'])->get();
+            $keepIds = [];
+            foreach ($candidates as $s) {
+                if ($filters['photo'] !== '') {
+                    $di = is_array($s->design_images) ? $s->design_images : (json_decode((string) $s->design_images, true) ?: []);
+                    $hasFile  = collect($di)->contains('type', 'file_screenshot');
+                    $hasColor = collect($di)->contains('type', 'sample_color');
+                    if (($hasFile && $hasColor) !== ($filters['photo'] === 'complete')) continue;
+                }
+                if ($filters['days_left'] !== '') {
+                    $dlStageLabel = $s->production_stage ?: ($statusToStage[$s->kanban_status ?? 'new'] ?? 'HOLD');
+                    $dlStage = $prodStageMap[$dlStageLabel] ?? $dlStageLabel;
+                    $dlDate = in_array($dlStage, ['ready_for_delivery', 'delivered', 'completed'])
+                        ? null : ($s->rescheduled_date ?: $s->estimated_completion_date);
+                    $bucket = 'none';
+                    if ($dlDate) {
+                        $left = (int) now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($dlDate)->startOfDay(), false);
+                        if ($left < 0) $bucket = 'overdue';
+                        elseif ($left === 0) $bucket = 'today';
+                        elseif ($left <= 3) $bucket = 'soon';
+                        else $bucket = 'later';
+                    }
+                    if ($bucket !== $filters['days_left']) continue;
+                }
+                if ($filters['payment'] !== '') {
+                    $net = (float) $s->net_paid;
+                    $bal = (float) $s->balance_due_computed;
+                    $refunded = (float) $s->total_refunded;
+                    $pay = $s->payment_status;
+                    $match = false;
+                    switch ($filters['payment']) {
+                        case 'paid':     $match = $net > 0 && $bal <= 0 && $refunded <= 0 && $pay !== 'po' && $pay !== 'reject_pending'; break;
+                        case 'refunded': $match = $refunded > 0 && $bal <= 0 && $net > 0; break;
+                        case 'pending':  $match = $pay === 'pending' && !empty($s->payment_account_id); break;
+                        case 'po':       $match = $pay === 'po'; break;
+                        case 'rejected': $match = $pay === 'rejected'; break;
+                        case 'balance':  $match = $bal > 0 && $net > 0; break;
+                    }
+                    if (!$match) continue;
+                }
+                $keepIds[] = $s->id;
+            }
+            $query->whereIn('id', $keepIds);
+        }
+
         // Delayed → top, PERO kapag DISPATCH na (o UNPAID/DONE) hindi na ito dapat harangin ang tuktok
         // ng list — pababa na ito para umangat ang iba (Andrew 2026-09-12). Nananatili pa rin ang DELAYED icon.
-        $sales = $query->orderByRaw("CASE WHEN is_delayed = 1 AND (production_stage IS NULL OR production_stage NOT IN ('DISPATCH','UNPAID','DONE')) THEN 0 ELSE 1 END")
+        $ordered = $query->orderByRaw("CASE WHEN is_delayed = 1 AND (production_stage IS NULL OR production_stage NOT IN ('DISPATCH','UNPAID','DONE')) THEN 0 ELSE 1 END")
             ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
             ->orderBy('priority', 'asc')
-            ->orderBy("created_at", "desc")
-            ->paginate(50);
+            ->orderBy("created_at", "desc");
+
+        // Optional sort by Set Time (needed_by) or Due date — server-side para consistent across pages.
+        if ($filters['time_sort'] !== '') {
+            $dir = $filters['time_sort'] === 'desc' ? 'desc' : 'asc';
+            $ordered->reorder()
+                ->orderByRaw('CASE WHEN needed_by IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('needed_by', $dir);
+        } elseif ($filters['due_sort'] !== '') {
+            $dir = $filters['due_sort'] === 'desc' ? 'desc' : 'asc';
+            $dueExpr = "(CASE WHEN COALESCE(CASE production_stage "
+                . "WHEN 'FOR SAMPLE' THEN 'sample_approval' WHEN 'FOR APPROVAL' THEN 'sample_approval' "
+                . "WHEN 'FOR FORMAT' THEN 'design' WHEN 'PRINTING' THEN 'design' "
+                . "WHEN 'PRESSING' THEN 'production' WHEN 'CUTTING' THEN 'production' WHEN 'SEWING' THEN 'production' "
+                . "WHEN 'QA' THEN 'quality_check' WHEN 'HOLD' THEN 'new' "
+                . "WHEN 'DISPATCH' THEN 'ready_for_delivery' WHEN 'UNPAID' THEN 'delivered' WHEN 'DONE' THEN 'completed' "
+                . "ELSE production_stage END, kanban_status, 'new') IN ('ready_for_delivery','delivered','completed') "
+                . "THEN NULL ELSE COALESCE(rescheduled_date, estimated_completion_date) END)";
+            $ordered->reorder()
+                ->orderByRaw("CASE WHEN $dueExpr IS NULL THEN 1 ELSE 0 END")
+                ->orderByRaw("$dueExpr $dir");
+        }
+
+        $sales = $ordered->paginate(50)->withQueryString();
+
+        // Production check counts (GA/QA1/QA2 checked) para sa Progress meter — read-only, batched (1 query).
+        $prodCheckCounts = \App\Services\ProductionCheckCountService::forSales($sales->pluck('id')->all());
 
         // Priorities already in use (unique prio enforcement) — same scope as the list
         $usedPrioQuery = \App\Models\PrototypeSale::whereIn("status", ["confirmed", "in_production", "pending", "completed"])
@@ -4545,6 +4852,11 @@ $services = json_decode($sale->services, true);
             }
         }
 
+        // 🔧 BACKJOB STATUS lock (Andrew 2026-09-18): backjob COMMENTS lang — HINDI kasama ang
+        // open freebie slip. Ang freebie slip ay may sariling DISPATCH rule (nasa $backjobLockSaleIds
+        // at sa server-side DISPATCH guard). Ito ang basehan ng BACKJOB na label sa production status dropdown.
+        $backjobStatusSaleIds = array_keys($backjobLockSaleIds);
+
         // 🎁 Open freebie slips count (consistent sa backjobList rows)
         $fbSlipQuery = \DB::table('freebie_slips')
             ->join('prototype_sales', 'freebie_slips.sale_id', '=', 'prototype_sales.id')
@@ -4597,14 +4909,28 @@ $services = json_decode($sale->services, true);
         }
         $freebiePendingCount = count($fbPendingIds);
 
+        // Agent filter options — lahat ng agents sa scope (server-side na, hindi na JS populate)
+        $agentOptionsQuery = \App\Models\PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at')
+            ->whereNotNull('sales_agent_name');
+        if ($user && $user->isClassScoped()) {
+            $agentOptionsQuery->where('department_id', 4);
+        }
+        if (!$user || (!$user->isAdmin() && !$user->isCoo() && !$user->isClassScoped())) {
+            $agentOptionsQuery->where('sales_agent_id', $user ? $user->id : null);
+        }
+        $agentOptions = $agentOptionsQuery->distinct()->orderBy('sales_agent_name')->pluck('sales_agent_name');
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
+            "filters", "agentOptions",
             "departmentLabels", "departmentColors", "isAgent", "canForcePriority",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
-            "delayCount", "backjobCount", "backjobLockSaleIds", "repeatCustomers", "repeatEmails",
+            "delayCount", "backjobCount", "backjobLockSaleIds", "backjobStatusSaleIds", "repeatCustomers", "repeatEmails",
             "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds", "freebiePendingCount",
-            "priorityMax"
+            "priorityMax",
+            "prodCheckCounts"
         ));
     }
 
@@ -4775,6 +5101,7 @@ $services = json_decode($sale->services, true);
         }
 
         $sale->kanban_status = $request->kanban_status;
+        $oldProductionStage = $sale->production_stage; // para sa stage-timing log (Andrew 2026-09-18)
         if ($request->filled('production_stage')) {
             $sale->production_stage = $request->production_stage;
         } else {
@@ -4811,7 +5138,11 @@ $services = json_decode($sale->services, true);
 
         $sale->save();
 
-        // AUTO-PROMOTE (reindex): kapag may na-clear na PRIO slot (e.g. na-DISPATCH ang PRIO 1),
+        // Stage-timing log: i-record ang bawat pagbabago ng production_stage (SEWING, QA, atbp.)
+        // Read-only ito para sa analytics; hindi nakakaapekto sa main flow. (Andrew 2026-09-18)
+        if (($oldProductionStage ?? null) !== $sale->production_stage) {
+            \App\Models\ProductionStageLog::record($sale, $oldProductionStage, $sale->production_stage, $user ? $user->id : null);
+        }
         // i-shift pataas ang mga natitirang PRIO (dating PRIO 2 → PRIO 1) para walang gap.
         // Ang priority_map ay ginagamit ng frontend para i-update agad ang UI (no reload).
         $priorityMap = null;
@@ -4912,6 +5243,7 @@ $services = json_decode($sale->services, true);
                     }
                 }
                 $sale->priority = $prio;
+                $sale->priority_set_at = now();
                 $sale->save();
 
                 // Buong priority map para sa instant UI (kabilang ang na-clear na dating max Prio)
@@ -4937,6 +5269,7 @@ $services = json_decode($sale->services, true);
                 return response()->json([
                     'success' => true,
                     'priority' => $sale->priority,
+                    'priority_set_at' => $sale->priority_set_at ? $sale->priority_set_at->format('M j, Y g:i A') : null,
                     'priority_map' => $map,
                     'message' => $msg,
                 ]);
@@ -4945,6 +5278,8 @@ $services = json_decode($sale->services, true);
 
         $clearedPriority = !$request->filled('priority') && $sale->priority;
         $sale->priority = $request->filled('priority') ? (int) $request->priority : null;
+        // Timestamp kada mag-tag sa dropdown; null kapag na-clear. (Andrew 2026-09-24)
+        $sale->priority_set_at = $request->filled('priority') ? now() : null;
         $sale->save();
 
         // AUTO-PROMOTE: kapag may na-clear na PRIO slot, i-shift pataas ang mga natitirang PRIO
@@ -4974,6 +5309,7 @@ $services = json_decode($sale->services, true);
         return response()->json([
             'success' => true,
             'priority' => $sale->priority,
+            'priority_set_at' => $sale->priority_set_at ? $sale->priority_set_at->format('M j, Y g:i A') : null,
             'priority_map' => $priorityMap,
             'message' => $sale->priority ? "Prio " . $sale->priority . " na ang order na ito" : 'Naalis ang priority tag',
         ]);
@@ -5064,7 +5400,7 @@ $services = json_decode($sale->services, true);
         }
 
         $target = \App\Models\User::find($targetUserId);
-        if (!$target || !$target->isGa()) {
+        if (!$target || !($target->isGa() || $target->isCmo())) {
             return response()->json(['success' => false, 'message' => 'Target user is not a GA.'], 422);
         }
 
@@ -5098,7 +5434,7 @@ $services = json_decode($sale->services, true);
     public function unassignGa(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager() || $user->isQa())) {
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isQa() || $user->isCmo())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5115,8 +5451,8 @@ $services = json_decode($sale->services, true);
             return response()->json(['success' => false, 'message' => 'No assignment found.'], 404);
         }
 
-        // GA can only unassign themselves; managers can unassign anyone
-        if ($user->isGa() && $assignment->user_id !== $user->id) {
+        // GA/CMO can only unassign themselves; managers/QA can unassign anyone
+        if (($user->isGa() || $user->isCmo()) && $assignment->user_id !== $user->id) {
             return response()->json(['success' => false, 'message' => 'You can only unassign your own claim.'], 403);
         }
 
@@ -5142,7 +5478,7 @@ $services = json_decode($sale->services, true);
     public function completeGa(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user || !($user->isGa() || $user->isManager() || $user->isQa())) {
+        if (!$user || !($user->isGa() || $user->isManager() || $user->isQa() || $user->isCmo())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5164,8 +5500,8 @@ $services = json_decode($sale->services, true);
             return response()->json(['success' => false, 'message' => 'No assignment found.'], 404);
         }
 
-        // GA can only toggle their own claim; managers can toggle anyone
-        if ($user->isGa() && $assignment->user_id !== $user->id) {
+        // GA/CMO can only toggle their own claim; managers/QA can toggle anyone
+        if (($user->isGa() || $user->isCmo()) && $assignment->user_id !== $user->id) {
             return response()->json(['success' => false, 'message' => 'You can only mark your own claim as done.'], 403);
         }
 
@@ -5198,6 +5534,9 @@ $services = json_decode($sale->services, true);
      */
     public function calendar()
     {
+        if (auth()->user() && auth()->user()->isExternalGa()) {
+            abort(403, 'Unauthorized access.');
+        }
         $departments = \DB::table('sales_departments')->where('is_active', true)->get();
 
         // Class Production Manager: Class department only
@@ -5205,6 +5544,12 @@ $services = json_decode($sale->services, true);
         if ($user && $user->isClassScoped()) {
             $departments = collect([(object) ['id' => 4, 'name' => 'Class', 'code' => 'class', 'is_active' => true]]);
         }
+
+        // AGENT FILTER visibility — only viewers na makikita ang agent names.
+        // Restricted viewers (CPO/CMO/Sales Agent/Rep/GA) ay binlanko ang sales_agent_name
+        // sa calendarData(), kaya walang saysay ang filter sa kanila (Andrew 2026-09-21).
+        $canFilterAgent = $user && !($user->isCpo() || $user->isCmo() || $user->isSalesAgent()
+            || $user->isSalesRepresentative() || $user->isGa());
 
         // Same production stage map + reverse map as the manager order list
         $prodStageMap = [
@@ -5239,7 +5584,7 @@ $services = json_decode($sale->services, true);
             $focusDate = '';
         }
 
-        return view('sales.prototype.calendar', compact('departments', 'prodStageMap', 'statusToStage', 'focusDate'));
+        return view('sales.prototype.calendar', compact('departments', 'prodStageMap', 'statusToStage', 'focusDate', 'canFilterAgent'));
     }
 
     public function calendarData(Request $request)
@@ -5419,6 +5764,7 @@ SQL;
                 'description' => $description,
                 'product_label' => $productLabel,
                 'sales_agent_name' => $isRestrictedViewer ? '' : ($p->sales_agent_name ? trim(explode(' ', trim($p->sales_agent_name))[0]) : ''),
+                'sales_agent_id' => $isRestrictedViewer ? null : $p->sales_agent_id,
                 'has_photos' => $hasPhotos,
                 'can_override' => $canOverrideStatus,
                 'date_needed' => $p->estimated_completion_date,
@@ -5557,9 +5903,9 @@ SQL;
             ], 422);
         }
 
-        // Only managers/admins/staff/prod_manager can reschedule
+        // Only managers/admins/staff/prod_manager/COO can reschedule
         $user = auth()->user();
-        if (!$user || !($user->isManager() || $user->role === 'staff')) {
+        if (!$user || !($user->isManager() || $user->role === 'staff' || $user->isCoo())) {
             return response()->json([
                 'success' => false,
                 'message' => 'Only managers can reschedule projects.',
@@ -6530,6 +6876,164 @@ SQL;
     }
 
     /**
+     * I-extract ang lahat ng 6-digit tokens sa isang reference string.
+     * Hal: "908953 / 142757" -> ['908953','142757']; "1645" -> []; "N/A" -> [].
+     * (Andrew 2026-09-17 — duplicate reference detection)
+     */
+    protected function sixDigitTokens($ref): array
+    {
+        // Kunin ang buong numeric run na >=6 digits (exact match).
+        // Kaya ang "1234567" ay HINDI katumbas ng "123456" (ibang ref yun).
+        preg_match_all('/\d{6,}/', (string) $ref, $m);
+        return array_values(array_unique($m[0] ?? []));
+    }
+
+    /**
+     * Index ng lahat ng 6-digit reference tokens ng mga NABERIFY na payment
+     * (prototype_sales + prototype_payments + layout_jobs). Read-only ito.
+     * Return: [ token => [ ['sale_id'=>..,'sales_number'=>..,'source'=>..], ... ] ]
+     */
+    protected function verifiedReferenceIndex(): array
+    {
+        $idx = [];
+        $add = function ($ref, $saleId, $salesNumber, $source) use (&$idx) {
+            foreach ($this->sixDigitTokens($ref) as $t) {
+                $idx[$t][] = ['sale_id' => $saleId, 'sales_number' => $salesNumber, 'source' => $source];
+            }
+        };
+
+        $verifiedStates = ['down_payment_verified', 'additional_payment_verified', 'full_payment_verified', 'verified'];
+
+        foreach (\DB::table('prototype_sales')
+            ->whereIn('payment_status', $verifiedStates)
+            ->whereNotNull('reference_number')->where('reference_number', '!=', '')
+            ->select('id', 'sales_number', 'reference_number')->get() as $r) {
+            $add($r->reference_number, $r->id, $r->sales_number, 'sale');
+        }
+
+        foreach (\DB::table('prototype_payments')
+            ->whereIn('payment_status', $verifiedStates)
+            ->whereNotNull('reference_number')->where('reference_number', '!=', '')
+            ->select('id', 'prototype_sale_id', 'reference_number')->get() as $r) {
+            $sn = \DB::table('prototype_sales')->where('id', $r->prototype_sale_id)->value('sales_number');
+            $add($r->reference_number, $r->prototype_sale_id, $sn, 'payment');
+        }
+
+        foreach (\DB::table('layout_jobs')
+            ->where('type', 'paid')->where('payment_status', 'verified')
+            ->whereNotNull('payment_reference')->where('payment_reference', '!=', '')
+            ->select('id', 'sale_id', 'payment_reference')->get() as $r) {
+            $sn = $r->sale_id ? \DB::table('prototype_sales')->where('id', $r->sale_id)->value('sales_number') : null;
+            $add($r->payment_reference, $r->sale_id, $sn, 'layout');
+        }
+
+        return $idx;
+    }
+
+    /**
+     * Index ng lahat ng 6-digit reference tokens ng mga PENDING (hindi pa verified)
+     * na payment — para ma-detect ang PENDING vs PENDING duplicate (Andrew 2026-09-18).
+     * Same 3 sources sa verifiedReferenceIndex() pero pending states lang. Read-only.
+     * Return: [ token => [ ['sale_id'=>..,'sales_number'=>..,'source'=>..], ... ] ]
+     */
+    protected function pendingReferenceIndex(): array
+    {
+        $idx = [];
+        $add = function ($ref, $saleId, $salesNumber, $source) use (&$idx) {
+            foreach ($this->sixDigitTokens($ref) as $t) {
+                $idx[$t][] = ['sale_id' => $saleId, 'sales_number' => $salesNumber, 'source' => $source];
+            }
+        };
+
+        // Pending initial deposits (prototype_sales) — same scoping sa listahan (skip archived/deleted),
+        // at same condition sa display: sale-level lang kapag WALANG prototype_payments (initial deposit).
+        // (Para hindi makapasok sa index ang stale sale rows na may verified payment na — Andrew 2026-09-18.)
+        foreach (\DB::table('prototype_sales')
+            ->where('payment_status', 'pending')
+            ->whereNull('deleted_at')->whereNull('archived_at')
+            ->whereNotNull('reference_number')->where('reference_number', '!=', '')
+            ->whereNotExists(function ($query) {
+                $query->select(\DB::raw(1))
+                    ->from('prototype_payments')
+                    ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id');
+            })
+            ->select('id', 'sales_number', 'reference_number')->get() as $r) {
+            $add($r->reference_number, $r->id, $r->sales_number, 'sale');
+        }
+
+        // Pending additional payments (prototype_payments)
+        foreach (\DB::table('prototype_payments')
+            ->where('payment_status', 'pending')
+            ->whereNotNull('reference_number')->where('reference_number', '!=', '')
+            ->select('id', 'prototype_sale_id', 'reference_number')->get() as $r) {
+            $sn = \DB::table('prototype_sales')->where('id', $r->prototype_sale_id)->value('sales_number');
+            $add($r->reference_number, $r->prototype_sale_id, $sn, 'payment');
+        }
+
+        // Pending layout job payments (layout_jobs)
+        foreach (\DB::table('layout_jobs')
+            ->where('type', 'paid')->where('payment_status', 'pending')
+            ->whereNotNull('payment_reference')->where('payment_reference', '!=', '')
+            ->select('id', 'sale_id', 'payment_reference')->get() as $r) {
+            $sn = $r->sale_id ? \DB::table('prototype_sales')->where('id', $r->sale_id)->value('sales_number') : null;
+            $add($r->payment_reference, $r->sale_id, $sn, 'layout');
+        }
+
+        // Edit-pending na PROPOSED (bagong) ref — `pending_reference_number`. Para ma-check
+        // agad ang bagong ref kahit hindi pa na-approve ang edit (Andrew 2026-09-18).
+        // Tandaan: ang mismong edit row ay may payment_status='edit_pending' kaya HINDI sya
+        // kasama sa alinman sa 'pending' o 'verified' na queries sa itaas (walang double count).
+        foreach (\DB::table('prototype_sales')
+            ->where('payment_status', 'edit_pending')
+            ->whereNull('deleted_at')->whereNull('archived_at')
+            ->whereNotNull('pending_reference_number')->where('pending_reference_number', '!=', '')
+            ->select('id', 'sales_number', 'pending_reference_number')->get() as $r) {
+            $add($r->pending_reference_number, $r->id, $r->sales_number, 'sale');
+        }
+        foreach (\DB::table('prototype_payments')
+            ->where('payment_status', 'edit_pending')
+            ->whereNotNull('pending_reference_number')->where('pending_reference_number', '!=', '')
+            ->select('id', 'prototype_sale_id', 'pending_reference_number')->get() as $r) {
+            $sn = \DB::table('prototype_sales')->where('id', $r->prototype_sale_id)->value('sales_number');
+            $add($r->pending_reference_number, $r->prototype_sale_id, $sn, 'payment');
+        }
+
+        return $idx;
+    }
+
+    /**
+     * Hanapin ang mga matching na reference para sa isang ref.
+     * Sinusuri ang parehong verified at pending indexes; ang bawat hit ay may 'verified' flag
+     * (true = verified match, false = pending match) — Andrew 2026-09-18.
+     *
+     * Same-sale handling:
+     *  - VERIFIED matches: HINDI ini-exclude ang same-sale. Kapag verified na ang isang ref,
+     *    ibig sabihin nagamit/na-verify na ito — kahit parehong sale pa, dapat i-flag
+     *    (hal. muling pag-submit ng same down payment — sale 88, pay#77 vs pay#116).
+     *  - PENDING matches: ini-exclude ang same-sale — dahil ang reference ay kino-copy sa
+     *    prototype_sales at prototype_payments ng PAREHONG payment (mirror copy), hindi duplicate.
+     */
+    protected function duplicateRefMatches($ref, $excludeSaleId, array $index, array $pendingIndex = [], bool $excludeSameSaleForVerified = false): array
+    {
+        $hits = [];
+        foreach ($this->sixDigitTokens($ref) as $t) {
+            // Verified matches — walang same-sale exclusion (ref na nagamit na = dapat i-flag).
+            // Exception: edit-pending cards ($excludeSameSaleForVerified=true) — para hindi
+            // ma-flag laban sa sariling sale/record (Andrew 2026-09-18).
+            foreach (($index[$t] ?? []) as $h) {
+                if ($excludeSameSaleForVerified && $excludeSaleId !== null && (int) $h['sale_id'] === (int) $excludeSaleId) continue;
+                $hits[$t . '|' . $h['source'] . '|' . $h['sale_id'] . '|v'] = $h + ['token' => $t, 'verified' => true];
+            }
+            // Pending matches — same-sale ay mirror copy ng parehong payment → hindi duplicate.
+            foreach (($pendingIndex[$t] ?? []) as $h) {
+                if ($excludeSaleId !== null && (int) $h['sale_id'] === (int) $excludeSaleId) continue;
+                $hits[$t . '|' . $h['source'] . '|' . $h['sale_id'] . '|p'] = $h + ['token' => $t, 'verified' => false];
+            }
+        }
+        return array_values($hits);
+    }
+
+    /**
      * Payment verification dashboard - shows all pending and recent payments.
      */
     public function paymentVerification()
@@ -6812,7 +7316,165 @@ SQL;
             ->orderBy('layout_jobs.created_at', 'desc')
             ->get();
 
-        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts', 'pendingRejections', 'pendingEdits', 'pendingLayoutJobs'));
+        // Duplicate reference detection (Andrew 2026-09-17; extended 2026-09-18) —
+        // read-only; hindi nagbabago ng data. Minamarkahan ang bawat pending na may 6-digit
+        // token na kapareho ng NABERIFY nang ref (verified match) O kaya ng isa pang
+        // PENDING pa lang na ref (pending match).
+        $refIndex = $this->verifiedReferenceIndex();
+        $pendingRefIndex = $this->pendingReferenceIndex();
+        foreach ($pendingPayments as $p) {
+            $p->dup_matches = $this->duplicateRefMatches($p->reference_number ?? '', $p->prototype_sale_id ?? $p->sale_id ?? null, $refIndex, $pendingRefIndex);
+            $p->dup_verified_count = collect($p->dup_matches)->where('verified', true)->count();
+            $p->dup_pending_count = collect($p->dup_matches)->where('verified', false)->count();
+        }
+        foreach ($pendingLayoutJobs as $lj) {
+            $lj->dup_matches = $this->duplicateRefMatches($lj->payment_reference ?? '', null, $refIndex, $pendingRefIndex);
+            $lj->dup_verified_count = collect($lj->dup_matches)->where('verified', true)->count();
+            $lj->dup_pending_count = collect($lj->dup_matches)->where('verified', false)->count();
+        }
+        // Edit requests (edit_pending) — gamitin ang PROPOSED new ref (pending_reference_number);
+        // kapag walang bagong ref (amount/date lang ang binago) ay ang kasalukuyang ref ang i-check.
+        // Same-sale exclusion sa verified (self-record guard) — Andrew 2026-09-18.
+        foreach ($pendingEdits as $pe) {
+            $candidateRef = $pe->pending_reference_number ?: ($pe->reference_number ?? '');
+            $pe->dup_matches = $this->duplicateRefMatches($candidateRef, $pe->sale_id ?? null, $refIndex, $pendingRefIndex, true);
+            $pe->dup_verified_count = collect($pe->dup_matches)->where('verified', true)->count();
+            $pe->dup_pending_count = collect($pe->dup_matches)->where('verified', false)->count();
+        }
+        $dupRefCount = collect($pendingPayments)->filter(function ($p) { return !empty($p->dup_matches); })->count()
+                     + collect($pendingLayoutJobs)->filter(function ($l) { return !empty($l->dup_matches); })->count()
+                     + collect($pendingEdits)->filter(function ($e) { return !empty($e->dup_matches); })->count();
+
+        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts', 'pendingRejections', 'pendingEdits', 'pendingLayoutJobs', 'dupRefCount'));
+    }
+
+    /**
+     * DUPLICATE REFERENCE REPORT — dedicated, searchable, READ-ONLY page para sa mga verifier
+     * (Andrew 2026-09-21). Ipinapakita ang lahat ng ref # na may duplicate (verified man o
+     * pending) gamit ang PAREHONG detection na ginagamit ng Payment Verification page
+     * (verifiedReferenceIndex / pendingReferenceIndex / duplicateRefMatches). Walang
+     * sinusulat/binabagong data — display/read lang.
+     *
+     * Route: GET /sales/verification/duplicates   (name: sales.verification.duplicates)
+     */
+    public function duplicateReferences(Request $request)
+    {
+        $user = auth()->user();
+        // VERIFIERS ONLY — mga may hawak na payment account (same scoping ng Payment
+        // Verification page). Walang blanket role-based access (Andrew 2026-09-21).
+        $hasPaymentAccount = $user ? \DB::table('payment_accounts')->where('user_id', $user->id)->exists() : false;
+        if (!$user || !$hasPaymentAccount) {
+            abort(403, 'Duplicate reference report is for verifiers only.');
+        }
+
+        $verifiedStates = ['down_payment_verified', 'additional_payment_verified', 'full_payment_verified', 'verified'];
+
+        // Parehong index na gamit ng verification page (read-only).
+        $verifiedIndex = $this->verifiedReferenceIndex();
+        $pendingIndex  = $this->pendingReferenceIndex();
+
+        // Candidate records mula sa 3 sources — lahat ng may ref #.
+        $candidates = collect();
+
+        foreach (\DB::table('prototype_sales')
+            ->whereNotNull('reference_number')->where('reference_number', '!=', '')
+            ->whereNull('deleted_at')
+            ->select('id', 'sales_number', 'customer_name', 'reference_number', 'payment_status')
+            ->get() as $r) {
+            $candidates->push([
+                'source' => 'sale', 'record_id' => $r->id, 'sale_id' => $r->id,
+                'sales_number' => $r->sales_number, 'customer_name' => $r->customer_name,
+                'ref' => $r->reference_number, 'status' => $r->payment_status, 'job_no' => null,
+            ]);
+        }
+        foreach (\DB::table('prototype_payments as p')
+            ->leftJoin('prototype_sales as s', 'p.prototype_sale_id', '=', 's.id')
+            ->whereNotNull('p.reference_number')->where('p.reference_number', '!=', '')
+            ->select('p.id', 'p.prototype_sale_id', 'p.reference_number', 'p.payment_status',
+                's.sales_number', 's.customer_name')
+            ->get() as $r) {
+            $candidates->push([
+                'source' => 'payment', 'record_id' => $r->id, 'sale_id' => $r->prototype_sale_id,
+                'sales_number' => $r->sales_number, 'customer_name' => $r->customer_name,
+                'ref' => $r->reference_number, 'status' => $r->payment_status, 'job_no' => null,
+            ]);
+        }
+        foreach (\DB::table('layout_jobs as lj')
+            ->leftJoin('prototype_sales as s', 'lj.sale_id', '=', 's.id')
+            ->where('lj.type', 'paid')
+            ->whereNotNull('lj.payment_reference')->where('lj.payment_reference', '!=', '')
+            ->select('lj.id', 'lj.sale_id', 'lj.payment_reference', 'lj.payment_status',
+                'lj.job_no', 'lj.customer_name as lj_customer', 's.sales_number', 's.customer_name')
+            ->get() as $r) {
+            $candidates->push([
+                'source' => 'layout', 'record_id' => $r->id, 'sale_id' => $r->sale_id,
+                'sales_number' => $r->sales_number, 'customer_name' => $r->customer_name ?: $r->lj_customer,
+                'ref' => $r->payment_reference, 'status' => $r->payment_status, 'job_no' => $r->job_no,
+            ]);
+        }
+
+        // Token → listahan ng records (isang ref ay pwedeng may higit sa isang 6+ digit token).
+        $tokenMap = [];
+        $flagCount = ['verified' => 0, 'pending' => 0];
+        foreach ($candidates as $c) {
+            $isVerified = in_array($c['status'], $verifiedStates, true);
+            $exclSameVerified = $isVerified || $c['status'] === 'edit_pending';
+            $matches = $this->duplicateRefMatches($c['ref'], $c['sale_id'], $verifiedIndex, $pendingIndex, $exclSameVerified);
+            $c['bucket'] = $isVerified ? 'verified' : 'pending';
+            $c['flagged'] = !empty($matches);
+            $c['dup_verified'] = collect($matches)->where('verified', true)->count();
+            $c['dup_pending'] = collect($matches)->where('verified', false)->count();
+            if ($c['flagged']) { $flagCount[$c['bucket']]++; }
+            foreach ($this->sixDigitTokens($c['ref']) as $t) {
+                $tokenMap[$t][$c['source'] . '|' . $c['record_id']] = $c;
+            }
+        }
+
+        // Buuin ang report: token na may >=1 flagged record. Optional search ('q').
+        $q = trim((string) $request->query('q', ''));
+        $report = [];
+        foreach ($tokenMap as $token => $recs) {
+            $recs = array_values($recs);
+            $anyFlag = collect($recs)->contains(fn ($r) => $r['flagged']);
+            if (!$anyFlag) continue;
+
+            $distinctSales = collect($recs)->map(function ($r) {
+                return ($r['source'] === 'layout' && !$r['sale_id']) ? 'layout:' . $r['record_id'] : 'sale:' . $r['sale_id'];
+            })->unique()->count();
+
+            if ($q !== '') {
+                $needle = mb_strtolower($q);
+                $hit = mb_strpos(mb_strtolower($token), $needle) !== false;
+                if (!$hit) {
+                    foreach ($recs as $r) {
+                        $blob = mb_strtolower(($r['ref'] ?? '') . ' ' . ($r['sales_number'] ?? '') . ' ' . ($r['customer_name'] ?? '') . ' ' . ($r['job_no'] ?? ''));
+                        if (mb_strpos($blob, $needle) !== false) { $hit = true; break; }
+                    }
+                }
+                if (!$hit) continue;
+            }
+
+            $report[] = [
+                'token' => $token,
+                'distinct_sales' => $distinctSales,
+                'records' => $recs,
+                'flagged_count' => collect($recs)->where('flagged', true)->count(),
+            ];
+        }
+
+        usort($report, function ($a, $b) {
+            if ($a['distinct_sales'] !== $b['distinct_sales']) return $b['distinct_sales'] <=> $a['distinct_sales'];
+            return strcmp($a['token'], $b['token']);
+        });
+
+        $summary = [
+            'tokens' => count($report),
+            'verified_flags' => $flagCount['verified'],
+            'pending_flags' => $flagCount['pending'],
+            'total_records' => $candidates->count(),
+        ];
+
+        return view('sales.prototype.verification-duplicates', compact('report', 'q', 'summary'));
     }
 
     /**
@@ -7199,8 +7861,11 @@ SQL;
             abort(403, 'Unauthorized access.');
         }
 
+        // Ihiwalay ang archived: hindi na lumalabas sa active dashboard list.
+        // Pupunta sila sa "My Archived" view (agentArchived) — Andrew 2026-09-24.
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
-            ->where('sales_agent_id', $user->id);
+            ->where('sales_agent_id', $user->id)
+            ->whereNull('archived_at');
 
         // Search: customer name or sales number
         if ($request->filled('search')) {
@@ -7462,7 +8127,79 @@ SQL;
                 && $n->is_read == false;
         })->values();
 
-        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions', 'prodStageCounts', 'timeRequestCounts'));
+        // Production check counts (GA/QA1/QA2 checked) — read-only, batched (1 query) para sa status progress meter.
+        $prodCheckCounts = \App\Services\ProductionCheckCountService::forSales($sales->pluck('id')->all());
+
+        return view('sales.prototype.agent-dashboard', compact('sales', 'statuses', 'statusLabels', 'departments', 'filters', 'notifications', 'urgentNotifications', 'unreadCount', 'totalPieces', 'totalValue', 'totalCollected', 'totalBalance', 'services', 'verificationCounts', 'prodStageOptions', 'prodStageCounts', 'timeRequestCounts', 'prodCheckCounts'));
+    }
+
+    /**
+     * "My Archived" — agent-facing, READ-ONLY list ng mga na-archive na order NA KANYA LANG
+     * (sales_agent_id = current user). Walang archive/restore button — CEO/COO lang ang may power
+     * na mag-archive/restore. Layunin: para bumaba ang active dashboard list ng agent pero
+     * may sariling archive view sila. (Andrew 2026-09-24)
+     */
+    public function agentArchived(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin() && !$user->isCoo() && !$user->isCpo() && !$user->isCmo() && !$user->isQa()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->where('sales_agent_id', $user->id)
+            ->whereNotNull('archived_at')
+            ->orderByDesc('archived_at');
+
+        // Search: customer name or sales number
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('customer_name', 'like', '%' . $search . '%')
+                  ->orWhere('sales_number', 'like', '%' . $search . '%');
+            });
+        }
+
+        $sales = $query->paginate(25)->withQueryString();
+
+        return view('sales.prototype.agent-archived', compact('sales'));
+    }
+
+    /**
+     * "Action Required" gate page.
+     * Ipinapakita ang lahat ng dapat tapusin ng isang sales agent bago siya
+     * makapasok sa My Sales Dashboard / Create Sales:
+     *  - Urgent notifications na walang sagot
+     *  - Open production feedback (kailangang i-acknowledge)
+     *  - Active sales na kulang ang File Photo / Approved Sample Color
+     * Kapag zero na ang blockers, awtomatikong ibabalik sa dashboard. (Andrew 2026-09-18)
+     */
+    public function agentActionRequired(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        // Non-agents have nothing to clear here.
+        if (!$user->isSalesAgent()) {
+            return redirect()->route('sales.team.dashboard');
+        }
+
+        $blockers = \App\Services\AgentActionService::blockers($user);
+
+        // Cleared na → papasukin na sa dashboard.
+        if ($blockers['total'] === 0) {
+            return redirect()->route('sales.team.dashboard');
+        }
+
+        return view('sales.prototype.action-required', [
+            'urgent'   => $blockers['urgent'],
+            'feedback' => $blockers['feedback'],
+            'missing'  => $blockers['missing'],
+            'counts'   => $blockers['counts'],
+            'total'    => $blockers['total'],
+        ]);
     }
 
     /**
@@ -7907,9 +8644,11 @@ SQL;
 
         $request->validate([
             'needed_by' => 'required|date',
+            'time_note' => 'required|string|max:2000',
         ]);
 
         $sale->needed_by = \Carbon\Carbon::parse($request->needed_by);
+        $sale->time_note = trim((string) $request->time_note);
         $sale->save();
 
         // Mark any pending time_request notifications as responded
@@ -7926,6 +8665,290 @@ SQL;
             'success' => true,
             'message' => 'Needed time saved! ✅',
             'needed_by' => $sale->needed_by->format('M d, Y g:i A'),
+            'time_note' => $sale->time_note,
+        ]);
+    }
+
+    /**
+     * "Set Time List" — manager page: lahat ng order na may set na needed time
+     * at ang reason/note, at pwedeng i-arrange ng manager (drag-and-drop) depende
+     * sa bigat ng dahilan. (Andrew 2026-09-24)
+     */
+    public function setTimeList(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            abort(403, 'Only managers can view the Set Time List.');
+        }
+
+        $classScoped = $user->isClassScoped();
+        $classDept = $classScoped ? 4 : null;
+
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->whereNotNull('needed_by')
+            ->whereNull('archived_at')
+            // Tanggalin ang mga na-tag nang DONE (Andrew 2026-09-24): hindi na kailangan
+            // sa Set Time List ang tapos na. (production_stage=DONE o kanban_status=completed)
+            ->where('production_stage', '!=', 'DONE')
+            ->where(function ($q) {
+                $q->whereNull('kanban_status')
+                  ->orWhere('kanban_status', '!=', 'completed');
+            });
+
+        if ($classDept !== null) {
+            $query->where('department_id', $classDept);
+        }
+
+        // Search: customer o sales #
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('customer_name', 'like', '%' . $search . '%')
+                  ->orWhere('sales_number', 'like', '%' . $search . '%');
+            });
+        }
+
+        // Agent filter (by id — tama ang value na ipinapasa ng dropdown)
+        if ($request->filled('agent')) {
+            $query->where('sales_agent_id', $request->agent);
+        }
+
+        // Department filter
+        if ($request->filled('department')) {
+            $query->where('department_id', (int) $request->department);
+        }
+
+        // Production Status filter (stage label)
+        if ($request->filled('status')) {
+            $stage = strtoupper(trim($request->status));
+            $stageKanbanMap = [
+                'HOLD'        => ['new'],
+                'FOR SAMPLE'  => ['sample_approval'],
+                'FOR FORMAT'  => ['design'],
+                'PRESSING'    => ['production'],
+                'QA'          => ['quality_check'],
+                'DISPATCH'    => ['ready_for_delivery'],
+                'UNPAID'      => ['delivered'],
+                'DONE'        => ['completed'],
+            ];
+            $kanbanForStage = $stageKanbanMap[$stage] ?? [];
+            $query->where(function ($q) use ($stage, $kanbanForStage) {
+                $q->where('production_stage', $stage)
+                  ->orWhere(function ($q2) use ($kanbanForStage) {
+                      $q2->whereNull('production_stage')->whereIn('kanban_status', $kanbanForStage ?: ['__none__']);
+                  });
+            });
+        }
+
+        // Prio Reminder filter: 1 = Pinaprio pa, 0 = Hindi na, none = wala pang sagot
+        if ($request->filled('prio')) {
+            $prio = $request->prio;
+            if ($prio === '1' || $prio === '0') {
+                $query->where('set_time_prio', (int) $prio);
+            } elseif ($prio === 'none') {
+                $query->whereNull('set_time_prio');
+            }
+        }
+
+        // Needed date range
+        if ($request->filled('date_from')) {
+            $query->whereDate('needed_by', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('needed_by', '<=', $request->date_to);
+        }
+
+        // === Set Time List "Done" place (Andrew 2026-09-24) ===
+        // Active = wala pang set_time_done_at; Done = may set_time_done_at.
+        // HINDI ito nakakaapekto sa Manager Order List / production status.
+        $tab = $request->get('tab', 'active') === 'done' ? 'done' : 'active';
+        $activeCount = (clone $query)->whereNull('set_time_done_at')->count();
+        $doneCount = (clone $query)->whereNotNull('set_time_done_at')->count();
+        if ($tab === 'done') {
+            $query->whereNotNull('set_time_done_at');
+        } else {
+            $query->whereNull('set_time_done_at');
+        }
+
+        if ($tab === 'done') {
+            $sales = $query->orderByDesc('set_time_done_at')->get();
+        } else {
+        // Sorting — default: manual arrangement (set_time_sort)
+        $sort = $request->get('sort', 'arrangement');
+        switch ($sort) {
+            case 'needed_asc':
+                $sales = $query->orderBy('needed_by')->orderBy('id')->get();
+                break;
+            case 'needed_desc':
+                $sales = $query->orderByDesc('needed_by')->orderBy('id')->get();
+                break;
+            case 'sales_number':
+                $sales = $query->orderBy('sales_number')->get();
+                break;
+            case 'customer':
+                $sales = $query->orderBy('customer_name')->get();
+                break;
+            case 'agent':
+                $sales = $query->orderBy('sales_agent_name')->get();
+                break;
+            case 'prio':
+                $sales = $query->orderByRaw('set_time_prio IS NULL')->orderByDesc('set_time_prio')->orderBy('needed_by')->get();
+                break;
+            case 'arrangement':
+            default:
+                $sales = $query->orderByRaw('set_time_sort IS NULL')   // ina-arrange muna (may sort), tapos ang wala pa
+                    ->orderBy('set_time_sort')
+                    ->orderBy('needed_by')
+                    ->get();
+                break;
+        }
+        }
+
+        // Agents na may set na time (para sa filter dropdown) — id + pangalan
+        $agents = \App\Models\PrototypeSale::whereNotNull('needed_by')
+            ->whereNull('archived_at')
+            ->when($classDept !== null, fn ($q) => $q->where('department_id', $classDept))
+            ->whereNotNull('sales_agent_id')
+            ->whereNotNull('sales_agent_name')
+            ->select('sales_agent_id', 'sales_agent_name')
+            ->distinct()
+            ->orderBy('sales_agent_name')
+            ->get();
+
+        // Departments para sa filter dropdown
+        $departments = \App\Models\PrototypeSale::whereNotNull('needed_by')
+            ->whereNull('archived_at')
+            ->whereNotNull('department_id')
+            ->when($classDept !== null, fn ($q) => $q->where('department_id', $classDept))
+            ->select('department_id', 'department_name')
+            ->distinct()
+            ->orderBy('department_name')
+            ->get();
+
+        // === Status display (kapareho ng Manager List) ===
+        // Para kapag nagpalit ng production status sa Manager List, pareho ang label dito.
+        $statusToStage = [
+            'new'                => 'HOLD',
+            'sample_approval'    => 'FOR SAMPLE',
+            'design'             => 'FOR FORMAT',
+            'production'         => 'PRESSING',
+            'quality_check'      => 'QA',
+            'ready_for_delivery' => 'DISPATCH',
+            'delivered'          => 'UNPAID',
+            'completed'          => 'DONE',
+        ];
+
+        // === Prio Reminder (SEPARATE sa Manager List) ===
+        // Walang ginagamit na Prio 1..15 slots dito — sariling flag lang:
+        // "pinaprio pa ba ni Manager ang order na ito?" (set_time_prio)
+        return view('sales.prototype.set-time-list', compact('sales', 'agents', 'departments', 'statusToStage', 'tab', 'activeCount', 'doneCount'));
+    }
+
+    /**
+     * I-save ang arrangement order ng Set Time List (drag-and-drop).
+     * Kinuha ang ordered na listahan ng sale IDs → set_time_sort = position.
+     */
+    public function setTimeReorder(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers can re-arrange the Set Time List.'], 403);
+        }
+
+        $order = $request->input('order', []);
+        if (!is_array($order) || empty($order)) {
+            return response()->json(['success' => false, 'message' => 'Invalid order.'], 422);
+        }
+
+        $i = 1;
+        foreach ($order as $id) {
+            \App\Models\PrototypeSale::where('id', (int) $id)->update(['set_time_sort' => $i]);
+            $i++;
+        }
+
+        return response()->json(['success' => true, 'message' => 'Arrangement saved. ✅']);
+    }
+
+    /**
+     * Prio Reminder (SEPARATE sa Manager List) — siguraduhing malinaw:
+     * Hindi ito ang unique na Prio 1..15 slots. Simpleng reminder/flag lang:
+     * "pinaprio pa ba ni Manager ang order na ito?"
+     *   1 = Pinaprio pa, 0 = Hindi na, null = walang sagot.
+     */
+    public function setTimePrio(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers can set the Prio Reminder.'], 403);
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // Class-scoped manager: Class dept lang
+        if ($user->isClassScoped() && (int) $sale->department_id !== 4) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $raw = $request->input('set_time_prio');
+        if ($raw === null || $raw === '') {
+            $sale->set_time_prio = null;
+            $sale->set_time_prio_at = null;
+            $label = 'Reminder cleared';
+        } else {
+            $sale->set_time_prio = ((int) $raw) === 1 ? 1 : 0;
+            $sale->set_time_prio_at = now();
+            $label = $sale->set_time_prio === 1 ? 'Pinaprio pa ✅' : 'Hindi na prio ❌';
+        }
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $label,
+            'set_time_prio' => $sale->set_time_prio,
+            'set_time_prio_at' => $sale->set_time_prio_at ? $sale->set_time_prio_at->format('M j, Y g:i A') : null,
+        ]);
+    }
+
+    /**
+     * Set Time List "Done" place (Andrew 2026-09-24).
+     *
+     * done=1 → itago muna sa "Done" tab ng Set Time List (mawawala sa active list).
+     * done=0 → i-restore pabalik sa active list (kapag nagkamali ang Manager).
+     *
+     * HINDI nito ginagalaw ang Manager Order List o production status — hiwalay
+     * na flag lang ito (`set_time_done_at`) para sa Set Time List.
+     */
+    public function setTimeDone(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only managers can mark Set Time List as done.'], 403);
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+
+        // Class-scoped manager: Class dept lang
+        if ($user->isClassScoped() && (int) $sale->department_id !== 4) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        $done = (int) $request->input('done', 1) === 1;
+        if ($done) {
+            $sale->set_time_done_at = now();
+            $sale->set_time_done_by = $user->id;
+            $label = 'Naka-Done na — wala na sa active list (nasa Done tab).';
+        } else {
+            $sale->set_time_done_at = null;
+            $sale->set_time_done_by = null;
+            $label = 'Na-restore — nasa active list na ulit.';
+        }
+        $sale->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $label,
+            'done' => $done,
+            'set_time_done_at' => $sale->set_time_done_at ? $sale->set_time_done_at->format('M j, Y g:i A') : null,
         ]);
     }
 
@@ -8074,7 +9097,7 @@ SQL;
     public function agentDelays()
     {
         $user = auth()->user();
-        if (!$user || !($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo() || $user->isGa() || $user->isQa())) {
+        if (!$user || !($user->isSalesAgent() || $user->isSalesRepresentative() || $user->isAdmin() || $user->isCoo() || $user->isCpo() || $user->isCmo() || ($user->isGa() && !$user->isExternalGa()) || $user->isQa())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -8139,7 +9162,7 @@ SQL;
     public function backjobList()
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped() || $user->isGa())) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped() || ($user->isGa() && !$user->isExternalGa()))) {
             abort(403, 'Only managers and GA can view the backjob list.');
         }
 
@@ -8349,7 +9372,113 @@ SQL;
             $rows[$i]['kanban_status'] = $s->kanban_status ?? '';
         }
 
-        return view('sales.prototype.backjob-list', compact('rows', 'departmentLabels'));
+        // ===================== BACKJOB HISTORY (read-only, additive) =====================
+        // Simpleng audit trail: sino ang nag-DONE / nag-DELETE ng backjob comment,
+        // kailan naidagdag ang comment, at kailan natapos — para may makita ang team sa baba ng page.
+        // Hindi ito nagbabago ng anumang data; pagpapakita lang ng existing fields.
+        $history = [];
+        $userNames = \DB::table('users')->pluck('name', 'id')->all();
+
+        $parseWhen = function ($s) {
+            if (!$s) return 0;
+            $s = trim((string) $s);
+            // comment timestamps: "MM/DD HH:MM"
+            if (preg_match('#^(\d{1,2})/(\d{1,2})\s+(\d{1,2}):(\d{2})#', $s, $m)) {
+                $ts = mktime((int) $m[3], (int) $m[4], 0, (int) $m[1], (int) $m[2], (int) date('Y'));
+                return $ts ?: 0;
+            }
+            $ts = strtotime($s);
+            return $ts ?: 0;
+        };
+
+        $pushHist = function ($project, $c) use (&$history, &$chk, &$sale, $parseWhen) {
+            if (!is_array($c)) return;
+            $isDone = !empty($c['done']);
+            $isDel = !empty($c['deleted']);
+            if (!$isDone && !$isDel) return;
+            $when = $isDel ? ($c['deleted_at'] ?? '') : ($c['done_at'] ?? '');
+            $by = $isDel ? ($c['deleted_by'] ?? '') : ($c['done_by'] ?? '');
+            $history[] = [
+                'sale_id' => $chk->sale_id,
+                'sales_number' => $sale->sales_number,
+                'customer' => $sale->customer_name,
+                'agent' => $sale->sales_agent_name,
+                'department_id' => $sale->department_id,
+                'project' => $project,
+                'text' => $c['text'] ?? '',
+                'added_at' => $c['at'] ?? '',
+                'action' => $isDel ? 'deleted' : 'done',
+                'by' => $by ?: '—',
+                'at' => $when ?: ($c['at'] ?? ''),
+                'sort_ts' => $parseWhen($when ?: ($c['at'] ?? '')),
+            ];
+        };
+
+        foreach ($checklists as $chk) {
+            $sale = \DB::table('prototype_sales')->find($chk->sale_id);
+            if (!$sale) continue;
+            if ($user && $user->isClassScoped() && (int) $sale->department_id !== 4) continue;
+
+            $svcItemsH = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+            $nameByIdH = [];
+            foreach ((array) $svcItemsH as $svc) {
+                if (is_array($svc) && !empty($svc['id'])) {
+                    $nameByIdH[(string) $svc['id']] = $svc['name'] ?? 'Project';
+                }
+            }
+
+            // Main slip (ga_notes)
+            $mainNotes = [];
+            try { $mainNotes = json_decode($chk->ga_notes ?? '', true) ?: []; } catch (\Exception $e) { $mainNotes = []; }
+            foreach ((array) $mainNotes as $c) { $pushHist('Main Production Slip', $c); }
+
+            // Per-project (additional_comments)
+            $addMap = [];
+            try { $addMap = json_decode($chk->additional_comments ?? '', true) ?: []; } catch (\Exception $e) { $addMap = []; }
+            foreach ((array) $addMap as $itemId => $comments) {
+                $pn = $nameByIdH[(string) $itemId] ?? 'Additional Project';
+                foreach ((array) $comments as $c) { $pushHist($pn, $c); }
+            }
+
+            // Per-product (product_comments)
+            $prodMap = [];
+            try { $prodMap = json_decode($chk->product_comments ?? '', true) ?: []; } catch (\Exception $e) { $prodMap = []; }
+            foreach ((array) $prodMap as $itemId => $comments) {
+                $pn = $nameByIdH[(string) $itemId] ?? 'Main Product';
+                foreach ((array) $comments as $c) { $pushHist($pn, $c); }
+            }
+        }
+
+        // Freebie slips na na-DONE na
+        $doneSlips = \DB::table('freebie_slips')
+            ->join('prototype_sales', 'freebie_slips.sale_id', '=', 'prototype_sales.id')
+            ->where('freebie_slips.status', 'done')
+            ->select('freebie_slips.*', 'prototype_sales.sales_number', 'prototype_sales.customer_name',
+                'prototype_sales.sales_agent_name', 'prototype_sales.department_id')
+            ->get();
+        foreach ($doneSlips as $fs) {
+            if ($user && $user->isClassScoped() && (int) $fs->department_id !== 4) continue;
+            $history[] = [
+                'sale_id' => $fs->sale_id,
+                'sales_number' => $fs->sales_number,
+                'customer' => $fs->customer_name,
+                'agent' => $fs->sales_agent_name,
+                'department_id' => $fs->department_id,
+                'project' => '🎁 Freebie Slip',
+                'text' => 'Freebie slip completed',
+                'added_at' => $fs->created_at ? \Carbon\Carbon::parse($fs->created_at)->format('m/d H:i') : '',
+                'action' => 'done',
+                'by' => $userNames[$fs->done_by] ?? '—',
+                'at' => $fs->done_at ? \Carbon\Carbon::parse($fs->done_at)->format('m/d H:i') : '',
+                'sort_ts' => $fs->done_at ? \Carbon\Carbon::parse($fs->done_at)->timestamp : 0,
+            ];
+        }
+
+        // Pinakabago muna
+        usort($history, function ($a, $b) { return $b['sort_ts'] <=> $a['sort_ts']; });
+        $history = array_slice($history, 0, 500);
+
+        return view('sales.prototype.backjob-list', compact('rows', 'departmentLabels', 'history'));
     }
 
     /**
@@ -8361,18 +9490,28 @@ SQL;
     {
         $user = auth()->user();
 
-        // ---- Filters (date range, kanban status, search) ----
+        // ---- Filters (date range, kanban status, search, archived) ----
         $filters = [
             'date_from' => $request->date_from ?? '',
             'date_to'   => $request->date_to ?? '',
             'kanban'    => $request->kanban ?? '',
             'search'    => trim($request->search ?? ''),
+            // ARCHIVED FILTER (Andrew 2026-09-18): this dashboard is a REPORT — by default
+            // it INCLUDES archived projects so totals stay complete (hindi bumababa ang
+            // numbers kapag may na-archive). Toggle to view active-only or archived-only.
+            'archived'  => in_array($request->archived, ['active', 'archived'], true) ? $request->archived : 'all',
         ];
 
-        // Scope: Prod Manager → Class only; Admin/COO/Manager → all departments
-        $deptFilter = function ($q) use ($user, $filters) {
-            $q->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
-              ->whereNull('archived_at');
+        // Scope: Prod Manager → Class only; Admin/COO/Manager → all departments.
+        // $archivedMode: 'all' (default, include archived) | 'active' | 'archived'.
+        $deptFilter = function ($q, $archivedMode = null) use ($user, $filters) {
+            $arch = $archivedMode ?? ($filters['archived'] ?? 'all');
+            $q->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed']);
+            if ($arch === 'active') {
+                $q->whereNull('archived_at');
+            } elseif ($arch === 'archived') {
+                $q->whereNotNull('archived_at');
+            }
             if ($user && $user->isClassScoped()) {
                 $q->where('department_id', 4);
             }
@@ -8400,6 +9539,11 @@ SQL;
         $kpiSales = $kpiQuery->get(['id', 'total_amount', 'created_at']);
         $totalOrders = $kpiSales->count();
         $totalRevenue = $kpiSales->sum('total_amount');
+
+        // ---- Archived count (report badge — ilan ang archived sa scope) ----
+        $archivedCountQuery = \App\Models\PrototypeSale::query();
+        $deptFilter($archivedCountQuery, 'archived');
+        $archivedCount = $archivedCountQuery->count();
 
         // ---- Money KPIs: pa-sisingilin (remaining balance) + pending verification amount (same scope as above) ----
         $moneyScope = \App\Models\PrototypeSale::query();
@@ -8692,8 +9836,79 @@ SQL;
 
         $isProdManager = $user && $user->isClassScoped();
 
+        // ---- Released per day (Andrew 2026-09-23) ----
+        // "Released" = na-tag na DISPATCH (ready_for_delivery). QA pababa = hindi pa tapos,
+        // kaya hindi pa binibilang. Source: production_stage_logs (to_stage = 'DISPATCH'),
+        // isang release event kada araw (distinct sale). Read-only analytics.
+        $releasedByDay = [];
+        for ($i = 13; $i >= 0; $i--) {
+            $day = now()->subDays($i)->format('Y-m-d');
+            $releasedByDay[$day] = ['label' => now()->subDays($i)->format('M d'), 'count' => 0, 'pcs' => 0];
+        }
+        $releasedSaleIdsByDay = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('production_stage_logs')) {
+            $releaseLogQuery = \DB::table('production_stage_logs')
+                ->join('prototype_sales', 'production_stage_logs.prototype_sale_id', '=', 'prototype_sales.id')
+                ->where('production_stage_logs.to_stage', 'DISPATCH')
+                ->where('production_stage_logs.created_at', '>=', now()->subDays(13)->startOfDay());
+            if ($user && $user->isClassScoped()) {
+                $releaseLogQuery->where('prototype_sales.department_id', 4);
+            }
+            $releaseRows = $releaseLogQuery->get([
+                'production_stage_logs.prototype_sale_id',
+                'production_stage_logs.created_at',
+            ]);
+            foreach ($releaseRows as $r) {
+                $day = \Illuminate\Support\Carbon::parse($r->created_at)->format('Y-m-d');
+                $releasedSaleIdsByDay[$day][$r->prototype_sale_id] = true;
+            }
+        }
+
+        // Pieces per released sale — suma ng `quantity` sa services JSON (kaparehas ng product aggregation).
+        $releasedAllSaleIds = [];
+        foreach ($releasedSaleIdsByDay as $ids) {
+            foreach ($ids as $sid => $_) { $releasedAllSaleIds[$sid] = true; }
+        }
+        $releasedPiecesBySale = [];
+        if (!empty($releasedAllSaleIds)) {
+            foreach (\App\Models\PrototypeSale::whereIn('id', array_keys($releasedAllSaleIds))->get(['id', 'services']) as $rs) {
+                $rItems = $rs->services;
+                if (is_string($rItems)) $rItems = json_decode($rItems, true) ?: [];
+                $rItems = is_array($rItems) ? $rItems : [];
+                $pcs = 0;
+                foreach ($rItems as $rItem) {
+                    if (!is_array($rItem)) continue;
+                    $pcs += (int) ($rItem['quantity'] ?? 0);
+                }
+                $releasedPiecesBySale[$rs->id] = $pcs;
+            }
+        }
+        foreach ($releasedSaleIdsByDay as $day => $ids) {
+            if (!isset($releasedByDay[$day])) continue;
+            $releasedByDay[$day]['count'] = count($ids);
+            $pcs = 0;
+            foreach (array_keys($ids) as $sid) { $pcs += (int) ($releasedPiecesBySale[$sid] ?? 0); }
+            $releasedByDay[$day]['pcs'] = $pcs;
+        }
+        $releasedToday = $releasedByDay[now()->format('Y-m-d')]['count'] ?? 0;
+        $releasedYesterday = $releasedByDay[now()->subDay()->format('Y-m-d')]['count'] ?? 0;
+        $releasedPcsToday = $releasedByDay[now()->format('Y-m-d')]['pcs'] ?? 0;
+        $releasedPcsYesterday = $releasedByDay[now()->subDay()->format('Y-m-d')]['pcs'] ?? 0;
+        $releasedLabels = array_column($releasedByDay, 'label');
+        $releasedCounts = array_column($releasedByDay, 'count');
+        $releasedPcsCounts = array_column($releasedByDay, 'pcs');
+        $releasedTotal14 = array_sum($releasedCounts);
+        $releasedPcsTotal14 = array_sum($releasedPcsCounts);
+        $releasedAvgPerDay = round($releasedTotal14 / 14, 1);
+        $releasedPcsAvgPerDay = round($releasedPcsTotal14 / 14, 1);
+
+        // ---- Stage Timing (Andrew 2026-09-18): gaano katagal ang bawat production stage ----
+        // Read-only mula sa ga_assignment_logs; exclusive sa dept scope (Class=4) para sa prod manager.
+        $stageDeptId = $isProdManager ? 4 : null;
+        $stageTiming = \App\Services\ProductionStageTimingService::stageAverages($stageDeptId);
+
         return view('production.tracking', compact(
-            'totalOrders', 'totalRevenue', 'totalCollectible', 'totalPaidAmount', 'collectibleOrders', 'pendingVerificationAmount',
+            'totalOrders', 'totalRevenue', 'archivedCount', 'totalCollectible', 'totalPaidAmount', 'collectibleOrders', 'pendingVerificationAmount',
             'kanbanCounts', 'kanbanLabels', 'kanbanTotal',
             'stageCounts', 'delayedCount', 'prioCount', 'dueCount', 'upcomingDue', 'overdueDue',
             'openFeedbackCount', 'backjobCount', 'pendingChanges', 'pendingAddons',
@@ -8701,7 +9916,10 @@ SQL;
             'trendLabels', 'trendOrders', 'trendRevenue',
             'pieLabels', 'pieValues', 'pieColors',
             'stageLabels', 'stageValues',
-            'productMap', 'totalProductPcs', 'topProductNames', 'topProductPcs'
+            'productMap', 'totalProductPcs', 'topProductNames', 'topProductPcs',
+            'releasedToday', 'releasedYesterday', 'releasedLabels', 'releasedCounts', 'releasedTotal14', 'releasedAvgPerDay',
+            'releasedPcsToday', 'releasedPcsYesterday', 'releasedPcsCounts', 'releasedPcsTotal14', 'releasedPcsAvgPerDay',
+            'stageTiming'
         ));
     }
 
@@ -9769,6 +10987,31 @@ SQL;
 
         $sales = $query->paginate(100)->withQueryString();
 
+        $lines = $this->buildSpecialPriceLines($sales);
+
+        // Unmapped = sales na may TUNAY na special-price flag (hindi lang "false"
+        // o "0" na naka-store sa JSON) pero hindi natin na-extract bilang line.
+        $mapped = $lines->pluck('sale.id')->unique()->flip();
+        $unmapped = $sales->filter(function ($s) use ($mapped) {
+            if ($mapped->has($s->id)) {
+                return false;
+            }
+            $svc = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
+            return $this->hasTruthySpecialFlag($svc);
+        });
+
+        $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
+
+        return view('sales.prototype.special-price-list', compact('sales', 'lines', 'unmapped', 'q', 'departmentLabels'));
+    }
+
+    /**
+     * Shared builder: extract special-price lines from a set of sales (services JSON)
+     * and attach the CEO/COO "checked" state. Used by BOTH the list page and the
+     * dashboard so the two can never diverge. (Extracted verbatim from specialPriceList().)
+     */
+    private function buildSpecialPriceLines($sales): \Illuminate\Support\Collection
+    {
         // Extract special price lines from each sale's services JSON.
         // NOTE: "Additional Order" items store specialPrice as an OBJECT
         // { price, reason } instead of a plain number — unwrap it so the review
@@ -9856,45 +11099,138 @@ SQL;
             });
         }
 
-        // Unmapped = sales na may TUNAY na special-price flag (hindi lang "false"
-        // o "0" na naka-store sa JSON) pero hindi natin na-extract bilang line.
-        $hasTruthyFlag = function ($node) use (&$hasTruthyFlag) {
-            if (!is_array($node)) {
-                return false;
-            }
-            foreach ($node as $k => $v) {
-                if (is_string($k)) {
-                    $lk = strtolower($k);
-                    if ($lk === 'hasspecialprice' || $lk === 'isspecialprice') {
-                        if ($v === true) {
-                            return true;
-                        }
-                        if (is_string($v) && trim($v) !== '' && strtolower(trim($v)) !== 'false' && trim($v) !== '0') {
-                            return true;
-                        }
-                        if (is_numeric($v) && (float) $v > 0) {
-                            return true;
-                        }
+        return $lines;
+    }
+
+    /**
+     * Recursive check: does a decoded services JSON node contain a REAL (truthy)
+     * special-price flag? ("false"/"0" strings and 0 are ignored.)
+     * Extracted from specialPriceList() so the dashboard can reuse it.
+     */
+    private function hasTruthySpecialFlag($node): bool
+    {
+        if (!is_array($node)) {
+            return false;
+        }
+        foreach ($node as $k => $v) {
+            if (is_string($k)) {
+                $lk = strtolower($k);
+                if ($lk === 'hasspecialprice' || $lk === 'isspecialprice') {
+                    if ($v === true) {
+                        return true;
+                    }
+                    if (is_string($v) && trim($v) !== '' && strtolower(trim($v)) !== 'false' && trim($v) !== '0') {
+                        return true;
+                    }
+                    if (is_numeric($v) && (float) $v > 0) {
+                        return true;
                     }
                 }
-                if ($hasTruthyFlag($v)) {
-                    return true;
-                }
             }
-            return false;
-        };
-        $mapped = $lines->pluck('sale.id')->unique()->flip();
-        $unmapped = $sales->filter(function ($s) use ($mapped, $hasTruthyFlag) {
-            if ($mapped->has($s->id)) {
-                return false;
+            if ($this->hasTruthySpecialFlag($v)) {
+                return true;
             }
-            $svc = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
-            return $hasTruthyFlag($svc);
-        });
+        }
+        return false;
+    }
+
+    /**
+     * Special Price Review DASHBOARD — read-only analytics for CEO/COO.
+     * Additive: reuses buildSpecialPriceLines(); does not touch the list page,
+     * the review endpoint, or any DB schema.
+     */
+    public function specialPriceDashboard()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->isCoo())) {
+            abort(403, 'Only the CEO (admin) and COO can view the special price dashboard.');
+        }
 
         $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
 
-        return view('sales.prototype.special-price-list', compact('sales', 'lines', 'unmapped', 'q', 'departmentLabels'));
+        $sales = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->whereNull('archived_at')
+            ->where(function ($sub) {
+                $sub->whereRaw("services LIKE '%hasSpecialPrice%'")
+                    ->orWhereRaw("services LIKE '%isSpecialPrice%'")
+                    ->orWhereRaw("services LIKE '%specialPriceReason%'");
+            })
+            ->when($user->isClassScoped(), function ($query) {
+                $query->where('department_id', 4);
+            })
+            ->orderByDesc('created_at')
+            ->get();
+
+        $lines = $this->buildSpecialPriceLines($sales);
+
+        $totalLines   = $lines->count();
+        $checkedCount = $lines->filter(fn ($l) => !empty($l['reviewed']))->count();
+        $pendingCount = $totalLines - $checkedCount;
+        $noReason     = $lines->filter(fn ($l) => $l['reason'] === '')->count();
+        $pctChecked   = $totalLines > 0 ? (int) round($checkedCount / $totalLines * 100) : 0;
+
+        $byKind = $lines->groupBy('kind')->map(function ($group, $kind) {
+            return [
+                'label'   => $kind,
+                'total'   => $group->count(),
+                'checked' => $group->filter(fn ($l) => !empty($l['reviewed']))->count(),
+                'qty'     => (int) $group->sum('qty'),
+            ];
+        })->sortByDesc('total')->values();
+
+        $byDept = $lines->groupBy(fn ($l) => (int) ($l['sale']->department_id ?? 0))->map(function ($group, $deptId) use ($departmentLabels) {
+            return [
+                'label'   => $departmentLabels[$deptId] ?? ('Dept ' . $deptId),
+                'total'   => $group->count(),
+                'checked' => $group->filter(fn ($l) => !empty($l['reviewed']))->count(),
+            ];
+        })->sortByDesc('total')->values();
+
+        $byAgent = $lines->groupBy(fn ($l) => $l['agent'] !== '' ? $l['agent'] : '—')->map(function ($group, $agent) {
+            return [
+                'label'   => $agent,
+                'total'   => $group->count(),
+                'checked' => $group->filter(fn ($l) => !empty($l['reviewed']))->count(),
+            ];
+        })->sortByDesc('total')->take(10)->values();
+
+        // Lines na walang reason (kailangan ng pansin)
+        $noReasonLines = $lines->filter(fn ($l) => $l['reason'] === '')->take(15)->values();
+
+        // Recent checks (tunay na reviewed_at order)
+        $lineMap = $lines->keyBy(fn ($l) => $l['sale']->id . '|' . $l['lineKey']);
+        $reviewRows = \DB::table('prototype_special_price_reviews')
+            ->whereNotNull('reviewed_at')
+            ->orderByDesc('reviewed_at')
+            ->take(12)
+            ->get();
+        $reviewerIds = $reviewRows->pluck('reviewed_by')->unique()->filter()->values();
+        $reviewerNames = \App\Models\User::whereIn('id', $reviewerIds)->get()->pluck('display_label', 'id');
+        $recent = $reviewRows->map(function ($r) use ($lineMap, $reviewerNames) {
+            $line = $lineMap->get($r->sale_id . '|' . $r->line_key);
+            return [
+                'sale' => $line ? $line['sale'] : null,
+                'item' => $line ? $line['itemName'] : '',
+                'kind' => $line ? $line['kind'] : '',
+                'by'   => $reviewerNames[$r->reviewed_by] ?? ('User #' . $r->reviewed_by),
+                'at'   => \Carbon\Carbon::parse($r->reviewed_at)->format('M d, g:i A'),
+            ];
+        })->filter(fn ($r) => $r['sale'] !== null)->values();
+
+        // Unmapped = may tunay na flag pero hindi na-extract bilang line
+        $mappedIds = $lines->pluck('sale.id')->unique();
+        $unmappedCount = $sales->filter(function ($s) use ($mappedIds) {
+            if ($mappedIds->contains($s->id)) {
+                return false;
+            }
+            $svc = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
+            return $this->hasTruthySpecialFlag($svc);
+        })->count();
+
+        return view('sales.prototype.special-price-dashboard', compact(
+            'sales', 'totalLines', 'checkedCount', 'pendingCount', 'noReason', 'pctChecked',
+            'byKind', 'byDept', 'byAgent', 'noReasonLines', 'recent', 'unmappedCount', 'departmentLabels'
+        ));
     }
 
     /**
