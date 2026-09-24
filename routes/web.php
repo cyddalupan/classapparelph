@@ -233,6 +233,10 @@ Route::get('/printing-calculator', function() {
     Route::post('/productpricing/{id}/volume-discounts', [App\Http\Controllers\ProductPricingController::class, 'storeVolumeDiscounts'])
         ->name('product-pricing.volume-discounts.store');
 
+    // Master Products & Pricing — unified hub (Phase 1 draft, additive; does not touch existing pages)
+    Route::get('/master-products', [App\Http\Controllers\MasterProductsController::class, 'index'])
+        ->name('master-products.index');
+
     # API: Products for sales box
     
     Route::post('/inventory', [\App\Http\Controllers\InventoryController::class, 'store'])->name('inventory.store');
