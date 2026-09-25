@@ -36,6 +36,10 @@
         </div>
     </div>
 
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show"><i class="fas fa-check-circle me-2"></i>{{ session('success') }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    @endif
+
     <div class="alert alert-light border d-flex align-items-center">
         <i class="fas fa-circle-info me-2"></i>
         <div><strong>Bukas na lahat dito:</strong> pwede nang i-edit ang details, pricing, Sales Box, at volume discounts mula sa isang pahina lang.</div>

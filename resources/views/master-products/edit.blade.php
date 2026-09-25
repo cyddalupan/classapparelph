@@ -46,6 +46,8 @@
         <form action="{{ route('product-pricing.update', $item->id) }}" method="POST" id="mpForm">
             @csrf
             @method('PUT')
+            {{-- tells ProductPricingController@update to return to the hub instead of the old /productpricing page --}}
+            <input type="hidden" name="redirect_to" value="master-products">
 
             <!-- Details tab -->
             <div class="tab-pane fade show active" id="mp-details">

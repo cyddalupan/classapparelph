@@ -200,6 +200,13 @@ class ProductPricingController extends Controller
             }
         });
         
+        // The Master Products & Pricing hub reuses this endpoint; when the hub edit form
+        // submits, send the user back to the hub instead of the legacy /productpricing page.
+        if ($request->input('redirect_to') === 'master-products') {
+            return redirect()->route('master-products.index')
+                ->with('success', 'Product updated successfully.');
+        }
+
         return redirect()->route('product-pricing.index')
             ->with('success', 'Product pricing updated successfully.');
     }
