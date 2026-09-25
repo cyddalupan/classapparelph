@@ -138,6 +138,23 @@ class ProductPricingController extends Controller
         $oldDerivedSku = $this->deriveShirtSku($item);
         $submittedSku  = $request->input('sku');
 
+        // Duplicate-SKU guard: if the submitted SKU already belongs to another product
+        // (soft-deleted rows included, to avoid a raw UNIQUE-constraint 500), DO NOT save.
+        // Redirect back with a clear validation error on the SKU field instead. An empty
+        // SKU is allowed (the column is nullable / multiple NULLs are fine).
+        $duplicateSku = trim((string) $submittedSku);
+        if ($duplicateSku !== '') {
+            $skuTaken = MasterItem::withTrashed()
+                ->where('sku', $duplicateSku)
+                ->where('id', '!=', $item->id)
+                ->exists();
+            if ($skuTaken) {
+                return redirect()->back()
+                    ->withErrors(['sku' => 'This SKU ("' . $duplicateSku . '") is already used by another product. Saving was cancelled — please enter a unique SKU.'])
+                    ->withInput();
+            }
+        }
+
         DB::transaction(function() use ($request, $item, $userId, $oldDerivedSku, $submittedSku) {
             // Update master item
             $itemFields = [
