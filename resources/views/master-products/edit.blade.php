@@ -6,16 +6,6 @@
         'Shirt Products', 'Other Products', 'Machine and Equipments',
         'Garment Materials', 'Printing and Office Supplies',
     ];
-    $salesBoxOptions = [
-        ''            => '-- Not assigned --',
-        'garment'     => 'Garment Printing',
-        'tarpaulin'   => 'Tarpaulin Printing',
-        'embroidery'  => 'Embroidery',
-        'cutting'     => 'Fullsublimation Printing',
-        'sewing'      => 'Sewing',
-        'design'      => 'Design',
-    ];
-    $volumeDiscounts = $item->activeVolumeDiscounts()->get();
 @endphp
 
 <div class="container-fluid">
@@ -49,12 +39,10 @@
     <ul class="nav nav-tabs mb-4" id="mpTabs" role="tablist">
         <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#mp-details" type="button"><i class="fas fa-circle-info me-1"></i> Product Details</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mp-pricing" type="button"><i class="fas fa-tags me-1"></i> Pricing</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mp-salesbox" type="button"><i class="fas fa-box me-1"></i> Sales Box</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mp-volume" type="button"><i class="fas fa-layer-group me-1"></i> Volume Discounts</button></li>
     </ul>
 
     <div class="tab-content">
-        <!-- Main form: Details + Pricing + Sales Box (single submit) -->
+        <!-- Main form: Details + Pricing (single submit) -->
         <form action="{{ route('product-pricing.update', $item->id) }}" method="POST" id="mpForm">
             @csrf
             @method('PUT')
@@ -184,78 +172,15 @@
                 </div>
             </div>
 
-            <!-- Sales Box tab -->
-            <div class="tab-pane fade" id="mp-salesbox">
-                <div class="card mb-4">
-                    <div class="card-header bg-info text-white"><h6 class="mb-0"><i class="fas fa-box me-1"></i> Sales Box Assignment</h6></div>
-                    <div class="card-body row">
-                        <div class="col-md-6">
-                            <label class="form-label" for="sales_box">Assign to Sales Box</label>
-                            <select class="form-select" id="sales_box" name="sales_box">
-                                @foreach($salesBoxOptions as $val => $label)
-                                    <option value="{{ $val }}" {{ (string) old('sales_box', $item->sales_box) === (string) $val ? 'selected' : '' }}>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            <div class="form-text">Lalabas ang product sa box na ito sa create-sale form.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="alert alert-info mb-0"><small><i class="fas fa-info-circle me-1"></i> Ang dropdown na ito ang pinagmumulan ng filter ng <strong>Garment Printing</strong> (at iba pang boxes). <br>Kasalukuyang: <strong>{{ $item->sales_box ?: 'unassigned' }}</strong></small></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {{-- Sales Box removed from the edit UI; kept as hidden passthrough para hindi mawipe ang existing assignment sa save --}}
+            <input type="hidden" name="sales_box" value="{{ old('sales_box', $item->sales_box) }}">
 
             <div class="d-flex justify-content-end mb-5">
                 <a href="{{ route('master-products.index') }}" class="btn btn-secondary me-2"><i class="fas fa-times me-1"></i> Cancel</a>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Details, Pricing &amp; Sales Box</button>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Details &amp; Pricing</button>
             </div>
         </form>
 
-        <!-- Volume Discounts tab (own form/endpoint) -->
-        <div class="tab-pane fade" id="mp-volume">
-            <div class="card">
-                <div class="card-header bg-info text-white"><h6 class="mb-0"><i class="fas fa-layer-group me-1"></i> Volume Discounts</h6></div>
-                <div class="card-body">
-                    <p class="text-muted"><i class="fas fa-info-circle me-1"></i> Magbigay ng mas murang price kada unit kapag mas malaki ang order.</p>
-                    <form action="{{ route('product-pricing.volume-discounts.store', $item->id) }}" method="POST" id="volumeDiscountForm">
-                        @csrf
-                        <div id="volumeDiscountsContainer">
-                            <div class="volume-tier card mb-3">
-                                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                    <span>Tier 1: Base Price</span><span class="badge bg-primary">Always Active</span>
-                                </div>
-                                <div class="card-body row">
-                                    <div class="col-md-4"><label class="form-label">Minimum Quantity</label><input type="number" class="form-control" value="1" readonly></div>
-                                    <div class="col-md-4"><label class="form-label">Maximum Quantity</label><input type="number" class="form-control" value="" placeholder="Leave blank" readonly></div>
-                                    <div class="col-md-4"><label class="form-label">Price Per Unit</label><div class="input-group"><span class="input-group-text">₱</span><input type="number" class="form-control" value="{{ $item->sales_team_price ?? $item->unit_price }}" readonly></div></div>
-                                </div>
-                            </div>
-                            @foreach($volumeDiscounts as $discount)
-                                <div class="volume-tier card mb-3">
-                                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                        <span>Tier {{ $loop->iteration + 1 }}: Volume Discount</span>
-                                        <button type="button" class="btn btn-sm btn-outline-danger remove-tier"><i class="fas fa-times"></i> Remove</button>
-                                    </div>
-                                    <div class="card-body row">
-                                        <div class="col-md-4"><label class="form-label">Minimum Quantity *</label><input type="number" name="discounts[{{ $loop->index }}][min_quantity]" class="form-control min-quantity" value="{{ $discount->min_quantity }}" min="2" required></div>
-                                        <div class="col-md-4"><label class="form-label">Maximum Quantity</label><input type="number" name="discounts[{{ $loop->index }}][max_quantity]" class="form-control max-quantity" value="{{ $discount->max_quantity }}" min="1" placeholder="Leave blank for unlimited"></div>
-                                        <div class="col-md-4"><label class="form-label">Price Per Unit *</label><div class="input-group"><span class="input-group-text">₱</span><input type="number" name="discounts[{{ $loop->index }}][price_per_unit]" class="form-control price" value="{{ $discount->price_per_unit }}" step="0.01" min="0" required></div></div>
-                                        <input type="hidden" name="discounts[{{ $loop->index }}][is_active]" value="1">
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                        <div class="mb-4">
-                            <button type="button" id="addTier" class="btn btn-outline-success"><i class="fas fa-plus me-1"></i> Add Volume Tier</button>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ route('master-products.index') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i> Back</a>
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Volume Discounts</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -269,33 +194,6 @@ $(document).ready(function () {
     }
     $('#supplier_cost').on('input', updateSupplierFinalPrice);
     updateSupplierFinalPrice();
-
-    let tierIndex = {{ $volumeDiscounts->count() ?? 0 }};
-    $('#addTier').click(function () {
-        const container = $('#volumeDiscountsContainer');
-        const basePrice = parseFloat('{{ $item->sales_team_price ?? $item->unit_price }}') || 0;
-        const lastTier = container.find('.volume-tier').last();
-        let suggestedMin = 10;
-        if (lastTier.length) { const lm = lastTier.find('.max-quantity').val(); if (lm) suggestedMin = parseInt(lm) + 1; }
-        const suggestedPrice = basePrice * 0.95;
-        container.append(`
-            <div class="volume-tier card mb-3">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <span>Tier ${tierIndex + 2}: Volume Discount</span>
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-tier"><i class="fas fa-times"></i> Remove</button>
-                </div>
-                <div class="card-body row">
-                    <div class="col-md-4"><label class="form-label">Minimum Quantity *</label><input type="number" name="discounts[${tierIndex}][min_quantity]" class="form-control min-quantity" value="${suggestedMin}" min="2" required></div>
-                    <div class="col-md-4"><label class="form-label">Maximum Quantity</label><input type="number" name="discounts[${tierIndex}][max_quantity]" class="form-control max-quantity" value="" min="1" placeholder="Leave blank for unlimited"></div>
-                    <div class="col-md-4"><label class="form-label">Price Per Unit *</label><div class="input-group"><span class="input-group-text">₱</span><input type="number" name="discounts[${tierIndex}][price_per_unit]" class="form-control price" value="${suggestedPrice.toFixed(2)}" step="0.01" min="0" required></div></div>
-                    <input type="hidden" name="discounts[${tierIndex}][is_active]" value="1">
-                </div>
-            </div>`);
-        tierIndex++;
-    });
-    $(document).on('click', '.remove-tier', function () {
-        if (confirm('Remove this volume tier?')) $(this).closest('.volume-tier').remove();
-    });
 
     $('#mpForm').submit(function () {
         const supplierBase = parseFloat($('#supplier_cost').val()) || 0;
