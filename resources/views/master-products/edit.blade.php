@@ -41,7 +41,13 @@
         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mp-pricing" type="button"><i class="fas fa-tags me-1"></i> Pricing</button></li>
     </ul>
 
-    <div class="tab-content">
+    <div class="tab-content mp-form-tabs">
+        <!-- Fix: the tab panes live inside a <form>, so Bootstrap's child selector
+             `.tab-content > .tab-pane` doesn't match and inactive panes stay display:block
+             (invisible opacity:0 but still occupying ~545px). Force proper hiding. -->
+        <style>
+            .mp-form-tabs .tab-pane:not(.active) { display: none !important; }
+        </style>
         <!-- Main form: Details + Pricing (single submit) -->
         <form action="{{ route('product-pricing.update', $item->id) }}" method="POST" id="mpForm">
             @csrf
