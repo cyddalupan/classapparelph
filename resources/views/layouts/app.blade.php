@@ -1432,6 +1432,131 @@
         })();
         </script>
 
+        {{-- Readable <datalist> suggestions (Andrew 2026-09-25)
+             Native <datalist> popups cannot be styled (Chrome ignores `datalist option`
+             colors and only partially follows color-scheme), so on some machines they
+             render white-on-white and the values (e.g. Brand/Size/Color filters) are
+             unreadable. This progressively enhances every text `input[list]` into a
+             custom dropdown we fully control: white background + black text, so it is
+             always legible. Native behaviour is otherwise preserved (typing, keyboard
+             nav, input/change events fired for existing handlers). --}}
+        <script>
+        (function () {
+            if (window.__datalistEnh) return;
+            window.__datalistEnh = true;
+            var TEXTY = ['', 'text', 'search', 'url', 'email', 'tel'];
+            var listEl = null, input = null, items = [], idx = -1;
+
+            var style = document.createElement('style');
+            style.textContent = ''
+              + '.dlfox{position:fixed;z-index:3000;background:#fff;color:#111;border:1px solid #adb5bd;'
+              + 'border-radius:.375rem;box-shadow:0 8px 22px rgba(0,0,0,.22);max-height:260px;overflow-y:auto;'
+              + 'font-size:.875rem;padding:.25rem 0;}'
+              + '.dlfox .dlfox-item{padding:.35rem .75rem;cursor:pointer;color:#111;background:#fff;'
+              + 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+              + '.dlfox .dlfox-item:hover,.dlfox .dlfox-item.active{background:#0d6efd;color:#fff;}'
+              + '.dlfox .dlfox-none{padding:.35rem .75rem;color:#6c757d;}';
+            document.head.appendChild(style);
+
+            function optsFor(el) {
+                var dl = document.getElementById(el.__dlId);
+                if (!dl) return [];
+                return Array.prototype.map.call(dl.options, function (o) { return o.value; })
+                    .filter(function (v) { return v !== ''; });
+            }
+            function place(el) {
+                var r = el.getBoundingClientRect();
+                listEl.style.left = r.left + 'px';
+                listEl.style.top = (r.bottom + 1) + 'px';
+                listEl.style.width = Math.max(r.width, 140) + 'px';
+            }
+            function hide() {
+                if (listEl) { listEl.style.display = 'none'; listEl.innerHTML = ''; }
+                idx = -1;
+            }
+            function show(el) {
+                input = el;
+                var all = optsFor(el);
+                if (!all.length) { hide(); return; }
+                var q = (el.value || '').trim().toLowerCase();
+                items = q ? all.filter(function (v) { return v.toLowerCase().indexOf(q) > -1; }) : all;
+                if (!listEl) { listEl = document.createElement('div'); listEl.className = 'dlfox'; listEl.style.display = 'none'; document.body.appendChild(listEl); }
+                listEl.innerHTML = '';
+                if (!items.length) {
+                    var n = document.createElement('div'); n.className = 'dlfox-none'; n.textContent = 'No matches';
+                    listEl.appendChild(n);
+                } else {
+                    items.forEach(function (v, i) {
+                        var d = document.createElement('div');
+                        d.className = 'dlfox-item'; d.textContent = v; d.setAttribute('data-i', i);
+                        d.addEventListener('mousedown', function (e) { e.preventDefault(); pick(v); });
+                        listEl.appendChild(d);
+                    });
+                }
+                place(el); listEl.style.display = 'block'; idx = -1;
+            }
+            function pick(v) {
+                if (!input) return;
+                input.value = v;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                hide();
+            }
+            function hi() {
+                Array.prototype.forEach.call(listEl.querySelectorAll('.dlfox-item'), function (el, i) {
+                    el.classList.toggle('active', i === idx);
+                });
+                var a = listEl.querySelector('.dlfox-item.active');
+                if (a) a.scrollIntoView({ block: 'nearest' });
+            }
+            function enhance(el) {
+                if (el.__datalistEnh) return;
+                var id = el.getAttribute('list');
+                if (!id) return;
+                if (TEXTY.indexOf((el.getAttribute('type') || '').toLowerCase()) === -1) return;
+                el.__datalistEnh = true;
+                el.__dlId = id;
+                el.setAttribute('autocomplete', 'off');
+                el.removeAttribute('list'); // suppress the un-stylable native popup; options still read via __dlId
+                el.addEventListener('focus', function () { show(el); });
+                el.addEventListener('input', function () { show(el); });
+                el.addEventListener('blur', function () { setTimeout(hide, 160); });
+                el.addEventListener('keydown', function (e) {
+                    if (!listEl || listEl.style.display !== 'block') return;
+                    if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(idx + 1, items.length - 1); hi(); }
+                    else if (e.key === 'ArrowUp') { e.preventDefault(); idx = Math.max(idx - 1, 0); hi(); }
+                    else if (e.key === 'Enter') { if (idx >= 0 && items[idx] != null) { e.preventDefault(); pick(items[idx]); } }
+                    else if (e.key === 'Escape' || e.key === 'Tab') { hide(); }
+                });
+            }
+            function scan(scope) {
+                var root = scope || document;
+                if (root.querySelectorAll) Array.prototype.forEach.call(root.querySelectorAll('input[list]'), enhance);
+            }
+            function boot() {
+                scan(document);
+                try {
+                    new MutationObserver(function (ms) {
+                        ms.forEach(function (m) {
+                            Array.prototype.forEach.call(m.addedNodes || [], function (n) {
+                                if (n && n.nodeType === 1) {
+                                    if (n.matches && n.matches('input[list]')) enhance(n);
+                                    scan(n);
+                                }
+                            });
+                        });
+                    }).observe(document.body, { childList: true, subtree: true });
+                } catch (e) {}
+            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+            else boot();
+            document.addEventListener('mousedown', function (e) { if (listEl && listEl.style.display === 'block' && e.target !== input && !listEl.contains(e.target)) hide(); }, true);
+            window.addEventListener('scroll', function () { if (listEl && listEl.style.display === 'block' && input) place(input); }, true);
+            window.addEventListener('resize', function () { if (listEl && listEl.style.display === 'block' && input) place(input); });
+            window.__datalistEnhScan = scan;
+        })();
+        </script>
+
         @stack('scripts')
     </body>
 </html>
