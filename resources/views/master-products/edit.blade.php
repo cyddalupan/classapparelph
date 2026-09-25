@@ -85,17 +85,15 @@
                                 <label class="form-label" for="sku">SKU</label>
                                 <input type="text" class="form-control" id="sku" name="sku" value="{{ old('sku', $item->sku) }}">
                             </div>
+                            {{-- barcode kept as hidden passthrough: hindi needed sa shirts UI, pero preserved para hindi mawipe sa save --}}
+                            <input type="hidden" name="barcode" value="{{ old('barcode', $item->barcode) }}">
                             <div class="col-md-6">
-                                <label class="form-label" for="barcode">Barcode</label>
-                                <input type="text" class="form-control" id="barcode" name="barcode" value="{{ old('barcode', $item->barcode) }}">
-                            </div>
-                            <div class="col-md-4">
                                 <label class="form-label" for="unit_price">Unit Price (₱)</label>
                                 <input type="number" step="0.01" min="0" class="form-control" id="unit_price" name="unit_price" value="{{ old('unit_price', $item->unit_price) }}">
                             </div>
-                            <div class="col-md-8">
+                            <div class="col-md-12">
                                 <label class="form-label" for="description">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="1">{{ old('description', $item->description) }}</textarea>
+                                <textarea class="form-control" id="description" name="description" rows="2">{{ old('description', $item->description) }}</textarea>
                             </div>
                         </div>
 
@@ -182,12 +180,6 @@
                                 @endif
                             </div>
                         </div>
-                    </div>
-                </div>
-                <div class="card mb-4">
-                    <div class="card-header bg-light"><h6 class="mb-0"><i class="fas fa-sticky-note me-1"></i> Notes</h6></div>
-                    <div class="card-body">
-                        <textarea class="form-control" id="notes" name="notes" rows="2" placeholder="Add any notes about this pricing (optional)">{{ old('notes', $supplierPricing->notes ?? '') }}</textarea>
                     </div>
                 </div>
             </div>
