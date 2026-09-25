@@ -36,28 +36,15 @@
         </div>
     @endif
 
-    <ul class="nav nav-tabs mb-4" id="mpTabs" role="tablist">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#mp-details" type="button"><i class="fas fa-circle-info me-1"></i> Product Details</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#mp-pricing" type="button"><i class="fas fa-tags me-1"></i> Pricing</button></li>
-    </ul>
-
-    <div class="tab-content mp-form-tabs">
-        <!-- Fix: the tab panes live inside a <form>, so Bootstrap's child selector
-             `.tab-content > .tab-pane` doesn't match and inactive panes stay display:block
-             (invisible opacity:0 but still occupying ~545px). Force proper hiding. -->
-        <style>
-            .mp-form-tabs .tab-pane:not(.active) { display: none !important; }
-        </style>
-        <!-- Main form: Details + Pricing (single submit) -->
-        <form action="{{ route('product-pricing.update', $item->id) }}" method="POST" id="mpForm">
+    <!-- Single view: Details + Catalog Attributes + Pricing (isang tingin na lang, walang tabs) -->
+    <form action="{{ route('product-pricing.update', $item->id) }}" method="POST" id="mpForm">
             @csrf
             @method('PUT')
             {{-- tells ProductPricingController@update to return to the hub instead of the old /productpricing page --}}
             <input type="hidden" name="redirect_to" value="master-products">
 
-            <!-- Details tab -->
-            <div class="tab-pane fade show active" id="mp-details">
-                <div class="card mb-4">
+            <!-- Product details + catalog attributes -->
+            <div class="card mb-4">
                     <div class="card-header bg-light"><h6 class="mb-0"><i class="fas fa-circle-info me-1"></i> Product Details</h6></div>
                     <div class="card-body">
                         <div class="row g-3">
@@ -120,10 +107,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Pricing tab -->
-            <div class="tab-pane fade" id="mp-pricing">
+                <h6 class="text-muted mb-3 mt-4"><i class="fas fa-tags me-1"></i> Pricing</h6>
                 <div class="row">
                     <div class="col-md-4 mb-4">
                         <div class="card h-100 border-primary">
@@ -181,7 +166,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
             {{-- Sales Box removed from the edit UI; kept as hidden passthrough para hindi mawipe ang existing assignment sa save --}}
             <input type="hidden" name="sales_box" value="{{ old('sales_box', $item->sales_box) }}">
@@ -191,8 +175,6 @@
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Details &amp; Pricing</button>
             </div>
         </form>
-
-    </div>
 </div>
 
 @push('scripts')
@@ -223,10 +205,6 @@ $(document).ready(function () {
             $(this).append(`<input type="hidden" name="agent_cost_final_price" value="${(agentBase + amt).toFixed(2)}">`);
         }
     });
-
-    // preserve active tab after validation redirect
-    const urlTab = new URLSearchParams(location.search).get('tab');
-    if (urlTab) { const el = document.querySelector(`[data-bs-target="#mp-${urlTab}"]`); if (el) new bootstrap.Tab(el).show(); }
 });
 </script>
 @endpush
