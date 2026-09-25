@@ -903,20 +903,25 @@
                                         </div>
                                         <div class="card-body p-3">
                                             <div class="row g-2">
-                                                <div class="col-md-4">
+                                                <div class="col-6 col-md-3">
                                                     <label class="form-label small mb-1">Brand</label>
                                                     <input type="text" class="form-control form-control-sm" id="garment_filterBrand" list="garment_brandOptions" placeholder="Type or select brand...">
                                                     <datalist id="garment_brandOptions"></datalist>
                                                 </div>
-                                                <div class="col-md-4">
-                                                    <label class="form-label small mb-1">Size</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_filterType" list="garment_typeOptions" placeholder="Type or select size...">
+                                                <div class="col-6 col-md-3">
+                                                    <label class="form-label small mb-1">Type</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterType" list="garment_typeOptions" placeholder="Type or select type...">
                                                     <datalist id="garment_typeOptions"></datalist>
                                                 </div>
-                                                <div class="col-md-4">
+                                                <div class="col-6 col-md-3">
                                                     <label class="form-label small mb-1">Color</label>
                                                     <input type="text" class="form-control form-control-sm" id="garment_filterColor" list="garment_colorOptions" placeholder="Type or select color...">
                                                     <datalist id="garment_colorOptions"></datalist>
+                                                </div>
+                                                <div class="col-6 col-md-3">
+                                                    <label class="form-label small mb-1">Size</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterSize" list="garment_sizeOptions" placeholder="Type or select size...">
+                                                    <datalist id="garment_sizeOptions"></datalist>
                                                 </div>
                                             </div>
                                             <div class="mt-2 text-end">
@@ -3325,7 +3330,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/api/filter-options/' + productType)
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                ['brand', 'type', 'color'].forEach(function(type) {
+                ['brand', 'type', 'color', 'size'].forEach(function(type) {
                     var datalist = document.getElementById('garment_' + type + 'Options');
                     var field = document.getElementById('garment_filter' + type.charAt(0).toUpperCase() + type.slice(1));
                     if (datalist) {
@@ -3351,6 +3356,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var brand = document.getElementById('garment_filterBrand')?.value.trim() || '';
         var type = document.getElementById('garment_filterType')?.value.trim() || '';
         var color = document.getElementById('garment_filterColor')?.value.trim() || '';
+        var size = document.getElementById('garment_filterSize')?.value.trim() || '';
         
         var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
         selects.forEach(function(dropdown) {
@@ -3361,6 +3367,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (brand) params.set('brand', brand);
         if (type) params.set('type', type);
         if (color) params.set('color', color);
+        if (size) params.set('size', size);
         
         fetch('/api/products-for-box/' + currentProductType + '?' + params.toString())
             .then(function(r) { return r.json(); })
@@ -3399,6 +3406,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('garment_filterBrand').value = '';
         document.getElementById('garment_filterType').value = '';
         document.getElementById('garment_filterColor').value = '';
+        var sizeEl = document.getElementById('garment_filterSize');
+        if (sizeEl) sizeEl.value = '';
         
         var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
         selects.forEach(function(dropdown) {

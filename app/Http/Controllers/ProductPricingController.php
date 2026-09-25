@@ -476,6 +476,7 @@ class ProductPricingController extends Controller
         $brand = $request->input('brand');
         $type = $request->input('type');
         $color = $request->input('color');
+        $size = $request->input('size');
         
         // Start query
         $query = MasterItem::where('sales_box', $boxType)
@@ -492,6 +493,10 @@ class ProductPricingController extends Controller
         
         if ($color) {
             $query->where('color', $color);
+        }
+
+        if ($size) {
+            $query->where('size', $size);
         }
         
         // Get items
@@ -558,11 +563,20 @@ class ProductPricingController extends Controller
             ->pluck('color')
             ->sort()
             ->values();
+
+        $sizes = MasterItem::where('sales_box', $boxType)
+            ->whereNotNull('size')
+            ->where('size', '!=', '')
+            ->distinct()
+            ->pluck('size')
+            ->sort()
+            ->values();
         
         return response()->json([
             'brands' => $brands,
             'types' => $types,
-            'colors' => $colors
+            'colors' => $colors,
+            'sizes' => $sizes
         ]);
     }
 }
