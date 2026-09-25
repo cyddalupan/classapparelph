@@ -154,7 +154,25 @@ class ProductPricingController extends Controller
             }
 
             $item->update($itemFields);
-            
+
+            // Auto-sync the description's catalog-attribute line for Shirt Products, so it
+            // stays consistent with Brand/Type/Color/Size (same format the create flow uses).
+            // Manual text above the line is preserved. Guarded + never throws so it can't
+            // break the save. Only Shirt Products are touched.
+            try {
+                if ($item->category === 'Shirt Products') {
+                    $attrLine = $this->buildShirtAttributeLine($item);
+                    if ($attrLine !== null) {
+                        $synced = $this->syncShirtAttributeLine($item->description, $attrLine);
+                        if ($synced !== (string) $item->description) {
+                            $item->update(['description' => $synced]);
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Shirt description auto-sync failed for item ' . $item->id . ': ' . $e->getMessage());
+            }
+
             // Update or create pricing for each tier
             foreach (['supplier_cost', 'sales_team', 'agent_cost'] as $tier) {
                 $basePrice = $request->input("{$tier}_base_price");
@@ -184,6 +202,58 @@ class ProductPricingController extends Controller
         
         return redirect()->route('product-pricing.index')
             ->with('success', 'Product pricing updated successfully.');
+    }
+
+    /**
+     * Build the auto "Size / Brand / Type / Color" description line for a shirt product.
+     * Mirrors MasterItemsController@store so create and edit stay consistent.
+     * Returns null when there are no catalog attributes to describe.
+     */
+    protected function buildShirtAttributeLine(MasterItem $item): ?string
+    {
+        $parts = [];
+        if (!empty($item->brand))      $parts[] = "Brand: {$item->brand}";
+        if (!empty($item->shirt_type)) $parts[] = "Type: {$item->shirt_type}";
+        if (!empty($item->color))      $parts[] = "Color: {$item->color}";
+
+        if (empty($parts)) {
+            return null;
+        }
+
+        $line = implode(', ', $parts);
+        if (!empty($item->size) && $item->size !== 'N/A') {
+            $line = "Size: {$item->size}, " . $line;
+        }
+
+        return $line;
+    }
+
+    /**
+     * Replace (or append) the auto catalog-attribute line inside a shirt product's
+     * description. Any manually entered text is preserved; only the generated line
+     * (the one containing Brand/Type/Color) is refreshed. Idempotent.
+     */
+    protected function syncShirtAttributeLine(?string $description, string $attrLine): string
+    {
+        $description = (string) $description;
+        $lines = preg_split('/\r\n|\r|\n/', $description);
+
+        // Locate the LAST line that looks like the auto-generated attribute line.
+        $index = null;
+        foreach ($lines as $i => $line) {
+            if (preg_match('/\bBrand\s*:.*\bType\s*:.*\bColor\s*:/i', $line)) {
+                $index = $i;
+            }
+        }
+
+        if ($index !== null) {
+            $lines[$index] = $attrLine;
+            return implode("\n", $lines);
+        }
+
+        // No existing attribute line — append one (matches the create behavior).
+        $trimmed = trim($description);
+        return $trimmed === '' ? $attrLine : rtrim($description) . "\n" . $attrLine;
     }
 
     /**
