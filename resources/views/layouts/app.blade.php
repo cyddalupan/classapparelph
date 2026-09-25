@@ -24,6 +24,18 @@
         
         <!-- Custom Styles for Inventory Dropdown -->
         <style>
+            /* Native <datalist> suggestion popup fix.
+               Chrome renders the datalist dropdown using the element's used
+               `color-scheme`. The page does not declare one, so when the user's
+               OS/browser is in DARK mode Chrome can paint the popup with light
+               (white) text on a white background - the option values look
+               blank/white even though they exist (e.g. the Brand / Size / Color
+               filters in the product modals). Pin [list] inputs to the light
+               scheme so the popup always renders dark text on white, and give
+               the options explicit colors as a belt-and-braces fallback. */
+            input[list] { color-scheme: light; }
+            datalist option { color: #212529; background-color: #ffffff; }
+
             /* Legacy Bootstrap-4-style badge variants (removed in Bootstrap 5).
                Without these, `.badge` keeps Bootstrap's default white text and
                renders invisible (white-on-white) e.g. the Username badge in
