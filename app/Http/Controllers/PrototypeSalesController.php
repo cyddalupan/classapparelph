@@ -6896,9 +6896,9 @@ SQL;
     protected function verifiedReferenceIndex(): array
     {
         $idx = [];
-        $add = function ($ref, $saleId, $salesNumber, $source) use (&$idx) {
+        $add = function ($ref, $saleId, $salesNumber, $source, $recordId = null) use (&$idx) {
             foreach ($this->sixDigitTokens($ref) as $t) {
-                $idx[$t][] = ['sale_id' => $saleId, 'sales_number' => $salesNumber, 'source' => $source];
+                $idx[$t][] = ['sale_id' => $saleId, 'sales_number' => $salesNumber, 'source' => $source, 'record_id' => $recordId];
             }
         };
 
@@ -6908,7 +6908,7 @@ SQL;
             ->whereIn('payment_status', $verifiedStates)
             ->whereNotNull('reference_number')->where('reference_number', '!=', '')
             ->select('id', 'sales_number', 'reference_number')->get() as $r) {
-            $add($r->reference_number, $r->id, $r->sales_number, 'sale');
+            $add($r->reference_number, $r->id, $r->sales_number, 'sale', $r->id);
         }
 
         foreach (\DB::table('prototype_payments')
@@ -6916,7 +6916,7 @@ SQL;
             ->whereNotNull('reference_number')->where('reference_number', '!=', '')
             ->select('id', 'prototype_sale_id', 'reference_number')->get() as $r) {
             $sn = \DB::table('prototype_sales')->where('id', $r->prototype_sale_id)->value('sales_number');
-            $add($r->reference_number, $r->prototype_sale_id, $sn, 'payment');
+            $add($r->reference_number, $r->prototype_sale_id, $sn, 'payment', $r->id);
         }
 
         foreach (\DB::table('layout_jobs')
@@ -6924,7 +6924,7 @@ SQL;
             ->whereNotNull('payment_reference')->where('payment_reference', '!=', '')
             ->select('id', 'sale_id', 'payment_reference')->get() as $r) {
             $sn = $r->sale_id ? \DB::table('prototype_sales')->where('id', $r->sale_id)->value('sales_number') : null;
-            $add($r->payment_reference, $r->sale_id, $sn, 'layout');
+            $add($r->payment_reference, $r->sale_id, $sn, 'layout', $r->id);
         }
 
         return $idx;
@@ -6939,9 +6939,9 @@ SQL;
     protected function pendingReferenceIndex(): array
     {
         $idx = [];
-        $add = function ($ref, $saleId, $salesNumber, $source) use (&$idx) {
+        $add = function ($ref, $saleId, $salesNumber, $source, $recordId = null) use (&$idx) {
             foreach ($this->sixDigitTokens($ref) as $t) {
-                $idx[$t][] = ['sale_id' => $saleId, 'sales_number' => $salesNumber, 'source' => $source];
+                $idx[$t][] = ['sale_id' => $saleId, 'sales_number' => $salesNumber, 'source' => $source, 'record_id' => $recordId];
             }
         };
 
@@ -6958,7 +6958,7 @@ SQL;
                     ->whereColumn('prototype_payments.prototype_sale_id', '=', 'prototype_sales.id');
             })
             ->select('id', 'sales_number', 'reference_number')->get() as $r) {
-            $add($r->reference_number, $r->id, $r->sales_number, 'sale');
+            $add($r->reference_number, $r->id, $r->sales_number, 'sale', $r->id);
         }
 
         // Pending additional payments (prototype_payments)
@@ -6967,7 +6967,7 @@ SQL;
             ->whereNotNull('reference_number')->where('reference_number', '!=', '')
             ->select('id', 'prototype_sale_id', 'reference_number')->get() as $r) {
             $sn = \DB::table('prototype_sales')->where('id', $r->prototype_sale_id)->value('sales_number');
-            $add($r->reference_number, $r->prototype_sale_id, $sn, 'payment');
+            $add($r->reference_number, $r->prototype_sale_id, $sn, 'payment', $r->id);
         }
 
         // Pending layout job payments (layout_jobs)
@@ -6976,7 +6976,7 @@ SQL;
             ->whereNotNull('payment_reference')->where('payment_reference', '!=', '')
             ->select('id', 'sale_id', 'payment_reference')->get() as $r) {
             $sn = $r->sale_id ? \DB::table('prototype_sales')->where('id', $r->sale_id)->value('sales_number') : null;
-            $add($r->payment_reference, $r->sale_id, $sn, 'layout');
+            $add($r->payment_reference, $r->sale_id, $sn, 'layout', $r->id);
         }
 
         // Edit-pending na PROPOSED (bagong) ref — `pending_reference_number`. Para ma-check
@@ -6988,14 +6988,14 @@ SQL;
             ->whereNull('deleted_at')->whereNull('archived_at')
             ->whereNotNull('pending_reference_number')->where('pending_reference_number', '!=', '')
             ->select('id', 'sales_number', 'pending_reference_number')->get() as $r) {
-            $add($r->pending_reference_number, $r->id, $r->sales_number, 'sale');
+            $add($r->pending_reference_number, $r->id, $r->sales_number, 'sale', $r->id);
         }
         foreach (\DB::table('prototype_payments')
             ->where('payment_status', 'edit_pending')
             ->whereNotNull('pending_reference_number')->where('pending_reference_number', '!=', '')
             ->select('id', 'prototype_sale_id', 'pending_reference_number')->get() as $r) {
             $sn = \DB::table('prototype_sales')->where('id', $r->prototype_sale_id)->value('sales_number');
-            $add($r->pending_reference_number, $r->prototype_sale_id, $sn, 'payment');
+            $add($r->pending_reference_number, $r->prototype_sale_id, $sn, 'payment', $r->id);
         }
 
         return $idx;
@@ -7013,7 +7013,7 @@ SQL;
      *  - PENDING matches: ini-exclude ang same-sale — dahil ang reference ay kino-copy sa
      *    prototype_sales at prototype_payments ng PAREHONG payment (mirror copy), hindi duplicate.
      */
-    protected function duplicateRefMatches($ref, $excludeSaleId, array $index, array $pendingIndex = [], bool $excludeSameSaleForVerified = false): array
+    protected function duplicateRefMatches($ref, $excludeSaleId, array $index, array $pendingIndex = [], bool $excludeSameSaleForVerified = false, $selfSource = null, $selfRecordId = null): array
     {
         $hits = [];
         foreach ($this->sixDigitTokens($ref) as $t) {
@@ -7022,11 +7022,16 @@ SQL;
             // ma-flag laban sa sariling sale/record (Andrew 2026-09-18).
             foreach (($index[$t] ?? []) as $h) {
                 if ($excludeSameSaleForVerified && $excludeSaleId !== null && (int) $h['sale_id'] === (int) $excludeSaleId) continue;
+                // Self-exclusion by record identity — mahalaga kapag sale_id = NULL
+                // (hal. standalone layout jobs), para hindi mag-flag laban sa sarili (Andrew 2026-09-25).
+                if ($selfRecordId !== null && ($h['source'] ?? null) === $selfSource && (int) ($h['record_id'] ?? 0) === (int) $selfRecordId) continue;
                 $hits[$t . '|' . $h['source'] . '|' . $h['sale_id'] . '|v'] = $h + ['token' => $t, 'verified' => true];
             }
             // Pending matches — same-sale ay mirror copy ng parehong payment → hindi duplicate.
             foreach (($pendingIndex[$t] ?? []) as $h) {
                 if ($excludeSaleId !== null && (int) $h['sale_id'] === (int) $excludeSaleId) continue;
+                // Self-exclusion by record identity (tingnan sa itaas) — Andrew 2026-09-25.
+                if ($selfRecordId !== null && ($h['source'] ?? null) === $selfSource && (int) ($h['record_id'] ?? 0) === (int) $selfRecordId) continue;
                 $hits[$t . '|' . $h['source'] . '|' . $h['sale_id'] . '|p'] = $h + ['token' => $t, 'verified' => false];
             }
         }
@@ -7328,7 +7333,7 @@ SQL;
             $p->dup_pending_count = collect($p->dup_matches)->where('verified', false)->count();
         }
         foreach ($pendingLayoutJobs as $lj) {
-            $lj->dup_matches = $this->duplicateRefMatches($lj->payment_reference ?? '', null, $refIndex, $pendingRefIndex);
+            $lj->dup_matches = $this->duplicateRefMatches($lj->payment_reference ?? '', null, $refIndex, $pendingRefIndex, false, 'layout', $lj->id);
             $lj->dup_verified_count = collect($lj->dup_matches)->where('verified', true)->count();
             $lj->dup_pending_count = collect($lj->dup_matches)->where('verified', false)->count();
         }
@@ -7419,7 +7424,7 @@ SQL;
         foreach ($candidates as $c) {
             $isVerified = in_array($c['status'], $verifiedStates, true);
             $exclSameVerified = $isVerified || $c['status'] === 'edit_pending';
-            $matches = $this->duplicateRefMatches($c['ref'], $c['sale_id'], $verifiedIndex, $pendingIndex, $exclSameVerified);
+            $matches = $this->duplicateRefMatches($c['ref'], $c['sale_id'], $verifiedIndex, $pendingIndex, $exclSameVerified, $c['source'], $c['record_id']);
             $c['bucket'] = $isVerified ? 'verified' : 'pending';
             $c['flagged'] = !empty($matches);
             $c['dup_verified'] = collect($matches)->where('verified', true)->count();
