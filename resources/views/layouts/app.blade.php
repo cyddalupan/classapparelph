@@ -1519,8 +1519,13 @@
                 el.setAttribute('autocomplete', 'off');
                 el.removeAttribute('list'); // suppress the un-stylable native popup; options still read via __dlId
                 el.addEventListener('focus', function () { show(el); });
+                el.addEventListener('mousedown', function () { show(el); });
+                el.addEventListener('click', function () { show(el); });
                 el.addEventListener('input', function () { show(el); });
-                el.addEventListener('blur', function () { setTimeout(hide, 160); });
+                // Intentionally NO blur-hide: some browsers/OS combos fire a
+                // transient blur right after the click, which made the popup
+                // vanish instantly. We hide only on an outside mousedown,
+                // Escape/Tab, or after picking an option.
                 el.addEventListener('keydown', function (e) {
                     if (!listEl || listEl.style.display !== 'block') return;
                     if (e.key === 'ArrowDown') { e.preventDefault(); idx = Math.min(idx + 1, items.length - 1); hi(); }
