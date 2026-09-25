@@ -183,7 +183,6 @@
                                 <th>Supplier</th>
                                 <th>Sales Team</th>
                                 <th>Agent</th>
-                                <th>Volume</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -226,13 +225,6 @@
                                             <span class="badge bg-warning text-dark">₱{{ number_format($agent->base_price, 2) }}</span>
                                         @else
                                             <span class="badge bg-light text-muted">Not set</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($item->volume_discounts_display)
-                                            <span class="small text-muted"><i class="fas fa-layer-group text-info me-1"></i>{{ $item->volume_discounts_display }}</span>
-                                        @else
-                                            <span class="badge bg-light text-muted">None</span>
                                         @endif
                                     </td>
                                     <td>
