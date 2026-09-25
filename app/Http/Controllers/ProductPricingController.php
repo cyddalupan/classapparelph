@@ -131,8 +131,14 @@ class ProductPricingController extends Controller
     {
         $item = MasterItem::findOrFail($id);
         $userId = auth()->id();
-        
-        DB::transaction(function() use ($request, $item, $userId) {
+
+        // Pre-update snapshot for the SKU auto-sync decision: what an auto-derived SKU
+        // *would* look like for the item's CURRENT attributes. If the submitted SKU still
+        // matches this, the user did not manually override it, so it is safe to refresh.
+        $oldDerivedSku = $this->deriveShirtSku($item);
+        $submittedSku  = $request->input('sku');
+
+        DB::transaction(function() use ($request, $item, $userId, $oldDerivedSku, $submittedSku) {
             // Update master item
             $itemFields = [
                 'name' => $request->input('name'),
@@ -171,6 +177,29 @@ class ProductPricingController extends Controller
                 }
             } catch (\Throwable $e) {
                 \Log::warning('Shirt description auto-sync failed for item ' . $item->id . ': ' . $e->getMessage());
+            }
+
+            // Auto-sync the SKU for Shirt Products — but ONLY when the submitted SKU is still
+            // the auto-derived one (i.e. the user did not hand-edit it). Manual / custom SKUs
+            // are never touched. Collision-safe (UNIQUE on master_items.sku). Guarded so it
+            // can never break the save.
+            try {
+                if ($item->category === 'Shirt Products' && $this->isDerivedSku($submittedSku, $oldDerivedSku)) {
+                    $newSku = $this->deriveShirtSku($item);
+                    if (!empty($newSku) && $newSku !== (string) $item->sku) {
+                        // Avoid clashing with any other row (soft-deleted included).
+                        $clash = MasterItem::withTrashed()
+                            ->where('sku', $newSku)
+                            ->where('id', '!=', $item->id)
+                            ->exists();
+                        if ($clash) {
+                            $newSku .= '-' . substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 4);
+                        }
+                        $item->update(['sku' => $newSku]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Shirt SKU auto-sync failed for item ' . $item->id . ': ' . $e->getMessage());
             }
 
             // Update or create pricing for each tier
@@ -215,6 +244,51 @@ class ProductPricingController extends Controller
      * Build the auto "Size / Brand / Type / Color" description line for a shirt product.
      * Mirrors MasterItemsController@store so create and edit stay consistent.
      * Returns null when there are no catalog attributes to describe.
+     */
+    protected function deriveShirtSku(MasterItem $item): ?string
+    {
+        $strip = function ($text) {
+            $text = preg_replace('/[aeiouAEIOU]/', '', (string) $text);
+            $text = preg_replace('/[^A-Z0-9]/', '', (string) $text);
+            return strtoupper($text);
+        };
+
+        $parts = [];
+        if (!empty($item->brand))      $parts[] = $strip($item->brand);
+        if (!empty($item->shirt_type)) $parts[] = $strip($item->shirt_type);
+        if (!empty($item->color))      $parts[] = $strip($item->color);
+
+        if (empty($parts)) {
+            return null;
+        }
+
+        $sku = implode('-', array_filter($parts));
+        if (!empty($item->size) && $item->size !== 'N/A') {
+            $sku .= '-' . $item->size;
+        }
+
+        return $sku;
+    }
+
+    /**
+     * True when the submitted SKU is still the auto-derived SKU (optionally with the
+     * 4-char random collision suffix the create flow may append). This is how we tell an
+     * untouched/derived SKU apart from a hand-edited one.
+     */
+    protected function isDerivedSku(?string $submitted, ?string $oldDerived): bool
+    {
+        $submitted = trim((string) $submitted);
+        if ($oldDerived === null || $oldDerived === '' || $submitted === '') {
+            return false;
+        }
+        if ($submitted === $oldDerived) {
+            return true;
+        }
+        return (bool) preg_match('/^' . preg_quote($oldDerived, '/') . '-[A-Z0-9]{2,6}$/', $submitted);
+    }
+
+    /**
+     * Build the auto catalog-attribute line for a shirt product ("Size: .., Brand: ..")
      */
     protected function buildShirtAttributeLine(MasterItem $item): ?string
     {
