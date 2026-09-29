@@ -123,7 +123,13 @@
                     @foreach($payoutRequests as $p)
                     <tr>
                         <td>#{{ $p->id }}</td>
-                        <td>{{ $p->gaUser?->name ?: '—' }}</td>
+                        <td>
+                            @if($p->gaUser)
+                                <x-user-chip :user="$p->gaUser" :size="18" />
+                            @else
+                                —
+                            @endif
+                        </td>
                         <td class="lj-amount">₱{{ number_format($p->amount, 2) }}</td>
                         <td>
                             <div>{{ $p->account_name ?: '—' }} {{ $p->account_number ? '· ' . $p->account_number : '' }}</div>
@@ -207,6 +213,7 @@
                         <option value="done" {{ request('status')==='done'?'selected':'' }}>Done</option>
                         <option value="payment_pending" {{ request('status')==='payment_pending'?'selected':'' }}>Payment Pending</option>
                         <option value="no_amount" {{ request('status')==='no_amount'?'selected':'' }}>Libre — wala pang amount</option>
+                        <option value="cancelled" {{ request('status')==='cancelled'?'selected':'' }}>🚫 Hindi Tumuloy</option>
                     </select>
                 </div>
                 @if(($mode ?? 'personal') === 'global')
@@ -297,10 +304,27 @@
                             <span class="lj-muted">N/A (libre)</span>
                             @endif
                         </td>
-                        <td>{{ $job->gaUser?->name ?: '—' }}</td>
-                        <td>{{ $job->creator?->name ?: '—' }}</td>
                         <td>
-                            @if($job->payout_id)
+                            @if($job->gaUser)
+                                <x-user-chip :user="$job->gaUser" :size="18" />
+                            @else
+                                —
+                            @endif
+                        </td>
+                        <td>
+                            @if($job->creator)
+                                <x-user-chip :user="$job->creator" :size="18" />
+                            @else
+                                —
+                            @endif
+                        </td>
+                        <td>
+                            @if($job->isCancelled())
+                            <span class="lj-badge rejected">✗ Hindi Tumuloy</span>
+                            @if($job->cancel_reason)
+                            <br><span class="lj-muted" title="{{ $job->cancel_reason }}"><i class="fas fa-comment"></i> {{ \Illuminate\Support\Str::limit($job->cancel_reason, 40) }}</span>
+                            @endif
+                            @elseif($job->payout_id)
                             <span class="lj-badge requested">💸 Payout #{{ $job->payout_id }} ({{ $job->payout?->status ?? '' }})</span>
                             @else
                             <span class="lj-badge {{ $job->status === 'done' ? 'done' : 'open' }}">{{ $job->status === 'done' ? '✓ Done' : 'Open' }}</span>
@@ -323,11 +347,15 @@
                                 <button class="btn btn-sm btn-dark lj-btn-mini mb-1" onclick="openSetAmount({{ $job->id }}, '{{ $job->job_no }}')">Set Amount</button>
                                 @endif
                             @endif
-                            @if(!$job->sale_id && auth()->id() === $job->created_by && ($job->isFree() || ($job->isPaid() && $job->payment_status === 'verified')))
+                            @if(!$job->sale_id && auth()->id() === $job->created_by)
                                 {{-- Spec: ang nag-create lang ang pwedeng mag-link; bayad = verified muna, libre = pwede agad (Andrew 2026-09-17) --}}
                                 <button class="btn btn-sm btn-outline-primary lj-btn-mini mb-1" onclick="openLinkSale({{ $job->id }}, '{{ $job->job_no }}')">Link Sale</button>
                             @endif
-                            @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id)
+                            @if(!$job->sale_id && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
+                            {{-- "Hindi Tumuloy" — libreng layout na walang sale (hindi tumuloy ang client). Andrew 2026-09-29 --}}
+                            <button class="btn btn-sm btn-outline-secondary lj-btn-mini mb-1" onclick="openCancelJob({{ $job->id }}, '{{ $job->job_no }}', '{{ $job->isFree() ? 'libre' : 'bayad' }}')">🚫 Hindi Tumuloy</button>
+                            @endif
+                            @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id && !$job->isCancelled())
                             <button class="btn btn-sm btn-primary lj-btn-mini mb-1" onclick="markDone({{ $job->id }})">✓ Done</button>
                             @endif
                             @if($isApprover && $job->payout_id && in_array($job->payout?->status, ['requested','paid']))
@@ -415,6 +443,25 @@
         <input type="text" id="linkSaleValue" class="form-control" placeholder="Enter prototype_sales.id o hanapin sa sale page">
     </div>
     <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" onclick="submitLinkSale()">Link</button></div>
+</div></div></div>
+
+{{-- Hindi Tumuloy modal (client did not push through — walang sale na na-create) --}}
+<div class="modal fade" id="cancelJobModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">🚫 Hindi Tumuloy ang Client</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <p class="lj-muted mb-2">Walang sale na na-create dahil hindi tumuloy ang client sa layout na ito. <b id="cancelJobNoLabel"></b></p>
+        <label class="lj-muted">Reason (opsyonal — pero mas magandang may nakalagay)</label>
+        <textarea id="cancelReason" class="form-control mb-3" rows="3" maxlength="1000" placeholder="e.g. Hindi na tumuloy ang client / hindi na nagpatuloy sa order"></textarea>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="cancelConfirmChk">
+            <label class="form-check-label" for="cancelConfirmChk">Sigurado ka ba na <b>hindi tumuloy</b> ang client sa layout na ito?</label>
+        </div>
+        <input type="hidden" id="cancelJobId">
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="cancelJobBtn" disabled onclick="submitCancelJob()">Oo, Hindi Tumuloy</button>
+    </div>
 </div></div></div>
 
 {{-- Payout request modal (GA) --}}
@@ -511,6 +558,30 @@ function submitSetAmount() {
         headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: JSON.stringify({amount: amount})
     }).then(r => r.json()).then(d => { alert(d.error || 'Amount saved — reflect na sa GA ✓'); location.reload(); });
+}
+
+function openCancelJob(id, jobNo, typeLabel) {
+    document.getElementById('cancelJobId').value = id;
+    document.getElementById('cancelJobNoLabel').textContent = jobNo ? '(' + jobNo + ' · ' + typeLabel + ')' : '';
+    document.getElementById('cancelReason').value = '';
+    document.getElementById('cancelConfirmChk').checked = false;
+    document.getElementById('cancelJobBtn').disabled = true;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('cancelJobModal')).show();
+}
+
+document.getElementById('cancelConfirmChk')?.addEventListener('change', function () {
+    document.getElementById('cancelJobBtn').disabled = !this.checked;
+});
+
+function submitCancelJob() {
+    const id = document.getElementById('cancelJobId').value;
+    const reason = document.getElementById('cancelReason').value.trim();
+    if (!document.getElementById('cancelConfirmChk').checked) return alert('I-check muna ang confirmation.');
+    fetch('/sales/layout-jobs/' + id + '/cancel', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({reason: reason})
+    }).then(r => r.json()).then(d => { alert(d.error || 'Na-marka na: Hindi Tumuloy ✓'); if (!d.error) location.reload(); });
 }
 
 function markDone(id) {
