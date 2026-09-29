@@ -182,6 +182,15 @@ class PrototypeSale extends Model
         return $this->hasMany(\App\Models\PrototypePayment::class, 'prototype_sale_id')->verified();
     }
 
+    /**
+     * Ang sales agent na gumawa ng sale (para sa avatar + pangalan sa kanban).
+     * Read-only, additive — hindi nagbabago ng behavior ng ibang query.
+     */
+    public function salesAgent()
+    {
+        return $this->belongsTo(User::class, 'sales_agent_id');
+    }
+
     public function auditLogs()
     {
         return $this->hasMany(PaymentAuditLog::class, 'prototype_sale_id');

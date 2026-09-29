@@ -215,7 +215,13 @@
                 </div>
                 <div class="info-field">
                     <div class="label">Sales Agent</div>
-                    <div class="value">{{ $sale->sales_agent_name ?? 'N/A' }}</div>
+                    <div class="value">
+                        @if($sale->sales_agent_name)
+                            <x-user-chip :user="$salesAgent ?? null" :name="$sale->sales_agent_name" :size="18" />
+                        @else
+                            N/A
+                        @endif
+                    </div>
                 </div>
                 <div class="info-field">
                     <div class="label">Status</div>

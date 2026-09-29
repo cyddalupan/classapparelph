@@ -1076,7 +1076,11 @@
                             @endif
                         </td>
                         <td style="font-size:12px;color:#6c757d;">
-                            {{ $sale->sales_agent_name ?: '—' }}
+                            @if($sale->sales_agent_name)
+                                <x-user-chip :user="$sale->salesAgent" :name="$sale->sales_agent_name" :size="18" />
+                            @else
+                                —
+                            @endif
                             @if(!$isAgent && auth()->user() && auth()->user()->isManager())
                                 <div style="margin-top:4px;">
                                     @if(!empty($sale->needed_by))

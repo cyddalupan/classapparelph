@@ -191,7 +191,13 @@
                     @endif
                     <div>
                         <div class="info-label">Sales Agent</div>
-                        <div class="info-value">{{ $sale->sales_agent_name ?? 'N/A' }}</div>
+                        <div class="info-value">
+                            @if($sale->sales_agent_name)
+                                <x-user-chip :user="$sale->salesAgent" :name="$sale->sales_agent_name" :size="20" />
+                            @else
+                                N/A
+                            @endif
+                        </div>
                     </div>
                     <div>
                         <div class="info-label">Department</div>
@@ -874,7 +880,20 @@
                     <div class="info-value text-success">₱{{ number_format($netPaid, 2) }}</div>
                 </div>
                 @endif
-                @php $bal = $balanceDue; @endphp
+                @php $bal = $balanceDueWithLayout ?? $balanceDue; @endphp
+                @if(($layoutTotal ?? 0) > 0)
+                <div class="mb-2">
+                    <div class="info-label">＋ Layout Fee (naka-link)</div>
+                    <div class="info-value" style="color:#b45309;">₱{{ number_format($layoutTotal, 2) }}</div>
+                </div>
+                @if(($layoutPaidTotal ?? 0) > 0)
+                <div class="mb-2">
+                    <div class="info-label">− Layout Paid (verified)</div>
+                    <div class="info-value text-success">− ₱{{ number_format($layoutPaidTotal, 2) }}</div>
+                </div>
+                @endif
+                <div class="small text-muted mb-2"><i class="fas fa-info-circle me-1"></i>Kasama na ang layout fee sa Balance Due (idagdag kung hindi pa bayad, bawas kung verified na).</div>
+                @endif
                 @if($bal > 0)
                 <div class="mb-2">
                     <div class="info-label">Balance Due</div>
@@ -889,9 +908,18 @@
                     </button>
                     @php $canRequestReview = auth()->user() && (auth()->user()->isSalesAgent() || auth()->user()->isSalesRepresentative() || auth()->user()->isAdmin()); @endphp
                     @if($canRequestReview && !isset($activeReviewRequest))
-                    <button type="button" class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#paymentReviewModal">
-                        <i class="fas fa-file-invoice-dollar me-2"></i>For Review Payment
-                    </button>
+                        @if($hasPendingVerification ?? false)
+                            <button type="button" class="btn btn-outline-warning w-100" disabled
+                                    title="May pending payment verification pa — hintayin munang ma-verify bago mag-request ng payment review."
+                                    style="cursor:not-allowed;opacity:.6;">
+                                <i class="fas fa-file-invoice-dollar me-2"></i>For Review Payment
+                                <span class="badge bg-warning text-dark ms-1"><i class="fas fa-hourglass-half me-1"></i>May pending verification</span>
+                            </button>
+                        @else
+                            <button type="button" class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#paymentReviewModal">
+                                <i class="fas fa-file-invoice-dollar me-2"></i>For Review Payment
+                            </button>
+                        @endif
                     @endif
                 </div>
                 @endif
@@ -971,9 +999,9 @@
             @endif
 
             <!-- Payment History (individual payments) — hidden for GA -->
-            @if(!$isGa && isset($payments) && $payments->count() > 0)
+            @if(!$isGa && (($payments->count() ?? 0) > 0 || (isset($linkedLayoutJobs) && $linkedLayoutJobs->count() > 0)))
             <div class="detail-section">
-                <h5 class="detail-title"><i class="fas fa-receipt me-2"></i>Payment History ({{ $payments->count() }})</h5>
+                <h5 class="detail-title"><i class="fas fa-receipt me-2"></i>Payment History ({{ $payments->count() + ($linkedLayoutJobs->count() ?? 0) }})</h5>
                 @foreach($payments as $pay)
                     <div class="p-2 mb-2 border rounded {{ $pay->payment_status === 'pending' ? 'border-warning' : 'border-secondary' }}">
                         <div class="d-flex justify-content-between align-items-start">
@@ -1029,10 +1057,48 @@
                         </div>
                     </div>
                 @endforeach
+                {{-- Layout payments/verifications (linked paid layout jobs) — Andrew 2026-09-29 --}}
+                @if(isset($linkedLayoutJobs) && $linkedLayoutJobs->count() > 0)
+                    @foreach($linkedLayoutJobs as $lj)
+                        @php
+                            $ljBadge = match($lj->payment_status) {
+                                'verified' => ['bg-success', '✓ Verified'],
+                                'rejected' => ['bg-danger', '✗ Rejected'],
+                                default => ['bg-warning text-dark', '⏳ Pending Verification'],
+                            };
+                        @endphp
+                        <div class="p-2 mb-2 border rounded {{ $lj->payment_status === 'verified' ? 'border-success' : ($lj->payment_status === 'rejected' ? 'border-danger' : 'border-warning') }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge" style="background:#7c3aed;">🎨 Layout</span>
+                                    <span class="badge bg-dark">{{ $lj->job_no }}</span>
+                                    <span class="badge {{ $ljBadge[0] }}">{{ $ljBadge[1] }}</span>
+                                    <div class="fw-bold mt-1">₱{{ number_format($lj->amount ?? 0, 2) }}</div>
+                                    <div class="small text-muted">
+                                        {{ ucfirst($lj->payment_method ?? 'N/A') }}
+                                        @if($lj->paymentAccount) · {{ $lj->paymentAccount->name }} @endif
+                                    </div>
+                                    @if($lj->payment_reference)
+                                        <div class="small text-muted"><i class="fas fa-hashtag me-1"></i>{{ $lj->payment_reference }}</div>
+                                    @endif
+                                    @if($lj->payment_verified_at)
+                                        <div class="small text-success mt-1">
+                                            <i class="fas fa-user-check me-1"></i>Na-verify {{ $lj->payment_verified_at->format('M d, g:i A') }}
+                                            @if($lj->payment_verified_by && ($v2 = \App\Models\User::find($lj->payment_verified_by))) · {{ $v2->name }} @endif
+                                        </div>
+                                    @endif
+                                </div>
+                                @if($lj->payment_screenshot_path)
+                                    <div class="ms-2">
+                                        <img src="{{ asset('storage/' . $lj->payment_screenshot_path) }}" alt="Layout payment proof" class="rounded" style="width:70px;height:70px;object-fit:cover;cursor:pointer;border:1px solid #ccc;" onclick="openLightbox('{{ asset('storage/' . $lj->payment_screenshot_path) }}')">
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                @endif
             </div>
             @endif
-
-            <!-- Payment Review History (balance close-out requests) — hidden for GA -->
             @if(!$isGa && isset($paymentReviews) && $paymentReviews->count() > 0)
             <div class="detail-section mt-3">
                 <h5 class="detail-title"><i class="fas fa-file-invoice-dollar me-2"></i>Payment Review History ({{ $paymentReviews->count() }})</h5>
@@ -1139,21 +1205,27 @@
                         </div>
                     </div>
                 @endforeach
-                @if($layoutFeeTotal > 0)
+                @if(($layoutTotal ?? 0) > 0)
                 <div class="border-top pt-2 mt-2">
                     <div class="d-flex justify-content-between">
                         <span>Order Payments (net)</span>
                         <span>₱{{ number_format($netPaid ?? 0, 2) }}</span>
                     </div>
                     <div class="d-flex justify-content-between">
-                        <span>Layout Fee (verified)</span>
-                        <span class="text-success">+ ₱{{ number_format($layoutFeeTotal, 2) }}</span>
+                        <span>Layout Fee (naka-link)</span>
+                        <span style="color:#b45309;">+ ₱{{ number_format($layoutTotal ?? 0, 2) }}</span>
                     </div>
+                    @if(($layoutPaidTotal ?? 0) > 0)
+                    <div class="d-flex justify-content-between">
+                        <span>Layout Paid (verified)</span>
+                        <span class="text-success">− ₱{{ number_format($layoutPaidTotal, 2) }}</span>
+                    </div>
+                    @endif
                     <div class="d-flex justify-content-between fw-bold mt-1">
                         <span>Total Collected (order + layout)</span>
                         <span>₱{{ number_format($collectedWithLayout ?? 0, 2) }}</span>
                     </div>
-                    <div class="small text-muted mt-1"><i class="fas fa-info-circle me-1"></i>Display reference lang — hindi binabago ang order total o balance. Ang layout fee ay may sariling record sa Cash Flow.</div>
+                    <div class="small text-muted mt-1"><i class="fas fa-info-circle me-1"></i>Kasama na sa Pay Balance ang layout fee (idinadagdag kung hindi pa bayad, binabawas kung verified na). Ang layout payment ay may sariling record sa Cash Flow.</div>
                 </div>
                 @endif
             </div>
@@ -1246,7 +1318,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    @php $remaining = $balanceDue; @endphp
+                    @php $remaining = $balanceDueWithLayout ?? $balanceDue; @endphp
                 @if(isset($relatedSales) && $relatedSales->count() > 0)
     <div class="alert alert-info mb-3">
         <div class="d-flex align-items-start">
@@ -1393,7 +1465,7 @@
                         </div>
                         <div>
                             <small class="text-muted d-block">Remaining Balance</small>
-                            <strong class="text-danger">₱{{ number_format($balanceDue, 2) }}</strong>
+                            <strong class="text-danger">₱{{ number_format($balanceDueWithLayout ?? $balanceDue, 2) }}</strong>
                         </div>
                     </div>
 
@@ -1775,30 +1847,25 @@
     
     // ---------- Load Comments ----------
     function loadComments() {
-        fetch('{{ route("sales.prototype.audit-history", $sale->id) }}')
+        fetch('{{ route("sales.prototype.comments", $sale->id) }}')
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 var html = '';
-                if (data.logs && data.logs.length > 0) {
-                    var commentLogs = data.logs.filter(function(l) { return l.action === 'comment_added'; });
-                    if (commentLogs.length > 0) {
-                        commentLogs.forEach(function(log) {
-                            var date = new Date(log.created_at);
-                            var dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-                            var userLabel = log.user_name || 'Manager';
-                            if (log.user_name) {
-                                var firstWord = log.user_name.trim().split(' ')[0];
-                                userLabel = firstWord + (log.user_position ? ' - ' + log.user_position : '');
-                            }
-                            html += '<div class="d-flex gap-3 mb-3 pb-2 border-start border-primary ps-3">';
-                            html += '<div class="flex-grow-1">';
-                            html += '<div class="d-flex justify-content-between"><strong>' + userLabel + '</strong> <small class="text-muted">' + dateStr + '</small></div>';
-                            html += '<div class="mt-1">' + escHtml(log.description.replace(/^.* added a comment: /, '')) + '</div>';
-                            html += '</div></div>';
-                        });
-                    } else {
-                        html = '<p class="text-muted text-center py-2">No comments yet.</p>';
-                    }
+                if (data.comments && data.comments.length > 0) {
+                    data.comments.forEach(function(c) {
+                        var date = new Date(c.created_at);
+                        var dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+                        var userLabel = c.user_name || 'Manager';
+                        if (c.user_name) {
+                            var firstWord = c.user_name.trim().split(' ')[0];
+                            userLabel = firstWord + (c.user_position ? ' - ' + c.user_position : '');
+                        }
+                        html += '<div class="d-flex gap-3 mb-3 pb-2 border-start border-primary ps-3">';
+                        html += '<div class="flex-grow-1">';
+                        html += '<div class="d-flex justify-content-between"><strong>' + userLabel + '</strong> <small class="text-muted">' + dateStr + '</small></div>';
+                        html += '<div class="mt-1">' + escHtml(c.comment).replace(/\n/g, '<br>') + '</div>';
+                        html += '</div></div>';
+                    });
                 } else {
                     html = '<p class="text-muted text-center py-2">No comments yet.</p>';
                 }
@@ -3034,8 +3101,8 @@ function caCutCountRules(partRows) {
         var part = String((rows[i] && (rows[i].part || rows[i][0])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
         var detail = String((rows[i] && (rows[i].detail || rows[i][1])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
         if (part.indexOf('GARMENT') < 0) continue;
-        if (detail === 'POLO BUTTON' || detail.indexOf('POLO BUTTON ') === 0) return { collar: true, placket: true };
-        if (detail === 'POLO ZIPPER' || detail.indexOf('POLO ZIPPER ') === 0) return { collar: true, placket: false };
+        if (detail === 'POLO BUTTON' || detail.indexOf('POLO BUTTON ') === 0 || detail.indexOf('CC POLO BUTTON') === 0) return { collar: true, placket: true };
+        if (detail === 'POLO ZIPPER' || detail.indexOf('POLO ZIPPER ') === 0 || detail.indexOf('CC POLO ZIPPER') === 0) return { collar: true, placket: false };
     }
     return null;
 }

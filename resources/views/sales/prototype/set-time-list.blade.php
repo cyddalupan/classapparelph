@@ -273,7 +273,7 @@
                                     <div style="font-size:11px;color:#6c757d;">{{ $sale->created_at ? \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') : '' }}</div>
                                 </td>
                                 <td>{{ $sale->customer_name ?: '—' }}</td>
-                                <td style="font-size:12px;color:#6c757d;">{{ $sale->sales_agent_name ?: '—' }}</td>
+                                <td style="font-size:12px;color:#6c757d;">@if($sale->sales_agent_name)<x-user-chip :user="$sale->salesAgent" :name="$sale->sales_agent_name" :size="18" />@else —@endif</td>
                                 <td>
                                     @if(!empty($sale->needed_by))
                                         <span class="badge bg-success d-inline-flex flex-column align-items-start" style="line-height:1.3;">

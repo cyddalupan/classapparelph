@@ -219,7 +219,7 @@
                         </div>
 
                         <div class="dl-meta mb-2">
-                            <div><i class="fas fa-user-tie me-1"></i>Agent: {{ $sale->sales_agent_name ?: '—' }}</div>
+                            <div><i class="fas fa-user-tie me-1"></i>Agent: @if($sale->sales_agent_name)<x-user-chip :user="$sale->salesAgent" :name="$sale->sales_agent_name" :size="18" />@else —@endif</div>
                             <div><i class="fas fa-building me-1"></i>{{ $sale->department_name ?: '—' }} · <i class="far fa-clock me-1"></i>{{ $delayedAt ? $delayedAt->format('M d, h:i A') : '—' }}</div>
                         </div>
 

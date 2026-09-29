@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 
 class PrototypeSalesController extends Controller
@@ -150,11 +151,94 @@ class PrototypeSalesController extends Controller
         $date = $request->date;
         $limit = 180;
         $effective = $this->getClassDayLoad($date);
+        // Class closed-date switch (Prod Manager / CEO / COO) — additive flag so the
+        // create-page modals can show "Please contact your manager first" and block save.
+        $closed = \App\Models\ClassBlockedDate::isDateClosed($date);
+        $closedInfo = $closed ? \App\Models\ClassBlockedDate::closedDateInfo($date) : null;
+        $reason = $closedInfo && $closedInfo->reason ? trim((string) $closedInfo->reason) : null;
         return response()->json([
             'date' => $date,
             'limit' => $limit,
             'effective' => $effective,
             'overloaded' => $effective > $limit,
+            'closed' => $closed,
+            'reason' => $reason,
+            'message' => $closed ? 'Sarado ang petsang ito. Please contact your manager first.' : null,
+        ]);
+    }
+
+    /**
+     * JSON list of CLOSED Class dates between ?from=&to= (default: this month →\n     * next month). Read-only, used by the Calendar and the create-page modals.
+     */
+    public function blockedDates(Request $request)
+    {
+        $deptId = \App\Models\ClassBlockedDate::CLASS_DEPT_ID;
+        $from = $request->query('from') ?: now()->startOfMonth()->toDateString();
+        $to = $request->query('to') ?: now()->addMonth()->endOfMonth()->toDateString();
+
+        foreach (['from' => $from, 'to' => $to] as $k => $v) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $v)) {
+                return response()->json(['error' => 'Invalid date.'], 422);
+            }
+        }
+
+        return response()->json([
+            'department_id' => $deptId,
+            'from' => $from,
+            'to' => $to,
+            'closed_dates' => \App\Models\ClassBlockedDate::closedDatesBetween($from, $to, $deptId),
+        ]);
+    }
+
+    /**
+     * Toggle a Class date OPEN/CLOSED. Only the Class Prod Manager, CEO (admin),
+     * and COO may call this. Closing blocks NEW Class sales for that date;
+     * existing sales (incl. pending_approval) are never touched.
+     */
+    public function toggleBlockedDate(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the Prod Manager, CEO, and COO can change the calendar switch.'], 403);
+        }
+
+        $date = trim((string) $request->input('date'));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return response()->json(['success' => false, 'message' => 'Invalid date.'], 422);
+        }
+        $deptId = \App\Models\ClassBlockedDate::CLASS_DEPT_ID;
+
+        $row = \App\Models\ClassBlockedDate::firstOrNew([
+            'department_id' => $deptId,
+            'date' => $date,
+        ]);
+
+        // Explicit target when provided (open/close); otherwise flip the current state.
+        $requested = $request->input('closed');
+        if ($requested === null) {
+            $newState = !($row->exists && $row->is_closed);
+        } else {
+            $newState = filter_var($requested, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $row->is_closed = $newState;
+        if ($request->filled('reason')) {
+            $row->reason = mb_substr(trim((string) $request->input('reason')), 0, 255);
+        }
+        if (!$row->exists) {
+            $row->created_by = $user->id;
+        }
+        $row->updated_by = $user->id;
+        $row->save();
+
+        // When reopening, keep the row (is_closed = false) for an audit trail.
+        return response()->json([
+            'success' => true,
+            'date' => $date,
+            'closed' => $newState,
+            'message' => $newState
+                ? 'Isinara ang ' . \Carbon\Carbon::parse($date)->format('M d, Y') . ' — hindi na makakapag-create ng bagong Class sale sa petsang ito.'
+                : 'Binukas muli ang ' . \Carbon\Carbon::parse($date)->format('M d, Y') . ' — pwede nang mag-create ng Class sale.',
         ]);
     }
 
@@ -585,7 +669,7 @@ class PrototypeSalesController extends Controller
         if ($request->hasFile('payment_screenshot')) {
             $file = $request->file('payment_screenshot');
             $filename = 'payment_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $filePath = $file->storeAs('uploads/payments', $filename, 'public');
+            $filePath = ImageOptimizer::storeAs($file, 'uploads/payments', $filename, 'public');
             $paymentScreenshotPath = '/storage/' . $filePath;
         }
         
@@ -718,6 +802,22 @@ class PrototypeSalesController extends Controller
 
             // Build services JSON (only this department's items)
             $deptServicesJson = json_encode($items);
+
+            // Class closed-date gate (Prod Manager / CEO / COO switch): block NEW Class
+            // sales whose needed date is CLOSED. Existing sales are untouched.
+            if ($deptCode === 'class' && $deptDateNeeded && \App\Models\ClassBlockedDate::isDateClosed($deptDateNeeded)) {
+                $closedRow = \App\Models\ClassBlockedDate::closedDateInfo($deptDateNeeded);
+                $closedMsg = 'Sarado ang ' . \Carbon\Carbon::parse($deptDateNeeded)->format('M d, Y') . ' — please contact your manager first.';
+                if ($closedRow && $closedRow->reason && trim((string) $closedRow->reason) !== '') {
+                    $closedMsg .= ' Reason: ' . trim((string) $closedRow->reason);
+                }
+                if ($request->expectsJson() || $request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $closedMsg], 422);
+                }
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'estimated_completion_date' => $closedMsg,
+                ]);
+            }
 
             // Phase 3: Class capacity check — if this Class sale pushes the day over 180
             // effective pcs, it goes to pending_approval instead of pending (not counted
@@ -883,6 +983,17 @@ class PrototypeSalesController extends Controller
                         'name' => ($item['sublimationForm']['projectName'] ?? 'mockup') . '-mockup.png',
                         'url' => $item['sublimationForm']['mockup'],
                         'type' => 'sublimation',
+                        'is_main' => true,
+                    ]];
+                    \DB::table('prototype_sales')->where('id', $saleId)->update(['mockup_images' => json_encode($mockupImages)]);
+                    break;
+                }
+                // Garment Printing modal mockup (single image)
+                if (!empty($item['mockup']['dataUrl'])) {
+                    $mockupImages = [[
+                        'name' => ($item['project_name'] ?? 'mockup') . '-mockup.png',
+                        'url' => $item['mockup']['dataUrl'],
+                        'type' => 'garment',
                         'is_main' => true,
                     ]];
                     \DB::table('prototype_sales')->where('id', $saleId)->update(['mockup_images' => json_encode($mockupImages)]);
@@ -1154,7 +1265,7 @@ public function details(Request $request, string $id)
 
                 public function show(string $id)
     {
-        $sale = \App\Models\PrototypeSale::find($id);
+        $sale = \App\Models\PrototypeSale::with('salesAgent')->find($id);
         if (!$sale) {
             abort(404);
         }
@@ -1309,14 +1420,22 @@ public function details(Request $request, string $id)
             ->orderByDesc('created_at')
             ->get();
 
-        // Linked paid layout jobs (display-only sa Sale page — hindi binabago ang sale totals o cash flow)
+        // Linked paid layout jobs — Andrew 2026-09-29: kasama na ang layout fee sa balance.
+        //  - Hindi pa bayad (pending) → idinadagdag sa total.
+        //  - Bayad na (verified) → hiwalay na payment (binabawas sa balance), nasa history pa rin.
+        // Hindi ginagalaw ang stored total_amount/balance_due — display + Pay Balance lang.
         $linkedLayoutJobs = \App\Models\LayoutJob::with(['paymentAccount', 'gaUser'])
             ->where('sale_id', $id)
             ->where('type', 'paid')
             ->orderBy('created_at', 'desc')
             ->get();
-        $layoutFeeTotal = (float) $linkedLayoutJobs->where('payment_status', 'verified')->sum('amount');
-        $collectedWithLayout = (float) $netPaid + $layoutFeeTotal;
+        $layoutTotal = (float) $linkedLayoutJobs->where('payment_status', '!=', 'rejected')->sum('amount');
+        $layoutPaidTotal = (float) $linkedLayoutJobs->where('payment_status', 'verified')->sum('amount');
+        $layoutFeeTotal = $layoutPaidTotal; // backward-compat alias (Linked Layout Fee summary)
+        $grandTotalWithLayout = (float) ($sale->total_amount ?? 0) + $layoutTotal;
+        $collectedWithLayout = (float) $netPaid + $layoutPaidTotal;
+        $reviewSettled = (float) ($sale->review_settled_amount ?? 0);
+        $balanceDueWithLayout = max($grandTotalWithLayout - $collectedWithLayout - $reviewSettled, 0);
 
         // Payment review requests (balance close-out) for this sale — history sa baba:
         // requested → accepted/rejected (Accountant) → reviewed (CEO/COO), sino + anong oras.
@@ -1338,6 +1457,17 @@ public function details(Request $request, string $id)
         // (may nakabinbing close-out na — hintayin munang ma-process). Accepted pa lang = nasa CEO/COO queue.
         $activeReviewRequest = $paymentReviews->first(fn($r) => in_array($r->status, ['requested', 'accepted']));
 
+        // 🚩 May pending verification pa ba? (hindi pa verified/confirmed na payment)
+        // Habang may ganito, hindi muna dapat ma-click ang "For Review Payment".
+        $hasPendingVerification = $payments->contains(function ($p) {
+            return in_array($p->payment_status, [null, '', 'pending'], true);
+        });
+        // Initial deposit na wala pang prototype_payments row (sale-level pa lang) → pending pa rin.
+        if (!$hasPendingVerification && $payments->isEmpty() && (float) ($sale->deposit_paid ?? 0) > 0
+            && in_array($sale->payment_status, [null, '', 'pending'], true)) {
+            $hasPendingVerification = true;
+        }
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
@@ -1347,7 +1477,10 @@ public function details(Request $request, string $id)
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists', 'damageReports',
-            'linkedLayoutJobs', 'layoutFeeTotal', 'collectedWithLayout', 'paymentReviews', 'activeReviewRequest',
+            'linkedLayoutJobs', 'layoutFeeTotal', 'layoutTotal', 'layoutPaidTotal',
+            'grandTotalWithLayout', 'balanceDueWithLayout', 'collectedWithLayout',
+            'paymentReviews', 'activeReviewRequest',
+            'hasPendingVerification',
             'canSeeTagging', 'stageTimeline',
             'prodCheckCounts'
         ));
@@ -2022,7 +2155,168 @@ public function details(Request $request, string $id)
         $statusCounts = $countQuery->selectRaw('status, count(*) as total')
             ->groupBy('status')->pluck('total', 'status')->toArray();
 
-        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'isManager', 'isArtist', 'canViewAll', 'ownOnly', 'canResolve'));
+        // ---- Per-agent stats (manager / CEO / COO view only) ----
+        // Aggregate feedback per recipient so managers can see at a glance
+        // which sales agents/artists get the most feedback and how fast they
+        // close it (resolve rate). Honours the same scope + category filter.
+        $agentStats = collect();
+        $agentStatsTotals = ['agents' => 0, 'total' => 0, 'open' => 0, 'acknowledged' => 0, 'resolved' => 0, 'resolve_rate' => 0];
+        if ($canViewAll) {
+            $statQuery = \App\Models\ProductionFeedback::query()
+                ->selectRaw("to_user_id,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_count,
+                    SUM(CASE WHEN status = 'acknowledged' THEN 1 ELSE 0 END) as acknowledged_count,
+                    SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved_count")
+                ->whereNotNull('to_user_id')
+                ->groupBy('to_user_id');
+            if ($isProdManager) {
+                $statQuery->whereHas('sale', function ($q) {
+                    $q->where('department_id', 4);
+                });
+            }
+            if ($request->filled('category')) {
+                $statQuery->where('category', $request->category);
+            }
+
+            $rows = $statQuery->get()->keyBy('to_user_id');
+            $agentUsers = \App\Models\User::whereIn('id', $rows->keys()->all())->get()->keyBy('id');
+
+            $agentStats = $rows->map(function ($r) use ($agentUsers) {
+                $u = $agentUsers->get($r->to_user_id);
+                $total = (int) $r->total;
+                $resolved = (int) $r->resolved_count;
+                return (object) [
+                    'user_id' => (int) $r->to_user_id,
+                    'name' => $u ? $u->display_label : ('User #' . $r->to_user_id),
+                    'avatar' => $u ? $u->avatar_url : null,
+                    'role' => $u ? $u->role : null,
+                    'total' => $total,
+                    'open' => (int) $r->open_count,
+                    'acknowledged' => (int) $r->acknowledged_count,
+                    'resolved' => $resolved,
+                    'resolve_rate' => $total > 0 ? (int) round(($resolved / $total) * 100) : 0,
+                ];
+            })->sortByDesc('total')->values();
+
+            $agentStatsTotals = [
+                'agents' => $agentStats->count(),
+                'total' => (int) $agentStats->sum('total'),
+                'open' => (int) $agentStats->sum('open'),
+                'acknowledged' => (int) $agentStats->sum('acknowledged'),
+                'resolved' => (int) $agentStats->sum('resolved'),
+            ];
+            $agentStatsTotals['resolve_rate'] = $agentStatsTotals['total'] > 0
+                ? (int) round(($agentStatsTotals['resolved'] / $agentStatsTotals['total']) * 100)
+                : 0;
+        }
+
+        return view('sales.prototype.production-feedback-list', compact('feedbacks', 'agents', 'statusCounts', 'agentStats', 'agentStatsTotals', 'isManager', 'isArtist', 'canViewAll', 'ownOnly', 'canResolve'));
+    }
+
+    /**
+     * Dedicated Production Feedback DASHBOARD — graphical stats for managers /
+     * CEO / COO: status split, most common feedback categories, per-agent
+     * leaderboard, trend, average resolution time, at pinakamatagal nang
+     * bukas na feedback.
+     */
+    public function productionFeedbackDashboard(Request $request)
+    {
+        $user = auth()->user();
+        $isManager = $user && (in_array($user->role, ['admin', 'manager']) || $user->isClassScoped());
+        $canViewAll = $isManager || ($user && $user->isCoo());
+        if (!$canViewAll) {
+            abort(403);
+        }
+        $isProdManager = $user && $user->isClassScoped();
+
+        // Period filter: 7 / 30 / 90 / all (0). Default 30 days.
+        $days = (int) $request->query('days', 30);
+        if (!in_array($days, [7, 30, 90, 0], true)) {
+            $days = 30;
+        }
+
+        $allQuery = \App\Models\ProductionFeedback::with(['sale', 'toUser']);
+        if ($isProdManager) {
+            $allQuery->whereHas('sale', function ($q) {
+                $q->where('department_id', 4);
+            });
+        }
+        $all = $allQuery->get();
+
+        $from = $days > 0 ? now()->subDays($days - 1)->startOfDay() : null;
+
+        // Feedback inside the selected window (all rows when $days === 0)
+        $rows = $from ? $all->filter(fn ($f) => $f->created_at && $f->created_at->gte($from)) : $all;
+
+        $total = $rows->count();
+        $open = $rows->where('status', 'open')->count();
+        $acknowledged = $rows->where('status', 'acknowledged')->count();
+        $resolved = $rows->where('status', 'resolved')->count();
+        $resolveRate = $total > 0 ? (int) round(($resolved / $total) * 100) : 0;
+
+        // Most common feedback category ("most na issue")
+        $categoryBreakdown = collect(\App\Models\ProductionFeedback::CATEGORIES)
+            ->map(fn ($label, $key) => (object) [
+                'key' => $key,
+                'label' => $label,
+                'total' => $rows->where('category', $key)->count(),
+            ])
+            ->sortByDesc('total')
+            ->values();
+        $topCategory = $categoryBreakdown->first();
+
+        // Per-agent (recipient) leaderboard
+        $agentStats = $rows->whereNotNull('to_user_id')
+            ->groupBy('to_user_id')
+            ->map(function ($group, $uid) {
+                $u = $group->first()->toUser;
+                $t = $group->count();
+                $r = $group->where('status', 'resolved')->count();
+                return (object) [
+                    'user_id' => (int) $uid,
+                    'name' => $u ? $u->display_label : ('User #' . $uid),
+                    'avatar' => $u ? $u->avatar_url : null,
+                    'total' => $t,
+                    'open' => $group->where('status', 'open')->count(),
+                    'acknowledged' => $group->where('status', 'acknowledged')->count(),
+                    'resolved' => $r,
+                    'resolve_rate' => $t > 0 ? (int) round(($r / $t) * 100) : 0,
+                ];
+            })
+            ->sortByDesc('total')->values();
+
+        // Trend — daily buckets over the window (or last 14 days when all-time)
+        $trendDays = $days > 0 ? $days : 14;
+        $trendStart = now()->subDays($trendDays - 1)->startOfDay();
+        $trend = collect();
+        for ($i = 0; $i < $trendDays; $i++) {
+            $d = $trendStart->copy()->addDays($i);
+            $key = $d->format('Y-m-d');
+            $trend->push((object) [
+                'label' => $d->format('M j'),
+                'created' => $all->filter(fn ($f) => $f->created_at && $f->created_at->format('Y-m-d') === $key)->count(),
+                'resolved' => $all->filter(fn ($f) => $f->resolved_at && $f->resolved_at->format('Y-m-d') === $key)->count(),
+            ]);
+        }
+
+        // Average resolution time (hours) for resolved feedback in window
+        $resolvedRows = $rows->filter(fn ($f) => $f->resolved_at && $f->created_at);
+        $avgResolveHours = $resolvedRows->count() > 0
+            ? round($resolvedRows->avg(fn ($f) => $f->created_at->diffInMinutes($f->resolved_at)) / 60, 1)
+            : null;
+
+        // Longest-waiting open feedback (all-time, scoped)
+        $oldestOpen = $all->where('status', 'open')->sortBy('created_at')->take(5)->values();
+
+        // Recent feedback
+        $recent = $rows->sortByDesc('created_at')->take(8)->values();
+
+        return view('sales.prototype.production-feedback-dashboard', compact(
+            'days', 'total', 'open', 'acknowledged', 'resolved', 'resolveRate',
+            'categoryBreakdown', 'topCategory', 'agentStats', 'trend',
+            'avgResolveHours', 'oldestOpen', 'recent', 'isProdManager'
+        ));
     }
 
     /**
@@ -2229,6 +2523,28 @@ public function details(Request $request, string $id)
             ->get();
         
         return response()->json(['logs' => $logs]);
+    }
+
+    /**
+     * Full sale comments (untunkated) para sa Comments section ng sale page.
+     * Dating ang section na ito ay bumabasa sa audit log na naka-substr(100) → "putol".
+     * Andrew 2026-09-29.
+     */
+    public function saleComments(string $id)
+    {
+        $comments = \DB::table('prototype_sale_comments')
+            ->leftJoin('users', 'prototype_sale_comments.user_id', '=', 'users.id')
+            ->where('prototype_sale_comments.sale_id', $id)
+            ->orderByDesc('prototype_sale_comments.created_at')
+            ->get([
+                'prototype_sale_comments.id',
+                'prototype_sale_comments.comment',
+                'prototype_sale_comments.created_at',
+                'users.name as user_name',
+                'users.position as user_position',
+            ]);
+
+        return response()->json(['comments' => $comments]);
     }
 
     /**
@@ -2468,6 +2784,8 @@ public function details(Request $request, string $id)
                 $base64 = substr($mockupData, strpos($mockupData, ',') + 1);
                 $decoded = base64_decode($base64);
                 if ($decoded !== false) {
+                    $opt = ImageOptimizer::optimizeBinary($decoded);
+                    if ($opt !== null) { [$ext, $decoded] = $opt; }
                     $filename = 'mockup_' . $id . '_' . $newId . '_' . time() . '.' . $ext;
                     $subdir = 'uploads/mockups';
                     $dir = public_path($subdir);
@@ -2698,6 +3016,8 @@ public function details(Request $request, string $id)
                     $base64 = substr($mockupData, strpos($mockupData, ',') + 1);
                     $decoded = base64_decode($base64);
                     if ($decoded !== false) {
+                        $opt = ImageOptimizer::optimizeBinary($decoded);
+                        if ($opt !== null) { [$ext, $decoded] = $opt; }
                         $filename = 'mockup_' . $id . '_' . $newId . '_' . time() . '.' . $ext;
                         $subdir = 'uploads/mockups';
                         $dir = public_path($subdir);
@@ -3753,7 +4073,9 @@ $services = json_decode($sale->services, true);
             6 => 'Other',
         ];
         
-        return view('sales.prototype.edit', compact('sale', 'services', 'deptColors', 'deptLabels'));
+        $salesAgent = !empty($sale->sales_agent_id) ? \App\Models\User::find($sale->sales_agent_id) : null;
+
+        return view('sales.prototype.edit', compact('sale', 'services', 'deptColors', 'deptLabels', 'salesAgent'));
     }
 
     /**
@@ -3882,7 +4204,7 @@ $services = json_decode($sale->services, true);
         ];
         
         // Get sales — filter by department if specific, or get ALL
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])
             ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
             ->whereNull('archived_at');
         
@@ -4532,7 +4854,7 @@ $services = json_decode($sale->services, true);
             6 => "#6c757d",
         ];
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])->whereIn("status", ["confirmed", "in_production", "pending", "completed"])
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])->whereIn("status", ["confirmed", "in_production", "pending", "completed"])
         ->whereNull('archived_at');
 
         // SAFETY NET (auto-clear + auto-promote): kung may na-left na PRIO sa mga sale na
@@ -4676,9 +4998,12 @@ $services = json_decode($sale->services, true);
 
         // Delayed → top, PERO kapag DISPATCH na (o UNPAID/DONE) hindi na ito dapat harangin ang tuktok
         // ng list — pababa na ito para umangat ang iba (Andrew 2026-09-12). Nananatili pa rin ang DELAYED icon.
-        $ordered = $query->orderByRaw("CASE WHEN is_delayed = 1 AND (production_stage IS NULL OR production_stage NOT IN ('DISPATCH','UNPAID','DONE')) THEN 0 ELSE 1 END")
-            ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
+        // PRIORITY muna, bago DELAYED (Andrew 2026-09-28): mas mataas ang hierarchy ng Prio —
+        // lahat ng may priority (Prio 1,2,3...) ang nauuna, tapos ang delayed na wala pang tapos,
+        // then ang iba. Panatili pa rin ang dispatch rule (delayed na DISPATCH/UNPAID/DONE = pababa).
+        $ordered = $query->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
             ->orderBy('priority', 'asc')
+            ->orderByRaw("CASE WHEN is_delayed = 1 AND (production_stage IS NULL OR production_stage NOT IN ('DISPATCH','UNPAID','DONE')) THEN 0 ELSE 1 END")
             ->orderBy("created_at", "desc");
 
         // Optional sort by Set Time (needed_by) or Due date — server-side para consistent across pages.
@@ -7310,6 +7635,7 @@ SQL;
                 'layout_jobs.description',
                 'layout_jobs.amount',
                 'layout_jobs.payment_reference',
+                'layout_jobs.payment_date',
                 'layout_jobs.payment_screenshot_path',
                 'layout_jobs.payment_account_id',
                 'layout_jobs.ga_user_id',
@@ -8689,7 +9015,7 @@ SQL;
         $classScoped = $user->isClassScoped();
         $classDept = $classScoped ? 4 : null;
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])
             ->whereNotNull('needed_by')
             ->whereNull('archived_at')
             // Tanggalin ang mga na-tag nang DONE (Andrew 2026-09-24): hindi na kailangan
@@ -8968,7 +9294,7 @@ SQL;
             abort(403, 'Only managers can view delay reviews.');
         }
 
-        $sale = \App\Models\PrototypeSale::with(['payments', 'refunds'])->findOrFail($id);
+        $sale = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])->findOrFail($id);
 
         // Class Production Manager: Class department only
         if ($user->isClassScoped() && (int) $sale->department_id !== 4) {
@@ -9143,7 +9469,7 @@ SQL;
             abort(403, 'Only managers can view the delay list.');
         }
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])
             ->where('is_delayed', 1);
 
         // Class Production Manager: Class department only
@@ -9907,6 +10233,86 @@ SQL;
         $releasedAvgPerDay = round($releasedTotal14 / 14, 1);
         $releasedPcsAvgPerDay = round($releasedPcsTotal14 / 14, 1);
 
+        // ---- Formatted & Printed per day (Andrew 2026-09-28) ----
+        // FORMATTED = umabot na sa PRINTING (iyong "format → printing or onwards").
+        // PRINTED   = na-tag na sa PRESSING (galing Printing) → per project + per pieces.
+        // Source: production_stage_logs (to_stage = 'PRINTING' / 'PRESSING'), distinct sale kada araw.
+        $formattedByDay = [];
+        $printedByDay = [];
+        for ($i = 13; $i >= 0; $i--) {
+            $day = now()->subDays($i)->format('Y-m-d');
+            $lbl = now()->subDays($i)->format('M d');
+            $formattedByDay[$day] = ['label' => $lbl, 'count' => 0, 'pcs' => 0];
+            $printedByDay[$day]   = ['label' => $lbl, 'count' => 0, 'pcs' => 0];
+        }
+        $formattedSaleIdsByDay = [];
+        $printedSaleIdsByDay = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('production_stage_logs')) {
+            $fpQuery = \DB::table('production_stage_logs')
+                ->join('prototype_sales', 'production_stage_logs.prototype_sale_id', '=', 'prototype_sales.id')
+                ->whereIn('production_stage_logs.to_stage', ['PRINTING', 'PRESSING'])
+                ->where('production_stage_logs.created_at', '>=', now()->subDays(13)->startOfDay());
+            if ($user && $user->isClassScoped()) {
+                $fpQuery->where('prototype_sales.department_id', 4);
+            }
+            foreach ($fpQuery->get(['production_stage_logs.prototype_sale_id', 'production_stage_logs.to_stage', 'production_stage_logs.created_at']) as $r) {
+                $day = \Illuminate\Support\Carbon::parse($r->created_at)->format('Y-m-d');
+                if ($r->to_stage === 'PRINTING') { $formattedSaleIdsByDay[$day][$r->prototype_sale_id] = true; }
+                if ($r->to_stage === 'PRESSING') { $printedSaleIdsByDay[$day][$r->prototype_sale_id] = true; }
+            }
+        }
+        // Pieces per formatted/printed sale — suma ng `quantity` sa services JSON (kaparehas ng released).
+        $fpAllSaleIds = [];
+        foreach ($formattedSaleIdsByDay as $ids) {
+            foreach ($ids as $sid => $_) { $fpAllSaleIds[$sid] = true; }
+        }
+        foreach ($printedSaleIdsByDay as $ids) {
+            foreach ($ids as $sid => $_) { $fpAllSaleIds[$sid] = true; }
+        }
+        $piecesBySale = [];
+        if (!empty($fpAllSaleIds)) {
+            foreach (\App\Models\PrototypeSale::whereIn('id', array_keys($fpAllSaleIds))->get(['id', 'services']) as $rs) {
+                $rItems = $rs->services;
+                if (is_string($rItems)) $rItems = json_decode($rItems, true) ?: [];
+                $rItems = is_array($rItems) ? $rItems : [];
+                $pcs = 0;
+                foreach ($rItems as $rItem) {
+                    if (!is_array($rItem)) continue;
+                    $pcs += (int) ($rItem['quantity'] ?? 0);
+                }
+                $piecesBySale[$rs->id] = $pcs;
+            }
+        }
+        foreach ($formattedSaleIdsByDay as $day => $ids) {
+            if (!isset($formattedByDay[$day])) continue;
+            $formattedByDay[$day]['count'] = count($ids);
+            $pcs = 0;
+            foreach (array_keys($ids) as $sid) { $pcs += (int) ($piecesBySale[$sid] ?? 0); }
+            $formattedByDay[$day]['pcs'] = $pcs;
+        }
+        foreach ($printedSaleIdsByDay as $day => $ids) {
+            if (!isset($printedByDay[$day])) continue;
+            $printedByDay[$day]['count'] = count($ids);
+            $pcs = 0;
+            foreach (array_keys($ids) as $sid) { $pcs += (int) ($piecesBySale[$sid] ?? 0); }
+            $printedByDay[$day]['pcs'] = $pcs;
+        }
+        $formattedToday = $formattedByDay[now()->format('Y-m-d')]['count'] ?? 0;
+        $formattedPcsToday = $formattedByDay[now()->format('Y-m-d')]['pcs'] ?? 0;
+        $formattedYesterday = $formattedByDay[now()->subDay()->format('Y-m-d')]['count'] ?? 0;
+        $printedToday = $printedByDay[now()->format('Y-m-d')]['count'] ?? 0;
+        $printedPcsToday = $printedByDay[now()->format('Y-m-d')]['pcs'] ?? 0;
+        $printedYesterday = $printedByDay[now()->subDay()->format('Y-m-d')]['count'] ?? 0;
+        $fpLabels = array_column($formattedByDay, 'label');
+        $formattedCounts = array_column($formattedByDay, 'count');
+        $formattedPcsCounts = array_column($formattedByDay, 'pcs');
+        $printedCounts = array_column($printedByDay, 'count');
+        $printedPcsCounts = array_column($printedByDay, 'pcs');
+        $formattedTotal14 = array_sum($formattedCounts);
+        $formattedPcsTotal14 = array_sum($formattedPcsCounts);
+        $printedTotal14 = array_sum($printedCounts);
+        $printedPcsTotal14 = array_sum($printedPcsCounts);
+
         // ---- Stage Timing (Andrew 2026-09-18): gaano katagal ang bawat production stage ----
         // Read-only mula sa ga_assignment_logs; exclusive sa dept scope (Class=4) para sa prod manager.
         $stageDeptId = $isProdManager ? 4 : null;
@@ -9924,6 +10330,9 @@ SQL;
             'productMap', 'totalProductPcs', 'topProductNames', 'topProductPcs',
             'releasedToday', 'releasedYesterday', 'releasedLabels', 'releasedCounts', 'releasedTotal14', 'releasedAvgPerDay',
             'releasedPcsToday', 'releasedPcsYesterday', 'releasedPcsCounts', 'releasedPcsTotal14', 'releasedPcsAvgPerDay',
+            'formattedToday', 'formattedYesterday', 'formattedPcsToday', 'printedToday', 'printedPcsToday', 'printedYesterday',
+            'fpLabels', 'formattedCounts', 'formattedPcsCounts', 'printedCounts', 'printedPcsCounts',
+            'formattedTotal14', 'formattedPcsTotal14', 'printedTotal14', 'printedPcsTotal14',
             'stageTiming'
         ));
     }
@@ -9975,7 +10384,7 @@ SQL;
         if ($request->hasFile('payment_screenshot')) {
             $file = $request->file('payment_screenshot');
             $filename = 'payment_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $filePath = $file->storeAs('uploads/payments', $filename, 'public');
+            $filePath = ImageOptimizer::storeAs($file, 'uploads/payments', $filename, 'public');
             $paymentScreenshotPath = '/storage/' . $filePath;
         }
 
@@ -10089,7 +10498,7 @@ SQL;
         if ($request->hasFile('payment_screenshot')) {
             $file = $request->file('payment_screenshot');
             $filename = 'payment_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $filePath = $file->storeAs('uploads/payments', $filename, 'public');
+            $filePath = ImageOptimizer::storeAs($file, 'uploads/payments', $filename, 'public');
             $paymentScreenshotPath = '/storage/' . $filePath;
         }
 
@@ -10294,7 +10703,7 @@ SQL;
 
                 // Handle proof screenshot upload
                 if ($request->hasFile('refund_proof')) {
-                    $proofPath = $request->file('refund_proof')->store('refund-proofs', 'public');
+                    $proofPath = ImageOptimizer::store($request->file('refund_proof'), 'refund-proofs', 'public');
                     $updateData['refund_proof_path'] = $proofPath;
                     $auditDesc .= ' Proof attached.';
                 }
@@ -10415,7 +10824,7 @@ SQL;
 
         $file = $request->file('design_image');
         $filename = 'design_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $filePath = $file->storeAs('uploads/sales/' . $id, $filename, 'public');
+        $filePath = ImageOptimizer::storeAs($file, 'uploads/sales/' . $id, $filename, 'public');
         $url = '/storage/' . $filePath;
 
         $images = $sale->design_images ?? [];
@@ -10567,7 +10976,7 @@ SQL;
 
         $file = $request->file('mockup_image');
         $filename = 'mockup_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $filePath = $file->storeAs('uploads/mockups/' . $id, $filename, 'public');
+        $filePath = ImageOptimizer::storeAs($file, 'uploads/mockups/' . $id, $filename, 'public');
         $url = '/storage/' . $filePath;
 
         $images = is_array($sale->mockup_images) ? $sale->mockup_images : [];

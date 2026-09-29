@@ -755,7 +755,7 @@
                                     <span style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:4px;font-size:10px;background:#f8d7da;color:#842029;font-weight:600;">❌ Rejected</span>
                                 @endif
                                 @if($sale->sales_agent_name)
-                                    <span>👤 {{ $sale->sales_agent_name }}</span>
+                                    <span><x-user-chip :user="$sale->salesAgent" :name="$sale->sales_agent_name" :size="18" /></span>
                                 @endif
                             </div>
                             @if($statusKey === 'completed' && auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo()))
@@ -2746,8 +2746,8 @@ function caCutCountRules(partRows) {
         var part = String((rows[i] && (rows[i].part || rows[i][0])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
         var detail = String((rows[i] && (rows[i].detail || rows[i][1])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
         if (part.indexOf('GARMENT') < 0) continue;
-        if (detail === 'POLO BUTTON' || detail.indexOf('POLO BUTTON ') === 0) return { collar: true, placket: true };
-        if (detail === 'POLO ZIPPER' || detail.indexOf('POLO ZIPPER ') === 0) return { collar: true, placket: false };
+        if (detail === 'POLO BUTTON' || detail.indexOf('POLO BUTTON ') === 0 || detail.indexOf('CC POLO BUTTON') === 0) return { collar: true, placket: true };
+        if (detail === 'POLO ZIPPER' || detail.indexOf('POLO ZIPPER ') === 0 || detail.indexOf('CC POLO ZIPPER') === 0) return { collar: true, placket: false };
     }
     return null;
 }

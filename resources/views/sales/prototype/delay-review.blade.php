@@ -127,7 +127,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="text-muted small">Sales Agent</div>
-                            <div class="fw-bold">{{ $sale->sales_agent_name ?: '—' }}</div>
+                            <div class="fw-bold">@if($sale->sales_agent_name)<x-user-chip :user="$sale->salesAgent" :name="$sale->sales_agent_name" :size="18" />@else —@endif</div>
                         </div>
                         <div class="col-md-6">
                             <div class="text-muted small">Department</div>
