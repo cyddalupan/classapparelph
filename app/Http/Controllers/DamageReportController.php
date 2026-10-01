@@ -24,6 +24,18 @@ class DamageReportController extends Controller
         return auth()->user() && in_array(auth()->user()->role, self::REVIEWER_ROLES);
     }
 
+    /**
+     * Pinakamataas na authority (CEO / admin). Bypass ang "kailangan muna ng
+     * sales number" gate — ang CEO ay pwedeng mag-issue kahit wala pang
+     * naka-tag na sales number galing sa edit report. Andrew 2026-10-01.
+     */
+    private function isTopAuthority(): bool
+    {
+        $user = auth()->user();
+
+        return $user && ($user->role === 'admin' || (method_exists($user, 'isAdmin') && $user->isAdmin()));
+    }
+
     /** The shop this user manages, if any (sales_departments.manager_id). */
     private function managedShop(): ?SalesDepartment
     {
@@ -304,9 +316,10 @@ class DamageReportController extends Controller
         $myAccountability = $report->accountableUsers->firstWhere('user_id', auth()->id());
         $shops = SalesDepartment::where('is_active', true)->get();
         $users = User::where('is_active', true)->orderBy('name')->get();
+        $isTopAuthority = $this->isTopAuthority();
 
         return view('damage.show', compact(
-            'report', 'managedShop', 'canEdit', 'isAccountable', 'myAccountability', 'shops', 'users'
+            'report', 'managedShop', 'canEdit', 'isAccountable', 'myAccountability', 'shops', 'users', 'isTopAuthority'
         ));
     }
 
@@ -371,8 +384,10 @@ class DamageReportController extends Controller
     {
         abort_unless($this->isReviewer(), 403);
 
-        // Anti-duplicate: dapat may tagged sale number muna bago i-issue
-        if (!$report->sale_id) {
+        // Anti-duplicate: dapat may tagged sale number muna bago i-issue —
+        // MALIBAN sa pinakamataas na authority (CEO/admin), na pwedeng mag-issue
+        // kahit wala pang sales number (mas mataas ang authority sa lahat).
+        if (!$report->sale_id && !$this->isTopAuthority()) {
             return redirect()->route('damage.show', $report->id)
                 ->with('error', 'Hindi pa pwedeng i-review: kailangan munang i-tag ng shop manager ang sales number para ma-trace ang damage.');
         }

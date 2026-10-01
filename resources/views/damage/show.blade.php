@@ -179,6 +179,17 @@
                     <div class="card shadow-sm mb-4 border-warning">
                         <div class="card-header bg-warning bg-opacity-10 fw-bold"><i class="fas fa-gavel me-1"></i>Review & Issue</div>
                         <div class="card-body">
+                            @if(!$report->sale_id)
+                                @if($isTopAuthority ?? false)
+                                    <div class="alert alert-info py-2 px-3 small mb-3">
+                                        <i class="fas fa-crown me-1"></i> <strong>CEO authority:</strong> walang naka-tag na sales number, pero <strong>pwede mo pa ring i-issue</strong> ito.
+                                    </div>
+                                @else
+                                    <div class="alert alert-secondary py-2 px-3 small mb-3">
+                                        <i class="fas fa-lock me-1"></i> Kailangan munang i-tag ng shop manager ang <strong>sales number</strong> bago ito ma-review.
+                                    </div>
+                                @endif
+                            @endif
                             <form method="POST" action="{{ route('damage.review', $report->id) }}">
                                 @csrf
                                 <div class="mb-2" id="accUserPicker">
