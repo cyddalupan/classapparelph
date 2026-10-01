@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasIssueCategories;
 
 class ProductionFeedback extends Model
 {
+    use HasIssueCategories;
+
     // "feedback" is uncountable in Laravel's pluralizer, so Eloquent would
     // look for `production_feedback` instead of the real table name.
     protected $table = 'production_feedbacks';
@@ -25,15 +28,6 @@ class ProductionFeedback extends Model
     protected $casts = [
         'acknowledged_at' => 'datetime',
         'resolved_at' => 'datetime',
-    ];
-
-    public const CATEGORIES = [
-        'missing_file' => 'Missing File',
-        'wrong_file_sent' => 'Wrong File Sent',
-        'no_response' => 'No Response',
-        'incomplete_info' => 'Incomplete Info',
-        'production_error' => 'Production Error',
-        'other' => 'Other',
     ];
 
     public function sale()
