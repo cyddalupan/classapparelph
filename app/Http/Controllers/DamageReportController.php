@@ -100,7 +100,12 @@ class DamageReportController extends Controller
         $reports = $query->paginate(15)->withQueryString();
         $shops = SalesDepartment::where('is_active', true)->get();
 
-        return view('damage.index', compact('reports', 'shops', 'managedShop'));
+        // Damage Dashboard — naka-embed na tab sa loob ng /damage. Access: CEO (admin) + COO lang.
+        $user = auth()->user();
+        $canSeeDashboard = $user && ($user->isAdmin() || $user->isCoo());
+        $dashboard = $canSeeDashboard ? $this->dashboardData() : null;
+
+        return view('damage.index', compact('reports', 'shops', 'managedShop', 'canSeeDashboard', 'dashboard'));
     }
 
     /**
@@ -137,14 +142,12 @@ class DamageReportController extends Controller
     }
 
     /**
-     * Damage Report Dashboard — aggregated stats para sa reviewers (admin/coo/cpo/cmo)
-     * at shop managers (prod_manager / sales_departments.manager_id).
-     * Parehong scoping tulad ng index(). Andrew 2026-10-01.
+     * Aggregated stats para sa Damage Dashboard (embed na tab sa /damage).
+     * Access: CEO (admin) + COO lang — buong-buo ang nakikita (hindi shop-scoped).
+     * Andrew 2026-10-01.
      */
-    public function dashboard(Request $request)
+    private function dashboardData(): array
     {
-        abort_unless($this->isReviewer() || $this->managedShop(), 403, 'Wala kang access sa damage dashboard.');
-
         $managedShop = $this->managedShop();
         $scoped = fn () => $this->scopedDamageQuery();
 
@@ -203,12 +206,12 @@ class DamageReportController extends Controller
         $severityLabels = DamageReport::SEVERITIES;
         $statusLabels   = DamageReport::STATUSES;
 
-        return view('damage.dashboard', compact(
+        return compact(
             'managedShop', 'total', 'byStatus', 'bySeverity', 'byShop', 'shopNames',
             'openCount', 'reviewedCount', 'pendingReview', 'resolvedCount', 'dismissedCount',
             'amountTotal', 'withAmount', 'topUsers', 'userNames', 'recent', 'trend', 'trendMax',
             'severityLabels', 'statusLabels'
-        ));
+        );
     }
 
     public function create(Request $request)

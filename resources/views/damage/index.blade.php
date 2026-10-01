@@ -48,6 +48,18 @@
         </div>
     @endif
 
+    @if($canSeeDashboard)
+    <div class="d-flex gap-2 mb-3" id="dmgTabs">
+        <button type="button" id="dmgTabReports" class="btn btn-sm btn-dark" onclick="dmgShowTab('reports')">
+            <i class="fas fa-list me-1"></i>Damage Reports
+        </button>
+        <button type="button" id="dmgTabDash" class="btn btn-sm btn-outline-dark" onclick="dmgShowTab('dashboard')">
+            <i class="fas fa-chart-pie me-1"></i>Dashboard
+        </button>
+    </div>
+    @endif
+
+    <div id="dmgPaneReports">
     <!-- Filters -->
     <div class="card mb-4 shadow-sm">
         <div class="card-body py-3">
@@ -157,5 +169,31 @@
     <div class="mt-3">
         {{ $reports->links() }}
     </div>
+    </div>{{-- /#dmgPaneReports --}}
+
+    @if($canSeeDashboard)
+    <div id="dmgPaneDash" style="display:none;">
+        @include('damage._dashboard')
+    </div>
+    <script>
+        function dmgShowTab(t) {
+            var r = document.getElementById('dmgPaneReports'), d = document.getElementById('dmgPaneDash');
+            var br = document.getElementById('dmgTabReports'), bd = document.getElementById('dmgTabDash');
+            if (!r || !d) return;
+            if (t === 'dashboard') {
+                r.style.display = 'none'; d.style.display = '';
+                br.classList.remove('btn-dark'); br.classList.add('btn-outline-dark');
+                bd.classList.remove('btn-outline-dark'); bd.classList.add('btn-dark');
+            } else {
+                r.style.display = ''; d.style.display = 'none';
+                bd.classList.remove('btn-dark'); bd.classList.add('btn-outline-dark');
+                br.classList.remove('btn-outline-dark'); br.classList.add('btn-dark');
+            }
+        }
+        @if(request('tab') === 'dashboard')
+        document.addEventListener('DOMContentLoaded', function () { dmgShowTab('dashboard'); });
+        @endif
+    </script>
+    @endif
 </div>
 @endsection
