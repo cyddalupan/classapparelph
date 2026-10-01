@@ -259,6 +259,11 @@ class NotificationComposer
         }
         $uid = $user->id;
         $managedShop = SalesDepartment::where('manager_id', $uid)->first();
+        // Mirror DamageReportController::managedShop(): Class Production Manager manages
+        // the "Class" shop (dept 4) even without sales_departments.manager_id (Andrew 2026-10-01).
+        if (!$managedShop && $user->isProdManager()) {
+            $managedShop = SalesDepartment::find(4);
+        }
         $q->where(function ($sub) use ($managedShop, $uid) {
             if ($managedShop) {
                 $sub->where('shop_id', $managedShop->id);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,10 +33,11 @@ class FreebieSlipController extends Controller
     {
         $u = auth()->user();
         if (!$u) return false;
-        return in_array($u->role, [
+        // isSalesAgent() = sales_agent | sales_representative | hr_accountant_agent.
+        // Idinagdag ito para hindi na mahulog ang HR/Accountant/Agent (nagbebenta pa rin).
+        return $u->isSalesAgent() || in_array($u->role, [
             'admin', 'manager', 'coo', 'staff',
-            'sales_agent', 'sales_representative', 'prod_manager',
-            'qa',
+            'prod_manager', 'qa',
         ]);
     }
 
@@ -268,6 +270,11 @@ class FreebieSlipController extends Controller
         if ($audit === 'audited') {
             $query->where('freebie_requests.status', 'approved')->whereNotNull('freebie_requests.audited_at');
         }
+        // Default ("All"): itago na ang mga na-audit na — nasa Audit → "✅ Audited" na
+        // sila para hindi makalatan ang main list (dun na lang silipin).
+        if ($audit === '') {
+            $query->whereNull('freebie_requests.audited_at');
+        }
         if ($requesterId > 0) {
             $query->where('freebie_requests.requested_by', $requesterId);
         }
@@ -334,6 +341,7 @@ class FreebieSlipController extends Controller
         $pendingCount = $statBase()->where('freebie_requests.status', 'pending')->count();
         $approvedCount = $statBase()->where('freebie_requests.status', 'approved')->count();
         $awaitingAuditCount = $statBase()->where('freebie_requests.status', 'approved')->whereNull('freebie_requests.audited_at')->count();
+        $auditedCount = $statBase()->where('freebie_requests.status', 'approved')->whereNotNull('freebie_requests.audited_at')->count();
         $rejectedCount = $statBase()->where('freebie_requests.status', 'rejected')->count();
         $givenQty = $statBase()
             ->join('freebie_request_items', 'freebie_request_items.freebie_request_id', '=', 'freebie_requests.id')
@@ -347,12 +355,26 @@ class FreebieSlipController extends Controller
             ->leftJoin('freebie_request_items as it', 'it.freebie_request_id', '=', 'fr.id'))
             ->select('u.id as user_id', 'u.name as user_name',
                 DB::raw('COUNT(DISTINCT fr.id) as req_count'),
-                DB::raw('COALESCE(SUM(CASE WHEN fr.status = "approved" THEN it.quantity ELSE 0 END), 0) as given_qty'))
+                DB::raw('COALESCE(SUM(CASE WHEN fr.status = "approved" THEN it.quantity ELSE 0 END), 0) as given_qty'),
+                DB::raw('COALESCE(SUM(it.quantity), 0) as total_qty'))
             ->groupBy('u.id', 'u.name')
             ->orderByDesc('req_count')
             ->orderByDesc('given_qty')
             ->limit(6)
             ->get();
+
+        // Per-requester total SALES amount (distinct sales na may freebie request nila —
+        // hindi dinoble kung maraming request sa isang sale).
+        $requesterAmounts = $scope(DB::table('freebie_requests as fr')
+            ->join('prototype_sales as ps', 'fr.sale_id', '=', 'ps.id'))
+            ->select('fr.requested_by', 'ps.id as sale_id', 'ps.total_amount', 'ps.overall_total_amount')
+            ->distinct()
+            ->get()
+            ->groupBy('requested_by')
+            ->map(fn ($rows) => $rows->sum(fn ($r) => (float) ($r->overall_total_amount ?? $r->total_amount ?? 0)));
+        foreach ($topRequesters as $tr) {
+            $tr->total_amount = (float) ($requesterAmounts[$tr->user_id] ?? 0);
+        }
 
         // Most-given freebie items (anong freebie madalas ibigay + ilan)
         $topItems = $scope(DB::table('freebie_request_items as it')
@@ -382,7 +404,7 @@ class FreebieSlipController extends Controller
 
         return view('sales.prototype.freebie-list', compact(
             'requests', 'status', 'audit', 'q', 'from', 'to', 'requesterId',
-            'totalRequests', 'pendingCount', 'approvedCount', 'awaitingAuditCount', 'rejectedCount', 'givenQty',
+            'totalRequests', 'pendingCount', 'approvedCount', 'awaitingAuditCount', 'auditedCount', 'rejectedCount', 'givenQty',
             'topRequesters', 'topItems', 'requesters', 'departmentLabels'
         ));
     }
@@ -424,7 +446,7 @@ class FreebieSlipController extends Controller
             // reference image file named image_{index} (FormData per row)
             $file = $request->file('image_' . $i);
             if ($file && $file->isValid()) {
-                $imagePath = $file->store('freebie-refs', 'public');
+                $imagePath = ImageOptimizer::store($file, 'freebie-refs', 'public');
             }
             $items[] = [
                 'description' => mb_substr($desc, 0, 255),

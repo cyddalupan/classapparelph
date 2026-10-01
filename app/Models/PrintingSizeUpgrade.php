@@ -9,11 +9,12 @@ class PrintingSizeUpgrade extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['from_size_id', 'from_quantity', 'to_size_id', 'auto_apply', 'active'];
+    protected $fillable = ['from_size_id', 'from_quantity', 'to_size_id', 'surcharge', 'auto_apply', 'active'];
     
     protected $casts = [
         'auto_apply' => 'boolean',
-        'active' => 'boolean'
+        'active' => 'boolean',
+        'surcharge' => 'decimal:2'
     ];
     
     /**

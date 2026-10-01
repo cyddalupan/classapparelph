@@ -1,4 +1,4 @@
-@php $sale = $line['sale']; @endphp
+@php $sale = $line['sale']; $canCheck = $canCheck ?? true; @endphp
 <div class="sp-card mb-3">
     <div class="sp-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -44,11 +44,13 @@
             @if($line['reviewed'])
                 <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Checked by {{ $line['reviewed']['by'] }} · {{ $line['reviewed']['at'] }}</span>
             @else
-                <span></span>
+                <span class="badge bg-light text-dark border"><i class="far fa-clock me-1"></i>Pending check</span>
             @endif
+            @if($canCheck)
             <button type="button" class="btn btn-sm {{ $line['reviewed'] ? 'btn-outline-secondary' : 'btn-success' }} sp-review-btn" data-sale="{{ $sale->id }}" data-key="{{ $line['lineKey'] }}">
                 <i class="fas {{ $line['reviewed'] ? 'fa-undo' : 'fa-check' }} me-1"></i>{{ $line['reviewed'] ? 'Uncheck' : 'Mark as checked' }}
             </button>
+            @endif
         </div>
     </div>
 </div>

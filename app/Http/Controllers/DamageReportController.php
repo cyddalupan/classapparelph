@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DamageReport;
+use App\Services\ImageOptimizer;
 use App\Models\DamageReportComment;
 use App\Models\DamageReportUser;
 use App\Models\SalesDepartment;
@@ -26,7 +27,25 @@ class DamageReportController extends Controller
     /** The shop this user manages, if any (sales_departments.manager_id). */
     private function managedShop(): ?SalesDepartment
     {
-        return SalesDepartment::where('manager_id', auth()->id())->first();
+        $user = auth()->user();
+        if (!$user) {
+            return null;
+        }
+
+        $shop = SalesDepartment::where('manager_id', $user->id)->first();
+        if ($shop) {
+            return $shop;
+        }
+
+        // Class Production Manager (prod_manager) manages the "Class" shop even though
+        // sales_departments.manager_id is not set for it. Without this fallback they only
+        // see reports they personally filed/tagged in — hindi LAHAT ng damage reports na
+        // galing sa Class (dept 4). Andrew 2026-10-01.
+        if ($user->isProdManager()) {
+            return SalesDepartment::find(4); // Class (department_id = 4)
+        }
+
+        return null;
     }
 
     /**
@@ -135,7 +154,7 @@ class DamageReportController extends Controller
         if ($request->hasFile('evidence')) {
             $file = $request->file('evidence');
             $filename = 'damage_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $evidencePath = '/storage/' . $file->storeAs('uploads/damage_evidence', $filename, 'public');
+            $evidencePath = '/storage/' . ImageOptimizer::storeAs($file, 'uploads/damage_evidence', $filename, 'public');
         }
 
         $report = DamageReport::create([
@@ -208,7 +227,7 @@ class DamageReportController extends Controller
         if ($request->hasFile('evidence')) {
             $file = $request->file('evidence');
             $filename = 'damage_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $evidencePath = '/storage/' . $file->storeAs('uploads/damage_evidence', $filename, 'public');
+            $evidencePath = '/storage/' . ImageOptimizer::storeAs($file, 'uploads/damage_evidence', $filename, 'public');
         }
 
         $report->update([

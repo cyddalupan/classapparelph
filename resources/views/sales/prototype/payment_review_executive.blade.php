@@ -82,6 +82,8 @@
             <div class="sub mt-1">Mga close-out na in-ACCEPT ng Accountant. I-review ang dahilan at proof, tapos i-mark as REVIEWED para ma-unlock ang archive ng sale.</div>
         </div>
         <div class="d-flex gap-2">
+            <a href="{{ route('sales.prototype.payment-review.executive') }}" class="btn {{ $filter !== 'reviewed' ? 'btn-dark' : 'btn-light' }} btn-sm"><i class="fas fa-hourglass-half me-1"></i> Pending Review ({{ $pendingReviewCount }})</a>
+            <a href="{{ route('sales.prototype.payment-review.executive', ['filter' => 'reviewed']) }}" class="btn {{ $filter === 'reviewed' ? 'btn-dark' : 'btn-light' }} btn-sm"><i class="fas fa-box-archive me-1"></i> Archive ({{ $archivedReviewCount }})</a>
             <a href="{{ route('sales.prototype.payment-review.accountant') }}" class="btn btn-light btn-sm"><i class="fas fa-file-invoice-dollar me-1"></i> Accountant Queue</a>
             <a href="{{ route('sales.prototype.list') }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Manager List</a>
         </div>
@@ -96,7 +98,7 @@
             <div class="col-md-3">
                 <select name="filter" class="form-select">
                     <option value="pending" {{ $filter === 'pending' ? 'selected' : '' }}>⏳ Pending review (accepted)</option>
-                    <option value="reviewed" {{ $filter === 'reviewed' ? 'selected' : '' }}>✓ Reviewed</option>
+                    <option value="reviewed" {{ $filter === 'reviewed' ? 'selected' : '' }}>🗄️ Archive (Reviewed)</option>
                     <option value="all" {{ $filter === 'all' ? 'selected' : '' }}>All</option>
                 </select>
             </div>
@@ -105,6 +107,14 @@
             </div>
         </div>
     </form>
+
+    @if($filter === 'reviewed')
+        <div class="alert py-2 px-3 mb-3 d-flex align-items-center gap-2" style="background:#f1f5f9;border:1px solid #cbd5e1;color:#334155;font-size:.85rem;">
+            <i class="fas fa-box-archive"></i>
+            <span><strong>Archive</strong> — mga close-out na <strong>na-review mo na</strong>. Hindi na kasama sa active queue. Nandito pa rin sila sa URL na ito (<code>?filter=reviewed</code>) kung silipin mo.</span>
+            <a href="{{ route('sales.prototype.payment-review.executive') }}" class="ms-auto btn btn-sm btn-outline-dark py-0 px-2"><i class="fas fa-hourglass-half me-1"></i>Pending review</a>
+        </div>
+    @endif
 
     @if($reviews->isEmpty())
         <div class="px-card">

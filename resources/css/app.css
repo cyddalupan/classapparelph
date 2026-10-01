@@ -1368,6 +1368,31 @@ body {
     min-width: 0;
 }
 
+/* Sidebar user block: stack name above role so a long role badge
+   (e.g. "CEO/BOARD MEMBER") never overlaps or covers the name. */
+.sidebar-user .user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.25rem;
+    padding-bottom: 0;
+}
+
+.sidebar-user .user-name {
+    max-width: 100%;
+}
+
+.sidebar-user .role-badge {
+    font-size: 0.6875rem;
+    padding: 0.2rem 0.55rem;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .user-name {
     font-weight: 800;
     color: var(--dark);

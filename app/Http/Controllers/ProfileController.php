@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,7 +39,7 @@ class ProfileController extends Controller
             if ($user->avatar) {
                 \Storage::disk('public')->delete($user->avatar);
             }
-            $path = $request->file('avatar')->store('avatars', 'public');
+            $path = ImageOptimizer::store($request->file('avatar'), 'avatars', 'public');
             $validated['avatar'] = $path;
         } else {
             // Keep existing avatar when none uploaded
@@ -120,7 +121,7 @@ class ProfileController extends Controller
             \Storage::disk('public')->delete($user->avatar);
         }
 
-        $path = $request->file('avatar')->store('avatars', 'public');
+        $path = ImageOptimizer::store($request->file('avatar'), 'avatars', 'public');
         $user->avatar = $path;
         $user->save();
 

@@ -57,6 +57,9 @@ class CheckProdManagerClassAccess
         'sales.prototype.approve-overload',
         'sales.prototype.reject-overload',
         'sales.prototype.day-load',
+        // Class closed-date switch (read + toggle) — Prod Manager only (+ CEO/COO)
+        'sales.prototype.blocked-dates',
+        'sales.prototype.blocked-date.toggle',
 
         // Nav: Production → Calendar (Class only, scoped in controller)
         'sales.prototype.calendar',
@@ -146,6 +149,7 @@ class CheckProdManagerClassAccess
         // Comments & notifications
         'sales.prototype.add-comment',
         'sales.prototype.audit-history',
+        'sales.prototype.comments',
 
         // Profile picture upload (avatar boxes on sidebar & top-right)
         'profile.avatar.update',

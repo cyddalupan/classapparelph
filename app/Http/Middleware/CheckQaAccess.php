@@ -49,6 +49,8 @@ class CheckQaAccess
 
         // Audit history (read-only logs, used by show page comments/audit section)
         'sales.prototype.audit-history',
+        // Comments endpoint (AJAX-loaded comments on the show page)
+        'sales.prototype.comments',
 
         // Uploads on the Sale Show page (File Screenshot / Approved Sample Color /
         // Mockups) — QA/Sales Agent can only manage their OWN sales
@@ -119,6 +121,7 @@ class CheckQaAccess
         'sales.layout-jobs.create',
         'sales.layout-jobs.store',
         'sales.layout-jobs.link-sale',
+        'sales.layout-jobs.cancel',
 
         // Profile picture upload (avatar boxes on sidebar & top-right)
         'profile.avatar.update',
@@ -142,6 +145,7 @@ class CheckQaAccess
         'product-pricing.api.filter-options',
         'api.printing.options',
         'sales.prototype.day-load',
+        'sales.prototype.blocked-dates',
         'api.customers.check',
         'api.customers.search',
         'api.customers.show',

@@ -169,8 +169,10 @@
                                         <span class="text-truncate">{{ $tr->user_name }}</span>
                                     </span>
                                     <span class="d-flex align-items-center gap-2 flex-shrink-0">
-                                        <span class="badge bg-secondary">{{ $tr->req_count }} req</span>
-                                        <span class="fb-qty-pill">🎁 {{ $tr->given_qty }} pcs</span>
+                                        <span class="badge bg-secondary" title="Bilang ng freebie requests">{{ $tr->req_count }} req</span>
+                                        <span class="badge" style="background:#0d9488;color:#fff;" title="Kabuuang quantity na ni-request (lahat ng status)"><i class="fas fa-layer-group me-1"></i>{{ number_format($tr->total_qty) }} pcs</span>
+                                        <span class="fb-qty-pill" title="Quantity na na-approve/given na">🎁 {{ $tr->given_qty }} pcs</span>
+                                        <span class="badge" style="background:#0ea5e9;color:#fff;" title="Total sales amount ng mga sale na may freebie request niya"><i class="fas fa-coins me-1"></i>₱{{ number_format($tr->total_amount, 2) }}</span>
                                     </span>
                                 </li>
                             @endforeach
@@ -259,6 +261,14 @@
             </div>
         </div>
     </form>
+
+    @if($audit === '' && ($auditedCount ?? 0) > 0)
+        <div class="alert py-2 px-3 mb-3 d-flex align-items-center gap-2 flex-wrap" style="background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;font-size:.85rem;">
+            <i class="fas fa-shield-alt"></i>
+            <span><strong>{{ $auditedCount }}</strong> na-audit na (na-double-check) — <strong>nailipat na sa Audit → ✅ Audited</strong> para malinis ang list. Dun silipin.</span>
+            <a href="{{ route('sales.prototype.freebie-list', array_merge(request()->query(), ['audit' => 'audited'])) }}" class="ms-auto btn btn-sm py-0 px-2" style="background:#4338ca;color:#fff;"><i class="fas fa-eye me-1"></i>Tingnan</a>
+        </div>
+    @endif
 
     <!-- Requests list -->
     @forelse($requests as $r)

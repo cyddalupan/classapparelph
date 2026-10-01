@@ -28,6 +28,7 @@ class CheckCooAccess
         'printing.update-prices', 'printing.update-combos', 'printing.update-bulk',
         'pricing.rules', 'pricing.rules.printing', 'pricing.rules.bulk',
         'pricing.rules.sublimation', 'pricing.rules.tarpaulin', 'pricing.rules.embroidery',
+        'pricing.rules.other', 'pricing.rules.other.prices',
         'pricing.rules.sticker', 'pricing.rules.sublimation.prices',
         'pricing.rules.sublimation.bulk', 'pricing.rules.sublimation.add-price',
         'pricing.rules.sublimation.delete-price', 'pricing.rules.sublimation.connect',

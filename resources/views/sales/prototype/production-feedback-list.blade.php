@@ -140,6 +140,46 @@
         color: #6c757d;
     }
     .empty-state i { font-size: 48px; color: #fcd34d; display: block; margin-bottom: 12px; }
+
+    /* ---- Agent stats dashboard ---- */
+    .pf-stats-card {
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        margin-bottom: 16px;
+        overflow: hidden;
+    }
+    .pf-stats-card > summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        color: #78350f;
+        background: #fffbeb;
+        border-bottom: 1px solid #fde68a;
+    }
+    .pf-stats-card > summary::-webkit-details-marker { display: none; }
+    .pf-stats-card > summary .chev { margin-left: auto; transition: transform .18s ease; font-size: 12px; color: #b45309; }
+    .pf-stats-card[open] > summary .chev { transform: rotate(180deg); }
+    .pf-mini {
+        flex: 1;
+        min-width: 92px;
+        background: #f8fafc;
+        border: 1px solid #eef2f7;
+        border-radius: 10px;
+        padding: 10px 12px;
+        text-align: center;
+    }
+    .pf-mini .n { font-size: 1.4rem; font-weight: 800; line-height: 1; }
+    .pf-mini .l { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.7px; color: #64748b; margin-top: 3px; }
+    .pf-rank { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
+    .pf-rate-track { background: #eef2f7; border-radius: 20px; height: 8px; width: 90px; overflow: hidden; display: inline-block; vertical-align: middle; }
+    .pf-rate-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg,#34d399,#059669); }
+    .pf-agent-row:hover td { background: #fffbeb; }
 </style>
 @endpush
 
@@ -167,6 +207,11 @@
                 <div class="num" style="color:#7ef0a3;">{{ $statusCounts['resolved'] ?? 0 }}</div>
                 <div class="lbl">Resolved</div>
             </div>
+            @if(($canViewAll ?? $isManager))
+            <a href="{{ route('sales.prototype.production-feedback.dashboard', request()->filled('category') ? ['category' => request('category')] : []) }}" class="btn btn-sm btn-light fw-semibold" style="border-radius:10px;">
+                <i class="fas fa-chart-pie me-1"></i> Dashboard
+            </a>
+            @endif
             <a href="{{ $isManager ? (auth()->user()->isProdManager() ? route('sales.prototype.list') : route('sales.prototype.dashboard')) : (($isArtist ?? false) ? route('dashboard') : (($canViewAll ?? false) ? route('sales.prototype.list') : route('sales.team.dashboard'))) }}" class="btn btn-sm text-white" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);">
                 <i class="fas fa-arrow-left me-1"></i> Back
             </a>
@@ -203,6 +248,71 @@
             </div>
         </div>
     </form>
+    @endif
+
+    <!-- Agent stats dashboard (manager / CEO / COO only) -->
+    @if(($canViewAll ?? $isManager) && ($agentStats ?? collect())->count())
+    <details class="pf-stats-card" open>
+        <summary>
+            <i class="fas fa-chart-bar"></i> Agent Stats — feedback per sales agent / artist
+            <span class="chev"><i class="fas fa-chevron-down"></i></span>
+        </summary>
+        <div class="p-3">
+            <div class="d-flex gap-2 flex-wrap mb-3">
+                <div class="pf-mini"><div class="n" style="color:#1e293b;">{{ $agentStatsTotals['agents'] }}</div><div class="l">Agents w/ feedback</div></div>
+                <div class="pf-mini"><div class="n" style="color:#1e293b;">{{ $agentStatsTotals['total'] }}</div><div class="l">Total</div></div>
+                <div class="pf-mini"><div class="n" style="color:#d97706;">{{ $agentStatsTotals['open'] }}</div><div class="l">Open</div></div>
+                <div class="pf-mini"><div class="n" style="color:#2563eb;">{{ $agentStatsTotals['acknowledged'] }}</div><div class="l">Acknowledged</div></div>
+                <div class="pf-mini"><div class="n" style="color:#059669;">{{ $agentStatsTotals['resolved'] }}</div><div class="l">Resolved</div></div>
+                <div class="pf-mini"><div class="n" style="color:#059669;">{{ $agentStatsTotals['resolve_rate'] }}%</div><div class="l">Overall resolve rate</div></div>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="pipeline-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Agent / Artist</th>
+                            <th class="text-center">Total</th>
+                            <th class="text-center">Open</th>
+                            <th class="text-center">Acknowledged</th>
+                            <th class="text-center">Resolved</th>
+                            <th>Resolve rate</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($agentStats as $i => $stat)
+                        @php
+                            $medal = $i === 0 ? '#fbbf24' : ($i === 1 ? '#cbd5e1' : ($i === 2 ? '#d97706' : '#f1f5f9'));
+                            $medalText = $i < 3 ? '#1e293b' : '#64748b';
+                            $isActive = (string) request('agent_id') === (string) $stat->user_id;
+                        @endphp
+                        <tr class="pf-agent-row" style="cursor:pointer;{{ $isActive ? 'background:#fffbeb;' : '' }}"
+                            onclick="window.location.href='{{ route('sales.prototype.production-feedback.list', array_filter(['agent_id' => $stat->user_id, 'category' => request('category'), 'status' => request('status')])) }}'">
+                            <td><span class="pf-rank" style="background:{{ $medal }};color:{{ $medalText }};">{{ $i + 1 }}</span></td>
+                            <td style="white-space:nowrap;"><strong>{{ $stat->name }}</strong>@if($isActive) <span class="badge bg-warning text-dark ms-1">filtered</span>@endif</td>
+                            <td class="text-center"><strong>{{ $stat->total }}</strong></td>
+                            <td class="text-center" style="color:#d97706;font-weight:700;">{{ $stat->open }}</td>
+                            <td class="text-center" style="color:#2563eb;font-weight:700;">{{ $stat->acknowledged }}</td>
+                            <td class="text-center" style="color:#059669;font-weight:700;">{{ $stat->resolved }}</td>
+                            <td style="white-space:nowrap;">
+                                <span class="pf-rate-track"><span class="pf-rate-fill" style="width:{{ $stat->resolve_rate }}%;"></span></span>
+                                <span style="font-size:12px;font-weight:700;color:#059669;margin-left:6px;">{{ $stat->resolve_rate }}%</span>
+                            </td>
+                            <td style="white-space:nowrap;">
+                                <a href="{{ route('sales.prototype.production-feedback.list', array_filter(['agent_id' => $stat->user_id, 'category' => request('category'), 'status' => request('status')])) }}"
+                                   class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation();" title="I-filter ang listahan sa agent na ito">
+                                    <i class="fas fa-filter"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="pf-meta mt-2">Naka-sort sa pinaka-maraming feedback. I-click ang row para i-filter ang listahan sa agent na 'yon.</div>
+        </div>
+    </details>
     @endif
 
     <!-- Table -->

@@ -68,6 +68,7 @@
                                     <div class="col-md-4">
                                         <label class="form-label">Date Needed *</label>
                                         <input type="date" class="form-control" id="sub_dateNeeded" required>
+                                        <div id="sub_closedBadge" class="mt-1" style="display:none;"></div>
                                     </div>
                                 </div>
                                 <div class="mt-3">
@@ -428,7 +429,7 @@ var sub_garmentSpecMap = {
         ]
     },
     'polo-zipper-cc': {
-        nameKeywords: ['POLO ZIPPER CC'],
+        nameKeywords: ['CC POLO ZIPPER'],
         fields: [
             { id: 'sub_spec_collar', label: 'Collar', type: 'select', options: ['REGULAR SUBLI PRINT', 'SPECIAL SUBLI PRINT'] },
             { id: 'sub_spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'RIBBINGS CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
@@ -441,7 +442,7 @@ var sub_garmentSpecMap = {
         ]
     },
     'polo-button-cc': {
-        nameKeywords: ['POLO BUTTON CC'],
+        nameKeywords: ['CC POLO BUTTON'],
         fields: [
             { id: 'sub_spec_collar', label: 'Collar', type: 'select', options: ['REGULAR SUBLI PRINT', 'SPECIAL SUBLI PRINT'] },
             { id: 'sub_spec_cuffs', label: 'Cuffs', type: 'select', options: ['SUBILI PRINT', 'KNITTED CUFFS', 'RIBBINGS CUFFS', 'SELF FABRIC'], autoAddon: { 'KNITTED CUFFS': 36 } },
@@ -1502,6 +1503,11 @@ window.sub_addItemToOrder = function() {
     if (!projectName) { alert('Please enter Project Name.'); return; }
     if (!designer) { alert('Please enter Designer name.'); return; }
     if (!dateNeeded) { alert('Please select Date Needed.'); return; }
+    if (document.getElementById('sub_dateNeeded').dataset.closed === '1') {
+        var cr = document.getElementById('sub_dateNeeded').dataset.closedReason ? ('\nReason: ' + document.getElementById('sub_dateNeeded').dataset.closedReason) : '';
+        alert('Sarado ang petsang ito. Please contact your manager first.' + cr);
+        return;
+    }
     if (garment.selectedIndex <= 0) { alert('Please select a Garment Type.'); return; }
     
     // Get sizes
@@ -1945,5 +1951,43 @@ window.sub_printOrderSlip = function() {
     window.print();
     slip.style.display = 'none';
 };
+
+// ===== Class CLOSED-date check for the add-product modal (Date Needed) =====
+(function(){
+    var inp = document.getElementById('sub_dateNeeded');
+    var badge = document.getElementById('sub_closedBadge');
+    if (!inp || !badge) return;
+    var t = null;
+    inp.addEventListener('change', function(){
+        var date = this.value;
+        this.dataset.closed = '0';
+        this.dataset.closedReason = '';
+        badge.style.display = 'none';
+        if (!date) return;
+        clearTimeout(t);
+        t = setTimeout(function(){
+            fetch('/sales/prototype/day-load', {
+                method:'POST',
+                headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')||''},
+                body: JSON.stringify({date: date})
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                if (d.error) { badge.style.display = 'none'; return; }
+                if (d.closed) {
+                    inp.dataset.closed = '1';
+                    inp.dataset.closedReason = d.reason || '';
+                    badge.className = 'badge bg-danger text-white text-wrap text-start';
+                    var extra = d.reason ? '<br><span style="opacity:.9;">Reason: <b>' + d.reason + '</b></span>' : '';
+                    badge.innerHTML = '🔒 ' + (d.message || 'Sarado ang petsang ito. Please contact your manager first.') + extra;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            })
+            .catch(function(){ badge.style.display = 'none'; });
+        }, 350);
+    });
+})();
 
 </script>

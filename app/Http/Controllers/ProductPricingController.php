@@ -514,6 +514,7 @@ class ProductPricingController extends Controller
                 'id' => $item->id,
                 'name' => $item->name,
                 'brand' => $item->brand,
+                'shirt_type' => $item->shirt_type,
                 'size' => $item->size,
                 'color' => $item->color,
                 'material' => $item->material,

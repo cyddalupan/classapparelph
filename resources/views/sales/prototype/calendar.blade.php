@@ -273,6 +273,14 @@
 }
 .day-cell.today { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
 .day-cell.drag-over { border-color: #198754; box-shadow: 0 0 0 2.5px rgba(25,135,84,0.4); background: rgba(25,135,84,0.06); }
+.day-cell { position: relative; }
+/* Class CLOSED date (Prod Manager / CEO / COO switch) */
+.day-cell.closed { border-color:#991b1b; box-shadow:0 0 0 2px rgba(153,27,27,.25); background:repeating-linear-gradient(45deg, rgba(153,27,27,.08), rgba(153,27,27,.08) 8px, rgba(153,27,27,.02) 8px, rgba(153,27,27,.02) 16px); }
+.day-cell.closed .day-number { color:#991b1b; }
+.day-close-btn { position:absolute; top:3px; right:3px; border:none; background:#fff; border-radius:6px; font-size:11px; line-height:1; padding:2px 3px; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.18); z-index:6; }
+.day-close-btn:hover { background:#fef3c7; }
+.day-close-btn.is-closed { background:#fee2e2; }
+.closed-note { font-size:9px; font-weight:800; letter-spacing:.6px; color:#991b1b; text-align:center; padding:2px 0 3px; }
 .day-cell.today .day-number {
     background: #667eea;
     color: white;
@@ -920,6 +928,47 @@
     </div>
 </div>
 
+<!-- Class Calendar: Close/Open Date confirm modal (pinalit sa plain browser confirm) -->
+<style>
+#calCloseModal .cclose-content { border:0; border-radius:18px; overflow:hidden; box-shadow:0 24px 60px rgba(15,23,42,.28); }
+#calCloseModal .cclose-hero { position:relative; padding:26px 24px 22px; text-align:center; color:#fff; }
+#calCloseModal .cclose-hero.is-close { background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 55%,#f97316 135%); }
+#calCloseModal .cclose-hero.is-open { background:linear-gradient(135deg,#065f46 0%,#10b981 55%,#34d399 135%); }
+#calCloseModal .cclose-hero::after { content:""; position:absolute; inset:0; background:radial-gradient(circle at 82% -10%, rgba(255,255,255,.28), transparent 58%); pointer-events:none; }
+#calCloseModal .cclose-icon { width:62px; height:62px; margin:0 auto 12px; border-radius:50%; background:rgba(255,255,255,.18); border:2px solid rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center; font-size:25px; position:relative; }
+#calCloseModal .cclose-title { font-size:1.14rem; font-weight:800; margin:0 0 4px; letter-spacing:.2px; position:relative; }
+#calCloseModal .cclose-sub { font-size:.78rem; opacity:.94; position:relative; }
+#calCloseModal .cclose-date { display:flex; align-items:center; justify-content:center; gap:10px; font-size:1.02rem; font-weight:800; color:#0f172a; padding:14px 12px; margin:-32px 18px 0; background:#fff; border-radius:14px; box-shadow:0 10px 26px rgba(15,23,42,.14); position:relative; z-index:2; }
+#calCloseModal .cclose-body { padding:18px 22px 4px; }
+#calCloseModal .cclose-box { display:flex; gap:10px; font-size:.8rem; line-height:1.45; padding:12px 14px; border-radius:12px; margin-top:16px; }
+#calCloseModal .cclose-box.warn { background:#fef2f2; border:1px solid #fecaca; color:#7f1d1d; }
+#calCloseModal .cclose-box.ok { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; }
+#calCloseModal .cclose-box i { font-size:1rem; margin-top:2px; }
+</style>
+<div class="modal fade" id="calCloseModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content cclose-content">
+      <div class="cclose-hero is-close" id="calCloseHero">
+        <div class="cclose-icon" id="calCloseIcon"><i class="fas fa-lock"></i></div>
+        <div class="cclose-title" id="calCloseTitle">Isara ang Petsang Ito?</div>
+        <div class="cclose-sub" id="calCloseSub">Class department — block ng bagong sale</div>
+      </div>
+      <div class="cclose-body">
+        <div class="cclose-date"><i class="far fa-calendar-alt" style="color:#94a3b8;"></i><span id="calCloseDate">—</span></div>
+        <div class="cclose-box warn" id="calCloseBox"><i class="fas fa-exclamation-triangle"></i><div id="calCloseBoxText"></div></div>
+        <div id="calCloseReasonWrap" class="mt-3">
+          <label class="form-label mb-1" style="font-size:.78rem;font-weight:700;">Reason <span class="text-muted fw-normal">(opsyonal)</span></label>
+          <textarea class="form-control form-control-sm" id="calCloseReason" rows="2" placeholder="Hal. holiday, puno na ang araw, machine maintenance..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-1 pb-3 px-3">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="calCloseConfirmBtn"><i class="fas fa-lock me-1"></i> Oo, Isara</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="confirmDeleteCommentModal" class="cm-overlay" onclick="if(event.target===this)cancelDeleteComment()">
     <div class="cm-modal" style="max-width:420px;">
         <div class="cm-header">
@@ -960,6 +1009,8 @@ const IS_QA = @json(auth()->user() && auth()->user()->isQa());
 const psCanEdit = !IS_SALES_AGENT && !IS_GA && !IS_QA;
 // CEO (admin) / COO / managers / Class Production Manager lang ang pwedeng mag-split
 const CAN_SPLIT = @json(auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()));
+// Class per-date CLOSED switch: Prod Manager / CEO / COO lang (same roles as split)
+const CAN_CLOSE_DATE = CAN_SPLIT;
 var psCurrentUserName = @json(auth()->user()->name ?? '');
 const STAGE_COLORS = {
     'FOR SAMPLE': '#fd7e14', 'FOR APPROVAL': '#fd7e14',
@@ -1119,9 +1170,11 @@ function renderWeek(monday, projects) {
         var effPcs = gt.g1 + (gt.g2 * 2) + gt.g3;
         var isClassCal = activeDept === 'Class';
         var overloaded = isClassCal && effPcs > 180;
-        html += `<div class="day-cell ${isToday?'today':''}${overloaded ? ' overload' : ''}" data-date="${dateStr}">`;
+        var isClosed = window.closedDates && window.closedDates.indexOf(dateStr) !== -1;
+        html += `<div class="day-cell ${isToday?'today':''}${overloaded ? ' overload' : ''}${isClosed ? ' closed' : ''}" data-date="${dateStr}">`;
         html += `<div class="day-head">`;
         html += `<div class="day-number">${d.getDate()}</div>`;
+        if (CAN_CLOSE_DATE && isClassCal) html += `<button type="button" class="day-close-btn${isClosed ? ' is-closed' : ''}" data-date="${dateStr}" title="${isClosed ? 'Sarado — i-click para buksan' : 'Isara ang petsang ito (block bagong Class sale)'}">${isClosed ? '🔒' : '🔓'}</button>`;
         if (dayProjects.length > 0) {
             html += `<div class="day-totals" title="${GARMENT_GROUP1.join(' + ')} | ${GARMENT_GROUP2.join(' + ')} (×2) | Iba pang garments${isClassCal ? ' | Effective: ' + effPcs + '/180' : ''}">`;
             html += `<span class="day-total day-total-1">${gt.g1}</span>`;
@@ -1131,6 +1184,7 @@ function renderWeek(monday, projects) {
             html += '</div>';
         }
         html += '</div>';
+        if (isClosed) html += '<div class="closed-note"><i class="fas fa-lock"></i> CLOSED</div>';
         html += '<div class="day-projects-list">';
 
         if (dayProjects.length === 0) {
@@ -1226,6 +1280,90 @@ function renderWeek(monday, projects) {
 }
 
 // ========== LOAD ==========
+// ========== CLASS CLOSED DATES (Prod Manager / CEO / COO) ==========
+window.closedDates = [];
+function loadClosedDates(from, to) {
+    if (activeDept !== 'Class') { window.closedDates = []; applyClosedDates(); return; }
+    fetch('/sales/prototype/blocked-dates?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), {
+        headers: {'X-Requested-With':'XMLHttpRequest'}
+    })
+    .then(r => r.ok ? r.json() : {closed_dates:[]})
+    .then(data => { window.closedDates = data.closed_dates || []; applyClosedDates(); })
+    .catch(() => { window.closedDates = []; applyClosedDates(); });
+}
+function applyClosedDates() {
+    document.querySelectorAll('.day-cell[data-date]').forEach(cell => {
+        const d = cell.getAttribute('data-date');
+        const isClosed = window.closedDates.indexOf(d) !== -1;
+        cell.classList.toggle('closed', isClosed);
+        const btn = cell.querySelector('.day-close-btn');
+        if (btn) { btn.classList.toggle('is-closed', isClosed); btn.textContent = isClosed ? '\uD83D\uDD12' : '\uD83D\uDD13'; }
+        let note = cell.querySelector('.closed-note');
+        if (isClosed && !note) {
+            const list = cell.querySelector('.day-projects-list');
+            note = document.createElement('div'); note.className = 'closed-note';
+            note.innerHTML = '<i class="fas fa-lock"></i> CLOSED';
+            if (list && list.parentNode) list.parentNode.insertBefore(note, list);
+        } else if (!isClosed && note) { note.remove(); }
+    });
+}
+let _closeDateTarget = null;
+function _fmtLongDate(dateStr) {
+    try { return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'}); }
+    catch(e) { return dateStr; }
+}
+function toggleClosingDate(dateStr, currentlyClosed) {
+    _closeDateTarget = {date: dateStr, wasClosed: !!currentlyClosed};
+    var willClose = !currentlyClosed;
+    document.getElementById('calCloseHero').className = 'cclose-hero ' + (willClose ? 'is-close' : 'is-open');
+    document.getElementById('calCloseIcon').innerHTML = willClose ? '<i class="fas fa-lock"></i>' : '<i class="fas fa-lock-open"></i>';
+    document.getElementById('calCloseTitle').textContent = willClose ? 'Isara ang Petsang Ito?' : 'Buksan Muli ang Petsa?';
+    document.getElementById('calCloseSub').textContent = willClose ? 'Class department — block ng bagong sale' : 'Class department — payagan muli ang bagong sale';
+    document.getElementById('calCloseDate').textContent = _fmtLongDate(dateStr);
+    var box = document.getElementById('calCloseBox');
+    box.className = 'cclose-box ' + (willClose ? 'warn' : 'ok');
+    box.querySelector('i').className = 'fas ' + (willClose ? 'fa-exclamation-triangle' : 'fa-check-circle');
+    document.getElementById('calCloseBoxText').innerHTML = willClose
+        ? 'Hindi na makakapag-<strong>create / add product</strong> ng bagong Class sale sa araw na ito. Hindi apektado ang mga <strong>existing</strong> at <strong>pending approval</strong> na sale.'
+        : 'Papayagan na ulit ang paggawa ng <strong>bagong</strong> Class sale sa araw na ito.';
+    document.getElementById('calCloseReasonWrap').style.display = willClose ? '' : 'none';
+    document.getElementById('calCloseReason').value = '';
+    var btn = document.getElementById('calCloseConfirmBtn');
+    btn.className = 'btn ' + (willClose ? 'btn-danger' : 'btn-success');
+    btn.innerHTML = willClose ? '<i class="fas fa-lock me-1"></i> Oo, Isara' : '<i class="fas fa-lock-open me-1"></i> Oo, Buksan';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('calCloseModal')).show();
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#calCloseConfirmBtn')) return;
+    if (!_closeDateTarget) return;
+    var t = _closeDateTarget;
+    var reason = document.getElementById('calCloseReason').value.trim();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('calCloseModal')).hide();
+    doToggleClosingDate(t.date, t.wasClosed, reason);
+});
+function doToggleClosingDate(dateStr, currentlyClosed, reason) {
+    fetch('/sales/prototype/blocked-date/toggle', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')||'{{ csrf_token() }}','X-Requested-With':'XMLHttpRequest'},
+        body: JSON.stringify({date: dateStr, closed: !currentlyClosed, reason: reason || null})
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (!res.success) { showCalInfo('error', res.message || 'Hindi nagawa ang pagbabago.'); return; }
+        if (res.closed) { if (window.closedDates.indexOf(dateStr) === -1) window.closedDates.push(dateStr); }
+        else { window.closedDates = window.closedDates.filter(x => x !== dateStr); }
+        applyClosedDates();
+        showCalToast((res.closed ? '🔒 ' : '🔓 ') + res.message);
+    })
+    .catch(() => showCalInfo('error', 'Network error. Subukan muli.'));
+}
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.day-close-btn');
+    if (!btn) return;
+    e.stopPropagation(); e.preventDefault();
+    toggleClosingDate(btn.getAttribute('data-date'), btn.classList.contains('is-closed'));
+});
+
 function loadCal() {
     let weeks;
     let label = '';
@@ -1312,6 +1450,7 @@ function loadCal() {
         });
 
         container.innerHTML = html;
+        loadClosedDates(dateStart, dateEnd);
         updateSummary(projects);
         initSummToggleClicks();
         populateAgentOptions();
@@ -2330,8 +2469,8 @@ function caCutCountRules(partRows) {
         var part = String((rows[i] && (rows[i].part || rows[i][0])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
         var detail = String((rows[i] && (rows[i].detail || rows[i][1])) || '').toUpperCase().replace(/\s+/g, ' ').trim();
         if (part.indexOf('GARMENT') < 0) continue;
-        if (detail === 'POLO BUTTON' || detail.indexOf('POLO BUTTON ') === 0) return { collar: true, placket: true };
-        if (detail === 'POLO ZIPPER' || detail.indexOf('POLO ZIPPER ') === 0) return { collar: true, placket: false };
+        if (detail === 'POLO BUTTON' || detail.indexOf('POLO BUTTON ') === 0 || detail.indexOf('CC POLO BUTTON') === 0) return { collar: true, placket: true };
+        if (detail === 'POLO ZIPPER' || detail.indexOf('POLO ZIPPER ') === 0 || detail.indexOf('CC POLO ZIPPER') === 0) return { collar: true, placket: false };
     }
     return null;
 }

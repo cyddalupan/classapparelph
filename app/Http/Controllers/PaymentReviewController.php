@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -97,9 +98,27 @@ class PaymentReviewController extends Controller
             return response()->json(['success' => false, 'message' => 'May nakabinbing payment review na para sa sale na ito. Hintayin munang ma-process.'], 422);
         }
 
+        // 🚩 Bawal habang may pending (hindi pa verified) na payment — i-verify muna ng accountant.
+        $pendingVerification = DB::table('prototype_payments')
+            ->where('prototype_sale_id', $saleId)
+            ->where(function ($q) {
+                $q->where('payment_status', 'pending')->orWhereNull('payment_status');
+            })
+            ->exists();
+        if (!$pendingVerification) {
+            $hasAnyPayment = DB::table('prototype_payments')->where('prototype_sale_id', $saleId)->exists();
+            if (!$hasAnyPayment && (float) ($sale->deposit_paid ?? 0) > 0
+                && in_array($sale->payment_status, [null, '', 'pending'], true)) {
+                $pendingVerification = true;
+            }
+        }
+        if ($pendingVerification) {
+            return response()->json(['success' => false, 'message' => 'May pending payment verification pa. Hintayin munang ma-verify bago mag-request ng payment review.'], 422);
+        }
+
         $file = $request->file('proof_image');
         $filename = 'prr_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $filePath = $file->storeAs('uploads/payment-reviews', $filename, 'public');
+        $filePath = ImageOptimizer::storeAs($file, 'uploads/payment-reviews', $filename, 'public');
 
         $reviewId = DB::table('payment_review_requests')->insertGetId([
             'prototype_sale_id' => $saleId,
@@ -355,7 +374,16 @@ class PaymentReviewController extends Controller
 
         $reviews = $query->orderByDesc('payment_review_requests.updated_at')->paginate(100)->withQueryString();
 
-        return view('sales.prototype.payment_review_executive', compact('reviews', 'filter', 'q'));
+        // 🗄️ Counts para sa Archive button (nasa parehong URL, `?filter=`).
+        $countBase = DB::table('payment_review_requests')
+            ->join('prototype_sales', 'payment_review_requests.prototype_sale_id', '=', 'prototype_sales.id');
+        if ($user->isClassScoped()) {
+            $countBase->where('prototype_sales.department_id', 4);
+        }
+        $pendingReviewCount = (clone $countBase)->where('payment_review_requests.status', 'accepted')->count();
+        $archivedReviewCount = (clone $countBase)->where('payment_review_requests.status', 'reviewed')->count();
+
+        return view('sales.prototype.payment_review_executive', compact('reviews', 'filter', 'q', 'pendingReviewCount', 'archivedReviewCount'));
     }
 
     public function markReviewed(Request $request, string $reviewId)

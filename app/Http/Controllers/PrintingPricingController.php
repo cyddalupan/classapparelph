@@ -190,42 +190,83 @@ class PrintingPricingController extends Controller
     }
     
     /**
-     * Apply size upgrades
+     * Resolve a list of print size ids into the upgraded set using the
+     * size-upgrade ladder (e.g. DTF: Logo x2 -> Half A4, Half A4 x2 -> A4, ...).
+     *
+     * Iterative + remainder aware so chains work: e.g. 4x Logo -> 2x Half A4
+     * -> 1x A4, while 3x Logo -> 1x Half A4 + 1x Logo.
+     *
+     * @return array{0: array<int>, 1: array<int,array>} [upgraded size ids (sorted), upgrade log]
+     */
+    private function resolveUpgradedSizes($printSizeIds, $printType = 'dtf')
+    {
+        $rules = PrintingSizeUpgrade::where('print_type', $printType)
+            ->where('active', true)
+            ->orderBy('from_quantity', 'desc')
+            ->orderBy('from_size_id')
+            ->get();
+
+        // counts[sizeId] = quantity (sizeId keyed as string by array semantics)
+        $counts = [];
+        foreach ($printSizeIds as $id) {
+            $id = (int) $id;
+            $counts[$id] = ($counts[$id] ?? 0) + 1;
+        }
+
+        $upgraded = [];
+        $surcharge = 0.0;
+        if ($rules->isEmpty()) {
+            return [array_values($printSizeIds), $upgraded, $surcharge];
+        }
+
+        $names = PrintingPrice::where('print_type', $printType)->pluck('name', 'id');
+
+        $changed = true;
+        $guard = 0;
+        while ($changed && $guard++ < 200) {
+            $changed = false;
+            foreach ($rules as $rule) {
+                $from = (int) $rule->from_size_id;
+                $qty = (int) $rule->from_quantity;
+                $to = (int) $rule->to_size_id;
+                if ($qty < 1) {
+                    continue;
+                }
+                if (($counts[$from] ?? 0) >= $qty) {
+                    $times = intdiv($counts[$from], $qty);
+                    $counts[$from] -= $times * $qty;
+                    $counts[$to] = ($counts[$to] ?? 0) + $times;
+                    $ruleSurcharge = floatval($rule->surcharge ?? 0) * $times;
+                    $surcharge += $ruleSurcharge;
+                    $changed = true;
+                    $upgraded[] = [
+                        'from' => $names[$from] ?? null,
+                        'from_quantity' => $qty,
+                        'to' => $names[$to] ?? null,
+                        'to_quantity' => $times,
+                        'surcharge' => $ruleSurcharge,
+                    ];
+                }
+            }
+        }
+
+        // Rebuild the flat list of resulting size ids, keeping selection order where possible
+        $result = [];
+        foreach ($counts as $id => $c) {
+            for ($i = 0; $i < $c; $i++) {
+                $result[] = (int) $id;
+            }
+        }
+
+        return [$result, $upgraded, round($surcharge, 2)];
+    }
+
+    /**
+     * Apply size upgrades (returns the upgrade log for the breakdown/receipt).
      */
     private function applySizeUpgrades($printSizeIds, $printType = 'dtf')
     {
-        $upgraded = [];
-        $sizeCounts = array_count_values($printSizeIds);
-        
-        $upgradeRules = PrintingSizeUpgrade::where('print_type', $printType)->get();
-        
-        foreach ($upgradeRules as $rule) {
-            $fromSizeId = $rule->from_size_id;
-            $requiredQuantity = $rule->from_quantity;
-            
-            if (isset($sizeCounts[$fromSizeId]) && 
-                $sizeCounts[$fromSizeId] >= $requiredQuantity) {
-                
-                for ($i = 0; $i < $requiredQuantity; $i++) {
-                    $key = array_search($fromSizeId, $printSizeIds);
-                    if ($key !== false) {
-                        unset($printSizeIds[$key]);
-                    }
-                }
-                
-                $printSizeIds[] = $rule->to_size_id;
-                
-                $upgraded[] = [
-                    'from' => $rule->fromSize->name,
-                    'from_quantity' => $requiredQuantity,
-                    'to' => $rule->toSize->name,
-                    'to_quantity' => 1
-                ];
-                
-                $sizeCounts = array_count_values($printSizeIds);
-            }
-        }
-        
+        [, $upgraded] = $this->resolveUpgradedSizes($printSizeIds, $printType);
         return $upgraded;
     }
     
@@ -321,6 +362,42 @@ class PrintingPricingController extends Controller
     }
     
     /**
+     * Update the size-upgrade ladder (delete + recreate for this print type).
+     */
+    public function updateUpgrades(Request $request)
+    {
+        $request->validate([
+            'upgrades' => 'array',
+            'upgrades.*.from_size_id' => 'required|exists:printing_prices,id',
+            'upgrades.*.from_quantity' => 'required|integer|min:2',
+            'upgrades.*.to_size_id' => 'required|exists:printing_prices,id',
+            'upgrades.*.surcharge' => 'nullable|numeric|min:0',
+        ]);
+
+        $printType = $request->input('print_type', 'dtf');
+        $validTypes = ['dtf', 'sublimation', 'silkscreen'];
+        if (!in_array($printType, $validTypes)) {
+            $printType = 'dtf';
+        }
+
+        PrintingSizeUpgrade::where('print_type', $printType)->delete();
+
+        foreach ($request->input('upgrades', []) as $row) {
+            PrintingSizeUpgrade::create([
+                'from_size_id' => $row['from_size_id'],
+                'from_quantity' => $row['from_quantity'],
+                'to_size_id' => $row['to_size_id'],
+                'surcharge' => $row['surcharge'] ?? 0,
+                'auto_apply' => true,
+                'active' => true,
+                'print_type' => $printType,
+            ]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Size upgrade rules updated successfully']);
+    }
+
+    /**
      * Display rule editor
      */
     public function editRules(Request $request)
@@ -333,28 +410,8 @@ class PrintingPricingController extends Controller
         }
         
         $prices = PrintingPrice::where('print_type', $printType)
-            ->with('masterItem.productPricings')
             ->orderBy('order')
             ->get();
-        
-        // Get master items with product pricing for dropdown (filter by print type)
-        $productTypeMap = [
-            'dtf' => 'Product Type: DTF%',
-            'sublimation' => 'Product Type: Sublimation%',
-            'silkscreen' => 'Product Type: Silkscreen%'
-        ];
-        
-        $searchPattern = $productTypeMap[$printType] ?? 'Product Type: DTF%';
-        
-        $productPricingOptions = MasterItem::where('description', 'LIKE', $searchPattern)
-            ->whereHas('productPricings', function($q) {
-                $q->where('is_active', true);
-            })
-            ->with(['productPricings' => function($q) {
-                $q->where('is_active', true);
-            }])
-            ->orderBy('description')
-            ->get(['id', 'description']);
         
         // Combo discounts separated by price_tier
         $comboDiscounts = PrintingComboDiscount::where('print_type', $printType)
@@ -374,10 +431,18 @@ class PrintingPricingController extends Controller
         $bulkSalesTeam = $bulkDiscounts->where('price_tier', 'sales_team');
         $bulkAgent = $bulkDiscounts->where('price_tier', 'agent');
         
+        // Size upgrade ladder (e.g. Logo x2 -> Half A4 ...)
+        $upgrades = PrintingSizeUpgrade::where('print_type', $printType)
+            ->where('active', true)
+            ->orderBy('from_quantity', 'desc')
+            ->orderBy('from_size_id')
+            ->get();
+        
         return view('printing.edit_rules', compact(
-            'prices', 'productPricingOptions',
+            'prices',
             'comboSalesTeam', 'comboAgent',
             'bulkSalesTeam', 'bulkAgent',
+            'upgrades',
             'printType'
         ));
     }
@@ -391,37 +456,39 @@ class PrintingPricingController extends Controller
             'prices' => 'required|array',
             'prices.*.id' => 'required|exists:printing_prices,id',
             'prices.*.master_item_id' => 'nullable|exists:master_items,id',
+            'prices.*.supplier_cost' => 'nullable|numeric|min:0',
+            'prices.*.price' => 'nullable|numeric|min:0',
+            'prices.*.agent_price' => 'nullable|numeric|min:0',
         ]);
-        
+
         foreach ($request->input('prices') as $priceData) {
             $price = PrintingPrice::find($priceData['id']);
             $updateData = [];
-            
+
+            // Editable costs (manual override on the print price row)
+            if (array_key_exists('supplier_cost', $priceData)) {
+                $updateData['supplier_cost'] = $priceData['supplier_cost'] === '' || $priceData['supplier_cost'] === null
+                    ? null : $priceData['supplier_cost'];
+            }
+            if (array_key_exists('price', $priceData)) {
+                $updateData['price'] = $priceData['price'] === '' || $priceData['price'] === null
+                    ? 0 : $priceData['price'];
+            }
+            if (array_key_exists('agent_price', $priceData)) {
+                $updateData['agent_price'] = $priceData['agent_price'] === '' || $priceData['agent_price'] === null
+                    ? null : $priceData['agent_price'];
+            }
+
+            // Optional link to a master item (kept for the sync feature; no longer shown in UI)
             if (isset($priceData['master_item_id'])) {
                 $updateData['master_item_id'] = $priceData['master_item_id'];
-                
-                // Auto-fill prices from linked product pricing
-                $item = MasterItem::with(['productPricings' => function($q) {
-                    $q->where('is_active', true);
-                }])->find($priceData['master_item_id']);
-                
-                if ($item) {
-                    $pricing = $item->productPricings->keyBy('price_tier');
-                    
-                    if (isset($pricing['sales_team'])) {
-                        $updateData['price'] = $pricing['sales_team']->final_price;
-                    }
-                    if (isset($pricing['agent_cost'])) {
-                        $updateData['agent_price'] = $pricing['agent_cost']->final_price;
-                    }
-                }
             }
-            
+
             if (!empty($updateData)) {
                 $price->update($updateData);
             }
         }
-        
+
         return response()->json(['success' => true, 'message' => 'Prices updated successfully']);
     }
     
@@ -444,26 +511,50 @@ class PrintingPricingController extends Controller
         if (!in_array($printType, $validTypes)) {
             $printType = 'dtf';
         }
-        
-        // Delete combos for this print type and price_tier
-        $tier = $request->input('price_tier', 'sales_team');
-        PrintingComboDiscount::where('print_type', $printType)
-            ->where('price_tier', $tier)
-            ->delete();
-        
-        // Re-create from input
-        foreach ($request->input('combos') as $comboData) {
-            PrintingComboDiscount::create([
-                'size1_id' => $comboData['size1_id'],
-                'size2_id' => $comboData['size2_id'],
-                'discount_type' => 'fixed',
-                'discount_value' => $comboData['discount_value'],
-                'price_tier' => $comboData['price_tier'],
-                'active' => true,
-                'print_type' => $printType,
-            ]);
+
+        // The UI saves one tier at a time; the top-level price_tier identifies
+        // which tier's rows are being replaced.  Fall back to the first row's
+        // tier so an older client that only sends per-row tiers still works.
+        $combosInput = $request->input('combos', []);
+        $tier = $request->input('price_tier');
+        if (!$tier) {
+            $tier = $combosInput[0]['price_tier'] ?? 'sales_team';
         }
-        
+
+        // Delete + re-create atomically, and de-duplicate by unordered pair so
+        // overlapping rows can never trip the unique constraint mid-batch.
+        DB::transaction(function () use ($printType, $tier, $combosInput) {
+            PrintingComboDiscount::where('print_type', $printType)
+                ->where('price_tier', $tier)
+                ->delete();
+
+            $seen = [];
+            foreach ($combosInput as $comboData) {
+                $rowTier = $comboData['price_tier'] ?? $tier;
+                if ($rowTier !== $tier) {
+                    continue; // only persist the tier being edited
+                }
+
+                $a = (int) $comboData['size1_id'];
+                $b = (int) $comboData['size2_id'];
+                $pairKey = $a <= $b ? "{$a}-{$b}" : "{$b}-{$a}";
+                if (isset($seen[$pairKey])) {
+                    continue; // ignore duplicate / mirror pair
+                }
+                $seen[$pairKey] = true;
+
+                PrintingComboDiscount::create([
+                    'size1_id' => $a,
+                    'size2_id' => $b,
+                    'discount_type' => 'fixed',
+                    'discount_value' => $comboData['discount_value'],
+                    'price_tier' => $tier,
+                    'active' => true,
+                    'print_type' => $printType,
+                ]);
+            }
+        });
+
         return response()->json(['success' => true, 'message' => ucfirst(str_replace('_', ' ', $tier)) . ' combo discounts updated successfully']);
     }
     
@@ -522,6 +613,9 @@ class PrintingPricingController extends Controller
         $request->validate([
             'name' => 'required|string|max:50',
             'master_item_id' => 'nullable|exists:master_items,id',
+            'supplier_cost' => 'nullable|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
+            'agent_price' => 'nullable|numeric|min:0',
         ]);
         
         $printType = $request->input('print_type', 'dtf');
@@ -534,30 +628,14 @@ class PrintingPricingController extends Controller
         
         $data = [
             'name' => $request->input('name'),
-            'price' => 0,
-            'agent_price' => 0,
+            'supplier_cost' => $request->input('supplier_cost'),
+            'price' => $request->input('price', 0) ?: 0,
+            'agent_price' => $request->input('agent_price'),
             'order' => $maxOrder + 1,
             'active' => true,
             'print_type' => $printType,
             'master_item_id' => $request->input('master_item_id'),
         ];
-        
-        // Auto-fill from linked product pricing
-        if ($request->input('master_item_id')) {
-            $item = MasterItem::with(['productPricings' => function($q) {
-                $q->where('is_active', true);
-            }])->find($request->input('master_item_id'));
-            
-            if ($item) {
-                $pricing = $item->productPricings->keyBy('price_tier');
-                if (isset($pricing['sales_team'])) {
-                    $data['price'] = $pricing['sales_team']->final_price;
-                }
-                if (isset($pricing['agent_cost'])) {
-                    $data['agent_price'] = $pricing['agent_cost']->final_price;
-                }
-            }
-        }
         
         $price = PrintingPrice::create($data);
         
@@ -802,13 +880,27 @@ class PrintingPricingController extends Controller
             ->distinct()
             ->where('active', true)
             ->pluck('print_type');
+
+        // Size-upgrade ladder (small -> big), used by the modal to auto-combine prints
+        $upgrades = PrintingSizeUpgrade::where('print_type', $type)
+            ->where('active', true)
+            ->orderBy('from_size_id')
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'from_size_id' => (int) $u->from_size_id,
+                    'from_quantity' => (int) $u->from_quantity,
+                    'to_size_id' => (int) $u->to_size_id,
+                ];
+            });
         
         return response()->json([
             'success' => true,
             'prices' => $prices,
             'combos' => $combos,
             'bulk_tiers' => $bulkTiers,
-            'print_types' => $printTypes
+            'print_types' => $printTypes,
+            'upgrades' => $upgrades
         ]);
     }
 
@@ -831,11 +923,14 @@ class PrintingPricingController extends Controller
         $user = auth()->user();
         $priceTier = ($user && $user->role === 'sales_agent') ? 'agent' : 'sales_team';
         
-        // Calculate base print cost (sum of selected sizes)
-        $printCostPerItem = 0;
+        // Apply size upgrades first (e.g. Logo x2 -> Half A4)
+        [$resolvedSizeIds, $upgradeLog, $upgradeSurcharge] = $this->resolveUpgradedSizes($printSizeIds, $printType);
+
+        // Calculate base print cost (sum of the UPGRADED sizes)
+        $printCostPerItem = $upgradeSurcharge;
         $sizes = [];
         
-        foreach ($printSizeIds as $sizeId) {
+        foreach ($resolvedSizeIds as $sizeId) {
             $price = PrintingPrice::where('print_type', $printType)->find($sizeId);
             if ($price) {
                 $unitPrice = ($priceTier === 'agent' && $price->agent_price) ? floatval($price->agent_price) : floatval($price->price);
@@ -848,8 +943,8 @@ class PrintingPricingController extends Controller
             }
         }
         
-        // Calculate combo discount (may apply kahit isang combo lang)
-        $comboDiscount = $this->calculateComboDiscount($printSizeIds, $printType);
+        // Calculate combo discount on the UPGRADED sizes
+        $comboDiscount = $this->calculateComboDiscount($resolvedSizeIds, $printType);
         $printCostPerItem -= $comboDiscount;
         
         // Group subtotal (before bulk)
@@ -865,6 +960,8 @@ class PrintingPricingController extends Controller
         return response()->json([
             'success' => true,
             'sizes' => $sizes,
+            'upgrades' => $upgradeLog,
+            'upgrade_surcharge' => $upgradeSurcharge,
             'print_cost_per_item' => $printCostPerItem,
             'combo_discount' => $comboDiscount,
             'quantity' => $quantity,

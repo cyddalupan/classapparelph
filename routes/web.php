@@ -79,6 +79,7 @@ Route::get('/printing-calculator', function() {
     Route::post('/productpricing/printing/rules/prices', [App\Http\Controllers\PrintingPricingController::class, 'updatePrices'])->name('printing.update-prices');
     Route::post('/productpricing/printing/rules/combos', [App\Http\Controllers\PrintingPricingController::class, 'updateCombos'])->name('printing.update-combos');
     Route::post('/productpricing/printing/rules/bulk', [App\Http\Controllers\PrintingPricingController::class, 'updateBulk'])->name('printing.update-bulk');
+    Route::post('/productpricing/printing/rules/upgrades', [App\Http\Controllers\PrintingPricingController::class, 'updateUpgrades'])->name('printing.update-upgrades');
     Route::post('/productpricing/printing/calculate', [App\Http\Controllers\PrintingPricingController::class, 'calculate'])->name('printing.calculate');
     Route::post('/productpricing/printing/prices', [App\Http\Controllers\PrintingPricingController::class, 'storePrice'])->name('printing.store-price');
     Route::post('/productpricing/printing/combos', [App\Http\Controllers\PrintingPricingController::class, 'storeComboDiscount'])->name('printing.store-combo');
@@ -97,6 +98,8 @@ Route::get('/printing-calculator', function() {
     Route::get('/productpricing/rules/bulk', [App\Http\Controllers\PricingRulesController::class, 'bulkRules'])->name('pricing.rules.bulk');
     Route::get('/productpricing/rules/sublimation', [App\Http\Controllers\PricingRulesController::class, 'sublimationRules'])->name('pricing.rules.sublimation');
     Route::get('/productpricing/rules/tarpaulin', [App\Http\Controllers\PricingRulesController::class, 'tarpaulinRules'])->name('pricing.rules.tarpaulin');
+    Route::get('/productpricing/rules/other', [App\Http\Controllers\PricingRulesController::class, 'otherRules'])->name('pricing.rules.other');
+    Route::post('/productpricing/rules/other/prices', [App\Http\Controllers\PricingRulesController::class, 'updateOtherPrices'])->name('pricing.rules.other.prices');
     Route::get('/productpricing/rules/embroidery', [App\Http\Controllers\PricingRulesController::class, 'embroideryRules'])->name('pricing.rules.embroidery');
     Route::get('/productpricing/rules/sticker', [App\Http\Controllers\PricingRulesController::class, 'stickerRules'])->name('pricing.rules.sticker');
     Route::post('/productpricing/rules/sublimation/prices', [App\Http\Controllers\PricingRulesController::class, 'updateSublimationPrices'])->name('pricing.rules.sublimation.prices');
@@ -885,6 +888,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/sales/prototype/calendar', [App\Http\Controllers\PrototypeSalesController::class, 'calendar'])->name('sales.prototype.calendar');
         Route::post('/sales/prototype/calendar-data', [App\Http\Controllers\PrototypeSalesController::class, 'calendarData'])->name('sales.prototype.calendar-data');
         Route::post('/sales/prototype/day-load', [App\Http\Controllers\PrototypeSalesController::class, 'dayLoad'])->name('sales.prototype.day-load');
+        Route::get('/sales/prototype/blocked-dates', [App\Http\Controllers\PrototypeSalesController::class, 'blockedDates'])->name('sales.prototype.blocked-dates');
+        Route::post('/sales/prototype/blocked-date/toggle', [App\Http\Controllers\PrototypeSalesController::class, 'toggleBlockedDate'])->name('sales.prototype.blocked-date.toggle');
         Route::post('/sales/prototype/{id}/reschedule', [App\Http\Controllers\PrototypeSalesController::class, 'reschedule'])->name('sales.prototype.reschedule');
         Route::post('/sales/prototype/{id}/split', [App\Http\Controllers\PrototypeSalesController::class, 'splitSale'])->name('sales.prototype.split');
         Route::post('/sales/prototype/{id}/remove-split', [App\Http\Controllers\PrototypeSalesController::class, 'removeSplit'])->name('sales.prototype.remove-split');
@@ -898,6 +903,28 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
 
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
+
+        // BOARD MEMBER page (2026-09-30, Andrew) — read-only sales overview per department,
+        // sama-sama lahat + filter. Board Member title lang ang makaka-access (controller gate).
+        // MUST be before {id} route.
+        Route::get('/sales/prototype/board', [App\Http\Controllers\PrototypeSalesController::class, 'board'])->name('sales.prototype.board');
+
+        // BOARD MEMBER → Damage Report tab (2026-09-30, Andrew). View-only, hiwalay
+        // na table (damage_reports) — hindi kasama sa sales. MUST be before {id} route.
+        Route::get('/sales/prototype/board/damage', [App\Http\Controllers\PrototypeSalesController::class, 'boardDamage'])->name('sales.prototype.board.damage');
+        Route::get('/sales/prototype/board/damage/{report}', [App\Http\Controllers\PrototypeSalesController::class, 'boardDamageShow'])->name('sales.prototype.board.damage.show');
+
+        // BOARD MEMBER → Layout Job List tab (2026-09-30, Andrew). Parehong itsura ng
+        // "Layout Job List All", pero nasa loob ng Board Member (may board tabs).
+        Route::get('/sales/prototype/board/layout-jobs', [App\Http\Controllers\PrototypeSalesController::class, 'boardLayoutJobs'])->name('sales.prototype.board.layout-jobs');
+
+        // BOARD MEMBER → Special Price tab (2026-09-30, Andrew). LIST/history lang —
+        // view-only para sa board members; si admin (CEO) lang ang makaka-mark as checked.
+        Route::get('/sales/prototype/board/special-price', [App\Http\Controllers\PrototypeSalesController::class, 'boardSpecialPrice'])->name('sales.prototype.board.special-price');
+
+        // BOARD MEMBER → Close Out Review tab (2026-09-30, Andrew). LIST lang —
+        // clickable para makita, pero WALANG pwedeng gawin (view-only, walang mark-reviewed).
+        Route::get('/sales/prototype/board/close-out-review', [App\Http\Controllers\PrototypeSalesController::class, 'boardCloseoutReview'])->name('sales.prototype.board.close-out-review');
 
         // PENDING APPROVALS page — dedicated URL (MUST be before {id} route)
         Route::get('/sales/prototype/pending-approvals', [App\Http\Controllers\PrototypeSalesController::class, 'pendingApprovalsPage'])->name('sales.prototype.pending-approvals');
@@ -1028,8 +1055,10 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/{id}/production-feedback', [App\Http\Controllers\PrototypeSalesController::class, 'storeProductionFeedback'])->name('sales.prototype.production-feedback.store');
         Route::post('/sales/prototype/production-feedback/{feedbackId}/status', [App\Http\Controllers\PrototypeSalesController::class, 'updateProductionFeedback'])->name('sales.prototype.production-feedback.status');
         Route::get('/sales/prototype/production-feedback/list', [App\Http\Controllers\PrototypeSalesController::class, 'productionFeedbackList'])->name('sales.prototype.production-feedback.list');
+        Route::get('/sales/prototype/production-feedback/dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'productionFeedbackDashboard'])->name('sales.prototype.production-feedback.dashboard');
         Route::post('/sales/prototype/production-feedback/{feedbackId}/notify', [App\Http\Controllers\PrototypeSalesController::class, 'renotifyFeedback'])->name('sales.prototype.production-feedback.notify');
         Route::get('/sales/prototype/{id}/audit-history', [App\Http\Controllers\PrototypeSalesController::class, 'auditHistory'])->name('sales.prototype.audit-history');
+        Route::get('/sales/prototype/{id}/comments', [App\Http\Controllers\PrototypeSalesController::class, 'saleComments'])->name('sales.prototype.comments');
         Route::post('/sales/prototype/{id}/add-product', [App\Http\Controllers\PrototypeSalesController::class, 'addProduct'])->name('sales.prototype.add-product');
         Route::post('/sales/prototype/{id}/reprocess-order', [App\Http\Controllers\PrototypeSalesController::class, 'reprocessOrder'])->name('sales.prototype.reprocess-order');
         Route::post('/sales/prototype/refund/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'submitRefund'])->name('sales.prototype.submit-refund');
@@ -1058,6 +1087,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/layout-jobs/payout-request', [App\Http\Controllers\LayoutJobController::class, 'requestPayout'])->name('sales.layout-jobs.payout-request');
         Route::post('/sales/layout-jobs/payout/{payoutId}/pay', [App\Http\Controllers\LayoutJobController::class, 'payPayout'])->name('sales.layout-jobs.payout-pay');
         Route::post('/sales/layout-jobs/{id}/link-sale', [App\Http\Controllers\LayoutJobController::class, 'linkSale'])->name('sales.layout-jobs.link-sale');
+        Route::post('/sales/layout-jobs/{id}/cancel', [App\Http\Controllers\LayoutJobController::class, 'cancel'])->name('sales.layout-jobs.cancel');
         Route::get('/sales/layout-jobs/pending-counts', [App\Http\Controllers\LayoutJobController::class, 'pendingCounts'])->name('sales.layout-jobs.pending-counts');
 });
 

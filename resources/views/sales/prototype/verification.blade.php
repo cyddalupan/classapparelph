@@ -234,6 +234,20 @@
                                                     <span class="small text-muted">Layout doer: {{ $lj->ga_name }}</span>
                                                 @endif
                                             </div>
+                                            <div class="d-flex align-items-center gap-2 mb-1">
+                                                @if($lj->sale_id)
+                                                    <a href="{{ route('sales.prototype.show', $lj->sale_id) }}"
+                                                       class="badge bg-primary text-decoration-none"
+                                                       title="May naka-link na sale — click para buksan"
+                                                       target="_blank" rel="noopener">
+                                                        <i class="fas fa-link"></i> Linked: {{ $lj->sale_number ?: ('Sale #' . $lj->sale_id) }}
+                                                    </a>
+                                                @else
+                                                    <span class="badge bg-light text-muted" title="Wala pang naka-link na sale sa layout job na ito">
+                                                        <i class="fas fa-unlink"></i> Walang linked sale
+                                                    </span>
+                                                @endif
+                                            </div>
                                             <div class="small mt-1">
                                                 @if($lj->account_name)
                                                     <span class="badge bg-light text-dark me-1">
@@ -243,6 +257,11 @@
                                                 @if($lj->payment_reference)
                                                     <span class="badge bg-light text-dark me-1">
                                                         <i class="fas fa-hashtag"></i> {{ $lj->payment_reference }}
+                                                    </span>
+                                                @endif
+                                                @if(!empty($lj->payment_date))
+                                                    <span class="badge bg-light text-dark me-1" title="Petsa ng bayad ni client">
+                                                        <i class="fas fa-calendar-day"></i> Bayad: {{ \Carbon\Carbon::parse($lj->payment_date)->format('M d, Y') }}
                                                     </span>
                                                 @endif
                                                 @if(!empty($lj->dup_matches))

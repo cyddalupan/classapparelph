@@ -183,6 +183,27 @@
                 border-radius: inherit;
             }
 
+            /* Fix (2026-09-30): sa sidebar, ang pangalan ay nasisikipan/natatakpan ng
+               role badge ("X/BOARD MEMBER") dahil flex-row ang .user-info.
+               I-stack sila nang patayo para hindi matakpan ang pangalan. */
+            .sidebar-user .user-info {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: center;
+                gap: 0.4rem;
+                flex: 1;
+                min-width: 0;
+                padding-bottom: 0;
+            }
+            .sidebar-user .user-name {
+                margin-bottom: 0;
+                max-width: 100%;
+            }
+            .sidebar-user .role-badge {
+                white-space: nowrap;
+            }
+
             /* Fix (2026-09-11): wide content (e.g. User Management table) overflowing the
                viewport on laptops. Flex children default to min-width:auto, so a wide
                table pushes the whole layout past the screen; body{overflow-x:hidden}
@@ -276,7 +297,13 @@
                     <!-- Main Navigation -->
                     <div class="nav-section">
                         <div class="nav-section-title">Main</div>
-                        @if(!Auth::user()->isQa() && !Auth::user()->isHrAccountantAgent() && !Auth::user()->isExternalGa())
+                        @php $isBoardMember = str_contains(strtoupper(Auth::user()->position ?? ''), 'BOARD MEMBER'); @endphp
+                        @if($isBoardMember)
+                        <a href="{{ route('sales.prototype.board') }}" class="nav-item {{ request()->routeIs('sales.prototype.board') ? 'active' : '' }}">
+                            <i class="fas fa-crown"></i>
+                            <span class="nav-text">Board Member</span>
+                        </a>
+                        @elseif(!Auth::user()->isQa() && !Auth::user()->isHrAccountantAgent() && !Auth::user()->isExternalGa())
                         <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="fas fa-tachometer-alt"></i>
                             <span class="nav-text">Dashboard</span>

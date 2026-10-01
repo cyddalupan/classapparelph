@@ -193,6 +193,15 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->role === 'cmo';
     }
 
+    /**
+     * Board Member — users na ang position/title ay may "BOARD MEMBER".
+     * Gate ito para sa Board Member page (side nav). Andrew 2026-09-30.
+     */
+    public function isBoardMember(): bool
+    {
+        return str_contains(strtoupper($this->position ?? ''), 'BOARD MEMBER');
+    }
+
     public function isProdManager(): bool
     {
         return $this->role === 'prod_manager';

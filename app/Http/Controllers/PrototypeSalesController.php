@@ -16,6 +16,446 @@ class PrototypeSalesController extends Controller
     }
 
     /**
+     * BOARD MEMBER page (2026-09-30, Andrew).
+     * Read-only overview ng LAHAT ng sales mula sa lahat ng department, sama-sama,
+     * na may filter (department / payment state / search). Ipinapakita ang pending
+     * at hindi pa bayad: magkano pa ang sisingilin (receivable) per project.
+     * Additive lang — walang binabago sa existing flow. Board Member title only.
+     */
+    public function board(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isBoardMember()) {
+            abort(403, 'Board Member access only.');
+        }
+
+        $departments = \DB::table('sales_departments')->orderBy('id')->get();
+
+        // Scope: ACTUAL sales lang — pareho ng Production Dashboard. Hindi kasama ang
+        // draft at cancelled (hindi pumasok bilang totoong sales; Andrew 2026-09-30).
+        $baseStatuses = ['confirmed', 'in_production', 'pending', 'completed'];
+        $query = \App\Models\PrototypeSale::with(['payments', 'completedRefunds', 'salesAgent'])
+            ->whereIn('status', $baseStatuses);
+
+        if ($request->filled('department')) {
+            $query->where('department_id', $request->department);
+        }
+        if ($request->filled('agent')) {
+            $query->where('sales_agent_name', $request->agent);
+        }
+        if ($request->filled('stage')) {
+            $query->where('production_stage', $request->stage);
+        }
+        if ($request->filled('q')) {
+            $q = $request->q;
+            $query->where(function ($w) use ($q) {
+                $w->where('sales_number', 'like', "%{$q}%")
+                  ->orWhere('customer_name', 'like', "%{$q}%")
+                  ->orWhere('sales_agent_name', 'like', "%{$q}%");
+            });
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        // Archive filter: DEFAULT = ALL (active + archived) — board page ito (report/
+        // meeting view), dapat kumpleto ang totals at hindi bumababa pag na-archive
+        // ang isang sale (Andrew 2026-09-30; kapareho ng Production Dashboard rule).
+        $archiveFilter = $request->input('archived', 'all');
+        if ($archiveFilter === 'archived') {
+            $query->whereNotNull('archived_at');
+        } elseif ($archiveFilter === 'active') {
+            $query->whereNull('archived_at');
+        } else {
+            $archiveFilter = 'all';
+            // walang constraint — kasama lahat (active + archived)
+        }
+
+        // Column visibility (server-side, dropdown; default = hide Paid).
+        $showPaid = $request->input('cols') === 'all';
+
+        $sales = $query->orderBy('created_at', 'desc')->get();
+
+        // Dropdown options (buong scope, hindi naka-filter, para stable ang listahan).
+        $agentOptions = \App\Models\PrototypeSale::whereIn('status', $baseStatuses)
+            ->whereNotNull('sales_agent_name')->where('sales_agent_name', '!=', '')
+            ->distinct()->orderBy('sales_agent_name')->pluck('sales_agent_name');
+        $stageOptions = \App\Models\PrototypeSale::whereIn('status', $baseStatuses)
+            ->whereNotNull('production_stage')->where('production_stage', '!=', '')
+            ->distinct()->orderBy('production_stage')->pluck('production_stage');
+
+        $rows = [];
+        $deptStats = [];
+        $stateStats = ['paid' => 0, 'partial' => 0, 'unpaid' => 0];
+        $totals = ['count' => 0, 'sales' => 0.0, 'collected' => 0.0, 'receivable' => 0.0];
+
+        // Kanban status → production stage label (fallback kapag walang production_stage).
+        $statusToStage = [
+            'new'                => 'HOLD',
+            'sample_approval'    => 'FOR SAMPLE',
+            'design'             => 'FOR FORMAT',
+            'production'         => 'PRESSING',
+            'quality_check'      => 'QA',
+            'ready_for_delivery' => 'DISPATCH',
+            'delivered'          => 'UNPAID',
+            'completed'          => 'DONE',
+        ];
+
+        // Aging: unang pag-tag sa DISPATCH/UNPAID (mula production_stage_logs).
+        // Ipapakita lang kapag may natitirang balance pa.
+        $dispatchAt = [];
+        $saleIds = $sales->pluck('id')->all();
+        if (!empty($saleIds) && \Illuminate\Support\Facades\Schema::hasTable('production_stage_logs')) {
+            $logs = \DB::table('production_stage_logs')
+                ->whereIn('prototype_sale_id', $saleIds)
+                ->whereIn('to_stage', ['DISPATCH', 'UNPAID'])
+                ->selectRaw('prototype_sale_id, MIN(created_at) as first_at')
+                ->groupBy('prototype_sale_id')
+                ->get();
+            foreach ($logs as $l) {
+                $dispatchAt[$l->prototype_sale_id] = $l->first_at;
+            }
+        }
+
+        // Pending payments na kailangan pa i-verify (naka-scope sa filtered sales).
+        $pendingVerify = ['count' => 0, 'amount' => 0.0];
+        if (!empty($saleIds)) {
+            $pv = \DB::table('prototype_payments')
+                ->whereIn('prototype_sale_id', $saleIds)
+                ->where('payment_status', 'pending')
+                ->selectRaw('COUNT(*) as c, COALESCE(SUM(amount), 0) as amt')
+                ->first();
+            $pendingVerify = ['count' => (int) ($pv->c ?? 0), 'amount' => (float) ($pv->amt ?? 0)];
+        }
+
+        foreach ($sales as $sale) {
+            $total = (float) $sale->total_amount;
+            $netPaid = (float) $sale->net_paid;                 // verified payments - completed refunds
+            $balance = (float) $sale->balance_due_computed;     // total - netPaid - review_settled
+
+            if ($balance <= 0 && $netPaid > 0) {
+                $state = 'paid';
+            } elseif ($netPaid > 0) {
+                $state = 'partial';
+            } else {
+                $state = 'unpaid';
+            }
+
+            $deptId = (int) ($sale->department_id ?? 0);
+            $deptName = $sale->department_name ?: '—';
+
+            if (!isset($deptStats[$deptId])) {
+                $deptStats[$deptId] = ['id' => $deptId, 'name' => $deptName, 'count' => 0, 'sales' => 0.0, 'collected' => 0.0, 'receivable' => 0.0];
+            }
+            $deptStats[$deptId]['count']++;
+            $deptStats[$deptId]['sales'] += $total;
+            $deptStats[$deptId]['collected'] += $netPaid;
+            $deptStats[$deptId]['receivable'] += $balance;
+
+            $stateStats[$state]++;
+
+            $totals['count']++;
+            $totals['sales'] += $total;
+            $totals['collected'] += $netPaid;
+            $totals['receivable'] += $balance;
+
+            // Ilang araw nang hindi pa bayad pagkatapos ma-tag as DISPATCH/UNPAID.
+            $daysUnpaid = null;
+            if ($balance > 0) {
+                $tagAt = $dispatchAt[$sale->id] ?? null;
+                if (!$tagAt && in_array($sale->production_stage, ['DISPATCH', 'UNPAID'], true)) {
+                    $tagAt = $sale->updated_at; // estimate kung wala pang log (bago Sep 19)
+                }
+                if ($tagAt) {
+                    $daysUnpaid = (int) floor((time() - strtotime((string) $tagAt)) / 86400);
+                    if ($daysUnpaid < 0) {
+                        $daysUnpaid = 0;
+                    }
+                }
+            }
+
+            $rows[] = [
+                'id' => $sale->id,
+                'sales_number' => $sale->sales_number,
+                'customer' => $sale->customer_name,
+                'customer_first' => trim(explode(' ', trim((string) $sale->customer_name))[0] ?? ''),
+                'agent' => $sale->sales_agent_name,
+                'agent_user' => $sale->salesAgent,
+                'department' => $deptName,
+                'stage' => (string) ($sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD')),
+                'department_id' => $deptId,
+                'created_at' => $sale->created_at,
+                'total' => $total,
+                'paid' => $netPaid,
+                'balance' => $balance,
+                'days_unpaid' => $daysUnpaid,
+                'state' => $state,
+                'status' => $sale->status,
+                'kanban_status' => $sale->kanban_status,
+                'payment_status' => $sale->payment_status,
+                'archived' => !empty($sale->archived_at),
+            ];
+        }
+
+        // Post-compute na filter (payment state).
+        if ($request->filled('payment_state') && in_array($request->payment_state, ['paid', 'partial', 'unpaid'], true)) {
+            $want = $request->payment_state;
+            $rows = array_values(array_filter($rows, fn($r) => $r['state'] === $want));
+            $totals = ['count' => 0, 'sales' => 0.0, 'collected' => 0.0, 'receivable' => 0.0];
+            foreach ($rows as $r) {
+                $totals['count']++;
+                $totals['sales'] += $r['total'];
+                $totals['collected'] += $r['paid'];
+                $totals['receivable'] += $r['balance'];
+            }
+        }
+
+        // Pinakamalaking balanse muna (kung ano ang dapat singilin).
+        usort($rows, fn($a, $b) => $b['balance'] <=> $a['balance']);
+
+        return view('sales.prototype.board', compact('departments', 'rows', 'totals', 'deptStats', 'stateStats', 'user', 'pendingVerify', 'agentOptions', 'stageOptions', 'showPaid', 'archiveFilter'));
+    }
+
+    /**
+     * Board Member → Damage Report tab (view-only).
+     * Hiwalay sa sales: data mula sa `damage_reports`, walang epekto sa sales totals.
+     */
+    public function boardDamage(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isBoardMember()) {
+            abort(403, 'Board Member access only.');
+        }
+
+        $query = \App\Models\DamageReport::with(['shop', 'sale', 'reporter', 'reviewer'])
+            ->orderByDesc('created_at');
+
+        if ($request->filled('dmg_status') && $request->dmg_status !== 'all') {
+            $query->where('status', $request->dmg_status);
+        }
+        if ($request->filled('dmg_severity')) {
+            $query->where('severity', $request->dmg_severity);
+        }
+        if ($request->filled('dmg_shop')) {
+            $query->where('shop_id', $request->dmg_shop);
+        }
+        if ($request->filled('dmg_date_from')) {
+            $query->whereDate('created_at', '>=', $request->dmg_date_from);
+        }
+        if ($request->filled('dmg_date_to')) {
+            $query->whereDate('created_at', '<=', $request->dmg_date_to);
+        }
+        if ($request->filled('dmg_q')) {
+            $q = $request->dmg_q;
+            $query->where(function ($w) use ($q) {
+                $w->where('report_no', 'like', "%{$q}%")
+                  ->orWhere('description', 'like', "%{$q}%");
+            });
+        }
+
+        $reports = $query->paginate(20)->withQueryString();
+
+        // Summary stats (buong dataset, hindi naka-filter).
+        $allReports = \App\Models\DamageReport::query();
+        $dmgTotals = [
+            'count' => (clone $allReports)->count(),
+            'open' => (clone $allReports)->whereIn('status', \App\Models\DamageReport::OPEN_STATUSES)->count(),
+            'resolved' => (clone $allReports)->where('status', 'resolved')->count(),
+            'dismissed' => (clone $allReports)->where('status', 'dismissed')->count(),
+            'amount' => (float) (clone $allReports)->sum('damage_amount'),
+            'points' => (int) (clone $allReports)->sum('points'),
+        ];
+        $shops = \App\Models\SalesDepartment::where('is_active', true)->orderBy('name')->get();
+
+        return view('sales.prototype.board-damage', compact('reports', 'dmgTotals', 'shops', 'user'));
+    }
+
+    /**
+     * Board Member → Damage Report detail (view-only).
+     */
+    public function boardDamageShow(\App\Models\DamageReport $report)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isBoardMember()) {
+            abort(403, 'Board Member access only.');
+        }
+
+        $report->load(['shop', 'sale', 'reporter', 'reviewer', 'accountableUsers.user', 'comments.user']);
+
+        return view('sales.prototype.board-damage-show', compact('report', 'user'));
+    }
+
+    /**
+     * Board Member → Layout Job List tab.
+     * Parehong logic + itsura ng "Layout Job List All" (LayoutJobController@all),
+     * pero nasa loob ng Board Member (may board tabs). Board members (admin/coo/cpo/cmo)
+     * ay reviewers din — parehong actions ang kaya nilang gawin.
+     */
+    public function boardLayoutJobs(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isBoardMember()) {
+            abort(403, 'Board Member access only.');
+        }
+
+        $view = app(\App\Http\Controllers\LayoutJobController::class)->all($request);
+
+        return $view->with('boardTabs', true)->with('boardTabActive', 'layout-jobs');
+    }
+
+    /**
+     * Board Member → Special Price tab.
+     * LIST + HISTORY lang (view-only para sa board members).
+     * Si admin (CEO) lang ang may "Mark as checked" button dito —
+     * ang ibang board member ay makikita lang ang status at ang history
+     * kung sino/kailan nag-check.
+     */
+    public function boardSpecialPrice(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isBoardMember()) {
+            abort(403, 'Board Member access only.');
+        }
+
+        $q = trim($request->get('q', ''));
+
+        $query = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->whereNull('archived_at')
+            ->where(function ($sub) {
+                $sub->whereRaw("services LIKE '%hasSpecialPrice%'")
+                    ->orWhereRaw("services LIKE '%isSpecialPrice%'")
+                    ->orWhereRaw("services LIKE '%specialPriceReason%'");
+            })
+            ->when($user->isClassScoped(), function ($query) {
+                $query->where('department_id', 4);
+            })
+            ->when(filled($q), function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('sales_number', 'like', '%' . $q . '%')
+                        ->orWhere('customer_name', 'like', '%' . $q . '%');
+                });
+            })
+            ->orderByDesc('created_at');
+
+        $sales = $query->paginate(100)->withQueryString();
+        $lines = $this->buildSpecialPriceLines($sales);
+
+        $mapped = $lines->pluck('sale.id')->unique()->flip();
+        $unmapped = $sales->filter(function ($s) use ($mapped) {
+            if ($mapped->has($s->id)) {
+                return false;
+            }
+            $svc = is_string($s->services) ? json_decode($s->services, true) : ($s->services ?? []);
+            return $this->hasTruthySpecialFlag($svc);
+        });
+
+        $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
+
+        // History ng checks — sino at kailan. (View-only para sa board members.)
+        $reviewRows = \DB::table('prototype_special_price_reviews')
+            ->whereNotNull('reviewed_at')
+            ->orderByDesc('reviewed_at')
+            ->take(120)
+            ->get();
+        $reviewerIds = $reviewRows->pluck('reviewed_by')->unique()->filter()->values();
+        $reviewerNames = \App\Models\User::whereIn('id', $reviewerIds)->get()->pluck('display_label', 'id');
+
+        // I-resolve ang item/kind ng bawat checked line gamit ang sale services nito.
+        $reviewedSaleIds = $reviewRows->pluck('sale_id')->unique()->values();
+        $reviewedSales = \App\Models\PrototypeSale::whereIn('id', $reviewedSaleIds)->get()->keyBy('id');
+        $revLineMap = $this->buildSpecialPriceLines($reviewedSales->values())
+            ->keyBy(fn ($l) => $l['sale']->id . '|' . $l['lineKey']);
+
+        $history = $reviewRows->map(function ($r) use ($revLineMap, $reviewerNames) {
+            $line = $revLineMap->get($r->sale_id . '|' . $r->line_key);
+            return [
+                'sale' => $line ? $line['sale'] : null,
+                'item' => $line ? $line['itemName'] : '—',
+                'kind' => $line ? $line['kind'] : '—',
+                'by'   => $reviewerNames[$r->reviewed_by] ?? ('User #' . $r->reviewed_by),
+                'at'   => \Carbon\Carbon::parse($r->reviewed_at)->format('M d, Y g:i A'),
+            ];
+        });
+
+        // Board members (maliban sa admin/CEO) = view-only.
+        $canCheck = $user->isAdmin();
+
+        return view('sales.prototype.board-special-price', compact(
+            'sales', 'lines', 'unmapped', 'q', 'departmentLabels', 'history', 'canCheck'
+        ));
+    }
+
+    /**
+     * Board Member → Close Out Review tab.
+     * LIST lang — clickable (makikita ang sale), pero WALANG pwedeng gawin:
+     * view-only, walang "Mark as Reviewed" / actions. Para makita ng board
+     * members ang close-out history (accepted + reviewed).
+     */
+    public function boardCloseoutReview(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isBoardMember()) {
+            abort(403, 'Board Member access only.');
+        }
+
+        $filter = trim((string) $request->get('filter', 'all')); // pending | reviewed | all
+        $q = trim((string) $request->get('q', ''));
+
+        $query = \DB::table('payment_review_requests')
+            ->join('prototype_sales', 'payment_review_requests.prototype_sale_id', '=', 'prototype_sales.id')
+            ->leftJoin('users as requester', 'payment_review_requests.requested_by', '=', 'requester.id')
+            ->leftJoin('users as accountant', 'payment_review_requests.accountant_id', '=', 'accountant.id')
+            ->leftJoin('users as reviewer', 'payment_review_requests.reviewed_by', '=', 'reviewer.id')
+            ->select(
+                'payment_review_requests.*',
+                'prototype_sales.sales_number',
+                'prototype_sales.customer_name',
+                'prototype_sales.department_id',
+                'prototype_sales.total_amount',
+                'requester.name as requested_by_name',
+                'accountant.name as accountant_name',
+                'reviewer.name as reviewed_by_name'
+            );
+
+        if ($user->isClassScoped()) {
+            $query->where('prototype_sales.department_id', 4);
+        }
+        if ($filter === 'pending') {
+            $query->where('payment_review_requests.status', 'accepted');
+        } elseif ($filter === 'reviewed') {
+            $query->where('payment_review_requests.status', 'reviewed');
+        }
+        if ($q !== '') {
+            $like = '%' . $q . '%';
+            $query->where(function ($sub) use ($like) {
+                $sub->where('prototype_sales.sales_number', 'like', $like)
+                    ->orWhere('prototype_sales.customer_name', 'like', $like);
+            });
+        }
+
+        $reviews = $query->orderByDesc('payment_review_requests.updated_at')->paginate(100)->withQueryString();
+
+        // Counts para sa filter chips (scope-aware).
+        $countBase = \DB::table('payment_review_requests')
+            ->join('prototype_sales', 'payment_review_requests.prototype_sale_id', '=', 'prototype_sales.id');
+        if ($user->isClassScoped()) {
+            $countBase->where('prototype_sales.department_id', 4);
+        }
+        $pendingReviewCount = (clone $countBase)->where('payment_review_requests.status', 'accepted')->count();
+        $archivedReviewCount = (clone $countBase)->where('payment_review_requests.status', 'reviewed')->count();
+        $allCount = (clone $countBase)->count();
+
+        $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
+
+        return view('sales.prototype.board-closeout-review', compact(
+            'reviews', 'filter', 'q', 'pendingReviewCount', 'archivedReviewCount', 'allCount', 'departmentLabels'
+        ));
+    }
+
+    /**
      * Show cart-based order creation form.
      */
     public function cartCreate()
@@ -7625,6 +8065,9 @@ SQL;
         $pendingLayoutJobs = \DB::table('layout_jobs')
             ->leftJoin('payment_accounts', 'layout_jobs.payment_account_id', '=', 'payment_accounts.id')
             ->leftJoin('users as ga', 'layout_jobs.ga_user_id', '=', 'ga.id')
+            // Linked sale (optional) — para makita ng verifier kung may sale na naka-link
+            // sa layout na pinapa-verify (read-only; additive lang, walang naapektuhan).
+            ->leftJoin('prototype_sales', 'layout_jobs.sale_id', '=', 'prototype_sales.id')
             ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
             ->where('layout_jobs.type', 'paid')
             ->where('layout_jobs.payment_status', 'pending')
@@ -7640,6 +8083,9 @@ SQL;
                 'layout_jobs.payment_account_id',
                 'layout_jobs.ga_user_id',
                 'layout_jobs.created_at',
+                'layout_jobs.sale_id',
+                'layout_jobs.linked_to_sale_at',
+                'prototype_sales.sales_number as sale_number',
                 'payment_accounts.name as account_name',
                 'payment_accounts.user_id as account_user_id',
                 'ga.name as ga_name',
@@ -9879,7 +10325,7 @@ SQL;
         // ---- Money KPIs: pa-sisingilin (remaining balance) + pending verification amount (same scope as above) ----
         $moneyScope = \App\Models\PrototypeSale::query();
         $deptFilter($moneyScope);
-        $moneySales = $moneyScope->get(['id', 'total_amount', 'deposit_paid', 'payment_status']);
+        $moneySales = $moneyScope->get(['id', 'total_amount', 'deposit_paid', 'payment_status', 'review_settled_amount']);
         $moneySaleIds = $moneySales->pluck('id');
         $verifiedStatuses = ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'];
 
@@ -9927,7 +10373,9 @@ SQL;
             $refunded = (float) ($refundedBySale[$ms->id] ?? 0);
             $netPaid = max($paid - $refunded, 0);
             $totalPaidAmount += $netPaid;
-            $due = max((float) $ms->total_amount - $netPaid, 0);
+            // review_settled_amount = accepted close-out (EWT/tax/deduction) → settled/written-off,
+            // hindi na dapat sisingilin. Align sa PrototypeSale::balance_due_computed (Board page).
+            $due = max((float) $ms->total_amount - $netPaid - (float) ($ms->review_settled_amount ?? 0), 0);
             if ($due > 0.009) {
                 $totalCollectible += $due;
                 $collectibleOrders++;

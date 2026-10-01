@@ -135,17 +135,9 @@
             border-radius: 0 0 10px 10px;
             padding: 25px;
         }
-        .linked-price-badge {
-            font-size: 0.8rem;
-            padding: 3px 8px;
-            border-radius: 10px;
-        }
         .cost-column {
             font-size: 0.9rem;
             color: #64748b;
-        }
-        .master-item-select {
-            min-width: 200px;
         }
         .sub-tab-link {
             font-size: 0.95rem;
@@ -215,6 +207,11 @@
                                 <i class="fas fa-boxes me-1"></i> Bulk Discounts
                             </button>
                         </li>
+                        <li class="nav-item">
+                            <button class="nav-link" id="upgrades-tab" data-bs-toggle="tab" data-bs-target="#upgrades" type="button" role="tab">
+                                <i class="fas fa-layer-group me-1"></i> Size Upgrades
+                            </button>
+                        </li>
                     </ul>
 
                     <div class="tab-content" id="ruleTabsContent">
@@ -222,7 +219,7 @@
                         <div class="tab-pane fade show active" id="prices" role="tabpanel">
                             <h4 class="section-title">Print Size Prices</h4>
                             <p class="text-muted mb-4">
-                                Link each print size to a Product Pricing item. Prices auto-fill from the linked pricing tiers.
+                                Set the supplier cost, sales team price, and agent cost for each print size.
                             </p>
 
                             <div class="table-responsive">
@@ -230,7 +227,6 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>Print Size</th>
-                                            <th>Linked Product</th>
                                             <th>Supplier Cost</th>
                                             <th>Sales Team Price</th>
                                             <th>Agent Cost</th>
@@ -239,54 +235,34 @@
                                     </thead>
                                     <tbody>
                                         @foreach($prices as $price)
-                                        @php
-                                            $linked = $price->masterItem;
-                                            $rowPricings = $linked ? $linked->productPricings->keyBy('price_tier') : collect();
-                                        @endphp
-                                        <tr id="price-row-{{ $price->id }}">
+                                        <tr id="price-row-{{ $price->id }}" data-price-id="{{ $price->id }}">
                                             <td><strong>{{ $price->name }}</strong></td>
                                             <td>
-                                                <select class="form-select form-select-sm master-item-select" 
-                                                        data-price-id="{{ $price->id }}"
-                                                        onchange="onMasterItemChange({{ $price->id }}, this)">
-                                                    <option value="">-- None --</option>
-                                                    @foreach($productPricingOptions as $opt)
-                                                        @php
-                                                            $pricings = $opt->productPricings->keyBy('price_tier');
-                                                            $supplier = isset($pricings['supplier_cost']) && !is_null($pricings['supplier_cost']->final_price) ? number_format($pricings['supplier_cost']->final_price, 2) : '—';
-                                                            $sales = isset($pricings['sales_team']) && !is_null($pricings['sales_team']->final_price) ? number_format($pricings['sales_team']->final_price, 2) : '—';
-                                                            $agent = isset($pricings['agent_cost']) && !is_null($pricings['agent_cost']->final_price) ? number_format($pricings['agent_cost']->final_price, 2) : '—';
-                                                        @endphp
-                                                        <option value="{{ $opt->id }}" 
-                                                            {{ $price->master_item_id == $opt->id ? 'selected' : '' }}
-                                                            data-supplier="{{ $supplier }}"
-                                                            data-sales="{{ $sales }}"
-                                                            data-agent="{{ $agent }}">
-                                                            {{ $opt->description }} (S:₱{{ $supplier }}, ST:₱{{ $sales }}, A:₱{{ $agent }})
-                                                        </option>
-                                                    @endforeach
-                                                </select>
+                                                <div class="input-group input-group-sm cost-column" style="width: 150px;">
+                                                    <span class="input-group-text">₱</span>
+                                                    <input type="number" class="form-control price-input" id="supplier-cost-{{ $price->id }}"
+                                                           data-id="{{ $price->id }}" data-field="supplier_cost"
+                                                           value="{{ !is_null($price->supplier_cost) ? number_format($price->supplier_cost, 2, '.', '') : '' }}"
+                                                           step="0.01" min="0" placeholder="Set">
+                                                </div>
                                             </td>
-                                            <td class="cost-column" id="supplier-cost-{{ $price->id }}">
-                                                @if(isset($rowPricings['supplier_cost']) && !is_null($rowPricings['supplier_cost']->final_price))
-                                                    ₱{{ number_format($rowPricings['supplier_cost']->final_price, 2) }}
-                                                @else
-                                                    <span class="text-muted">—</span>
-                                                @endif
+                                            <td>
+                                                <div class="input-group input-group-sm cost-column" style="width: 150px;">
+                                                    <span class="input-group-text">₱</span>
+                                                    <input type="number" class="form-control price-input" id="sales-team-cost-{{ $price->id }}"
+                                                           data-id="{{ $price->id }}" data-field="price"
+                                                           value="{{ number_format($price->price, 2, '.', '') }}"
+                                                           step="0.01" min="0">
+                                                </div>
                                             </td>
-                                            <td class="cost-column" id="sales-team-cost-{{ $price->id }}">
-                                                @if(isset($rowPricings['sales_team']) && !is_null($rowPricings['sales_team']->final_price))
-                                                    ₱{{ number_format($rowPricings['sales_team']->final_price, 2) }}
-                                                @else
-                                                    <span class="text-muted">—</span>
-                                                @endif
-                                            </td>
-                                            <td class="cost-column" id="agent-cost-{{ $price->id }}">
-                                                @if(isset($rowPricings['agent_cost']) && !is_null($rowPricings['agent_cost']->final_price))
-                                                    ₱{{ number_format($rowPricings['agent_cost']->final_price, 2) }}
-                                                @else
-                                                    <span class="text-muted">—</span>
-                                                @endif
+                                            <td>
+                                                <div class="input-group input-group-sm cost-column" style="width: 150px;">
+                                                    <span class="input-group-text">₱</span>
+                                                    <input type="number" class="form-control price-input" id="agent-cost-{{ $price->id }}"
+                                                           data-id="{{ $price->id }}" data-field="agent_price"
+                                                           value="{{ !is_null($price->agent_price) ? number_format($price->agent_price, 2, '.', '') : '' }}"
+                                                           step="0.01" min="0" placeholder="Set">
+                                                </div>
                                             </td>
                                             <td>
                                                 <button class="btn btn-sm btn-outline-danger" onclick="deletePrintPrice({{ $price->id }})">
@@ -303,18 +279,30 @@
                             <div class="mt-4 p-3 bg-light rounded">
                                 <h5 class="mb-3"><i class="fas fa-plus-circle me-2 text-success"></i> Add New Print Size</h5>
                                 <div class="row g-3 align-items-end">
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <label class="form-label small fw-bold">Print Size Name</label>
                                         <input type="text" class="form-control" id="newPrintName" placeholder="e.g. A3">
                                     </div>
-                                    <div class="col-md-5">
-                                        <label class="form-label small fw-bold">Link to Product Pricing (optional)</label>
-                                        <select class="form-select" id="newMasterItemId">
-                                            <option value="">-- None (manual entry) --</option>
-                                            @foreach($productPricingOptions as $opt)
-                                                <option value="{{ $opt->id }}">{{ $opt->description }}</option>
-                                            @endforeach
-                                        </select>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-bold">Supplier Cost</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">₱</span>
+                                            <input type="number" class="form-control" id="newSupplierCost" step="0.01" min="0" placeholder="0.00">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-bold">Sales Team Price</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">₱</span>
+                                            <input type="number" class="form-control" id="newSalesPrice" step="0.01" min="0" placeholder="0.00">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-bold">Agent Cost</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">₱</span>
+                                            <input type="number" class="form-control" id="newAgentCost" step="0.01" min="0" placeholder="0.00">
+                                        </div>
                                     </div>
                                     <div class="col-md-3">
                                         <button class="btn btn-success w-100" onclick="addNewPrintPrice()">
@@ -324,7 +312,7 @@
                                 </div>
                                 <div class="mt-2 text-muted small">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    Prices auto-fill from linked product pricing. New sizes appear in the calculator immediately.
+                                    New sizes appear in the calculator immediately.
                                 </div>
                             </div>
 
@@ -633,6 +621,78 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- ==================== SIZE UPGRADES TAB ==================== -->
+                        <div class="tab-pane fade" id="upgrades" role="tabpanel">
+                            <h4 class="section-title">Size Upgrades</h4>
+                            <p class="text-muted mb-4">
+                                Auto-combine prints of the same size into the next bigger size. Example:
+                                <strong>2× Logo = Half A4</strong>, <strong>2× Half A4 = A4</strong>, <strong>4× Logo = A4 (+ ₱10)</strong>.
+                                These apply automatically in the Garment Printing modal.
+                            </p>
+
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:32%;">Combine This Size</th>
+                                            <th style="width:10%;">Qty</th>
+                                            <th style="width:4%;"></th>
+                                            <th style="width:32%;">Into This Size</th>
+                                            <th style="width:18%;">Surcharge</th>
+                                            <th style="width:4%;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="upgrades-container">
+                                        @forelse($upgrades as $u)
+                                        <tr class="upgrade-row">
+                                            <td>
+                                                <select class="form-select form-select-sm from-size-select">
+                                                    @foreach($prices as $price)
+                                                    <option value="{{ $price->id }}" {{ $u->from_size_id == $price->id ? 'selected' : '' }}>{{ $price->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm from-quantity" value="{{ $u->from_quantity }}" min="2" step="1">
+                                            </td>
+                                            <td class="text-center"><i class="fas fa-arrow-right text-muted"></i></td>
+                                            <td>
+                                                <select class="form-select form-select-sm to-size-select">
+                                                    @foreach($prices as $price)
+                                                    <option value="{{ $price->id }}" {{ $u->to_size_id == $price->id ? 'selected' : '' }}>{{ $price->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text">₱</span>
+                                                    <input type="number" class="form-control upgrade-surcharge" value="{{ number_format($u->surcharge ?? 0, 2, '.', '') }}" step="0.01" min="0" placeholder="0.00">
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn-remove" onclick="removeUpgradeRow(this)"><i class="fas fa-times"></i></button>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr><td colspan="6" class="text-muted text-center py-3">No size upgrade rules yet. Click "Add Upgrade Rule" below.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="mt-3">
+                                <button class="btn btn-add" onclick="addUpgradeRow()">
+                                    <i class="fas fa-plus me-1"></i> Add Upgrade Rule
+                                </button>
+                            </div>
+
+                            <div class="mt-3 text-end">
+                                <button class="btn btn-save" onclick="saveUpgrades()">
+                                    <i class="fas fa-save me-2"></i> Save Size Upgrades
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -662,67 +722,25 @@
 
     // === PRINT PRICES ===
 
-    function onMasterItemChange(priceId, select) {
-        const selectedOption = select.options[select.selectedIndex];
-        
-        if (!selectedOption.value) {
-            $(`#supplier-cost-${priceId}`).html('<span class="text-muted">—</span>');
-            $(`#sales-team-cost-${priceId}`).html('<span class="text-muted">—</span>');
-            $(`#agent-cost-${priceId}`).html('<span class="text-muted">—</span>');
-            return;
-        }
-        
-        // Get prices from data attributes
-        const supplierPrice = selectedOption.getAttribute('data-supplier');
-        const salesPrice = selectedOption.getAttribute('data-sales');
-        const agentPrice = selectedOption.getAttribute('data-agent');
-        
-        // Update display
-        $(`#supplier-cost-${priceId}`).html(supplierPrice === '—' ? '<span class="text-muted">—</span>' : '₱' + supplierPrice);
-        $(`#sales-team-cost-${priceId}`).html(salesPrice === '—' ? '<span class="text-muted">—</span>' : '₱' + salesPrice);
-        $(`#agent-cost-${priceId}`).html(agentPrice === '—' ? '<span class="text-muted">—</span>' : '₱' + agentPrice);
-        
-        // Also update the printing price record via AJAX
-        $.ajax({
-            url: '{{ route("printing.update-prices") }}',
-            method: 'POST',
-            data: {
-                _token: '{{ csrf_token() }}',
-                prices: [{
-                    id: priceId,
-                    master_item_id: selectedOption.value
-                }]
-            },
-            success: function(res) {
-                console.log('Master item linked successfully');
-            },
-            error: function(xhr) {
-                console.error('Error linking master item:', xhr.responseText);
-            }
-        });
-    }
-
     function savePrintPrices() {
         const prices = [];
-        let hasChanges = false;
 
         $('#prices-table tbody tr').each(function() {
-            const id = $(this).find('.master-item-select').data('price-id');
-            const masterItemId = $(this).find('.master-item-select').val() || null;
-            const salesPrice = parseFloat($(this).find('[data-field="price"]').val()) || 0;
+            const id = $(this).data('price-id');
+            if (!id) return;
+            const supplierCost = $(this).find('[data-field="supplier_cost"]').val();
+            const salesPrice = $(this).find('[data-field="price"]').val();
             const agentPrice = $(this).find('[data-field="agent_price"]').val();
-            const agentVal = agentPrice === '' ? null : parseFloat(agentPrice);
 
             prices.push({
                 id: id,
-                master_item_id: masterItemId,
-                price: salesPrice,
-                agent_price: agentVal
+                supplier_cost: supplierCost === '' ? null : parseFloat(supplierCost),
+                price: salesPrice === '' ? 0 : parseFloat(salesPrice),
+                agent_price: agentPrice === '' ? null : parseFloat(agentPrice)
             });
-            hasChanges = true;
         });
 
-        if (!hasChanges) {
+        if (!prices.length) {
             showMessage('No prices to save.', 'info');
             return;
         }
@@ -742,7 +760,9 @@
 
     function addNewPrintPrice() {
         const name = $('#newPrintName').val().trim();
-        const masterItemId = $('#newMasterItemId').val();
+        const supplierCost = $('#newSupplierCost').val();
+        const salesPrice = $('#newSalesPrice').val();
+        const agentCost = $('#newAgentCost').val();
 
         if (!name) {
             showMessage('Please enter a print size name.', 'error');
@@ -754,41 +774,39 @@
             method: 'POST',
             data: {
                 name: name,
-                master_item_id: masterItemId || null,
+                supplier_cost: supplierCost === '' ? null : parseFloat(supplierCost),
+                price: salesPrice === '' ? 0 : parseFloat(salesPrice),
+                agent_price: agentCost === '' ? null : parseFloat(agentCost),
                 print_type: '{{ $printType }}'
             },
             success: function(res) {
                 showMessage(res.message);
                 const p = res.price;
+                const sup = p.supplier_cost != null ? parseFloat(p.supplier_cost).toFixed(2) : '';
                 const salesPrice = parseFloat(p.price).toFixed(2);
-                const agentPrice = p.agent_price ? parseFloat(p.agent_price).toFixed(2) : '';
-                const linkedText = p.master_item_id ? ($('#newMasterItemId option:selected').text()) : '';
+                const agentPrice = (p.agent_price != null && p.agent_price !== '') ? parseFloat(p.agent_price).toFixed(2) : '';
 
                 const row = `
-                    <tr id="price-row-${p.id}">
+                    <tr id="price-row-${p.id}" data-price-id="${p.id}">
                         <td><strong>${p.name}</strong></td>
                         <td>
-                            <select class="form-select form-select-sm master-item-select" data-price-id="${p.id}" onchange="onMasterItemChange(${p.id}, this)">
-                                <option value="">-- None --</option>
-                                @foreach($productPricingOptions as $opt)
-                                <option value="{{ $opt->id }}" ${p.master_item_id == {{ $opt->id }} ? 'selected' : ''}>{{ $opt->description }}</option>
-                                @endforeach
-                            </select>
-                        </td>
-                        <td class="cost-column" id="supplier-cost-${p.id}">
-                            <span class="text-muted">—</span>
+                            <div class="input-group input-group-sm cost-column" style="width: 150px;">
+                                <span class="input-group-text">₱</span>
+                                <input type="number" class="form-control price-input" id="supplier-cost-${p.id}"
+                                       data-id="${p.id}" data-field="supplier_cost" value="${sup}" step="0.01" min="0" placeholder="Set">
+                            </div>
                         </td>
                         <td>
-                            <div class="input-group input-group-sm" style="width: 140px;">
+                            <div class="input-group input-group-sm cost-column" style="width: 150px;">
                                 <span class="input-group-text">₱</span>
-                                <input type="number" class="form-control price-input" id="price-sales-${p.id}"
+                                <input type="number" class="form-control price-input" id="sales-team-cost-${p.id}"
                                        data-id="${p.id}" data-field="price" value="${salesPrice}" step="0.01" min="0">
                             </div>
                         </td>
                         <td>
-                            <div class="input-group input-group-sm" style="width: 140px;">
+                            <div class="input-group input-group-sm cost-column" style="width: 150px;">
                                 <span class="input-group-text">₱</span>
-                                <input type="number" class="form-control price-input" id="price-agent-${p.id}"
+                                <input type="number" class="form-control price-input" id="agent-cost-${p.id}"
                                        data-id="${p.id}" data-field="agent_price" value="${agentPrice}" step="0.01" min="0" placeholder="Set">
                             </div>
                         </td>
@@ -802,7 +820,9 @@
 
                 $('#prices-table tbody').append(row);
                 $('#newPrintName').val('');
-                $('#newMasterItemId').val('');
+                $('#newSupplierCost').val('');
+                $('#newSalesPrice').val('');
+                $('#newAgentCost').val('');
             },
             error: function(xhr) {
                 showMessage(xhr.responseJSON?.message || 'Error adding print price', 'error');
@@ -891,12 +911,75 @@
         $.ajax({
             url: '{{ route("printing.update-combos") }}',
             method: 'POST',
-            data: { combos: combos, print_type: '{{ $printType }}' },
+            data: { combos: combos, price_tier: tier, print_type: '{{ $printType }}' },
             success: function(res) {
                 showMessage(res.message);
             },
             error: function(xhr) {
                 showMessage(xhr.responseJSON?.message || 'Error saving combo discounts', 'error');
+            }
+        });
+    }
+
+    // === SIZE UPGRADES ===
+
+    function addUpgradeRow() {
+        const container = $('#upgrades-container');
+        const prices = @json($prices->pluck('name', 'id'));
+        let options = '';
+        for (const [id, name] of Object.entries(prices)) {
+            options += `<option value="${id}">${name}</option>`;
+        }
+        // Remove the empty-state row if present
+        container.find('td[colspan]').closest('tr').remove();
+        const row = `
+            <tr class="upgrade-row">
+                <td><select class="form-select form-select-sm from-size-select">${options}</select></td>
+                <td><input type="number" class="form-control form-control-sm from-quantity" value="2" min="2" step="1"></td>
+                <td class="text-center"><i class="fas fa-arrow-right text-muted"></i></td>
+                <td><select class="form-select form-select-sm to-size-select">${options}</select></td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">₱</span>
+                        <input type="number" class="form-control upgrade-surcharge" value="0.00" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                </td>
+                <td class="text-end"><button class="btn-remove" onclick="removeUpgradeRow(this)"><i class="fas fa-times"></i></button></td>
+            </tr>
+        `;
+        container.append(row);
+    }
+
+    function removeUpgradeRow(btn) {
+        $(btn).closest('.upgrade-row').remove();
+    }
+
+    function saveUpgrades() {
+        const upgrades = [];
+        $('#upgrades-container .upgrade-row').each(function() {
+            const fromSize = $(this).find('.from-size-select').val();
+            const qty = parseInt($(this).find('.from-quantity').val()) || 0;
+            const toSize = $(this).find('.to-size-select').val();
+            const surcharge = parseFloat($(this).find('.upgrade-surcharge').val()) || 0;
+            if (fromSize && toSize && qty >= 2) {
+                upgrades.push({
+                    from_size_id: fromSize,
+                    from_quantity: qty,
+                    to_size_id: toSize,
+                    surcharge: surcharge
+                });
+            }
+        });
+
+        $.ajax({
+            url: '{{ route("printing.update-upgrades") }}',
+            method: 'POST',
+            data: { upgrades: upgrades, print_type: '{{ $printType }}' },
+            success: function(res) {
+                showMessage(res.message);
+            },
+            error: function(xhr) {
+                showMessage(xhr.responseJSON?.message || 'Error saving size upgrades', 'error');
             }
         });
     }
@@ -1000,7 +1083,7 @@
             url: '{{ route("printing.update-bulk") }}',
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-            data: { bulk: bulk, print_type: '{{ $printType }}' },
+            data: { bulk: bulk, price_tier: tier, print_type: '{{ $printType }}' },
             success: function(res) {
                 showMessage(res.message);
             },

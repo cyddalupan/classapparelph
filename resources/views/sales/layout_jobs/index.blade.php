@@ -62,6 +62,9 @@
 
 @section('content')
 <div class="container-fluid py-3">
+    @if(!empty($boardTabs))
+        @include('sales.prototype._board-tabs')
+    @endif
     <div class="lj-hero mb-3">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
             <div>
@@ -238,7 +241,7 @@
                 @endif
                 <div class="col-md-2">
                     <button class="btn btn-sm btn-outline-primary"><i class="fas fa-filter"></i> Filter</button>
-                    <a href="{{ ($mode ?? 'personal') === 'global' ? route('sales.layout-jobs.all') : route('sales.layout-jobs') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+                    <a href="{{ !empty($boardTabs) ? route('sales.prototype.board.layout-jobs') : (($mode ?? 'personal') === 'global' ? route('sales.layout-jobs.all') : route('sales.layout-jobs')) }}" class="btn btn-sm btn-outline-secondary">Reset</a>
                 </div>
             </form>
         </div>

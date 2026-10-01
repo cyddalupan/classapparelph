@@ -11,23 +11,26 @@ class LayoutJob extends Model
     protected $fillable = [
         'job_no', 'customer_id', 'customer_name', 'description', 'reference_image_path',
         'type', 'amount', 'amount_set_by', 'amount_set_at',
-        'payment_method', 'payment_account_id', 'payment_reference', 'payment_screenshot_path',
+        'payment_method', 'payment_account_id', 'payment_reference', 'payment_date', 'payment_screenshot_path',
         'payment_status', 'payment_verified_by', 'payment_verified_at', 'payment_reject_reason',
         'ga_user_id', 'assigned_by', 'assigned_at',
         'status', 'done_by', 'done_at',
         'payout_id', 'payout_requested_at',
         'sale_id', 'linked_to_sale_at',
+        'cancel_reason', 'cancelled_by', 'cancelled_at',
         'created_by',
     ];
 
     protected $casts = [
         'amount' => 'float',
+        'payment_date' => 'date',
         'amount_set_at' => 'datetime',
         'payment_verified_at' => 'datetime',
         'assigned_at' => 'datetime',
         'done_at' => 'datetime',
         'payout_requested_at' => 'datetime',
         'linked_to_sale_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     /* ------------------------------------------------------------------
@@ -77,6 +80,12 @@ class LayoutJob extends Model
     public function isPaid(): bool
     {
         return $this->type === 'paid';
+    }
+
+    /** Hindi tumuloy ang client — hindi na kailangan ng sale link. */
+    public function isCancelled(): bool
+    {
+        return !is_null($this->cancelled_at);
     }
 
     public function isFree(): bool

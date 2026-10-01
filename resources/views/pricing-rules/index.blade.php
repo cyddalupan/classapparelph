@@ -81,9 +81,9 @@
                 </div>
                 <div class="card-footer bg-transparent">
                     <div class="d-grid">
-                        @if($service['configured'])
-                        <a href="{{ route($service['edit_route']) }}" class="btn btn-{{ $service['color'] }}">
-                            <i class="fas fa-edit me-1"></i> Edit Rules
+                        @if($service['configured'] || !empty($service['always_link']))
+                        <a href="{{ $service['edit_url'] ?? route($service['edit_route']) }}" class="btn {{ $service['configured'] ? 'btn-' . $service['color'] : 'btn-outline-' . $service['color'] }}">
+                            <i class="fas fa-edit me-1"></i> {{ $service['link_label'] ?? 'Edit Rules' }}
                         </a>
                         @else
                         <button class="btn btn-outline-{{ $service['color'] }}" disabled>
@@ -176,8 +176,8 @@
                         <div class="col-md-6">
                             <ul class="list-unstyled mb-0">
                                 <li class="mb-2">
-                                    <i class="fas fa-times-circle text-secondary me-2"></i>
-                                    <strong>Tarpaulin & Banner:</strong> Not configured
+                                    <i class="fas fa-{{ $services['other']['configured'] ? 'check-circle text-success' : 'times-circle text-secondary' }} me-2"></i>
+                                    <strong>Other Items / Products:</strong> {{ $otherPricedCount }} of {{ $otherItemsCount }} priced
                                 </li>
                                 <li class="mb-2">
                                     <i class="fas fa-times-circle text-secondary me-2"></i>

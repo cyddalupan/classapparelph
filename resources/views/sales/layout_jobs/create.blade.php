@@ -167,6 +167,11 @@
                             <label class="form-label">Reference #</label>
                             <input type="text" name="payment_reference" class="form-control" placeholder="Transaction / ref #">
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date ng Payment <span class="lj-required">*</span></label>
+                            <input type="date" name="payment_date" class="form-control" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}">
+                            <div class="form-text">Petsa kung kailan nagbayad si client — lalabas ito sa Payment Verification.</div>
+                        </div>
                         <div class="col-12">
                             <label class="form-label">Payment Screenshot <span class="lj-required">*</span></label>
                             <input type="file" name="payment_screenshot" class="form-control" accept="image/*">

@@ -17,11 +17,14 @@
     .action-btn.danger:hover { background: #fef2f2; }
     .action-btn.warn { color: #b45309; border-color: #fde68a; }
     .action-btn.warn:hover { background: #fffbeb; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .9rem; margin-bottom: 1.25rem; }
-    .kpi-card { background: #fff; border-radius: 14px; padding: 1rem 1.1rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid #f1f5f9; }
+    /* KPI fit (Andrew 2026-10-01): sa 15" laptop (≤1366px) lumalagpas ang malalaking
+       money values sa card box. Palakihin ang minimum na lapad ng card at gawing
+       responsive ang value font-size para laging kasya — walang binago sa ibang layout. */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .9rem; margin-bottom: 1.25rem; }
+    .kpi-card { background: #fff; border-radius: 14px; padding: 1rem 1.1rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid #f1f5f9; min-width: 0; }
     .kpi-icon { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 1rem; margin-bottom: .55rem; }
     .kpi-label { font-size: .72rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
-    .kpi-value { font-size: 1.4rem; font-weight: 800; color: #1e293b; line-height: 1.15; }
+    .kpi-value { font-size: clamp(1rem, 0.8vw + 0.5rem, 1.4rem); font-weight: 800; color: #1e293b; line-height: 1.15; white-space: nowrap; }
     .kpi-value a { color: inherit; text-decoration: none; }
     .kpi-value a:hover { text-decoration: underline; }
     .kpi-sub { font-size: .75rem; color: #64748b; }
@@ -224,6 +227,18 @@
         <div class="kpi-sub">{{ number_format($releasedPcsToday) }} pcs ngayon · {{ number_format($releasedYesterday) }} order kahapon</div>
     </div>
     <div class="kpi-card">
+        <div class="kpi-icon" style="background:#ede9fe;color:#7c3aed;"><i class="fas fa-pen-ruler"></i></div>
+        <div class="kpi-label">Formatted Today</div>
+        <div class="kpi-value" style="color:#7c3aed;">{{ number_format($formattedToday) }}</div>
+        <div class="kpi-sub">{{ number_format($formattedPcsToday) }} pcs ngayon · {{ number_format($formattedYesterday) }} kahapon</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icon" style="background:#cffafe;color:#0891b2;"><i class="fas fa-print"></i></div>
+        <div class="kpi-label">Printed Today</div>
+        <div class="kpi-value" style="color:#0891b2;">{{ number_format($printedToday) }}</div>
+        <div class="kpi-sub">{{ number_format($printedPcsToday) }} pcs ngayon · {{ number_format($printedYesterday) }} order kahapon</div>
+    </div>
+    <div class="kpi-card">
         <div class="kpi-icon" style="background:#e0e7ff;color:#4f46e5;"><i class="fas fa-clock"></i></div>
         <div class="kpi-label">With Due Date</div>
         <div class="kpi-value"><a href="{{ route('sales.prototype.calendar') }}">{{ number_format($dueCount) }}</a></div>
@@ -274,6 +289,13 @@
         <div class="chart-wrap"><canvas id="releasedChart"></canvas></div>
         <div style="font-size:.75rem;color:#64748b;text-align:center;margin-top:.4rem;">
             Total: <b>{{ number_format($releasedTotal14) }}</b> order · <b>{{ number_format($releasedPcsTotal14) }}</b> pcs · Avg <b>{{ $releasedAvgPerDay }}</b> order/day — "QA pababa = hindi pa counted"
+        </div>
+    </div>
+    <div class="chart-card">
+        <div class="card-title"><i class="fas fa-print"></i> Formatted &amp; Printed per Day <span style="font-size:.72rem;color:#94a3b8;font-weight:600;">(FORMAT→PRINTING / PRINTING→PRESSING · last 14 days)</span></div>
+        <div class="chart-wrap"><canvas id="formattedPrintedChart"></canvas></div>
+        <div style="font-size:.75rem;color:#64748b;text-align:center;margin-top:.4rem;">
+            Formatted: <b>{{ number_format($formattedTotal14) }}</b> project / <b>{{ number_format($formattedPcsTotal14) }}</b> pcs · Printed: <b>{{ number_format($printedTotal14) }}</b> project / <b>{{ number_format($printedPcsTotal14) }}</b> pcs — "na-format pag umabot sa Printing; na-print pag na-tag sa Pressing"
         </div>
     </div>
 </div>
@@ -745,6 +767,69 @@
                     scales: {
                         x: { grid: { display: false }, ticks: { font: fontStyle, maxRotation: 45 } },
                         y: { position: 'left', grid: { color: gridColor }, ticks: { font: fontStyle, precision: 0 }, beginAtZero: true, title: { display: true, text: 'Orders', font: fontStyle } },
+                        y1: { position: 'right', grid: { display: false }, ticks: { font: fontStyle, precision: 0 }, beginAtZero: true, title: { display: true, text: 'Pieces', font: fontStyle } }
+                    }
+                }
+            });
+        }
+
+        // 5b. Formatted & Printed per day (Andrew 2026-09-28)
+        const fpEl = document.getElementById('formattedPrintedChart');
+        if (fpEl) {
+            new Chart(fpEl, {
+                type: 'bar',
+                data: {
+                    labels: @json($fpLabels),
+                    datasets: [
+                        {
+                            label: 'Formatted (project)',
+                            data: @json($formattedCounts),
+                            backgroundColor: 'rgba(124,58,237,.8)',
+                            borderRadius: 4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Formatted (pcs)',
+                            data: @json($formattedPcsCounts),
+                            type: 'line',
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168,85,247,.12)',
+                            fill: false,
+                            tension: .35,
+                            pointRadius: 2.5,
+                            borderWidth: 2,
+                            borderDash: [5, 3],
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Printed (project)',
+                            data: @json($printedCounts),
+                            backgroundColor: 'rgba(8,145,178,.8)',
+                            borderRadius: 4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Printed (pcs)',
+                            data: @json($printedPcsCounts),
+                            type: 'line',
+                            borderColor: '#6f42c1',
+                            backgroundColor: 'rgba(111,66,193,.12)',
+                            fill: false,
+                            tension: .35,
+                            pointRadius: 2.5,
+                            borderWidth: 2,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, font: fontStyle } } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: fontStyle, maxRotation: 45 } },
+                        y: { position: 'left', grid: { color: gridColor }, ticks: { font: fontStyle, precision: 0 }, beginAtZero: true, title: { display: true, text: 'Projects', font: fontStyle } },
                         y1: { position: 'right', grid: { display: false }, ticks: { font: fontStyle, precision: 0 }, beginAtZero: true, title: { display: true, text: 'Pieces', font: fontStyle } }
                     }
                 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventory;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -136,7 +137,7 @@ class ProductController extends Controller
         
         // Handle image upload
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('products', 'public');
+            $path = ImageOptimizer::store($request->file('image'), 'products', 'public');
             $validated['image_url'] = Storage::url($path);
         }
         
@@ -255,7 +256,7 @@ class ProductController extends Controller
                 Storage::disk('public')->delete($oldPath);
             }
             
-            $path = $request->file('image')->store('products', 'public');
+            $path = ImageOptimizer::store($request->file('image'), 'products', 'public');
             $validated['image_url'] = Storage::url($path);
         }
         

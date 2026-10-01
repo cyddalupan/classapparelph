@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\LayoutJob;
 use App\Models\LayoutJobPayout;
 use App\Models\PaymentAccount;
+use App\Services\ImageOptimizer;
 
 /**
  * Layout Job System — standalone layout jobs (bayad / libre) for Full Sublimation.
@@ -324,6 +325,8 @@ class LayoutJobController extends Controller
                 $query->where('type', 'paid')->where('payment_status', 'pending');
             } elseif ($status === 'no_amount') {
                 $query->whereNull('amount'); // libre na wala pang amount
+            } elseif ($status === 'cancelled') {
+                $query->whereNotNull('cancelled_at'); // hindi tumuloy ang client
             }
         }
         if ($ga = $request->get('ga')) {
@@ -409,6 +412,7 @@ class LayoutJobController extends Controller
             'amount'        => 'nullable|numeric|min:0',
             'payment_account_id' => 'nullable|integer|exists:payment_accounts,id',
             'payment_reference' => 'nullable|string|max:255',
+            'payment_date'  => 'nullable|date|required_if:type,paid',
             'ga_user_id'    => 'required|integer|exists:users,id',
             'reference_image' => 'nullable|image|max:5120',
             'payment_screenshot' => 'nullable|image|max:5120',
@@ -431,6 +435,9 @@ class LayoutJobController extends Controller
             if (empty($data['payment_reference']) && !$request->hasFile('payment_screenshot')) {
                 return response()->json(['error' => 'Bayad na layout — maglagay ng reference number O payment screenshot.'], 422);
             }
+            if (empty($data['payment_date'])) {
+                return response()->json(['error' => 'Bayad na layout — kailangan ng petsa ng payment (Date ng Payment).'], 422);
+            }
         }
 
         $jobNo = LayoutJob::nextJobNo();
@@ -438,13 +445,13 @@ class LayoutJobController extends Controller
         // Upload reference image
         $refPath = null;
         if ($request->hasFile('reference_image')) {
-            $refPath = $request->file('reference_image')->store('layout-jobs/reference', 'public');
+            $refPath = ImageOptimizer::store($request->file('reference_image'), 'layout-jobs/reference', 'public');
         }
 
         // Upload payment screenshot (bayad)
         $payPath = null;
         if ($request->hasFile('payment_screenshot')) {
-            $payPath = $request->file('payment_screenshot')->store('layout-jobs/payment', 'public');
+            $payPath = ImageOptimizer::store($request->file('payment_screenshot'), 'layout-jobs/payment', 'public');
         }
 
         $job = LayoutJob::create([
@@ -458,6 +465,7 @@ class LayoutJobController extends Controller
             'payment_method' => $data['type'] === 'paid' ? $accountName : null,
             'payment_account_id' => $data['type'] === 'paid' ? ($data['payment_account_id'] ?? null) : null,
             'payment_reference' => $data['type'] === 'paid' ? ($data['payment_reference'] ?? null) : null,
+            'payment_date' => $data['type'] === 'paid' ? ($data['payment_date'] ?? null) : null,
             'payment_screenshot_path' => $payPath,
             'payment_status' => $data['type'] === 'paid' ? 'pending' : null,
             'ga_user_id' => $data['ga_user_id'],
@@ -603,7 +611,7 @@ class LayoutJobController extends Controller
 
         $proofPath = null;
         if ($request->hasFile('account_proof')) {
-            $proofPath = $request->file('account_proof')->store('layout-jobs/payout-proofs', 'public');
+            $proofPath = ImageOptimizer::store($request->file('account_proof'), 'layout-jobs/payout-proofs', 'public');
         }
 
         $payout = LayoutJobPayout::create([
@@ -655,7 +663,7 @@ class LayoutJobController extends Controller
 
         $proofPath = $payout->payment_proof_path;
         if ($request->hasFile('payment_proof')) {
-            $proofPath = $request->file('payment_proof')->store('layout-jobs/payouts', 'public');
+            $proofPath = ImageOptimizer::store($request->file('payment_proof'), 'layout-jobs/payouts', 'public');
         }
 
         if ($action === 'verify') {
@@ -695,11 +703,9 @@ class LayoutJobController extends Controller
     {
         $u = auth()->user();
         $job = LayoutJob::findOrFail($id);
-        // Bayad: verified muna ang payment bago i-link. Libre: pwede agad i-link
-        // (Andrew 2026-09-17: kailangan ng sales link kahit libre para pumasok sa kita).
-        if ($job->type === 'paid' && $job->payment_status !== 'verified') {
-            return response()->json(['error' => 'I-verify muna ang payment bago i-link sa sale.'], 422);
-        }
+        // Andrew 2026-09-29: pwede nang mag-link ng sale kahit HINDI PA verified ang payment
+        // (dati: paid = verified muna). Ang credit rule (gaCredit) ay verified pa rin ang basehan,
+        // kaya safe — ang link ay para lang maitala na may kaugnay na sale.
         if ($job->sale_id) {
             return response()->json(['error' => 'Naka-link na ang job na ito sa isang sale.'], 422);
         }
@@ -726,6 +732,40 @@ class LayoutJobController extends Controller
         $job->update([
             'sale_id' => $sale->id,
             'linked_to_sale_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * USER: mark ang layout job na "Hindi Tumuloy" ang client (walang sale na na-create).
+     * Additive lang — hindi ginagalaw ang existing status/credit logic. Ang cancelled job
+     * ay hindi kailangan ng sale link (at hindi kasama sa credit dahil wala itong sale_id).
+     */
+    public function cancel(Request $request, int $id)
+    {
+        $u = auth()->user();
+        $job = LayoutJob::findOrFail($id);
+
+        if ($job->isCancelled()) {
+            return response()->json(['error' => 'Naka-marka na itong "Hindi Tumuloy".'], 422);
+        }
+        if ($job->sale_id) {
+            return response()->json(['error' => 'Naka-link na ito sa sale — hindi na pwedeng i-mark na hindi tumuloy.'], 422);
+        }
+        if ($job->payout_id) {
+            return response()->json(['error' => 'May payout request na ito — hindi na pwedeng i-cancel.'], 422);
+        }
+        // Ikaw (ang gumawa) o ang approver lang ang pwedeng mag-mark.
+        if ($job->created_by !== $u->id && !$this->canReview()) {
+            return response()->json(['error' => 'Ikaw lang ang gumawa ng job na ito (o approver) ang pwedeng mag-mark na hindi tumuloy.'], 403);
+        }
+
+        $reason = trim((string) $request->input('reason', ''));
+        $job->update([
+            'cancelled_at' => now(),
+            'cancelled_by' => $u->id,
+            'cancel_reason' => $reason !== '' ? mb_substr($reason, 0, 1000) : null,
         ]);
 
         return response()->json(['ok' => true]);

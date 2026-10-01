@@ -11,6 +11,7 @@ use App\Models\SublimationBulkDiscount;
 use App\Models\SublimationConnectedProduct;
 use App\Models\MasterItem;
 use App\Models\ProductPricing;
+use Illuminate\Support\Facades\DB;
 
 class PricingRulesController extends Controller
 {
@@ -20,6 +21,15 @@ class PricingRulesController extends Controller
      */
     public function index()
     {
+        // Other Items / Products stats (sales_box = 'other')
+        $otherItemsCount = MasterItem::where('sales_box', 'other')->whereNull('deleted_at')->count();
+        $otherPricedCount = MasterItem::where('sales_box', 'other')->whereNull('deleted_at')
+            ->whereHas('productPricings', function ($q) {
+                $q->where('is_active', true)
+                  ->where('price_tier', 'supplier_cost')
+                  ->where('base_price', '>', 0);
+            })->count();
+
         // Get all services with their configuration status
         $services = [
             'printing' => [
@@ -55,15 +65,17 @@ class PricingRulesController extends Controller
                 'edit_route' => 'pricing.rules.sublimation',
                 'color' => 'info',
             ],
-            'tarpaulin' => [
-                'name' => 'Tarpaulin & Banner',
-                'icon' => 'fas fa-flag',
-                'description' => 'Large format printing for tarps and banners',
-                'configured' => false,
-                'price_count' => 0,
+            'other' => [
+                'name' => 'Other Items / Products',
+                'icon' => 'fas fa-box-open',
+                'description' => 'Non-apparel items (mugs, tumblers, and other products)',
+                'configured' => $otherPricedCount > 0,
+                'price_count' => $otherPricedCount,
                 'combo_count' => 0,
                 'bulk_count' => 0,
-                'edit_route' => '#',
+                'edit_route' => 'pricing.rules.other',
+                'always_link' => true,
+                'link_label' => 'Set / Edit Prices',
                 'color' => 'warning',
             ],
             'embroidery' => [
@@ -90,7 +102,7 @@ class PricingRulesController extends Controller
             ],
         ];
 
-        return view('pricing-rules.index', compact('services'));
+        return view('pricing-rules.index', compact('services', 'otherItemsCount', 'otherPricedCount'));
     }
 
     /**
@@ -152,6 +164,76 @@ class PricingRulesController extends Controller
     public function tarpaulinRules()
     {
         return view('pricing-rules.tarpaulin');
+    }
+
+    /**
+     * Display Other Items / Products pricing rules (per-item).
+     */
+    public function otherRules()
+    {
+        $items = MasterItem::with(['productPricings' => function ($q) {
+                $q->where('is_active', true);
+            }])
+            ->where('sales_box', 'other')
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->get();
+
+        return view('pricing-rules.other', compact('items'));
+    }
+
+    /**
+     * Save Other Items / Products pricing rules (per-item, 3 tiers).
+     */
+    public function updateOtherPrices(Request $request)
+    {
+        $request->validate([
+            'prices' => 'array',
+            'prices.*.supplier_cost' => 'nullable|numeric|min:0',
+            'prices.*.sales_team'    => 'nullable|numeric|min:0',
+            'prices.*.agent_cost'    => 'nullable|numeric|min:0',
+        ]);
+
+        $prices = $request->input('prices', []);
+        $userId = auth()->id();
+        $tiers  = ['supplier_cost', 'sales_team', 'agent_cost'];
+        $updated = 0;
+
+        DB::transaction(function () use ($prices, $tiers, $userId, &$updated) {
+            foreach ($prices as $itemId => $tierData) {
+                $item = MasterItem::where('sales_box', 'other')->find($itemId);
+                if (!$item || !is_array($tierData)) {
+                    continue;
+                }
+                foreach ($tiers as $tier) {
+                    if (!array_key_exists($tier, $tierData)) {
+                        continue;
+                    }
+                    $value = $tierData[$tier];
+                    if ($value === '' || $value === null) {
+                        continue; // blank = keep current
+                    }
+                    $value = (float) $value;
+                    ProductPricing::updateOrCreate(
+                        ['master_item_id' => $item->id, 'price_tier' => $tier],
+                        [
+                            'base_price'        => $value,
+                            'markup_percentage' => null,
+                            'markup_amount'     => 0,
+                            'final_price'       => $value,
+                            'is_active'         => true,
+                            'created_by'        => $userId,
+                            'updated_by'        => $userId,
+                        ]
+                    );
+                    $updated++;
+                }
+            }
+        });
+
+        return redirect()->route('pricing.rules.other')
+            ->with('success', "Other Items pricing saved ({$updated} price(s) updated).");
     }
 
     /**

@@ -9,7 +9,7 @@ class PrintingPrice extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['name', 'price', 'agent_price', 'order', 'active', 'print_type', 'master_item_id'];
+    protected $fillable = ['name', 'price', 'supplier_cost', 'agent_price', 'order', 'active', 'print_type', 'master_item_id'];
     
     protected $casts = [
         'price' => 'decimal:2',
