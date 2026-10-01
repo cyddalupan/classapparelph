@@ -11847,7 +11847,11 @@ SQL;
             })
             ->orderByDesc('created_at');
 
-        $sales = $query->paginate(100)->withQueryString();
+        // Walang pagination dito (dati paginate(100)) — para TUGMA ang scope ng page sa sidebar
+        // badge (NotificationComposer::specialPriceUncheckedCount, na ALL sales). Dati: badge =
+        // lahat (89 lines) pero page 1 = 51 lines lang → badge=2 / page=0. Maliit lang naman ang set.
+        // Andrew 2026-10-01.
+        $sales = $query->get();
 
         $lines = $this->buildSpecialPriceLines($sales);
 

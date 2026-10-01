@@ -90,7 +90,7 @@
         </div>
         <div class="col-md-3">
             <div class="sp-stat">
-                <div class="val">{{ $sales->total() }}</div>
+                <div class="val">{{ $sales->count() }}</div>
                 <div class="lbl">Orders (may flag)</div>
             </div>
         </div>
@@ -162,9 +162,9 @@
         </div>
     @endif
 
-    <div class="mt-3">
-        {{ $sales->links() }}
-    </div>
+    @if($q)
+        <div class="mt-3 text-muted small"><i class="fas fa-filter me-1"></i>Naka-filter sa search: <strong>{{ $q }}</strong> — <a href="{{ route('sales.prototype.special-price-list') }}">ipakita lahat</a></div>
+    @endif
 
 </div>
 @endsection
