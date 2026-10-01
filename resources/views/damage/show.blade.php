@@ -60,7 +60,11 @@
                     <div class="row mb-3">
                         <div class="col-md-4"><small class="text-muted">Shop</small><div class="fw-bold">{{ $report->shop->name ?? '—' }}</div></div>
                         <div class="col-md-4"><small class="text-muted">Severity</small>
-                            <div class="fw-bold">{{ ucfirst($report->severity) }} <span class="badge bg-danger ms-1">{{ $report->points }} pt</span></div>
+                            <div class="fw-bold">{{ ucfirst($report->severity) }} <span class="badge bg-danger ms-1">{{ $report->points }} pt</span>
+                                @if($report->severityIsLocked())
+                                    <span class="badge bg-dark ms-1" title="Naka-lock base sa amount ({{ \App\Models\DamageReport::bandLabel($report->severity) }})"><i class="fas fa-lock"></i> lock</span>
+                                @endif
+                            </div>
                         </div>
                         <div class="col-md-4"><small class="text-muted">Category</small><div class="fw-bold">{{ \App\Models\DamageReport::CATEGORIES[$report->category] ?? $report->category }}</div></div>
                     </div>
@@ -189,7 +193,8 @@
                                 <div class="mb-2" id="amountFields"></div>
                                 <div class="mb-2">
                                     <label class="form-label small">Total Damage Amount (₱)</label>
-                                    <input type="number" step="0.01" min="0" name="damage_amount" class="form-control form-control-sm" placeholder="0.00">
+                                    <input type="number" step="0.01" min="0" name="damage_amount" id="review_damage_amount" class="form-control form-control-sm" placeholder="0.00">
+                                    <small class="text-muted">Kapag may amount, awtomatikong naka-lock ang severity base dito.</small>
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">Quantity Damaged</label>
@@ -197,11 +202,12 @@
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">Severity</label>
-                                    <select name="severity" class="form-select form-select-sm">
+                                    <select name="severity" id="review_severity" class="form-select form-select-sm">
                                         @foreach(\App\Models\DamageReport::SEVERITIES as $val => $label)
-                                            <option value="{{ $val }}" {{ $report->severity === $val ? 'selected' : '' }}>{{ $label }} ({{ \App\Models\DamageReport::SEVERITY_POINTS[$val] }} pt)</option>
+                                            <option value="{{ $val }}" {{ $report->severity === $val ? 'selected' : '' }}>{{ $label }} ({{ \App\Models\DamageReport::SEVERITY_POINTS[$val] }} pt) · {{ \App\Models\DamageReport::bandLabel($val) }}</option>
                                         @endforeach
                                     </select>
+                                    <small class="text-muted" id="sevLockHint">Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+</small>
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">Category</label>
@@ -392,6 +398,49 @@ document.addEventListener('DOMContentLoaded', function() {
                 .catch(function() { saleResult.innerHTML = ''; });
         });
     }
+
+    // Severity auto-lock base sa damage amount (Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+)
+    (function() {
+        var amt = document.getElementById('review_damage_amount');
+        var sel = document.getElementById('review_severity');
+        var hint = document.getElementById('sevLockHint');
+        var amountFields = document.getElementById('amountFields');
+        if (!amt || !sel) return;
+        function band(v) {
+            v = parseFloat(v || 0);
+            if (!(v > 0)) return null;
+            if (v <= 1000) return 'minor';
+            if (v <= 10000) return 'major';
+            return 'critical';
+        }
+        function effective() {
+            var v = parseFloat(amt.value || 0);
+            if (v > 0) return v;
+            var sum = 0;
+            if (amountFields) amountFields.querySelectorAll('input[name="amounts[]"]').forEach(function(i) { sum += parseFloat(i.value || 0); });
+            return sum;
+        }
+        function upd() {
+            var v = effective();
+            var b = band(v);
+            if (b) {
+                sel.value = b;
+                sel.style.pointerEvents = 'none';
+                sel.classList.add('bg-light');
+                sel.setAttribute('tabindex', '-1');
+                if (hint) hint.innerHTML = '<i class="fas fa-lock text-dark"></i> Naka-lock ang severity base sa ₱' + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ': <strong>' + b.toUpperCase() + '</strong>';
+            } else {
+                sel.style.pointerEvents = '';
+                sel.classList.remove('bg-light');
+                sel.removeAttribute('tabindex');
+                if (hint) hint.innerHTML = 'Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+';
+            }
+        }
+        amt.addEventListener('input', upd);
+        amt.addEventListener('change', upd);
+        if (amountFields) amountFields.addEventListener('input', upd);
+        upd();
+    })();
 });
 </script>
 @endsection

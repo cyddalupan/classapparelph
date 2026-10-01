@@ -390,12 +390,19 @@ class DamageReportController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $report) {
-            $points = DamageReport::SEVERITY_POINTS[$request->severity] ?? 0;
+            // Severity: kapag may amount, i-derive base sa SEVERITY_BANDS (Minor ₱1–1,000 ·
+            // Major ₱1,001–10,000 · Critical ₱10,001+) — NAKA-LOCK, hindi na manual.
+            // Kung walang amount, gamitin ang manual na pinili. Andrew 2026-10-01.
+            $amount = $request->filled('damage_amount')
+                ? (float) $request->damage_amount
+                : (float) collect($request->amounts ?? [])->sum();
+            $severity = DamageReport::severityForAmount($amount) ?? $request->severity;
+            $points = DamageReport::SEVERITY_POINTS[$severity] ?? 0;
 
             $report->update([
                 'reviewer_id' => auth()->id(),
                 'category' => $request->category,
-                'severity' => $request->severity,
+                'severity' => $severity,
                 'points' => $points,
                 'damage_amount' => $request->filled('damage_amount') ? $request->damage_amount : null,
                 'quantity' => $request->filled('quantity') ? $request->integer('quantity') : $report->quantity,
@@ -418,7 +425,8 @@ class DamageReportController extends Controller
         DamageReportComment::create([
             'damage_report_id' => $report->id,
             'user_id' => auth()->id(),
-            'comment' => 'Report issued — accountable user(s) set, damage amount recorded, ' . $report->points . ' pt(s).',
+            'comment' => 'Report issued — accountable user(s) set, damage amount recorded, ' . $report->points . ' pt(s).'
+                . ($report->hasAmount() ? ' Severity: ' . ucfirst($report->severity) . ' (naka-lock base sa ₱' . number_format($report->damage_amount, 2) . ').' : ''),
         ]);
 
         return redirect()->route('damage.show', $report->id)
