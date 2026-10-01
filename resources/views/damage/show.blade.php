@@ -153,7 +153,12 @@
                                     <strong>{{ $au->user->name ?? 'Unknown' }}</strong>
                                     <div class="small text-muted">
                                         @if($au->amount_share > 0)
-                                            ₱{{ number_format($au->amount_share, 2) }}
+                                            @php $q = max(1, (int) ($report->quantity ?? 1)); @endphp
+                                            @if($q > 1)
+                                                ₱{{ number_format($au->amount_share / $q, 2) }} each × {{ $q }} pc = <strong>₱{{ number_format($au->amount_share, 2) }}</strong>
+                                            @else
+                                                ₱{{ number_format($au->amount_share, 2) }}
+                                            @endif
                                         @else
                                             No amount
                                         @endif
@@ -207,11 +212,11 @@
                                 <div class="mb-2">
                                     <label class="form-label small">Total Damage Amount (₱)</label>
                                     <input type="number" step="0.01" min="0" name="damage_amount" id="review_damage_amount" class="form-control form-control-sm" placeholder="0.00">
-                                    <small class="text-muted">Kapag may amount, awtomatikong naka-lock ang severity base dito.</small>
+                                    <small class="text-muted">Awtomatikong kinakalkula mula sa <em>Amount / pc</em> × Quantity. Pwede ring manu-manong i-type — doon naka-lock ang severity base dito.</small>
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">Quantity Damaged</label>
-                                    <input type="number" min="1" name="quantity" class="form-control form-control-sm" value="{{ $report->quantity ?? '' }}" placeholder="Ilang pcs ang nadamage">
+                                    <input type="number" min="1" name="quantity" id="review_quantity" class="form-control form-control-sm" value="{{ $report->quantity ?? '' }}" placeholder="Ilang pcs ang nadamage">
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small">Severity</label>
@@ -282,6 +287,7 @@
                                 <div class="mb-2">
                                     <label class="form-label small">Total Damage Amount (₱)</label>
                                     <input type="number" step="0.01" min="0" name="damage_amount" id="adjust_damage_amount" class="form-control form-control-sm" value="{{ $report->damage_amount !== null ? number_format($report->damage_amount, 2, '.', '') : '' }}" placeholder="0.00">
+                                    <input type="hidden" id="adjust_qty" value="{{ max(1, (int) ($report->quantity ?? 1)) }}">
                                     <small class="text-muted" id="adjustSevHint">Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+</small>
                                 </div>
                                 <div class="mb-2" id="adjAmountFields"></div>
@@ -421,17 +427,20 @@ document.addEventListener('DOMContentLoaded', function() {
             selected.forEach(function(s) {
                 var wrap = document.createElement('div');
                 wrap.className = 'mb-1';
+                wrap.setAttribute('data-amt-wrap', '1');
                 var label = document.createElement('label');
                 label.className = 'form-label small mb-0';
-                label.textContent = 'Amount \u2014 ' + s.name + ' (\u20b1)';
+                label.textContent = 'Amount / pc \u2014 ' + s.name + ' (\u20b1)';
                 var input = document.createElement('input');
                 input.type = 'number'; input.step = '0.01'; input.min = '0';
                 input.name = 'amounts[]';
                 input.className = 'form-control form-control-sm';
-                input.placeholder = '0.00';
+                input.placeholder = '0.00 (bawat piraso)';
                 if (s.amount !== undefined && s.amount !== null && s.amount !== '') input.value = s.amount;
-                input.addEventListener('input', function() { s.amount = this.value; });
-                wrap.appendChild(label); wrap.appendChild(input);
+                input.addEventListener('input', function() { s.amount = this.value; if (cfg.onAmountsChange) cfg.onAmountsChange(); });
+                var hint = document.createElement('small');
+                hint.className = 'text-muted d-block amt-each';
+                wrap.appendChild(label); wrap.appendChild(input); wrap.appendChild(hint);
                 amountFields.appendChild(wrap);
             });
         }
@@ -504,7 +513,8 @@ document.addEventListener('DOMContentLoaded', function() {
         hidden: document.getElementById('accSelected'),
         amountFields: document.getElementById('amountFields'),
         dataEl: document.getElementById('accUsersData'),
-        seed: []
+        seed: [],
+        onAmountsChange: function() { if (window.reviewUpdate) window.reviewUpdate(); }
     });
 
     // Adjust form picker (issued / acknowledged / contested) — naka-seed sa kasalukuyang users
@@ -520,9 +530,61 @@ document.addEventListener('DOMContentLoaded', function() {
             hidden: document.getElementById('adjSelected'),
             amountFields: document.getElementById('adjAmountFields'),
             dataEl: document.getElementById('adjUsersData'),
-            seed: seed
+            seed: seed,
+            onAmountsChange: function() { if (window.adjustUpdate) window.adjustUpdate(); }
         });
     })();
+
+    // Amount / pc × Quantity → awtomatikong Total. (Naka-issue na total = suma ng per-piece.)
+    function fmtPeso(v) { return '₱' + (Math.round(v * 100) / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+    function wireAmountsTotal(amountFieldsEl, totalEl, qtyEl) {
+        function qty() { return Math.max(1, parseInt(qtyEl && qtyEl.value) || 1); }
+        function update() {
+            if (!amountFieldsEl) return null;
+            var sum = 0, any = false;
+            amountFieldsEl.querySelectorAll('[data-amt-wrap]').forEach(function(row) {
+                var input = row.querySelector('input[name="amounts[]"]');
+                var hint = row.querySelector('.amt-each');
+                var raw = input ? input.value : '';
+                var v = parseFloat(raw || 0);
+                if (raw !== '' && v > 0) {
+                    any = true;
+                    sum += v * qty();
+                    if (hint) hint.textContent = fmtPeso(v) + ' × ' + qty() + ' pc = ' + fmtPeso(v * qty());
+                } else if (hint) {
+                    hint.textContent = '';
+                }
+            });
+            if (any && totalEl) {
+                window.__settingTotal = true;
+                totalEl.value = (Math.round(sum * 100) / 100).toFixed(2);
+                totalEl.dispatchEvent(new Event('input', { bubbles: true }));
+                window.__settingTotal = false;
+            }
+            return any ? sum : null;
+        }
+        if (qtyEl) qtyEl.addEventListener('input', update);
+        if (totalEl) totalEl.addEventListener('input', function() {
+            if (window.__settingTotal) return; // programmatic set lang
+            // Manu-manong total → i-clear ang per-piece amounts para hindi mag-override.
+            if (amountFieldsEl) amountFieldsEl.querySelectorAll('input[name="amounts[]"]').forEach(function(i) { i.value = ''; });
+            if (window.reviewUpdate) setTimeout(window.reviewUpdate, 0);
+            if (window.adjustUpdate) setTimeout(window.adjustUpdate, 0);
+        });
+        return update;
+    }
+    window.reviewUpdate = wireAmountsTotal(
+        document.getElementById('amountFields'),
+        document.getElementById('review_damage_amount'),
+        document.getElementById('review_quantity')
+    );
+    window.adjustUpdate = wireAmountsTotal(
+        document.getElementById('adjAmountFields'),
+        document.getElementById('adjust_damage_amount'),
+        document.getElementById('adjust_qty')
+    );
+    window.reviewUpdate();
+    window.adjustUpdate();
 
     // Sale search
     var saleSearch = document.getElementById('sale_search');

@@ -44,33 +44,40 @@ class DamageReportController extends Controller
      * Auto-split: kung may Total Damage Amount at maraming tao pero walang
      * per-user amounts, hahatiin nang pantay-pantay sa kanila. Andrew 2026-10-01.
      */
-    private function syncAccountableUsers(DamageReport $report, array $userIds, array $amounts, float $totalAmount): void
+    private function syncAccountableUsers(DamageReport $report, array $userIds, array $shareByUser, float $totalAmount): void
     {
         $userIds = array_values(array_filter($userIds, fn ($v) => $v !== null && $v !== ''));
 
-        $shares = [];
-        foreach ($userIds as $idx => $uid) {
-            $raw = $amounts[$idx] ?? null;
-            $shares[$uid] = ($raw === null || $raw === '') ? null : (float) $raw;
+        // Normalize keyed by user id.
+        $provided = [];
+        foreach ($userIds as $uid) {
+            if (array_key_exists($uid, $shareByUser) && $shareByUser[$uid] !== null && $shareByUser[$uid] !== '') {
+                $provided[$uid] = (float) $shareByUser[$uid];
+            }
         }
 
-        $anyProvided = collect($shares)->contains(fn ($v) => $v !== null && $v > 0);
-        $count = count($shares);
+        $anyProvided = collect($provided)->contains(fn ($v) => $v > 0);
+        $count = count($userIds);
+        $shares = [];
 
-        if (!$anyProvided && $totalAmount > 0 && $count > 0) {
+        if ($anyProvided) {
+            foreach ($userIds as $uid) {
+                $shares[$uid] = round((float) ($provided[$uid] ?? 0), 2);
+            }
+        } elseif ($totalAmount > 0 && $count > 0) {
             // Pantay na hati; ang natitirang sentimo ay ibinibigay sa huling tao.
             $base = floor(($totalAmount / $count) * 100) / 100;
             $running = 0.0;
             $i = 0;
-            foreach ($shares as $uid => $_) {
+            foreach ($userIds as $uid) {
                 $i++;
                 $share = ($i === $count) ? round($totalAmount - $running, 2) : $base;
                 $running += $share;
                 $shares[$uid] = $share;
             }
         } else {
-            foreach ($shares as $uid => $v) {
-                $shares[$uid] = $v ?? 0;
+            foreach ($userIds as $uid) {
+                $shares[$uid] = 0;
             }
         }
 
@@ -466,12 +473,24 @@ class DamageReportController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $report) {
-            // Severity: kapag may amount, i-derive base sa SEVERITY_BANDS (Minor ₱1–1,000 ·
-            // Major ₱1,001–10,000 · Critical ₱10,001+) — NAKA-LOCK, hindi na manual.
-            // Kung walang amount, gamitin ang manual na pinili. Andrew 2026-10-01.
-            $amount = $request->filled('damage_amount')
-                ? (float) $request->damage_amount
-                : (float) collect($request->amounts ?? [])->sum();
+            // Per-user amount = PER PIECE (rate). Awtomatikong minu-multiply sa quantity.
+            // Hal. ₱200/pc × 6 pcs = ₱1,200 bawat accountable user. Andrew 2026-10-01.
+            $qty = $request->filled('quantity') ? max(1, (int) $request->integer('quantity')) : 1;
+            $rates = $request->amounts ?? [];
+            $anyRate = collect($rates)->contains(fn ($v) => $v !== null && $v !== '' && (float) $v > 0);
+
+            $shareByUser = [];
+            if ($anyRate) {
+                foreach ($request->user_ids as $idx => $uid) {
+                    $shareByUser[$uid] = round(((float) ($rates[$idx] ?? 0)) * $qty, 2);
+                }
+            }
+
+            // Total damage: suma ng (per-piece × qty) kung may rates, kung hindi ay manual.
+            $amount = !empty($shareByUser)
+                ? (float) array_sum($shareByUser)
+                : ($request->filled('damage_amount') ? (float) $request->damage_amount : 0.0);
+
             $severity = DamageReport::severityForAmount($amount) ?? $request->severity;
             $points = DamageReport::SEVERITY_POINTS[$severity] ?? 0;
 
@@ -480,14 +499,14 @@ class DamageReportController extends Controller
                 'category' => $request->category,
                 'severity' => $severity,
                 'points' => $points,
-                'damage_amount' => $request->filled('damage_amount') ? $request->damage_amount : null,
+                'damage_amount' => $amount > 0 ? $amount : null,
                 'quantity' => $request->filled('quantity') ? $request->integer('quantity') : $report->quantity,
                 'review_notes' => $request->review_notes,
                 'status' => 'issued',
             ]);
 
             // Sync accountable users — pinapanatili ang acknowledge_status ng existing.
-            $this->syncAccountableUsers($report, $request->user_ids, $request->amounts ?? [], $amount);
+            $this->syncAccountableUsers($report, $request->user_ids, $shareByUser, $amount);
         });
 
         DamageReportComment::create([
@@ -619,35 +638,39 @@ class DamageReportController extends Controller
         $oldAmount = $report->damage_amount;
         $oldUsers = DamageReportUser::where('damage_report_id', $report->id)->pluck('user_id')->sort()->values()->all();
 
-        // Bagong total: kung may damage_amount, iyon; kung hindi, suma ng shares.
-        $newAmount = $request->filled('damage_amount')
-            ? (float) $request->damage_amount
-            : (float) collect($request->amounts ?? [])->sum();
+        // Per-user amount = PER PIECE. I-multiply sa quantity ng report.
+        $qty = max(1, (int) ($report->quantity ?? 1));
+        $rates = $request->amounts ?? [];
+        $anyRate = collect($rates)->contains(fn ($v) => $v !== null && $v !== '' && (float) $v > 0);
+
+        $shareByUser = [];
+        if ($anyRate && $request->filled('user_ids')) {
+            foreach ($request->user_ids as $idx => $uid) {
+                $shareByUser[$uid] = round(((float) ($rates[$idx] ?? 0)) * $qty, 2);
+            }
+        }
+
+        // Bagong total: suma ng (per-piece × qty) kung may rates; kung hindi, manual na total.
+        $newAmount = !empty($shareByUser)
+            ? (float) array_sum($shareByUser)
+            : ($request->filled('damage_amount')
+                ? (float) $request->damage_amount
+                : (float) collect($rates)->sum());
 
         // Severity ay diniderive pa rin sa amount (naka-lock sa bands).
         $severity = DamageReport::severityForAmount($newAmount) ?? $report->severity;
         $points = DamageReport::SEVERITY_POINTS[$severity] ?? $report->points;
 
-        DB::transaction(function () use ($request, $report, $newAmount, $severity, $points) {
+        DB::transaction(function () use ($request, $report, $newAmount, $severity, $points, $shareByUser) {
             $report->update([
-                'damage_amount' => $request->filled('damage_amount') ? $newAmount : $report->damage_amount,
+                'damage_amount' => $newAmount > 0 ? $newAmount : null,
                 'severity' => $severity,
                 'points' => $points,
             ]);
 
-            // Kapag may bagong listahan ng accountable users (pickers), i-sync.
+            // Kapag may listahan ng accountable users (picker), i-sync.
             if ($request->filled('user_ids')) {
-                $this->syncAccountableUsers($report, $request->user_ids, $request->amounts ?? [], $newAmount);
-            } elseif ($request->filled('amounts')) {
-                // Fallback: i-update lang ang shares ng existing.
-                foreach ($request->amounts as $idx => $amount) {
-                    if (!isset($request->adjust_user_ids[$idx])) {
-                        continue;
-                    }
-                    DamageReportUser::where('damage_report_id', $report->id)
-                        ->where('user_id', $request->adjust_user_ids[$idx])
-                        ->update(['amount_share' => $amount ?? 0]);
-                }
+                $this->syncAccountableUsers($report, $request->user_ids, $shareByUser, $newAmount);
             }
         });
 
