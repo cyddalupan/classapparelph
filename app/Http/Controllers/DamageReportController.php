@@ -36,6 +36,64 @@ class DamageReportController extends Controller
         return $user && ($user->role === 'admin' || (method_exists($user, 'isAdmin') && $user->isAdmin()));
     }
 
+    /**
+     * I-sync ang accountable users ng report: idinadagdag ang bago, tinatanggal
+     * ang wala na sa selection, at hindi ginagalaw ang acknowledge_status ng
+     * existing (para hindi mawala ang na-acknowledge/na-contest).
+     *
+     * Auto-split: kung may Total Damage Amount at maraming tao pero walang
+     * per-user amounts, hahatiin nang pantay-pantay sa kanila. Andrew 2026-10-01.
+     */
+    private function syncAccountableUsers(DamageReport $report, array $userIds, array $amounts, float $totalAmount): void
+    {
+        $userIds = array_values(array_filter($userIds, fn ($v) => $v !== null && $v !== ''));
+
+        $shares = [];
+        foreach ($userIds as $idx => $uid) {
+            $raw = $amounts[$idx] ?? null;
+            $shares[$uid] = ($raw === null || $raw === '') ? null : (float) $raw;
+        }
+
+        $anyProvided = collect($shares)->contains(fn ($v) => $v !== null && $v > 0);
+        $count = count($shares);
+
+        if (!$anyProvided && $totalAmount > 0 && $count > 0) {
+            // Pantay na hati; ang natitirang sentimo ay ibinibigay sa huling tao.
+            $base = floor(($totalAmount / $count) * 100) / 100;
+            $running = 0.0;
+            $i = 0;
+            foreach ($shares as $uid => $_) {
+                $i++;
+                $share = ($i === $count) ? round($totalAmount - $running, 2) : $base;
+                $running += $share;
+                $shares[$uid] = $share;
+            }
+        } else {
+            foreach ($shares as $uid => $v) {
+                $shares[$uid] = $v ?? 0;
+            }
+        }
+
+        $existing = DamageReportUser::where('damage_report_id', $report->id)->get()->keyBy('user_id');
+
+        DamageReportUser::where('damage_report_id', $report->id)
+            ->whereNotIn('user_id', array_keys($shares) ?: [0])
+            ->delete();
+
+        foreach ($shares as $uid => $share) {
+            if ($existing->has($uid)) {
+                $existing[$uid]->update(['amount_share' => $share]);
+            } else {
+                DamageReportUser::create([
+                    'damage_report_id' => $report->id,
+                    'user_id' => $uid,
+                    'amount_share' => $share,
+                    'acknowledge_status' => 'pending',
+                ]);
+            }
+        }
+    }
+
     /** The shop this user manages, if any (sales_departments.manager_id). */
     private function managedShop(): ?SalesDepartment
     {
@@ -317,9 +375,10 @@ class DamageReportController extends Controller
         $shops = SalesDepartment::where('is_active', true)->get();
         $users = User::where('is_active', true)->orderBy('name')->get();
         $isTopAuthority = $this->isTopAuthority();
+        $canReview = $this->isReviewer();
 
         return view('damage.show', compact(
-            'report', 'managedShop', 'canEdit', 'isAccountable', 'myAccountability', 'shops', 'users', 'isTopAuthority'
+            'report', 'managedShop', 'canEdit', 'isAccountable', 'myAccountability', 'shops', 'users', 'isTopAuthority', 'canReview'
         ));
     }
 
@@ -333,7 +392,9 @@ class DamageReportController extends Controller
             'description' => 'required|string|max:5000',
             'severity' => 'required|in:minor,major,critical',
             'category' => 'required|string|max:50',
-            'sale_id' => 'required|exists:prototype_sales,id',
+            // Sale tag: kailangan lang para sa shop manager bago ma-review (anti-duplicate).
+            // Ang reviewer/CEO ay hindi na kailangan i-tag para maka-edit.
+            'sale_id' => $this->isReviewer() ? 'nullable|exists:prototype_sales,id' : 'required|exists:prototype_sales,id',
             'evidence' => 'nullable|image|max:5120',
             'quantity' => 'nullable|integer|min:1',
             'involved_position' => 'nullable|string|max:100',
@@ -356,7 +417,7 @@ class DamageReportController extends Controller
 
         $report->update([
             'description' => $request->description,
-            'severity' => $request->severity,
+            'severity' => $report->hasAmount() ? ($report->derivedSeverity() ?? $request->severity) : $request->severity,
             'category' => $request->category,
             'sale_id' => $request->sale_id ?: null,
             'quantity' => $request->filled('quantity') ? $request->integer('quantity') : null,
@@ -425,16 +486,8 @@ class DamageReportController extends Controller
                 'status' => 'issued',
             ]);
 
-            // Replace accountable users
-            DamageReportUser::where('damage_report_id', $report->id)->delete();
-            foreach ($request->user_ids as $idx => $userId) {
-                DamageReportUser::create([
-                    'damage_report_id' => $report->id,
-                    'user_id' => $userId,
-                    'amount_share' => $request->amounts[$idx] ?? 0,
-                    'acknowledge_status' => 'pending',
-                ]);
-            }
+            // Sync accountable users — pinapanatili ang acknowledge_status ng existing.
+            $this->syncAccountableUsers($report, $request->user_ids, $request->amounts ?? [], $amount);
         });
 
         DamageReportComment::create([
@@ -556,12 +609,15 @@ class DamageReportController extends Controller
 
         $request->validate([
             'damage_amount' => 'nullable|numeric|min:0',
+            'user_ids' => 'nullable|array|min:1',
+            'user_ids.*' => 'exists:users,id',
             'amounts' => 'nullable|array',
             'amounts.*' => 'nullable|numeric|min:0',
             'adjust_reason' => 'nullable|string|max:1000',
         ]);
 
         $oldAmount = $report->damage_amount;
+        $oldUsers = DamageReportUser::where('damage_report_id', $report->id)->pluck('user_id')->sort()->values()->all();
 
         // Bagong total: kung may damage_amount, iyon; kung hindi, suma ng shares.
         $newAmount = $request->filled('damage_amount')
@@ -579,8 +635,11 @@ class DamageReportController extends Controller
                 'points' => $points,
             ]);
 
-            // I-update ang per-user shares kung may binigay.
-            if ($request->filled('amounts')) {
+            // Kapag may bagong listahan ng accountable users (pickers), i-sync.
+            if ($request->filled('user_ids')) {
+                $this->syncAccountableUsers($report, $request->user_ids, $request->amounts ?? [], $newAmount);
+            } elseif ($request->filled('amounts')) {
+                // Fallback: i-update lang ang shares ng existing.
                 foreach ($request->amounts as $idx => $amount) {
                     if (!isset($request->adjust_user_ids[$idx])) {
                         continue;
@@ -592,10 +651,17 @@ class DamageReportController extends Controller
             }
         });
 
+        $newUsers = DamageReportUser::where('damage_report_id', $report->id)->pluck('user_id')->sort()->values()->all();
         $fmt = fn ($v) => '₱' . number_format((float) $v, 2);
         $note = 'Penalty adjusted mula ' . $fmt($oldAmount) . ' → ' . $fmt($newAmount)
-            . ' (Severity: ' . ucfirst($severity) . ').'
-            . ($request->adjust_reason ? ' Dahilan: ' . $request->adjust_reason : '');
+            . ' (Severity: ' . ucfirst($severity) . ').';
+        if ($oldUsers !== $newUsers) {
+            $names = \App\Models\User::whereIn('id', $newUsers)->pluck('name')->implode(', ');
+            $note .= ' Accountable users: ' . ($names ?: '—') . '.';
+        }
+        if ($request->adjust_reason) {
+            $note .= ' Dahilan: ' . $request->adjust_reason;
+        }
 
         DamageReportComment::create([
             'damage_report_id' => $report->id,
@@ -604,7 +670,7 @@ class DamageReportController extends Controller
         ]);
 
         return redirect()->route('damage.show', $report->id)
-            ->with('success', 'Na-adjust na ang penalty — ' . $fmt($oldAmount) . ' → ' . $fmt($newAmount) . '.');
+            ->with('success', 'Na-adjust na ang penalty / accountable users — ' . $fmt($oldAmount) . ' → ' . $fmt($newAmount) . '.');
     }
 
     public function comment(Request $request, DamageReport $report)

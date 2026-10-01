@@ -260,32 +260,31 @@
                         </div>
                     </div>
 
-                    <!-- Reviewer: adjust penalty / bayad pagkatapos ma-issue -->
+                    <!-- Reviewer: adjust penalty /accountable users pagkatapos ma-issue -->
                     <div class="card shadow-sm mb-4 border-info">
-                        <div class="card-header bg-info bg-opacity-10 fw-bold"><i class="fas fa-sliders-h me-1"></i>Adjust Penalty / Bayad</div>
+                        <div class="card-header bg-info bg-opacity-10 fw-bold"><i class="fas fa-sliders-h me-1"></i>Adjust Penalty / Bayad &amp; Accountable Users</div>
                         <div class="card-body">
-                            <p class="small text-muted mb-2">Kung napag-usapan na at napagkasunduang babaan (o baguhin) ang penalty, i-edit lang ang <strong>Total Damage Amount</strong> o ang hati kada tao. Awtomatikong magbabago ang severity base sa amount.</p>
+                            <p class="small text-muted mb-2">Pwede mong baguhin ang <strong>Total Damage Amount</strong>, o <strong>magdagdag / mag-alis ng accountable user</strong> (hal. kung may napatunayang kasama, o hindi pala siya ang gumawa). Awtomatikong magbabago ang severity base sa amount.</p>
                             <form method="POST" action="{{ route('damage.adjust', $report->id) }}">
                                 @csrf
+                                <div class="mb-2">
+                                    <label class="form-label small">Accountable User(s)</label>
+                                    <div class="border rounded p-1 position-relative" id="adjUserPicker">
+                                        <div id="adjChips" class="d-flex flex-wrap gap-1"></div>
+                                        <input type="text" id="adjSearch" class="form-control form-control-sm border-0 shadow-none" placeholder="I-type ang pangalan para magdagdag…" autocomplete="off">
+                                        <div id="adjResults" class="list-group position-absolute w-100 shadow" style="z-index:1050;max-height:280px;overflow:auto;display:none;left:0;top:100%;"></div>
+                                    </div>
+                                    <div id="adjSelected" style="display:none;"></div>
+                                    <small class="text-muted">I-type → piliin sa listahan para magdagdag. I-click ang ✕ para alisin (hindi na sisingilin).</small>
+                                </div>
+                                <script id="adjUsersData" type="application/json">{!! json_encode($users->map(fn($u) => ['id' => $u->id, 'name' => $u->name, 'role' => $u->role])->values(), JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) !!}</script>
+                                <script id="adjSeedData" type="application/json">{!! json_encode($report->accountableUsers->map(fn($au) => ['id' => $au->user_id, 'name' => $au->user->name ?? ('User #' . $au->user_id), 'amount' => (float) $au->amount_share])->values(), JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) !!}</script>
                                 <div class="mb-2">
                                     <label class="form-label small">Total Damage Amount (₱)</label>
                                     <input type="number" step="0.01" min="0" name="damage_amount" id="adjust_damage_amount" class="form-control form-control-sm" value="{{ $report->damage_amount !== null ? number_format($report->damage_amount, 2, '.', '') : '' }}" placeholder="0.00">
                                     <small class="text-muted" id="adjustSevHint">Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+</small>
                                 </div>
-                                @php $accUsers = $report->accountableUsers; @endphp
-                                @if($accUsers->count())
-                                    <div class="mb-2">
-                                        <label class="form-label small">Hati kada Accountable User (₱)</label>
-                                        @foreach($accUsers as $i => $au)
-                                            <div class="input-group input-group-sm mb-1">
-                                                <span class="input-group-text" style="min-width:150px;">{{ $au->user->name ?? 'User #' . $au->user_id }}</span>
-                                                <input type="hidden" name="adjust_user_ids[]" value="{{ $au->user_id }}">
-                                                <input type="number" step="0.01" min="0" name="amounts[]" class="form-control adjust-share" value="{{ number_format($au->amount_share, 2, '.', '') }}">
-                                            </div>
-                                        @endforeach
-                                        <small class="text-muted">Pwede ring i-0 kung hindi na sisingilin ang isang tao.</small>
-                                    </div>
-                                @endif
+                                <div class="mb-2" id="adjAmountFields"></div>
                                 <div class="mb-2">
                                     <label class="form-label small">Dahilan ng pag-adjust <span class="text-muted">(opsyonal)</span></label>
                                     <input type="text" name="adjust_reason" class="form-control form-control-sm" placeholder="e.g. Napag-usapan na, binabaan ang penalty…" maxlength="1000">
@@ -297,16 +296,21 @@
                 @endif
             @endif
 
-            <!-- Shop manager / reporter: edit + tag sale -->
-            @if($canEdit && in_array($report->status, ['submitted', 'under_review']))
+            <!-- Shop manager / reporter: edit + tag sale; reviewer: edit kahit naka-issue na -->
+            @if(($canEdit && in_array($report->status, ['submitted', 'under_review']))
+                || (($canReview ?? false) && in_array($report->status, ['issued', 'acknowledged', 'contested'])))
                 <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-white fw-bold"><i class="fas fa-edit me-1"></i>Edit Report</div>
+                    <div class="card-header bg-white fw-bold"><i class="fas fa-edit me-1"></i>Edit Report
+                        @if(in_array($report->status, ['issued', 'acknowledged', 'contested']))
+                            <span class="badge bg-info text-dark ms-1">pagkatapos ma-issue</span>
+                        @endif
+                    </div>
                     <div class="card-body">
                         <form method="POST" action="{{ route('damage.update', $report->id) }}" enctype="multipart/form-data">
                             @csrf
                             <div class="mb-2">
-                                <label class="form-label small">Tag Sale (Sales Number) <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-sm" id="sale_search" value="{{ $report->sale->sales_number ?? '' }}" placeholder="Search sales number..." {{ $report->sale_id ? '' : 'required' }}>
+                                <label class="form-label small">Tag Sale (Sales Number) <span class="text-danger">{{ ($report->sale_id || ($canReview ?? false)) ? '' : '*' }}</span></label>
+                                <input type="text" class="form-control form-control-sm" id="sale_search" value="{{ $report->sale->sales_number ?? '' }}" placeholder="Search sales number..." {{ ($report->sale_id || ($canReview ?? false)) ? '' : 'required' }}>
                                 <input type="hidden" name="sale_id" id="sale_id" value="{{ $report->sale_id }}">
                                 <div id="sale_result" class="mt-1"></div>
                                 <small class="text-muted">Kinakailangan bago ma-review — para ma-trace ang damage at maiwasan ang duplicate reports.</small>
@@ -385,117 +389,140 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Amount fields per accountable user (review form) — driven by the picker selection
-    var accSelected = [];               // [{id, name}]
-    var amountFields = document.getElementById('amountFields');
-    function renderAmounts() {
-        if (!amountFields) return;
-        amountFields.innerHTML = '';
-        accSelected.forEach(function(s) {
-            var wrap = document.createElement('div');
-            wrap.className = 'mb-1';
-            var label = document.createElement('label');
-            label.className = 'form-label small mb-0';
-            label.textContent = 'Amount — ' + s.name + ' (₱)';
-            var input = document.createElement('input');
-            input.type = 'number';
-            input.step = '0.01';
-            input.min = '0';
-            input.name = 'amounts[]';
-            input.className = 'form-control form-control-sm';
-            input.placeholder = '0.00';
-            wrap.appendChild(label);
-            wrap.appendChild(input);
-            amountFields.appendChild(wrap);
-        });
-    }
+    // Reusable searchable multi-picker para sa accountable users (mabilis kahit 1000+).
+    function initAccPicker(cfg) {
+        var root = cfg.root, chipsEl = cfg.chips, searchEl = cfg.search, resultsEl = cfg.results, hiddenEl = cfg.hidden, amountFields = cfg.amountFields;
+        if (!root || !searchEl) return;
+        var data = [];
+        try { data = JSON.parse((cfg.dataEl ? cfg.dataEl.textContent : '[]')) || []; } catch (e) {}
+        var selected = (cfg.seed || []).map(function(s) { return { id: s.id, name: s.name, amount: (s.amount === undefined || s.amount === null ? '' : s.amount) }; });
+        var matches = [];
 
-    // Accountable user searchable multi-select (mabilis kahit 1000+ users)
-    var accPicker = document.getElementById('accUserPicker');
-    if (accPicker) {
-        var accData = [];
-        try { accData = JSON.parse(document.getElementById('accUsersData').textContent) || []; } catch (e) {}
-        var accSearch = document.getElementById('accSearch');
-        var accResults = document.getElementById('accResults');
-        var accChips = document.getElementById('accChips');
-        var accHidden = document.getElementById('accSelected');
-        var accMatches = [];
-
-        function accIsSelected(id) { return accSelected.some(function(s) { return String(s.id) === String(id); }); }
-        function accRenderChips() {
-            accChips.innerHTML = '';
-            accSelected.forEach(function(s) {
+        function isSelected(id) { return selected.some(function(s) { return String(s.id) === String(id); }); }
+        function renderChips() {
+            chipsEl.innerHTML = '';
+            selected.forEach(function(s) {
                 var chip = document.createElement('span');
                 chip.className = 'badge bg-primary d-inline-flex align-items-center gap-1';
                 var t = document.createElement('span'); t.textContent = s.name; chip.appendChild(t);
                 var x = document.createElement('span'); x.textContent = '\u00d7';
                 x.style.cursor = 'pointer'; x.style.fontWeight = '700';
                 x.addEventListener('click', function() {
-                    accSelected = accSelected.filter(function(y) { return String(y.id) !== String(s.id); });
-                    accSync();
+                    selected = selected.filter(function(y) { return String(y.id) !== String(s.id); });
+                    sync();
                 });
                 chip.appendChild(x);
-                accChips.appendChild(chip);
+                chipsEl.appendChild(chip);
             });
         }
-        function accSync() {
-            accHidden.innerHTML = '';
-            accSelected.forEach(function(s) {
+        function renderAmounts() {
+            if (!amountFields) return;
+            amountFields.innerHTML = '';
+            selected.forEach(function(s) {
+                var wrap = document.createElement('div');
+                wrap.className = 'mb-1';
+                var label = document.createElement('label');
+                label.className = 'form-label small mb-0';
+                label.textContent = 'Amount \u2014 ' + s.name + ' (\u20b1)';
+                var input = document.createElement('input');
+                input.type = 'number'; input.step = '0.01'; input.min = '0';
+                input.name = 'amounts[]';
+                input.className = 'form-control form-control-sm';
+                input.placeholder = '0.00';
+                if (s.amount !== undefined && s.amount !== null && s.amount !== '') input.value = s.amount;
+                input.addEventListener('input', function() { s.amount = this.value; });
+                wrap.appendChild(label); wrap.appendChild(input);
+                amountFields.appendChild(wrap);
+            });
+        }
+        function sync() {
+            hiddenEl.innerHTML = '';
+            selected.forEach(function(s) {
                 var i = document.createElement('input');
                 i.type = 'hidden'; i.name = 'user_ids[]'; i.value = s.id;
-                accHidden.appendChild(i);
+                hiddenEl.appendChild(i);
             });
-            accRenderChips();
+            renderChips();
             renderAmounts();
         }
-        function accAdd(u) {
-            if (accIsSelected(u.id)) return;
-            accSelected.push({ id: u.id, name: u.name });
-            accSearch.value = '';
-            accResults.style.display = 'none';
-            accSync();
-            accSearch.focus();
+        function add(u) {
+            if (isSelected(u.id)) return;
+            selected.push({ id: u.id, name: u.name, amount: '' });
+            searchEl.value = '';
+            resultsEl.style.display = 'none';
+            sync();
+            searchEl.focus();
         }
-        function accResultsRender(q) {
+        function renderResults(q) {
             q = (q || '').trim().toLowerCase();
-            accMatches = accData.filter(function(u) {
-                if (accIsSelected(u.id)) return false;
+            matches = data.filter(function(u) {
+                if (isSelected(u.id)) return false;
                 if (!q) return true;
                 return (u.name || '').toLowerCase().indexOf(q) > -1 || String(u.role || '').toLowerCase().indexOf(q) > -1;
             });
-            accResults.innerHTML = '';
-            if (!accMatches.length) { accResults.style.display = 'none'; return; }
-            accMatches.slice(0, 50).forEach(function(u) {
+            resultsEl.innerHTML = '';
+            if (!matches.length) { resultsEl.style.display = 'none'; return; }
+            matches.slice(0, 50).forEach(function(u) {
                 var a = document.createElement('button');
                 a.type = 'button';
                 a.className = 'list-group-item list-group-item-action py-1 small';
                 a.innerHTML = '<strong></strong> <span class="text-muted"></span>';
                 a.firstChild.textContent = u.name;
                 a.lastChild.textContent = '(' + u.role + ')';
-                a.addEventListener('mousedown', function(ev) { ev.preventDefault(); accAdd(u); });
-                accResults.appendChild(a);
+                a.addEventListener('mousedown', function(ev) { ev.preventDefault(); add(u); });
+                resultsEl.appendChild(a);
             });
-            if (accMatches.length > 50) {
+            if (matches.length > 50) {
                 var more = document.createElement('div');
                 more.className = 'list-group-item small text-muted';
-                more.textContent = '+ ' + (accMatches.length - 50) + ' pa — i-type pa ang pangalan...';
-                accResults.appendChild(more);
+                more.textContent = '+ ' + (matches.length - 50) + ' pa \u2014 i-type pa ang pangalan...';
+                resultsEl.appendChild(more);
             }
-            accResults.style.display = '';
+            resultsEl.style.display = '';
         }
-        accSearch.addEventListener('input', function() { accResultsRender(this.value); });
-        accSearch.addEventListener('focus', function() { accResultsRender(this.value); });
-        accSearch.addEventListener('keydown', function(e) {
+        searchEl.addEventListener('input', function() { renderResults(this.value); });
+        searchEl.addEventListener('focus', function() { renderResults(this.value); });
+        searchEl.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                if (accMatches.length) accAdd(accMatches[0]);
-            } else if (e.key === 'Backspace' && !accSearch.value && accSelected.length) {
-                accSelected.pop();
-                accSync();
+                if (matches.length) add(matches[0]);
+            } else if (e.key === 'Backspace' && !searchEl.value && selected.length) {
+                selected.pop();
+                sync();
             }
         });
-        document.addEventListener('click', function(e) { if (!accPicker.contains(e.target)) accResults.style.display = 'none'; });
+        document.addEventListener('click', function(e) { if (!root.contains(e.target)) resultsEl.style.display = 'none'; });
+        sync();
     }
+
+    // Review form picker (submitted / under_review)
+    initAccPicker({
+        root: document.getElementById('accUserPicker'),
+        chips: document.getElementById('accChips'),
+        search: document.getElementById('accSearch'),
+        results: document.getElementById('accResults'),
+        hidden: document.getElementById('accSelected'),
+        amountFields: document.getElementById('amountFields'),
+        dataEl: document.getElementById('accUsersData'),
+        seed: []
+    });
+
+    // Adjust form picker (issued / acknowledged / contested) — naka-seed sa kasalukuyang users
+    (function() {
+        var seedEl = document.getElementById('adjSeedData');
+        var seed = [];
+        try { seed = seedEl ? (JSON.parse(seedEl.textContent) || []) : []; } catch (e) {}
+        initAccPicker({
+            root: document.getElementById('adjUserPicker'),
+            chips: document.getElementById('adjChips'),
+            search: document.getElementById('adjSearch'),
+            results: document.getElementById('adjResults'),
+            hidden: document.getElementById('adjSelected'),
+            amountFields: document.getElementById('adjAmountFields'),
+            dataEl: document.getElementById('adjUsersData'),
+            seed: seed
+        });
+    })();
 
     // Sale search
     var saleSearch = document.getElementById('sale_search');
@@ -578,13 +605,13 @@ document.addEventListener('DOMContentLoaded', function() {
     (function() {
         var amt = document.getElementById('adjust_damage_amount');
         var hint = document.getElementById('adjustSevHint');
+        var af = document.getElementById('adjAmountFields');
         if (!amt || !hint) return;
-        var shares = document.querySelectorAll('.adjust-share');
         function eff() {
             var v = parseFloat(amt.value || 0);
             if (v > 0) return v;
             var s = 0;
-            shares.forEach(function(i) { s += parseFloat(i.value || 0); });
+            if (af) af.querySelectorAll('input[name="amounts[]"]').forEach(function(i) { s += parseFloat(i.value || 0); });
             return s;
         }
         function lab(v) {
@@ -599,7 +626,7 @@ document.addEventListener('DOMContentLoaded', function() {
             else hint.innerHTML = 'Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+';
         }
         amt.addEventListener('input', upd);
-        shares.forEach(function(i) { i.addEventListener('input', upd); });
+        if (af) af.addEventListener('input', upd);
         upd();
     })();
 });
