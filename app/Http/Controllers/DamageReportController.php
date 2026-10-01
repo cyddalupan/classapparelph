@@ -540,6 +540,73 @@ class DamageReportController extends Controller
         return redirect()->route('damage.show', $report->id)->with('success', 'Report dismissed.');
     }
 
+    /**
+     * Reviewer (CEO/admin) na-adjust ang penalty / bayad pagkatapos ma-issue —
+     * halimbawa kung napag-usapan na at napagkasunduang babaan. Pwede ring
+     * baguhin ang hatian kada accountable user.
+     */
+    public function adjust(Request $request, DamageReport $report)
+    {
+        abort_unless($this->isReviewer(), 403);
+
+        if (!in_array($report->status, ['issued', 'acknowledged', 'contested'])) {
+            return redirect()->route('damage.show', $report->id)
+                ->with('error', 'Ang penalty ay pwedeng i-adjust lang kapag naka-issue na ang report.');
+        }
+
+        $request->validate([
+            'damage_amount' => 'nullable|numeric|min:0',
+            'amounts' => 'nullable|array',
+            'amounts.*' => 'nullable|numeric|min:0',
+            'adjust_reason' => 'nullable|string|max:1000',
+        ]);
+
+        $oldAmount = $report->damage_amount;
+
+        // Bagong total: kung may damage_amount, iyon; kung hindi, suma ng shares.
+        $newAmount = $request->filled('damage_amount')
+            ? (float) $request->damage_amount
+            : (float) collect($request->amounts ?? [])->sum();
+
+        // Severity ay diniderive pa rin sa amount (naka-lock sa bands).
+        $severity = DamageReport::severityForAmount($newAmount) ?? $report->severity;
+        $points = DamageReport::SEVERITY_POINTS[$severity] ?? $report->points;
+
+        DB::transaction(function () use ($request, $report, $newAmount, $severity, $points) {
+            $report->update([
+                'damage_amount' => $request->filled('damage_amount') ? $newAmount : $report->damage_amount,
+                'severity' => $severity,
+                'points' => $points,
+            ]);
+
+            // I-update ang per-user shares kung may binigay.
+            if ($request->filled('amounts')) {
+                foreach ($request->amounts as $idx => $amount) {
+                    if (!isset($request->adjust_user_ids[$idx])) {
+                        continue;
+                    }
+                    DamageReportUser::where('damage_report_id', $report->id)
+                        ->where('user_id', $request->adjust_user_ids[$idx])
+                        ->update(['amount_share' => $amount ?? 0]);
+                }
+            }
+        });
+
+        $fmt = fn ($v) => '₱' . number_format((float) $v, 2);
+        $note = 'Penalty adjusted mula ' . $fmt($oldAmount) . ' → ' . $fmt($newAmount)
+            . ' (Severity: ' . ucfirst($severity) . ').'
+            . ($request->adjust_reason ? ' Dahilan: ' . $request->adjust_reason : '');
+
+        DamageReportComment::create([
+            'damage_report_id' => $report->id,
+            'user_id' => auth()->id(),
+            'comment' => $note,
+        ]);
+
+        return redirect()->route('damage.show', $report->id)
+            ->with('success', 'Na-adjust na ang penalty — ' . $fmt($oldAmount) . ' → ' . $fmt($newAmount) . '.');
+    }
+
     public function comment(Request $request, DamageReport $report)
     {
         $request->validate(['comment' => 'required|string|max:3000']);

@@ -259,6 +259,41 @@
                             </form>
                         </div>
                     </div>
+
+                    <!-- Reviewer: adjust penalty / bayad pagkatapos ma-issue -->
+                    <div class="card shadow-sm mb-4 border-info">
+                        <div class="card-header bg-info bg-opacity-10 fw-bold"><i class="fas fa-sliders-h me-1"></i>Adjust Penalty / Bayad</div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-2">Kung napag-usapan na at napagkasunduang babaan (o baguhin) ang penalty, i-edit lang ang <strong>Total Damage Amount</strong> o ang hati kada tao. Awtomatikong magbabago ang severity base sa amount.</p>
+                            <form method="POST" action="{{ route('damage.adjust', $report->id) }}">
+                                @csrf
+                                <div class="mb-2">
+                                    <label class="form-label small">Total Damage Amount (₱)</label>
+                                    <input type="number" step="0.01" min="0" name="damage_amount" id="adjust_damage_amount" class="form-control form-control-sm" value="{{ $report->damage_amount !== null ? number_format($report->damage_amount, 2, '.', '') : '' }}" placeholder="0.00">
+                                    <small class="text-muted" id="adjustSevHint">Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+</small>
+                                </div>
+                                @php $accUsers = $report->accountableUsers; @endphp
+                                @if($accUsers->count())
+                                    <div class="mb-2">
+                                        <label class="form-label small">Hati kada Accountable User (₱)</label>
+                                        @foreach($accUsers as $i => $au)
+                                            <div class="input-group input-group-sm mb-1">
+                                                <span class="input-group-text" style="min-width:150px;">{{ $au->user->name ?? 'User #' . $au->user_id }}</span>
+                                                <input type="hidden" name="adjust_user_ids[]" value="{{ $au->user_id }}">
+                                                <input type="number" step="0.01" min="0" name="amounts[]" class="form-control adjust-share" value="{{ number_format($au->amount_share, 2, '.', '') }}">
+                                            </div>
+                                        @endforeach
+                                        <small class="text-muted">Pwede ring i-0 kung hindi na sisingilin ang isang tao.</small>
+                                    </div>
+                                @endif
+                                <div class="mb-2">
+                                    <label class="form-label small">Dahilan ng pag-adjust <span class="text-muted">(opsyonal)</span></label>
+                                    <input type="text" name="adjust_reason" class="form-control form-control-sm" placeholder="e.g. Napag-usapan na, binabaan ang penalty…" maxlength="1000">
+                                </div>
+                                <button class="btn btn-info btn-sm w-100"><i class="fas fa-save me-1"></i>I-save ang Adjustment</button>
+                            </form>
+                        </div>
+                    </div>
                 @endif
             @endif
 
@@ -536,6 +571,35 @@ document.addEventListener('DOMContentLoaded', function() {
         amt.addEventListener('input', upd);
         amt.addEventListener('change', upd);
         if (amountFields) amountFields.addEventListener('input', upd);
+        upd();
+    })();
+
+    // Adjust Penalty: live na hint kung anong severity ang kalalabasan ng bagong amount.
+    (function() {
+        var amt = document.getElementById('adjust_damage_amount');
+        var hint = document.getElementById('adjustSevHint');
+        if (!amt || !hint) return;
+        var shares = document.querySelectorAll('.adjust-share');
+        function eff() {
+            var v = parseFloat(amt.value || 0);
+            if (v > 0) return v;
+            var s = 0;
+            shares.forEach(function(i) { s += parseFloat(i.value || 0); });
+            return s;
+        }
+        function lab(v) {
+            if (v <= 0) return null;
+            if (v <= 1000) return 'Minor';
+            if (v <= 10000) return 'Major';
+            return 'Critical';
+        }
+        function upd() {
+            var v = eff(), b = lab(v);
+            if (b) hint.innerHTML = 'Bagong severity base sa ₱' + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ': <strong>' + b.toUpperCase() + '</strong>';
+            else hint.innerHTML = 'Minor ₱1–1,000 · Major ₱1,001–10,000 · Critical ₱10,001+';
+        }
+        amt.addEventListener('input', upd);
+        shares.forEach(function(i) { i.addEventListener('input', upd); });
         upd();
     })();
 });

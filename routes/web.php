@@ -849,6 +849,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/damage/{report}/acknowledge', [App\Http\Controllers\DamageReportController::class, 'acknowledge'])->name('damage.acknowledge');
         Route::post('/damage/{report}/contest', [App\Http\Controllers\DamageReportController::class, 'contest'])->name('damage.contest');
         Route::post('/damage/{report}/resolve', [App\Http\Controllers\DamageReportController::class, 'resolve'])->name('damage.resolve');
+        Route::post('/damage/{report}/adjust', [App\Http\Controllers\DamageReportController::class, 'adjust'])->name('damage.adjust');
         Route::post('/damage/{report}/dismiss', [App\Http\Controllers\DamageReportController::class, 'dismiss'])->name('damage.dismiss');
         Route::post('/damage/{report}/comment', [App\Http\Controllers\DamageReportController::class, 'comment'])->name('damage.comment');
 
