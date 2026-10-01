@@ -181,15 +181,17 @@
                         <div class="card-body">
                             <form method="POST" action="{{ route('damage.review', $report->id) }}">
                                 @csrf
-                                <div class="mb-2">
+                                <div class="mb-2" id="accUserPicker">
                                     <label class="form-label small">Accountable User(s)</label>
-                                    <select name="user_ids[]" class="form-select form-select-sm" multiple required>
-                                        @foreach($users as $user)
-                                            <option value="{{ $user->id }}">{{ $user->name }} ({{ $user->role }})</option>
-                                        @endforeach
-                                    </select>
-                                    <small class="text-muted">Ctrl+click para multiple.</small>
+                                    <div class="border rounded p-1 position-relative">
+                                        <div id="accChips" class="d-flex flex-wrap gap-1"></div>
+                                        <input type="text" id="accSearch" class="form-control form-control-sm border-0 shadow-none" placeholder="I-type ang pangalan para maghanap…" autocomplete="off">
+                                        <div id="accResults" class="list-group position-absolute w-100 shadow" style="z-index:1050;max-height:280px;overflow:auto;display:none;left:0;top:100%;"></div>
+                                    </div>
+                                    <div id="accSelected" style="display:none;"></div>
+                                    <small class="text-muted">I-type → piliin sa listahan. Puwedeng marami (multi-add). I-click ang ✕ para alisin. Enter = piliin ang unang tugma.</small>
                                 </div>
+                                <script id="accUsersData" type="application/json">{!! json_encode($users->map(fn($u) => ['id' => $u->id, 'name' => $u->name, 'role' => $u->role])->values(), JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) !!}</script>
                                 <div class="mb-2" id="amountFields"></div>
                                 <div class="mb-2">
                                     <label class="form-label small">Total Damage Amount (₱)</label>
@@ -337,32 +339,116 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Amount fields per accountable user (review form)
-    var userSelect = document.querySelector('select[name="user_ids[]"]');
+    // Amount fields per accountable user (review form) — driven by the picker selection
+    var accSelected = [];               // [{id, name}]
     var amountFields = document.getElementById('amountFields');
-    if (userSelect && amountFields) {
-        function renderAmounts() {
-            var selected = Array.from(userSelect.selectedOptions);
-            amountFields.innerHTML = '';
-            selected.forEach(function(opt) {
-                var wrap = document.createElement('div');
-                wrap.className = 'mb-1';
-                var label = document.createElement('label');
-                label.className = 'form-label small mb-0';
-                label.textContent = 'Amount — ' + opt.textContent.split(' (')[0] + ' (₱)';
-                var input = document.createElement('input');
-                input.type = 'number';
-                input.step = '0.01';
-                input.min = '0';
-                input.name = 'amounts[]';
-                input.className = 'form-control form-control-sm';
-                input.placeholder = '0.00';
-                wrap.appendChild(label);
-                wrap.appendChild(input);
-                amountFields.appendChild(wrap);
+    function renderAmounts() {
+        if (!amountFields) return;
+        amountFields.innerHTML = '';
+        accSelected.forEach(function(s) {
+            var wrap = document.createElement('div');
+            wrap.className = 'mb-1';
+            var label = document.createElement('label');
+            label.className = 'form-label small mb-0';
+            label.textContent = 'Amount — ' + s.name + ' (₱)';
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.step = '0.01';
+            input.min = '0';
+            input.name = 'amounts[]';
+            input.className = 'form-control form-control-sm';
+            input.placeholder = '0.00';
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            amountFields.appendChild(wrap);
+        });
+    }
+
+    // Accountable user searchable multi-select (mabilis kahit 1000+ users)
+    var accPicker = document.getElementById('accUserPicker');
+    if (accPicker) {
+        var accData = [];
+        try { accData = JSON.parse(document.getElementById('accUsersData').textContent) || []; } catch (e) {}
+        var accSearch = document.getElementById('accSearch');
+        var accResults = document.getElementById('accResults');
+        var accChips = document.getElementById('accChips');
+        var accHidden = document.getElementById('accSelected');
+        var accMatches = [];
+
+        function accIsSelected(id) { return accSelected.some(function(s) { return String(s.id) === String(id); }); }
+        function accRenderChips() {
+            accChips.innerHTML = '';
+            accSelected.forEach(function(s) {
+                var chip = document.createElement('span');
+                chip.className = 'badge bg-primary d-inline-flex align-items-center gap-1';
+                var t = document.createElement('span'); t.textContent = s.name; chip.appendChild(t);
+                var x = document.createElement('span'); x.textContent = '\u00d7';
+                x.style.cursor = 'pointer'; x.style.fontWeight = '700';
+                x.addEventListener('click', function() {
+                    accSelected = accSelected.filter(function(y) { return String(y.id) !== String(s.id); });
+                    accSync();
+                });
+                chip.appendChild(x);
+                accChips.appendChild(chip);
             });
         }
-        userSelect.addEventListener('change', renderAmounts);
+        function accSync() {
+            accHidden.innerHTML = '';
+            accSelected.forEach(function(s) {
+                var i = document.createElement('input');
+                i.type = 'hidden'; i.name = 'user_ids[]'; i.value = s.id;
+                accHidden.appendChild(i);
+            });
+            accRenderChips();
+            renderAmounts();
+        }
+        function accAdd(u) {
+            if (accIsSelected(u.id)) return;
+            accSelected.push({ id: u.id, name: u.name });
+            accSearch.value = '';
+            accResults.style.display = 'none';
+            accSync();
+            accSearch.focus();
+        }
+        function accResultsRender(q) {
+            q = (q || '').trim().toLowerCase();
+            accMatches = accData.filter(function(u) {
+                if (accIsSelected(u.id)) return false;
+                if (!q) return true;
+                return (u.name || '').toLowerCase().indexOf(q) > -1 || String(u.role || '').toLowerCase().indexOf(q) > -1;
+            });
+            accResults.innerHTML = '';
+            if (!accMatches.length) { accResults.style.display = 'none'; return; }
+            accMatches.slice(0, 50).forEach(function(u) {
+                var a = document.createElement('button');
+                a.type = 'button';
+                a.className = 'list-group-item list-group-item-action py-1 small';
+                a.innerHTML = '<strong></strong> <span class="text-muted"></span>';
+                a.firstChild.textContent = u.name;
+                a.lastChild.textContent = '(' + u.role + ')';
+                a.addEventListener('mousedown', function(ev) { ev.preventDefault(); accAdd(u); });
+                accResults.appendChild(a);
+            });
+            if (accMatches.length > 50) {
+                var more = document.createElement('div');
+                more.className = 'list-group-item small text-muted';
+                more.textContent = '+ ' + (accMatches.length - 50) + ' pa — i-type pa ang pangalan...';
+                accResults.appendChild(more);
+            }
+            accResults.style.display = '';
+        }
+        accSearch.addEventListener('input', function() { accResultsRender(this.value); });
+        accSearch.addEventListener('focus', function() { accResultsRender(this.value); });
+        accSearch.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (accMatches.length) accAdd(accMatches[0]);
+            } else if (e.key === 'Backspace' && !accSearch.value && accSelected.length) {
+                accSelected.pop();
+                accSync();
+            }
+        });
+        document.addEventListener('click', function(e) { if (!accPicker.contains(e.target)) accResults.style.display = 'none'; });
     }
 
     // Sale search
