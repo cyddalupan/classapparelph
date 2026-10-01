@@ -99,6 +99,7 @@ class CheckProdManagerClassAccess
         // the controller's isReviewer() restricts issuing to admin/coo/cpo/cmo.
         // Added 2026-09-17: prod_manager clicking "Report Damage" on the sale page got 403.
         'damage.index',
+        'damage.dashboard',
         'damage.create',
         'damage.store',
         'damage.show',

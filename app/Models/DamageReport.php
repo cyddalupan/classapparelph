@@ -75,6 +75,22 @@ class DamageReport extends Model
         return in_array($this->status, self::OPEN_STATUSES);
     }
 
+    /**
+     * Nai-review na ba ito? (na-issue o lampas pa, o may reviewer na naitala)
+     * Ginagamit sa list cards bilang indicator badge. Andrew 2026-10-01.
+     */
+    public function isReviewed(): bool
+    {
+        return $this->reviewer_id !== null
+            || !in_array($this->status, ['submitted', 'under_review'], true);
+    }
+
+    /** May naitalang damage amount na (> 0). */
+    public function hasAmount(): bool
+    {
+        return (float) ($this->damage_amount ?? 0) > 0;
+    }
+
     public function shop()
     {
         return $this->belongsTo(SalesDepartment::class, 'shop_id');

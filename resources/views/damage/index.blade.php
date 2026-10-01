@@ -100,6 +100,18 @@
                             <p class="text-muted small mb-2" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
                                 {{ $report->description }}
                             </p>
+                            <div class="mb-2 d-flex flex-wrap gap-1">
+                                @if($report->isReviewed())
+                                    <span class="badge bg-success" title="Nai-review na (may reviewer / issued)"><i class="fas fa-check-circle me-1"></i>Nai-review na</span>
+                                @else
+                                    <span class="badge bg-warning text-dark" title="Naghihintay pa ng review"><i class="fas fa-hourglass-half me-1"></i>Pending review</span>
+                                @endif
+                                @if($report->hasAmount())
+                                    <span class="badge bg-danger" title="May naitalang damage amount"><i class="fas fa-peso-sign me-1"></i>{{ number_format($report->damage_amount, 2) }}</span>
+                                @else
+                                    <span class="badge bg-light text-secondary border" title="Wala pang damage amount"><i class="fas fa-peso-sign me-1"></i>Walang amount</span>
+                                @endif
+                            </div>
                             <div class="d-flex justify-content-between align-items-center small text-muted">
                                 <span>
                                     <span class="sev-dot sev-{{ $report->severity }}"></span>

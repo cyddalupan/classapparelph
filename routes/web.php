@@ -841,6 +841,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         
         // DAMAGE REPORT SYSTEM
         Route::get('/damage', [App\Http\Controllers\DamageReportController::class, 'index'])->name('damage.index');
+        Route::get('/damage/dashboard', [App\Http\Controllers\DamageReportController::class, 'dashboard'])->name('damage.dashboard');
         Route::get('/damage/create', [App\Http\Controllers\DamageReportController::class, 'create'])->name('damage.create');
         Route::post('/damage', [App\Http\Controllers\DamageReportController::class, 'store'])->name('damage.store');
         Route::get('/damage/{report}', [App\Http\Controllers\DamageReportController::class, 'show'])->name('damage.show');

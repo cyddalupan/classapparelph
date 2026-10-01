@@ -310,10 +310,14 @@
                         </a>
                         @endif
                         @if(!Auth::user()->isQa())
-                        <a href="{{ route('damage.index') }}" class="nav-item {{ request()->routeIs('damage.*') ? 'active' : '' }}">
+                        <a href="{{ route('damage.index') }}" class="nav-item {{ (request()->routeIs('damage.*') && !request()->routeIs('damage.dashboard')) ? 'active' : '' }}">
                             <i class="fas fa-exclamation-triangle"></i>
                             <span class="nav-text">Damage Reports</span>
                             @if(($navCountDamage ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountDamage }}</span>@endif
+                        </a>
+                        <a href="{{ route('damage.dashboard') }}" class="nav-item {{ request()->routeIs('damage.dashboard') ? 'active' : '' }}">
+                            <i class="fas fa-chart-pie"></i>
+                            <span class="nav-text">Damage Dashboard</span>
                         </a>
                         @endif
                     </div>

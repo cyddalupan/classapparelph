@@ -103,6 +103,114 @@ class DamageReportController extends Controller
         return view('damage.index', compact('reports', 'shops', 'managedShop'));
     }
 
+    /**
+     * Scoped query builder shared by index() and dashboard().
+     * Reviewer = everything; manager = shop + own/tagged; else = own/tagged.
+     */
+    private function scopedDamageQuery()
+    {
+        $query = DamageReport::query();
+
+        if ($this->isReviewer()) {
+            return $query;
+        }
+
+        $managedShop = $this->managedShop();
+        if ($managedShop) {
+            $query->where(function ($q) use ($managedShop) {
+                $q->where('shop_id', $managedShop->id)
+                  ->orWhere('reporter_id', auth()->id())
+                  ->orWhereHas('accountableUsers', function ($u) {
+                      $u->where('user_id', auth()->id());
+                  });
+            });
+        } else {
+            $query->where(function ($q) {
+                $q->where('reporter_id', auth()->id())
+                  ->orWhereHas('accountableUsers', function ($u) {
+                      $u->where('user_id', auth()->id());
+                  });
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Damage Report Dashboard — aggregated stats para sa reviewers (admin/coo/cpo/cmo)
+     * at shop managers (prod_manager / sales_departments.manager_id).
+     * Parehong scoping tulad ng index(). Andrew 2026-10-01.
+     */
+    public function dashboard(Request $request)
+    {
+        abort_unless($this->isReviewer() || $this->managedShop(), 403, 'Wala kang access sa damage dashboard.');
+
+        $managedShop = $this->managedShop();
+        $scoped = fn () => $this->scopedDamageQuery();
+
+        $total = $scoped()->count();
+
+        $byStatus = $scoped()
+            ->selectRaw('status, count(*) as c')
+            ->groupBy('status')->pluck('c', 'status');
+
+        $bySeverity = $scoped()
+            ->selectRaw('severity, count(*) as c')
+            ->groupBy('severity')->pluck('c', 'severity');
+
+        $byShop = $scoped()
+            ->selectRaw('shop_id, count(*) as c')
+            ->groupBy('shop_id')->pluck('c', 'shop_id');
+        $shopNames = SalesDepartment::pluck('name', 'id');
+
+        $openCount      = $scoped()->whereIn('status', DamageReport::OPEN_STATUSES)->count();
+        $reviewedCount  = $scoped()->whereNotNull('reviewer_id')->count();
+        $pendingReview  = $scoped()->where('status', 'submitted')->count();
+        $resolvedCount  = $scoped()->where('status', 'resolved')->count();
+        $dismissedCount = $scoped()->where('status', 'dismissed')->count();
+
+        $amountTotal = (float) $scoped()->sum('damage_amount');
+        $withAmount  = $scoped()->where('damage_amount', '>', 0)->count();
+
+        // Top accountable users (bilang ng reports + kabuuang amount share) sa loob ng scope
+        $ids = $scoped()->pluck('id');
+        $topUsers = DamageReportUser::query()
+            ->whereIn('damage_report_id', $ids)
+            ->selectRaw('user_id, count(distinct damage_report_id) as reports, sum(amount_share) as amount')
+            ->groupBy('user_id')
+            ->orderByDesc('amount')
+            ->orderByDesc('reports')
+            ->take(8)
+            ->get();
+        $userNames = User::whereIn('id', $topUsers->pluck('user_id'))->get()->pluck('display_label', 'id');
+
+        // Recent reports
+        $recent = $scoped()->with(['shop', 'reporter', 'sale'])
+            ->orderByDesc('created_at')->take(8)->get();
+
+        // 6-month trend
+        $trendRows = $scoped()
+            ->where('created_at', '>=', now()->subMonths(5)->startOfMonth())
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as ym, count(*) as c")
+            ->groupBy('ym')->pluck('c', 'ym');
+        $trend = collect();
+        for ($i = 5; $i >= 0; $i--) {
+            $m = now()->subMonths($i);
+            $trend->push(['label' => $m->format('M'), 'count' => (int) ($trendRows[$m->format('Y-m')] ?? 0)]);
+        }
+        $trendMax = max(1, (int) $trend->max('count'));
+
+        $severityLabels = DamageReport::SEVERITIES;
+        $statusLabels   = DamageReport::STATUSES;
+
+        return view('damage.dashboard', compact(
+            'managedShop', 'total', 'byStatus', 'bySeverity', 'byShop', 'shopNames',
+            'openCount', 'reviewedCount', 'pendingReview', 'resolvedCount', 'dismissedCount',
+            'amountTotal', 'withAmount', 'topUsers', 'userNames', 'recent', 'trend', 'trendMax',
+            'severityLabels', 'statusLabels'
+        ));
+    }
+
     public function create(Request $request)
     {
         $shops = SalesDepartment::where('is_active', true)->get();
