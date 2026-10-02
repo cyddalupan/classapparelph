@@ -174,6 +174,15 @@
             <!-- Customer Info -->
             <div class="detail-section">
                 <h5 class="detail-title"><i class="fas fa-user me-2"></i>Customer Information</h5>
+                @php
+                    // Artist / GA — mula sa sublimation designer ng mga item, at GA ng linked layout jobs.
+                    $artistGaNames = collect($services ?? [])->map(function ($it) {
+                        $sf = $it['sublimationForm'] ?? $it;
+                        return trim((string) ($sf['designer'] ?? '')) ?: null;
+                    })->merge(
+                        collect($linkedLayoutJobs ?? [])->map(fn ($lj) => $lj->gaUser->name ?? null)
+                    )->filter()->reject(fn ($n) => in_array(strtolower($n), ['n/a', '-', 'none']))->unique()->values();
+                @endphp
                 <div class="info-grid">
                     <div>
                         <div class="info-label">Customer Name</div>
@@ -203,6 +212,16 @@
                         <div class="info-label">Department</div>
                         <div class="info-value">{{ $sale->department_name ?? 'N/A' }}</div>
                     </div>
+                    @if($artistGaNames->isNotEmpty())
+                    <div>
+                        <div class="info-label">Artist / GA</div>
+                        <div class="info-value">
+                            @foreach($artistGaNames as $artistName)
+                                <span class="badge bg-info text-dark me-1"><i class="fas fa-paint-brush me-1"></i>{{ $artistName }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
                     @if(($sale->marketplace ?? false))
                     <div>
                         <div class="info-label">Marketplace</div>
