@@ -139,6 +139,15 @@ class CheckQaAccess
         // My Sales → My Delays (own delays only, scoped in controller)
         'sales.team.delays',
 
+        // My Sales → Action Required gate, My Archived, Set Needed Time (time-request reply),
+        // Mark Delayed — lahat para sa SARILING sales lang (ownership nasa controllers).
+        // Idinagdag 2026-10-06 (Andrew): kung wala ito sa allowlist, 403 ang QA/Sales Agent
+        // sa middleware kahit tama na ang controller — kaya hindi makapag-set ng time si Mary Ann.
+        'sales.team.action-required',
+        'sales.team.archived',
+        'sales.team.submit-time',
+        'sales.team.delay',
+
         // My Sales → Production Feedback list (own/Class feedback, scoped in controller)
         'sales.prototype.production-feedback.list',
         'sales.prototype.create',
