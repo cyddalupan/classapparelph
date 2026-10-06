@@ -116,6 +116,7 @@ class NotificationComposer
         }
 
         // 🕒 Set Time List — page allows isManager() || isCoo(); badge = orders with a set needed time
+        // (kasama pa rin ang DISPATCH/DONE — nililipat sila sa Done tab, hindi tinatanggal; Andrew 2026-10-06)
         if ($isManager || $isCoo) {
             $q = PrototypeSale::whereNotNull('needed_by')->whereNull('archived_at');
             if ($classDept !== null) {

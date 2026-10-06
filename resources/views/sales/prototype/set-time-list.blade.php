@@ -79,6 +79,29 @@
     }
     .stl-tab.active .stl-tab-count { background: #2563eb; color: #fff; }
     .stl-done, .stl-restore { border-width: 1px; }
+
+    /* === Priority select (connected na sa Manager Order List Prio 1..15) === */
+    .prio-select option:disabled { color: #b0b7c0; background: #f1f3f5; font-weight: 400; }
+    .prio-select option[data-taken="1"]:not(:disabled) { color: #856404; background: #fff3cd; font-weight: 600; }
+    .prio-confirm-overlay { display: none; position: fixed; inset: 0; z-index: 12000; background: rgba(15,23,42,0.55); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+    .prio-confirm-overlay.show { display: flex; animation: prioFade .18s ease; }
+    @keyframes prioFade { from { opacity: 0; } to { opacity: 1; } }
+    .prio-confirm-card { width: 92%; max-width: 430px; background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.25); overflow: hidden; animation: prioPop .22s cubic-bezier(.2,.9,.3,1.2); }
+    @keyframes prioPop { from { transform: scale(.92) translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .prio-confirm-head { padding: 24px 24px 0; text-align: center; }
+    .prio-confirm-icon { width: 58px; height: 58px; margin: 0 auto 10px; border-radius: 50%; background: linear-gradient(135deg, #fff3cd, #ffe1a1); border: 2px solid #ffd76d; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+    .prio-confirm-title { font-size: 18px; font-weight: 800; color: #1f2937; }
+    .prio-confirm-sub { font-size: 13px; color: #6b7280; margin-top: 4px; word-break: break-word; }
+    .prio-confirm-body { padding: 14px 24px 6px; }
+    .prio-confirm-warn { background: #fff7e6; border: 1px solid #ffd76d; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #7a5b12; line-height: 1.6; }
+    .prio-confirm-warn b { color: #b45309; }
+    .prio-confirm-foot { display: flex; gap: 10px; padding: 16px 24px 22px; }
+    .prio-confirm-btn { flex: 1; padding: 10px 0; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; border: none; transition: all .15s; }
+    .prio-confirm-cancel { background: #f3f4f6; color: #4b5563; }
+    .prio-confirm-cancel:hover { background: #e5e7eb; }
+    .prio-confirm-force { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; box-shadow: 0 4px 14px rgba(217,119,6,.35); }
+    .prio-confirm-force:hover { filter: brightness(1.05); }
+    .prio-confirm-holder { display: inline-block; background: #fff3cd; color: #856404; font-weight: 700; padding: 1px 8px; border-radius: 6px; font-size: 12.5px; }
 </style>
 @endpush
 
@@ -141,12 +164,11 @@
             </div>
 
             <div class="stl-field">
-                <label><i class="fas fa-flag"></i> Prio Reminder</label>
+                <label><i class="fas fa-star"></i> Prio</label>
                 <select name="prio" class="form-select" onchange="this.form.submit()">
-                    <option value="">All Prio Reminder</option>
-                    <option value="1" {{ request('prio') === '1' ? 'selected' : '' }}>✅ Pinaprio pa</option>
-                    <option value="0" {{ request('prio') === '0' ? 'selected' : '' }}>❌ Hindi na</option>
-                    <option value="none" {{ request('prio') === 'none' ? 'selected' : '' }}>— Wala pang sagot</option>
+                    <option value="">All Prio</option>
+                    <option value="1" {{ request('prio') === '1' ? 'selected' : '' }}>⭐ May Prio</option>
+                    <option value="none" {{ request('prio') === 'none' ? 'selected' : '' }}>— Wala pang Prio</option>
                 </select>
             </div>
 
@@ -166,7 +188,7 @@
                     <option value="arrangement" {{ $sort === 'arrangement' ? 'selected' : '' }}>Arrangement (drag)</option>
                     <option value="needed_asc" {{ $sort === 'needed_asc' ? 'selected' : '' }}>Needed date ↑ (pinakauna)</option>
                     <option value="needed_desc" {{ $sort === 'needed_desc' ? 'selected' : '' }}>Needed date ↓ (pinakahuli)</option>
-                    <option value="prio" {{ $sort === 'prio' ? 'selected' : '' }}>Prio Reminder</option>
+                    <option value="prio" {{ $sort === 'prio' ? 'selected' : '' }}>Prio</option>
                     <option value="sales_number" {{ $sort === 'sales_number' ? 'selected' : '' }}>Sales #</option>
                     <option value="customer" {{ $sort === 'customer' ? 'selected' : '' }}>Customer</option>
                     <option value="agent" {{ $sort === 'agent' ? 'selected' : '' }}>Agent</option>
@@ -187,9 +209,8 @@
                 @if(request('agent'))<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['agent'=>null]) }}">👤 {{ optional($agents->firstWhere('sales_agent_id', (int) request('agent')))->sales_agent_name ?? 'Agent' }} <span class="x">✕</span></a>@endif
                 @if(request('department'))<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['department'=>null]) }}">🏢 {{ optional($departments->firstWhere('department_id', (int) request('department')))->department_name ?? 'Dept' }} <span class="x">✕</span></a>@endif
                 @if(request('status'))<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['status'=>null]) }}">🏷️ {{ request('status') }} <span class="x">✕</span></a>@endif
-                @if(request('prio') === '1')<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['prio'=>null]) }}">✅ Pinaprio pa <span class="x">✕</span></a>@endif
-                @if(request('prio') === '0')<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['prio'=>null]) }}">❌ Hindi na <span class="x">✕</span></a>@endif
-                @if(request('prio') === 'none')<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['prio'=>null]) }}">— Wala pang sagot <span class="x">✕</span></a>@endif
+                @if(request('prio') === '1')<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['prio'=>null]) }}">⭐ May Prio <span class="x">✕</span></a>@endif
+                @if(request('prio') === 'none')<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['prio'=>null]) }}">— Wala pang Prio <span class="x">✕</span></a>@endif
                 @if(request('date_from'))<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['date_from'=>null]) }}">📅 from {{ request('date_from') }} <span class="x">✕</span></a>@endif
                 @if(request('date_to'))<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['date_to'=>null]) }}">📅 to {{ request('date_to') }} <span class="x">✕</span></a>@endif
                 @if(request('sort') && request('sort') !== 'arrangement')<a class="stl-chip" href="{{ request()->fullUrlWithQuery(['sort'=>null]) }}">↕️ Sort: {{ request('sort') }} <span class="x">✕</span></a>@endif
@@ -222,7 +243,7 @@
                         <tr>
                             <th style="width:52px;">#</th>
                             <th style="width:84px;">Mock Up</th>
-                            <th style="width:120px;">Prio Reminder</th>
+                            <th style="width:120px;">⭐ Prio</th>
                             <th>Sales #</th>
                             <th>Customer</th>
                             <th>Agent</th>
@@ -260,13 +281,17 @@
                                     @endif
                                 </td>
                                 <td onclick="event.stopPropagation();" style="white-space:nowrap;">
-                                    @php $sp = $sale->set_time_prio; @endphp
-                                    <select class="form-select form-select-sm stl-prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sp === 1 ? '1' : ($sp === 0 ? '0' : '') }}" style="font-size:11px;min-width:112px;padding:1px 4px;{{ $sp === 1 ? 'background:#d1e7dd;color:#0f5132;font-weight:600;' : ($sp === 0 ? 'background:#f8d7da;color:#842029;' : '') }}" title="Reminder lang (SEPARATE sa Manager List): pinaprio pa ba ni Manager ang order na ito?">
-                                        <option value="" {{ $sp === null || $sp === '' ? 'selected' : '' }}>— Reminder —</option>
-                                        <option value="1" {{ $sp === 1 ? 'selected' : '' }}>✅ Pinaprio pa</option>
-                                        <option value="0" {{ $sp === 0 ? 'selected' : '' }}>❌ Hindi na</option>
+                                    @php $prio = $sale->priority; @endphp
+                                    <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $prio ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:112px;padding:1px 4px;{{ $prio ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}" title="Priority tag (kapareho ng Manager Order List) — Prio 1..15; nagamit na sa ibang order ang may (Taken)">
+                                        <option value="" {{ !$prio ? 'selected' : '' }}>Prio —</option>
+                                        @for($i = 1; $i <= ($priorityMax ?? 15); $i++)
+                                            @php
+                                                $prioTaken = isset($usedPriorities[$i]) && $usedPriorities[$i] !== $sale->sales_number;
+                                            @endphp
+                                            <option value="{{ $i }}" {{ (int) $prio === $i ? 'selected' : '' }} {{ ($prioTaken && !($canForcePriority ?? false)) ? 'disabled' : '' }} {{ $prioTaken ? 'data-taken="1" data-holder="' . e($usedPriorities[$i]) . '"' : '' }}>{{ $prioTaken ? 'Prio ' . $i . ' (Taken' . (($canForcePriority ?? false) ? ' — click para i-force' : '') . ')' : 'Prio ' . $i }}</option>
+                                        @endfor
                                     </select>
-                                    <div class="stl-prio-stamp" style="font-size:10px;color:#6c757d;margin-top:2px;{{ empty($sale->set_time_prio_at) ? 'display:none;' : '' }}">{{ $sale->set_time_prio_at ? '🕒 ' . \Carbon\Carbon::parse($sale->set_time_prio_at)->format('M j, g:i A') : '' }}</div>
+                                    <div class="stl-prio-stamp" style="font-size:10px;color:#6c757d;margin-top:2px;{{ empty($sale->priority_set_at) ? 'display:none;' : '' }}">{{ $sale->priority_set_at ? '🕒 ' . \Carbon\Carbon::parse($sale->priority_set_at)->format('M j, g:i A') : '' }}</div>
                                 </td>
                                 <td>
                                     <strong class="stl-number">{{ $sale->sales_number ?: '#' . $sale->id }}</strong>
@@ -295,11 +320,18 @@
                                 <td>
                                     @php $curStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); @endphp
                                     <span class="badge bg-light text-dark stl-badge" title="Production status — kapareho ng Manager List">{{ $curStage }}</span>
+                                    @if(($tab ?? 'active') === 'done' && !empty($dispatchAt[$sale->id] ?? null))
+                                        <div style="font-size:10px;color:#6c757d;margin-top:2px;white-space:nowrap;" title="Oras kung kailan na-tag na DISPATCH">🕒 DISPATCH: {{ \Carbon\Carbon::parse($dispatchAt[$sale->id])->format('M j, g:i A') }}</div>
+                                    @endif
                                 </td>
                                 <td style="white-space:nowrap;">
                                     <a href="{{ route('sales.prototype.show', $sale->id) }}" class="btn btn-sm btn-outline-primary" style="font-size:11px;padding:2px 8px;">View</a>
                                     @if(($tab ?? 'active') === 'done')
-                                        <button type="button" class="btn btn-sm btn-outline-success stl-restore" data-sale-id="{{ $sale->id }}" style="font-size:11px;padding:2px 8px;" title="I-restore pabalik sa active list">↩ Restore</button>
+                                        @if(!in_array($curStage, ['DISPATCH', 'DONE'], true) && !empty($sale->set_time_done_at))
+                                            <button type="button" class="btn btn-sm btn-outline-success stl-restore" data-sale-id="{{ $sale->id }}" style="font-size:11px;padding:2px 8px;" title="I-restore pabalik sa active list">↩ Restore</button>
+                                        @else
+                                            <span class="text-muted" style="font-size:10px;" title="Awtomatikong nailipat sa Done dahil DISPATCH na">auto ({{ $curStage }})</span>
+                                        @endif
                                     @else
                                         <button type="button" class="btn btn-sm btn-outline-success stl-done" data-sale-id="{{ $sale->id }}" style="font-size:11px;padding:2px 8px;" title="Tapos na — itago sa Done (Set Time List lang)">✔ Done</button>
                                     @endif
@@ -400,60 +432,167 @@
         saveOrder();
     });
 
-    // === Prio Reminder (SEPARATE sa Manager List Prio 1..15) ===
-    // Simpleng reminder lang: "pinaprio pa ba ni Manager ang order na ito?"
-    // Hindi nito ginagamit ang unique Prio slots — sariling flag sa set_time_prio.
-    function stlPrioStampText(iso) {
-        if (!iso) return '';
-        var d = new Date(iso.replace(' ', 'T'));
-        if (isNaN(d.getTime())) return '🕒 ' + iso;
-        var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        var h = d.getHours(); var ap = h >= 12 ? 'PM' : 'AM'; h = h % 12; if (h === 0) h = 12;
-        var mm = ('0' + d.getMinutes()).slice(-2);
-        return '🕒 ' + mo[d.getMonth()] + ' ' + d.getDate() + ', ' + h + ':' + mm + ' ' + ap;
+    // === PRIORITY DROPDOWN — tag Prio 1-15 (kapareho ng Manager Order List) ===
+    // Nakakabit na ito sa totoong `priority` slots (hindi na sa set_time_prio reminder).
+    var priorityMax = @json($priorityMax ?? 15);
+    var canForcePriority = @json($canForcePriority ?? false);
+
+    // Custom styled confirm dialog (kapareho ng Manager Order List)
+    function prioForceDialog(prio, holder, onYes) {
+        var ov = document.getElementById('prioForceOverlay');
+        if (ov) ov.remove();
+        ov = document.createElement('div');
+        ov.id = 'prioForceOverlay';
+        ov.className = 'prio-confirm-overlay';
+        ov.innerHTML =
+            '<div class="prio-confirm-card">' +
+                '<div class="prio-confirm-head">' +
+                    '<div class="prio-confirm-icon">⚡</div>' +
+                    '<div class="prio-confirm-title">Force insert Prio ' + prio + '?</div>' +
+                    '<div class="prio-confirm-sub">Taken na ang slot na ito &mdash; hawak ni <span class="prio-confirm-holder">' + (holder || 'isa pang order') + '</span></div>' +
+                '</div>' +
+                '<div class="prio-confirm-body">' +
+                    '<div class="prio-confirm-warn">⚠️ Kapag itinuloy: uurong ng <b>+1</b> ang lahat ng may Prio &ge; <b>' + prio + '</b>, at ang kasalukuyang <b>Prio ' + priorityMax + '</b> ay mawawalan ng tag. Ang order na ito ang kukuha ng Prio <b>' + prio + '</b>.</div>' +
+                '</div>' +
+                '<div class="prio-confirm-foot">' +
+                    '<button type="button" class="prio-confirm-btn prio-confirm-cancel">Cancel</button>' +
+                    '<button type="button" class="prio-confirm-btn prio-confirm-force">⚡ Force Insert</button>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(ov);
+        requestAnimationFrame(function() { ov.classList.add('show'); });
+        var done = false;
+        function close(result) {
+            if (done) return;
+            done = true;
+            ov.classList.remove('show');
+            setTimeout(function() { ov.remove(); if (result && onYes) onYes(); }, 150);
+        }
+        ov.addEventListener('click', function(e) { if (e.target === ov) close(false); });
+        ov.querySelector('.prio-confirm-cancel').addEventListener('click', function() { close(false); });
+        ov.querySelector('.prio-confirm-force').addEventListener('click', function() { close(true); });
     }
 
-    function stlPrioStyle(sel, val) {
-        sel.style.background = ''; sel.style.color = ''; sel.style.fontWeight = '';
-        if (val === '1') { sel.style.background = '#d1e7dd'; sel.style.color = '#0f5132'; sel.style.fontWeight = '600'; }
-        else if (val === '0') { sel.style.background = '#f8d7da'; sel.style.color = '#842029'; }
-    }
-
-    document.addEventListener('change', function (e) {
-        var sel = e.target.closest('.stl-prio-select');
-        if (!sel) return;
-        var saleId = sel.getAttribute('data-sale-id');
-        var oldVal = sel.getAttribute('data-current') || '';
-        var val = sel.value;
+    function sendPriority(saleId, sel, oldPrio, prio, force) {
+        var csrf = document.querySelector('meta[name="csrf-token"]');
         sel.disabled = true;
-        fetch('/sales/prototype/' + saleId + '/set-time-prio', {
+        fetch('/sales/prototype/' + saleId + '/priority', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : '{{ csrf_token() }}'
+                'X-CSRF-TOKEN': csrf ? csrf.content : ''
             },
-            body: JSON.stringify({ set_time_prio: val === '' ? null : parseInt(val, 10) })
+            body: JSON.stringify({ priority: prio, force: force })
         })
-        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); })
-        .then(function (res) {
+        .then(function(r) { return r.json().catch(function() { return {}; }).then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
             sel.disabled = false;
             if (res.ok && res.data.success) {
-                sel.setAttribute('data-current', val);
-                stlPrioStyle(sel, val);
-                var row = sel.closest('tr');
-                var st = row ? row.querySelector('.stl-prio-stamp') : null;
-                if (st) {
-                    if (res.data.set_time_prio_at) { st.textContent = stlPrioStampText(res.data.set_time_prio_at); st.style.display = ''; }
-                    else { st.textContent = ''; st.style.display = 'none'; }
+                sel.setAttribute('data-current', prio);
+                if (prio) {
+                    sel.style.background = '#fff3cd';
+                    sel.style.color = '#856404';
+                    sel.style.fontWeight = '600';
+                } else {
+                    sel.style.background = '';
+                    sel.style.color = '';
+                    sel.style.fontWeight = '';
                 }
-                toast('✅ ' + (res.data.message || 'Reminder saved'));
+                toast(res.data.message || '✅ Priority saved');
+                // AUTO-PROMOTE / force shift: i-refresh agad ang lahat ng dropdown (no reload)
+                applyPriorityMap(res.data.priority_map);
+            } else if (!force && res.data && res.data.can_force && canForcePriority) {
+                sel.value = oldPrio;
+                var holder = res.data.holder || 'isa pang order';
+                prioForceDialog(prio, holder, function() {
+                    sendPriority(saleId, sel, oldPrio, prio, true);
+                });
             } else {
-                sel.value = oldVal;
-                toast('⚠️ ' + (res.data.message || 'Failed to save.'), false);
+                sel.value = oldPrio;
+                toast('⚠️ ' + (res.data.message || 'Failed to save priority.'), false);
             }
         })
-        .catch(function () { sel.disabled = false; sel.value = oldVal; toast('❌ Network error. Please try again.', false); });
+        .catch(function() {
+            sel.disabled = false;
+            sel.value = oldPrio;
+            toast('❌ Network error. Please try again.', false);
+        });
+    }
+
+    document.addEventListener('change', function(e) {
+        var sel = e.target.closest('.prio-select');
+        if (!sel) return;
+        var saleId = sel.getAttribute('data-sale-id');
+        var oldPrio = sel.getAttribute('data-current');
+        var prio = sel.value;
+        var opt = sel.options[sel.selectedIndex];
+        var isTaken = prio && opt && opt.getAttribute('data-taken') === '1';
+        if (isTaken) {
+            if (!canForcePriority) {
+                sel.value = oldPrio;
+                toast('⚠️ Taken na ang Prio ' + prio + ' — Manager/CEO/COO lang ang pwedeng mag-force insert.', false);
+                return;
+            }
+            var holder = (opt.getAttribute('data-holder') || 'isa pang order');
+            prioForceDialog(prio, holder, function() {
+                sendPriority(saleId, sel, oldPrio, prio, true);
+            });
+            return;
+        }
+        sendPriority(saleId, sel, oldPrio, prio, false);
     });
+
+    // === INSTANT PRIO UI UPDATE (auto-clear sa DISPATCH + auto-promote) — no reload ===
+    // Ang priority_map ay [sale_id => priority|null] na galing sa server response.
+    function applyPriorityMap(priorityMap) {
+        if (!priorityMap) return;
+        var used = {};
+        Object.keys(priorityMap).forEach(function(saleId) {
+            var prio = priorityMap[saleId];
+            if (prio) used[prio] = saleId;
+            var sel = document.querySelector('.prio-select[data-sale-id="' + saleId + '"]');
+            if (!sel) return;
+            sel.value = prio ? String(prio) : '';
+            sel.setAttribute('data-current', prio ? String(prio) : '');
+            if (prio) {
+                sel.style.background = '#fff3cd';
+                sel.style.color = '#856404';
+                sel.style.fontWeight = '600';
+            } else {
+                sel.style.background = '';
+                sel.style.color = '';
+                sel.style.fontWeight = '';
+            }
+        });
+        // Rebuild "Taken" options batay sa bagong map
+        document.querySelectorAll('.prio-select').forEach(function(s) {
+            var sid = s.getAttribute('data-sale-id');
+            Array.prototype.forEach.call(s.options, function(opt) {
+                if (!opt.value) return;
+                var n = parseInt(opt.value, 10);
+                var taken = used[n] && used[n] !== sid;
+                opt.disabled = taken && !canForcePriority;
+                if (taken) {
+                    opt.setAttribute('data-taken', '1');
+                    var holderSel = document.querySelector('.prio-select[data-sale-id="' + used[n] + '"]');
+                    var holderSn = '';
+                    if (holderSel) {
+                        var hrow = holderSel.closest('tr');
+                        if (hrow) {
+                            var link = hrow.querySelector('a[href*="/sales/prototype/"]');
+                            if (link) holderSn = link.textContent.trim();
+                        }
+                    }
+                    opt.setAttribute('data-holder', holderSn);
+                    opt.textContent = canForcePriority ? 'Prio ' + n + ' (Taken — click para i-force)' : 'Prio ' + n + ' (Taken)';
+                } else {
+                    opt.removeAttribute('data-taken');
+                    opt.removeAttribute('data-holder');
+                    opt.textContent = 'Prio ' + n;
+                }
+            });
+        });
+    }
 
     // === Done / Restore (Set Time List lang — hindi nakakaapekto sa Manager Order List) ===
     function stlSetDone(btn, saleId, done) {

@@ -480,7 +480,11 @@ body {
         justify-content: center;
     }
 
-    .nav {
+    /* NOTE: scoped to :not(.nav-tabs) — the bare `.nav` selector was also
+       matching Bootstrap modal tab strips (`.nav.nav-tabs`), hiding the
+       Order Details / Specifications / Sizes / Pricing tabs on mobile.
+       Fix 2026-10-03. */
+    .nav:not(.nav-tabs) {
         display: none;
     }
 

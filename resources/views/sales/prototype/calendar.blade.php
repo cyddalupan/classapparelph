@@ -754,8 +754,8 @@
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                         <h4 style="margin:0;"><i class="fas fa-calendar-alt me-2"></i>Production Calendar</h4>
                         <div class="btn-group btn-group-sm" role="group" style="margin:0;">
-                            <button type="button" class="btn btn-light cal-view-btn active" id="viewWeekBtn" onclick="setView('week')"><i class="fas fa-calendar-week"></i> Week</button>
-                            <button type="button" class="btn btn-outline-light cal-view-btn" id="viewMonthBtn" onclick="setView('month')"><i class="fas fa-calendar-alt"></i> Month</button>
+                            <button type="button" class="btn btn-outline-light cal-view-btn" id="viewWeekBtn" onclick="setView('week')"><i class="fas fa-calendar-week"></i> Week</button>
+                            <button type="button" class="btn btn-light cal-view-btn active" id="viewMonthBtn" onclick="setView('month')"><i class="fas fa-calendar-alt"></i> Month</button>
                         </div>
                     </div>
                     <div class="calendar-nav">
@@ -1024,7 +1024,7 @@ let curDate = new Date();
 @if(!empty($focusDate)) curDate = new Date('{{ $focusDate }}T00:00:00'); @endif
 let activeDept = 'all';
 let customRange = null; // null = nav mode, {start, end} = range mode
-let currentView = 'week'; // 'week' | 'month'
+let currentView = 'month'; // 'week' | 'month'  // (Andrew 2026-10-03: naka-default na sa Month/current month)
 
 // ========== VIEW TOGGLE ==========
 function setView(view) {

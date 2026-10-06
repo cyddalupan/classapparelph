@@ -80,10 +80,36 @@
                     <a class="ar-sale-link" href="{{ route('sales.prototype.show', $n->sale_id) }}" target="_blank" rel="noopener">Open sale ↗</a>
                 </div>
                 <div class="ar-actions">
-                    <textarea id="urgent-text-{{ $n->id }}" rows="2" maxlength="1000" placeholder="Isulat ang dahilan / sagot... (mapo-post sa Comments section ng sale, makikita ng lahat)"></textarea>
-                    <button type="button" class="ar-btn danger" onclick="submitUrgent({{ $n->id }}, this)">
-                        <i class="fas fa-paper-plane"></i> Send Reason
-                    </button>
+                    @if($n->type === 'time_request')
+                        {{-- Time request: dapat mag-set ng TOTOONG needed date/time + reason.
+                             Dati, free-text box lang ito (respondUrgent) kaya hindi naise-set ang
+                             needed_by at hindi lumalabas sa Set Time List. (Andrew 2026-10-06) --}}
+                        @php
+                            $arSale = $n->sale;
+                            $arCurDate = !empty($arSale?->needed_by) ? \Carbon\Carbon::parse($arSale->needed_by)->format('Y-m-d') : \Carbon\Carbon::now()->addDay()->format('Y-m-d');
+                            $arCurTime = !empty($arSale?->needed_by) ? \Carbon\Carbon::parse($arSale->needed_by)->format('H:i') : '17:00';
+                        @endphp
+                        <form class="ar-time-form" method="POST" action="{{ route('sales.team.submit-time', $n->sale_id) }}">
+                            @csrf
+                            <div class="ar-time-row">
+                                <label>📅 Date kailangan
+                                    <input type="date" name="needed_date" value="{{ $arCurDate }}" required>
+                                </label>
+                                <label>🕐 Oras
+                                    <input type="time" name="needed_time" value="{{ $arCurTime }}" required>
+                                </label>
+                            </div>
+                            <textarea name="time_note" rows="2" maxlength="2000" placeholder="Bakit ito ang needed date/time? (hal. rush order, may event...) — REQUIRED, bawal walang reason" required>{{ $arSale->time_note ?? '' }}</textarea>
+                            <button type="submit" class="ar-btn danger">
+                                <i class="fas fa-clock"></i> Save Needed Time
+                            </button>
+                        </form>
+                    @else
+                        <textarea id="urgent-text-{{ $n->id }}" rows="2" maxlength="1000" placeholder="Isulat ang dahilan / sagot... (mapo-post sa Comments section ng sale, makikita ng lahat)"></textarea>
+                        <button type="button" class="ar-btn danger" onclick="submitUrgent({{ $n->id }}, this)">
+                            <i class="fas fa-paper-plane"></i> Send Reason
+                        </button>
+                    @endif
                 </div>
             </div>
         @empty
@@ -192,6 +218,42 @@ function submitUrgent(id, btn) {
     })
     .catch(function () { arToast('❌ Error sending response', false); btn.disabled = false; btn.innerHTML = old; });
 }
+
+// Time-request blockers: tamang "Set Needed Time" submission (nagse-set ng needed_by + reason).
+document.querySelectorAll('.ar-time-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var d = form.querySelector('input[name="needed_date"]');
+        var t = form.querySelector('input[name="needed_time"]');
+        var note = form.querySelector('textarea[name="time_note"]');
+        if (!d.value || !t.value) { arToast('⚠️ Piliin ang date at oras.', false); return; }
+        if (!note.value.trim()) { arToast('⚠️ Kailangan maglagay ng reason — bawal ang walang reason.', false); note.focus(); return; }
+        var btn = form.querySelector('button[type="submit"]');
+        var old = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        var fd = new FormData(form);
+        fd.delete('needed_date');
+        fd.delete('needed_time');
+        fd.append('needed_by', d.value + ' ' + t.value);
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': AR_CSRF, 'Accept': 'application/json' },
+            body: fd
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                arToast('✅ ' + (data.message || 'Needed time saved!'));
+                setTimeout(function () { location.reload(); }, 900);
+            } else {
+                arToast('❌ ' + (data.message || 'Error saving time'), false);
+                btn.disabled = false; btn.innerHTML = old;
+            }
+        })
+        .catch(function () { arToast('❌ Network error', false); btn.disabled = false; btn.innerHTML = old; });
+    });
+});
 
 function ackFeedback(id, btn) {
     var ack = prompt('Mag-iwan ng acknowledgement note bago i-acknowledge ang feedback:');

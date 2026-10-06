@@ -1196,6 +1196,14 @@ function wireDelayForms() {
                 showToast('Piliin ang date at time', 'error');
                 return;
             }
+            // Reason/note ay mandatory — bawal ang walang reason (Andrew 2026-10-06).
+            // Hinaharang din ang puro espasyo lang (trim check).
+            var noteVal = form.querySelector('textarea[name="time_note"], input[name="time_note"]');
+            if (!noteVal || !noteVal.value.trim()) {
+                showToast('Kailangan maglagay ng reason bago i-send — bawal ang walang reason.', 'error');
+                if (noteVal) noteVal.focus();
+                return;
+            }
             var btn = form.querySelector('button[type="submit"]');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';

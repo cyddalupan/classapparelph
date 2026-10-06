@@ -2906,6 +2906,16 @@ public function details(Request $request, string $id)
             return response()->json(['success' => false, 'message' => 'Notification not found.']);
         }
 
+        // Ang "time_request" ay HINDI dapat sagutin ng free text — kailangang mag-SET ng
+        // totoong needed date/time (nagse-set ng needed_by) para lumabas sa Set Time List.
+        // Ginagamit dito ang Set Needed Time form sa Action Required page. (Andrew 2026-10-06)
+        if ($notif->type === 'time_request') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ito ay time request — paki-set ang NEEDED DATE at ORAS (may reason) gamit ang Set Needed Time form, hindi free-text reason.',
+            ]);
+        }
+
         if ($notif->response) {
             return response()->json(['success' => false, 'message' => 'You already responded to this notification.']);
         }
@@ -3094,12 +3104,20 @@ public function details(Request $request, string $id)
         $servicesBefore = json_decode($sale->services ?? '[]', true);
         if (!is_array($servicesBefore)) $servicesBefore = [];
 
-        // Generate a unique item ID
+        // Generate a unique item ID. Also reserve IDs already introduced by
+        // OTHER change requests for this sale (pending OR approved) so two
+        // concurrent pending requests that both compute from the same services
+        // snapshot cannot produce the SAME id (item-ID collision bug, sale #277).
+        $reservedIds = $this->reservedItemIds($id);
         $maxId = 0;
         foreach ($servicesBefore as $s) {
             if (isset($s['id']) && is_numeric($s['id']) && $s['id'] > $maxId) $maxId = $s['id'];
         }
+        foreach ($reservedIds as $rid) {
+            if ($rid > $maxId) $maxId = $rid;
+        }
         $newId = $maxId + 1;
+        while (isset($reservedIds[$newId])) { $newId++; }
 
         // Build size display string
         $sizeLines = [];
@@ -3377,11 +3395,20 @@ public function details(Request $request, string $id)
         $unitPrice = floatval($unitPrice);
         $itemTotal = $totalQty * $unitPrice;
 
+        // Generate a unique item ID. Also reserve IDs already introduced by
+        // OTHER change requests for this sale (pending OR approved) so a
+        // concurrent pending addition cannot collide with this reprocess item
+        // (item-ID collision bug, sale #277).
+        $reservedIds = $this->reservedItemIds($id);
         $maxId = 0;
         foreach ($servicesBefore as $s) {
             if (isset($s['id']) && is_numeric($s['id']) && $s['id'] > $maxId) $maxId = $s['id'];
         }
+        foreach ($reservedIds as $rid) {
+            if ($rid > $maxId) $maxId = $rid;
+        }
         $newId = $maxId + 1;
+        while (isset($reservedIds[$newId])) { $newId++; }
 
         $sizeLines = [];
         foreach ($sizeDetails as $sd) {
@@ -4047,8 +4074,43 @@ $services = json_decode($sale->services, true);
      * Collect the ADDITIONAL products (items added after the original order via approved
      * change requests) as enriched "product cards" for the Additional Production Slip.
      */
+    /**
+     * Reserved item IDs for a sale: every id already present in ANY of its change
+     * requests (pending or approved). Used when generating a new item id so two
+     * concurrent pending requests can't pick the same id (collision bug, #277).
+     */
+    private function reservedItemIds($saleId): array
+    {
+        $reserved = [];
+        $rows = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $saleId)
+            ->get(['services_after']);
+        foreach ($rows as $row) {
+            $items = json_decode($row->services_after ?? '[]', true) ?: [];
+            foreach ($items as $it) {
+                if (isset($it['id']) && is_numeric($it['id'])) {
+                    $reserved[(int) $it['id']] = true;
+                }
+            }
+        }
+        return $reserved;
+    }
+
     private function collectAdditionalProducts($allChanges, array $services): array
     {
+        // Item IDs introduced by an approved REPROCESS. A reprocess replaces the
+        // ENTIRE services list, so an addition sharing one of these ids has been
+        // superseded and must NOT leak onto the additional slip (collision #277).
+        $reprocessedItemIds = [];
+        foreach ($allChanges as $c) {
+            if (($c->type ?? '') === 'reprocess' && ($c->status ?? '') === 'approved') {
+                $after = json_decode($c->services_after, true) ?: [];
+                foreach ($after as $a) {
+                    if (!empty($a['id'])) $reprocessedItemIds[] = $a['id'];
+                }
+            }
+        }
+
         // Approved changes that added products (services_after longer than services_before)
         $approvedChanges = $allChanges->filter(function ($c) {
             if (($c->status ?? '') !== 'approved') return false;
@@ -4064,9 +4126,11 @@ $services = json_decode($sale->services, true);
             $after = json_decode($change->services_after, true) ?: [];
             $beforeIds = array_column($before, 'id');
             foreach ($after as $item) {
-                if (!in_array($item['id'] ?? null, $beforeIds)) {
-                    $additionalItems[] = $item;
-                }
+                $iid = $item['id'] ?? null;
+                if ($iid === null || in_array($iid, $beforeIds)) continue;
+                // Superseded by a reprocess that took over this id — skip.
+                if (in_array($iid, $reprocessedItemIds)) continue;
+                $additionalItems[] = $item;
             }
         }
 
@@ -4077,17 +4141,6 @@ $services = json_decode($sale->services, true);
             $firstChange = $allChanges->first();
             $firstBefore = json_decode($firstChange->services_before, true) ?: [];
             $originalItemIds = array_column($firstBefore, 'id');
-
-            // Collect all item IDs introduced by reprocess changes (replacements, not additions)
-            $reprocessedItemIds = [];
-            foreach ($allChanges as $c) {
-                if (($c->type ?? '') === 'reprocess' && $c->status === 'approved') {
-                    $after = json_decode($c->services_after, true) ?: [];
-                    foreach ($after as $a) {
-                        if (!empty($a['id'])) $reprocessedItemIds[] = $a['id'];
-                    }
-                }
-            }
 
             foreach ($services as $item) {
                 $itemId = $item['id'] ?? null;
@@ -4107,6 +4160,10 @@ $services = json_decode($sale->services, true);
         foreach (array_merge($additionalFromServices, $additionalItems) as $item) {
             $itemId = $item['id'] ?? 0;
             if ($itemId && !in_array($itemId, $currentServiceIds)) {
+                continue;
+            }
+            // Never surface an item whose id was taken over by an approved reprocess.
+            if ($itemId && in_array($itemId, $reprocessedItemIds)) {
                 continue;
             }
             if (!isset($seenIds[$itemId])) {
@@ -4661,7 +4718,13 @@ $services = json_decode($sale->services, true);
         // Manager/admin can override photo-completeness restriction on moves
         $canOverride = $user && ($user->isAdmin() || $user->role === 'manager' || $user->isClassScoped());
         
-        $sales = $query->orderBy('created_at', 'desc')->paginate(100);
+        // FIX (Andrew 2026-10-03): dating paginate(100) dito ay isang GLOBAL na cap
+        // sa LAHAT ng status. Dahil ang mga Completed ay pinaka-luma (created_at desc),
+        // ang iba sa kanila ay napuputol sa 100-row boundary. Kaya tuwing may ni-a-archive
+        // na visible completed card, may bagong LUMANG completed card na pumapasok sa
+        // window -> parang "bumabalik" ang card sa Done at kailangang i-archive ulit.
+        // Load ALL matching cards na lang (maliit lang ang dataset).
+        $sales = $query->orderBy('created_at', 'desc')->get();
         
         // Initialize columns with proper order
         $columns = [];
@@ -9419,9 +9482,16 @@ SQL;
 
         $sale = \App\Models\PrototypeSale::where('sales_agent_id', $user->id)->findOrFail($id);
 
+        // Reason/note ay MANDATORY — bawal ang walang reason (Andrew 2026-10-06).
+        // Bukod sa 'required', sinisigurado rin na hindi lang whitespace ("   ") ang laman,
+        // kung hindi kasi pumapasa ito sa plain 'required' tapos nagiging blangko pagkatapos i-trim.
         $request->validate([
             'needed_by' => 'required|date',
-            'time_note' => 'required|string|max:2000',
+            'time_note' => ['required', 'string', 'max:2000', function ($attribute, $value, $fail) {
+                if (trim((string) $value) === '') {
+                    $fail('Kailangan ng reason/note bago i-send — bawal ang walang reason.');
+                }
+            }],
         ]);
 
         $sale->needed_by = \Carbon\Carbon::parse($request->needed_by);
@@ -9462,15 +9532,38 @@ SQL;
         $classDept = $classScoped ? 4 : null;
 
         $query = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])
+            // I-exclude ang NON-active status (cancelled/draft) — tugma sa Manager Order List
+            // base filter. Dati, lumalabas pa rin sa Set Time List ang cancelled na may
+            // lumang needed_by (hal. SALE-20260912-6AA5149CDD8FB) kahit wala na sa Manager Order List.
+            // (Andrew 2026-10-06)
+            ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
             ->whereNotNull('needed_by')
-            ->whereNull('archived_at')
-            // Tanggalin ang mga na-tag nang DONE (Andrew 2026-09-24): hindi na kailangan
-            // sa Set Time List ang tapos na. (production_stage=DONE o kanban_status=completed)
-            ->where('production_stage', '!=', 'DONE')
-            ->where(function ($q) {
-                $q->whereNull('kanban_status')
-                  ->orWhere('kanban_status', '!=', 'completed');
+            ->whereNull('archived_at');
+
+        // === Auto-done (Andrew 2026-10-06) ===
+        // Kapag na-tag nang DISPATCH (o DONE) ang order, AWTOMATIKONG nililipat sa Done tab
+        // (hindi tinatanggal sa listahan). Sa Done tab ipapakita ang oras kung kailan
+        // na-tag na DISPATCH (mula production_stage_logs).
+        // Active = hindi pa manual-done AT hindi pa DISPATCH/DONE.
+        $activeFilter = function ($q) {
+            $q->whereNull('set_time_done_at')
+              ->where(function ($q2) {
+                  $q2->whereNull('production_stage')
+                     ->orWhereNotIn('production_stage', ['DISPATCH', 'DONE']);
+              })
+              ->where(function ($q2) {
+                  $q2->whereNull('kanban_status')
+                     ->orWhereNotIn('kanban_status', ['ready_for_delivery', 'completed']);
+              });
+        };
+        // Done = manual-done O kaya na-tag nang DISPATCH/DONE.
+        $doneFilter = function ($q) {
+            $q->where(function ($q2) {
+                $q2->whereNotNull('set_time_done_at')
+                   ->orWhereIn('production_stage', ['DISPATCH', 'DONE'])
+                   ->orWhereIn('kanban_status', ['ready_for_delivery', 'completed']);
             });
+        };
 
         if ($classDept !== null) {
             $query->where('department_id', $classDept);
@@ -9517,13 +9610,14 @@ SQL;
             });
         }
 
-        // Prio Reminder filter: 1 = Pinaprio pa, 0 = Hindi na, none = wala pang sagot
+        // Prio filter (connected na sa Manager Order List na PRIO 1..15 slots):
+        // 1 = may Prio, none = wala pang Prio. (Dati: set_time_prio reminder)
         if ($request->filled('prio')) {
             $prio = $request->prio;
-            if ($prio === '1' || $prio === '0') {
-                $query->where('set_time_prio', (int) $prio);
+            if ($prio === '1') {
+                $query->whereNotNull('priority');
             } elseif ($prio === 'none') {
-                $query->whereNull('set_time_prio');
+                $query->whereNull('priority');
             }
         }
 
@@ -9539,12 +9633,12 @@ SQL;
         // Active = wala pang set_time_done_at; Done = may set_time_done_at.
         // HINDI ito nakakaapekto sa Manager Order List / production status.
         $tab = $request->get('tab', 'active') === 'done' ? 'done' : 'active';
-        $activeCount = (clone $query)->whereNull('set_time_done_at')->count();
-        $doneCount = (clone $query)->whereNotNull('set_time_done_at')->count();
+        $activeCount = (clone $query)->where($activeFilter)->count();
+        $doneCount = (clone $query)->where($doneFilter)->count();
         if ($tab === 'done') {
-            $query->whereNotNull('set_time_done_at');
+            $query->where($doneFilter);
         } else {
-            $query->whereNull('set_time_done_at');
+            $query->where($activeFilter);
         }
 
         if ($tab === 'done') {
@@ -9569,7 +9663,7 @@ SQL;
                 $sales = $query->orderBy('sales_agent_name')->get();
                 break;
             case 'prio':
-                $sales = $query->orderByRaw('set_time_prio IS NULL')->orderByDesc('set_time_prio')->orderBy('needed_by')->get();
+                $sales = $query->orderByRaw('priority IS NULL')->orderBy('priority', 'asc')->orderBy('needed_by')->get();
                 break;
             case 'arrangement':
             default:
@@ -9579,6 +9673,22 @@ SQL;
                     ->get();
                 break;
         }
+        }
+
+        // === Dispatch tagging time (Done tab) — mula production_stage_logs ===
+        // Ipinapakita kung kailan (unang beses) na-tag na DISPATCH ang order.
+        $dispatchAt = [];
+        $saleIdsForLogs = $sales->pluck('id')->all();
+        if (!empty($saleIdsForLogs) && \Illuminate\Support\Facades\Schema::hasTable('production_stage_logs')) {
+            $logs = \DB::table('production_stage_logs')
+                ->whereIn('prototype_sale_id', $saleIdsForLogs)
+                ->where('to_stage', 'DISPATCH')
+                ->selectRaw('prototype_sale_id, MIN(created_at) as first_at')
+                ->groupBy('prototype_sale_id')
+                ->get();
+            foreach ($logs as $l) {
+                $dispatchAt[$l->prototype_sale_id] = $l->first_at;
+            }
         }
 
         // Agents na may set na time (para sa filter dropdown) — id + pangalan
@@ -9615,10 +9725,22 @@ SQL;
             'completed'          => 'DONE',
         ];
 
-        // === Prio Reminder (SEPARATE sa Manager List) ===
-        // Walang ginagamit na Prio 1..15 slots dito — sariling flag lang:
-        // "pinaprio pa ba ni Manager ang order na ito?" (set_time_prio)
-        return view('sales.prototype.set-time-list', compact('sales', 'agents', 'departments', 'statusToStage', 'tab', 'activeCount', 'doneCount'));
+        // === Prio (connected na sa Manager Order List Prio 1..15) ===
+        // Kaparehong scope ng uniqueness check ng Manager List (para tugma ang "Taken" labels).
+        $usedPrioQuery = \App\Models\PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('deleted_at')
+            ->whereNotNull('priority');
+        if ($classScoped) {
+            $usedPrioQuery->where('department_id', 4);
+        }
+        if (!$user->isAdmin() && !$user->isCoo() && !$classScoped) {
+            $usedPrioQuery->where('sales_agent_id', $user->id);
+        }
+        $usedPriorities = $usedPrioQuery->pluck('sales_number', 'priority')->toArray();
+        $canForcePriority = $user->isManager() || $user->isCoo();
+        $priorityMax = 15;
+
+        return view('sales.prototype.set-time-list', compact('sales', 'agents', 'departments', 'statusToStage', 'tab', 'activeCount', 'doneCount', 'usedPriorities', 'canForcePriority', 'priorityMax', 'dispatchAt'));
     }
 
     /**

@@ -367,6 +367,7 @@
     }
     .sales-no { font-size: 12px; font-weight: 700; color: #111827; }
     .sales-date { font-size: 10.5px; color: #9ca3af; }
+    .sales-designer { font-size: 10.5px; color: #7c3aed; font-weight: 700; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .empty-state { text-align: center; padding: 56px 20px; }
     .empty-state .ico { font-size: 44px; color: #d1d5db; margin-bottom: 12px; }
@@ -678,6 +679,16 @@
                             }
                             $description = $descParts ? implode(' + ', $descParts) : '—';
 
+                            // DESIGNER (Andrew 2026-10-03): ipakita sa Sales# column kung sino ang designer ng project.
+                            $designers = [];
+                            foreach ((array)$svcItems as $svc) {
+                                if (!is_array($svc)) continue;
+                                $dName = trim((string) ($svc['sublimationForm']['designer'] ?? ($svc['designer'] ?? '')));
+                                if ($dName !== '') $designers[] = $dName;
+                            }
+                            $designers = array_values(array_unique($designers));
+                            $designerLabel = implode(', ', $designers);
+
                             $stageBg = $stageColors[$stageLabel][0] ?? ($stageLabel === 'FOR SAMPLE' || $stageLabel === 'FOR APPROVAL' ? '#fd7e14' : '#0d6efd');
 
                             // GA assignments for this sale
@@ -717,6 +728,9 @@
                             <td style="max-width:150px;">
                                 <div class="sales-no">{{ $sale->sales_number }}</div>
                                 <div class="sales-date">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
+                                @if($designerLabel)
+                                <div class="sales-designer" title="Designer: {{ $designerLabel }}">🎨 {{ \Illuminate\Support\Str::limit($designerLabel, 24) }}</div>
+                                @endif
                                 @if($sale->is_delayed)<span class="delayed-chip">⏰ Delayed</span>@endif
                                 @if(!empty($sale->priority))<span class="prio-chip p{{ $sale->priority <= 3 ? $sale->priority : '3' }}">⭐ Prio {{ $sale->priority }}</span>@endif
                             </td>

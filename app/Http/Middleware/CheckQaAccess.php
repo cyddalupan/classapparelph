@@ -49,6 +49,8 @@ class CheckQaAccess
 
         // Audit history (read-only logs, used by show page comments/audit section)
         'sales.prototype.audit-history',
+        // Payment audit logs endpoint (kanban audit fetch) — read-only
+        'sales.audit-logs',
         // Comments endpoint (AJAX-loaded comments on the show page)
         'sales.prototype.comments',
 

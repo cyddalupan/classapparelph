@@ -149,6 +149,7 @@ class CheckProdManagerClassAccess
         // Comments & notifications
         'sales.prototype.add-comment',
         'sales.prototype.audit-history',
+        'sales.audit-logs',
         'sales.prototype.comments',
 
         // Profile picture upload (avatar boxes on sidebar & top-right)

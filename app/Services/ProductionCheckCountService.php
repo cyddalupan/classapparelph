@@ -276,9 +276,11 @@ class ProductionCheckCountService
                 $after = json_decode($change->services_after ?? '[]', true) ?: [];
                 $beforeIds = array_column($before, 'id');
                 foreach ($after as $it) {
-                    if (!in_array($it['id'] ?? null, $beforeIds)) {
-                        $additionalItems[] = $it;
-                    }
+                    $iid = $it['id'] ?? null;
+                    if ($iid === null || in_array($iid, $beforeIds)) continue;
+                    // Superseded by an approved reprocess that took over this id.
+                    if (in_array($iid, $reprocessedItemIds)) continue;
+                    $additionalItems[] = $it;
                 }
             }
 
@@ -296,6 +298,10 @@ class ProductionCheckCountService
             foreach (array_merge($additionalFromServices, $additionalItems) as $item) {
                 $itemId = $item['id'] ?? 0;
                 if ($itemId && !in_array($itemId, $currentServiceIds)) {
+                    continue;
+                }
+                // Never surface an item whose id was taken over by an approved reprocess.
+                if ($itemId && in_array($itemId, $reprocessedItemIds)) {
                     continue;
                 }
                 if (!isset($seenIds[$itemId])) {
