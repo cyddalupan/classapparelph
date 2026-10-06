@@ -1015,6 +1015,7 @@ window.sub_calculateTotal = function() {
                 var sizeName = (sizeInput.value || sizeInput.textContent || '').trim().toUpperCase();
                 var szPrice = sub_getSizePrice(sizeName);
                 if (szPrice > 0) {
+                    sizeAddon += szPrice * qty; // per-size markup (applied in grandTotal below)
                     if (!rosterSizeCounts[sizeName]) rosterSizeCounts[sizeName] = {qty:0, price:szPrice};
                     rosterSizeCounts[sizeName].qty += qty;
                 }
@@ -1065,35 +1066,20 @@ window.sub_calculateTotal = function() {
     }
     
     var baseUnit = garmentPrice + fabricPrice + partsPrice;
-    var maxSizeAddon = 0;
-    // Calculate maxSizeAddon from size mode inputs or roster row sizes
-    if (isRoster) {
-        rosterRows.forEach(function(row) {
-            var sizeInput = row.querySelector('.roster-size');
-            if (sizeInput) {
-                var sizeName = (sizeInput.value || sizeInput.textContent || '').trim().toUpperCase();
-                var szPrice = sub_getSizePrice(sizeName);
-                if (szPrice > maxSizeAddon) maxSizeAddon = szPrice;
-            }
-        });
-    } else {
-        sizeInputs.forEach(function(input) {
-            var val = parseInt(input.value) || 0;
-            if (val > 0) { // Only count sizes with actual qty (fix: phantom size add-on)
-                var size = input.dataset.size;
-                var sizePrice = sub_getSizePrice(size);
-                if (sizePrice > maxSizeAddon) maxSizeAddon = sizePrice;
-            }
-        });
-    }
-    
-    var unitPrice = baseUnit + maxSizeAddon;
+
+    // UNIT PRICE = base only (garment + fabric + parts). Size markups are applied
+    // PER SIZE in grandTotal below — NOT flattened across all quantities.
+    // (Pricing bug, sale #245: a mixed-size order was charged the max size
+    //  markup on EVERY piece. Now mirrors the New Sale / create flow.)
+    var unitPrice = baseUnit;
     if (window.sub_hasSpecialPrice) {
         var spVal = parseFloat(document.getElementById('subSpecialPrintTotal').value) || 0;
         if (spVal > 0) unitPrice = spVal;
     }
-    
-    var grandTotal = unitPrice * totalQty;
+
+    // Grand total = (unit price × qty) + size add-ons, so only sizes that carry
+    // a markup are charged for it (e.g. 5XL +₱30 only on the 5XL pieces).
+    var grandTotal = (unitPrice * totalQty) + sizeAddon;
     
     // Update UI
     document.getElementById('subPricing_garmentPrice').textContent = '₱' + garmentPrice.toFixed(2);

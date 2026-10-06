@@ -3098,7 +3098,12 @@ public function details(Request $request, string $id)
 
         $totalQty = array_sum(array_column($sizeDetails, 'qty'));
         $unitPrice = floatval($unitPrice);
-        $itemTotal = $totalQty * $unitPrice;
+        // Prefer the client's per-size total (already includes per-size markups
+        // like 5XL +₱30). Falls back to flat qty × unit price if absent.
+        // (Pricing bug, sale #245: mixed-size orders were charged the max size
+        //  markup on every piece because this was computed flat.)
+        $submittedTotal = floatval($request->input('total_price', $request->input('totalPrice', 0)));
+        $itemTotal = $submittedTotal > 0 ? $submittedTotal : ($totalQty * $unitPrice);
 
         // Parse current services
         $servicesBefore = json_decode($sale->services ?? '[]', true);
@@ -3393,7 +3398,12 @@ public function details(Request $request, string $id)
 
         $totalQty = array_sum(array_column($sizeDetails, 'qty'));
         $unitPrice = floatval($unitPrice);
-        $itemTotal = $totalQty * $unitPrice;
+        // Prefer the client's per-size total (already includes per-size markups
+        // like 5XL +₱30). Falls back to flat qty × unit price if absent.
+        // (Pricing bug, sale #245: mixed-size orders were charged the max size
+        //  markup on every piece because this was computed flat.)
+        $submittedTotal = floatval($request->input('total_price', $request->input('totalPrice', 0)));
+        $itemTotal = $submittedTotal > 0 ? $submittedTotal : ($totalQty * $unitPrice);
 
         // Generate a unique item ID. Also reserve IDs already introduced by
         // OTHER change requests for this sale (pending OR approved) so a
