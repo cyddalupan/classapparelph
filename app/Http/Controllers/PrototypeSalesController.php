@@ -5635,6 +5635,22 @@ $services = json_decode($sale->services, true);
         }
         $delayCount = $delayCount->count();
 
+        // ⏸️ On Hold count (Andrew 2026-10-06) — bilang ng naka-HOLD na project sa
+        // Manager Order List scope. Tugma sa stage derivation: production_stage='HOLD'
+        // O kaya NULL ang stage + kanban_status='new'.
+        $holdCountQuery = \App\Models\PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at')
+            ->where(function ($w) {
+                $w->where('production_stage', 'HOLD')
+                  ->orWhere(function ($w2) {
+                      $w2->whereNull('production_stage')->where('kanban_status', 'new');
+                  });
+            });
+        if ($user && $user->isClassScoped()) {
+            $holdCountQuery->where('department_id', 4);
+        }
+        $holdCount = $holdCountQuery->count();
+
         // 🔧 Backjob count — same FIFO logic as backjobList():
         // main slip counts once if it has any active comment;
         // each additional project counts once if it has an active comment.
@@ -5758,7 +5774,8 @@ $services = json_decode($sale->services, true);
             "delayCount", "backjobCount", "backjobLockSaleIds", "backjobStatusSaleIds", "repeatCustomers", "repeatEmails",
             "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds", "freebiePendingCount",
             "priorityMax",
-            "prodCheckCounts"
+            "prodCheckCounts",
+            "holdCount"
         ));
     }
 

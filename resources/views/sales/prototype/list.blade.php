@@ -643,6 +643,10 @@
             <a href="{{ route('sales.prototype.backjobs') }}" class="btn" style="background:#6d28d9;color:#fff;">🔧 Backjob List @if(($backjobCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#6d28d9;">{{ $backjobCount }}</span>@endif</a>
             <a href="{{ route('sales.prototype.production-feedback.list') }}" class="btn" style="background:#d97706;color:#fff;">📋 Production Feedback @if(($openFeedbackCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#d97706;">{{ $openFeedbackCount }}</span>@endif</a>
             @endif
+            {{-- On Hold count badge (Andrew 2026-10-06): ilan ang naka-HOLD na project --}}
+            <a href="{{ request()->fullUrlWithQuery(['stage' => 'HOLD']) }}" class="btn" id="onHoldBtn" style="background:#64748b;color:#fff;" title="Mga project na naka-HOLD — i-click para i-filter ang listahan">
+                ⏸️ On Hold @if(($holdCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#64748b;">{{ $holdCount ?? 0 }}</span>@endif
+            </a>
             @if(!(auth()->user() && auth()->user()->isProdManager()))
             <a href="{{ route('sales.prototype.create') }}" class="btn btn-new-order">➕ New Order</a>
             @endif
