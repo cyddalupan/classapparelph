@@ -9369,10 +9369,13 @@ SQL;
     public function markDelayed(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+        if (!$user) {
             abort(403, 'Unauthorized access.');
         }
 
+        // Ang MAY-ARI ng sale (sales_agent_id = user) ang pwedeng mag-mark ng delay sa
+        // sarili niyang sale — anuman ang role (tugma sa submitTime; pan-fix sa QA/class-scoped
+        // owners na 403 dati). (Andrew 2026-10-06)
         $sale = \App\Models\PrototypeSale::where('sales_agent_id', $user->id)->findOrFail($id);
 
         $sale->is_delayed = true;
@@ -9493,10 +9496,14 @@ SQL;
     public function submitTime(Request $request, $id)
     {
         $user = auth()->user();
-        if (!$user->isSalesAgent() && !$user->isSalesRepresentative() && !$user->isAdmin()) {
+        if (!$user) {
             abort(403, 'Unauthorized access.');
         }
 
+        // Ang MAY-ARI ng sale (sales_agent_id = user) ang dapat makapag-set ng oras — anuman
+        // ang role (hal. QA/class-scoped na may hawak na sales, gaya ni Mary Ann Villanueva).
+        // Dating role-only gate (sales_agent/rep/admin) lang kaya 403 ang mga tulad niya,
+        // kahit na hawak niya ang sale at nakikita ang "Set Time" button. (Andrew 2026-10-06)
         $sale = \App\Models\PrototypeSale::where('sales_agent_id', $user->id)->findOrFail($id);
 
         // Reason/note ay MANDATORY — bawal ang walang reason (Andrew 2026-10-06).
