@@ -1802,6 +1802,18 @@ public function details(Request $request, string $id)
         $startedStages = ['PRINTING', 'PRESSING', 'CUTTING', 'SEWING', 'QA', 'DISPATCH', 'UNPAID', 'DONE'];
         $productionStarted = in_array($sale->production_stage ?? '', $startedStages, true);
         $canOverrideReprocess = $currentUser && ($currentUser->isAdmin() || $currentUser->isProdManager() || $currentUser->isCoo());
+
+        // SUBCON (Andrew 2026-10-08): Prod Manager / CEO / COO only. Kapag naka-tag,
+        // LOCKED ang production status hangga't hindi i-undo ang Subcon.
+        $canSubcon = $currentUser && ($currentUser->isAdmin() || $currentUser->isProdManager() || $currentUser->isCoo());
+        $subconLocked = ($sale->production_stage ?? '') === 'SUBCON';
+        $subconLog = null; $subconByName = null;
+        if ($subconLocked) {
+            $subconLog = \App\Models\ProductionStageLog::where('prototype_sale_id', $id)->where('to_stage', 'SUBCON')->orderByDesc('id')->first();
+            if ($subconLog && $subconLog->changed_by) {
+                $subconByName = optional(\App\Models\User::find($subconLog->changed_by))->name;
+            }
+        }
         
         // Fetch refund data for this sale
         $refunds = \DB::table('prototype_refunds')
@@ -1914,6 +1926,7 @@ public function details(Request $request, string $id)
             'progressPercent', 'pendingChanges', 'isManager', 'isGa', 'canGiveFeedback', 'canEdit', 'canEditProdSlip',
             'currentUser',
             'productionStarted', 'canOverrideReprocess',
+            'canSubcon', 'subconLocked', 'subconLog', 'subconByName',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists', 'damageReports',
@@ -4874,6 +4887,7 @@ $services = json_decode($sale->services, true);
             'DISPATCH'     => 'ready_for_delivery',
             'UNPAID'       => 'delivered',
             'DONE'         => 'completed',
+            'SUBCON'       => 'production',
         ];
         $statusToStage = [
             'new'                => 'HOLD',
@@ -5337,6 +5351,7 @@ $services = json_decode($sale->services, true);
             'DISPATCH'     => 'ready_for_delivery',
             'UNPAID'       => 'delivered',
             'DONE'         => 'completed',
+            'SUBCON'       => 'production',
         ];
 
         // Reverse: kanban status → representative stage (for dropdown display)
@@ -5856,6 +5871,70 @@ $services = json_decode($sale->services, true);
     /**
      * Update sale status.
      */
+    /**
+     * Tag a sale as SUBCON (subcontracted). Class Production Manager / CEO / COO only
+     * (Andrew 2026-10-08). Once tagged, the production status is LOCKED until undoSubcon().
+     */
+    public function markSubcon(Request $request, $id)
+    {
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->isProdManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the Class Production Manager, CEO, and COO can tag SUBCON.'], 403);
+        }
+        if (($sale->production_stage ?? '') === 'SUBCON') {
+            return response()->json(['success' => false, 'message' => 'Naka-SUBCON na ang order na ito.'], 422);
+        }
+        $prevStage = $sale->production_stage;
+        $sale->production_stage = 'SUBCON';
+        $sale->save();
+        \App\Models\ProductionStageLog::record($sale, $prevStage, 'SUBCON', $user->id);
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id'     => $sale->id,
+            'user_id'     => $user->id,
+            'action'      => 'subcon_tagged',
+            'description' => 'Order tagged SUBCON (subcontracted). Previous production status: ' . ($prevStage ?: '—') . '.',
+            'details'     => json_encode(['previous_stage' => $prevStage]),
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+        return response()->json(['success' => true, 'production_stage' => 'SUBCON', 'message' => 'Na-tag na ang order bilang SUBCON. LOCKED na ang production status hangga’t hindi inundo.']);
+    }
+
+    /**
+     * Undo the SUBCON tag — restores the previous production stage so production
+     * history can move again. Class Production Manager / CEO / COO only (Andrew 2026-10-08).
+     */
+    public function undoSubcon(Request $request, $id)
+    {
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $user = auth()->user();
+        if (!$user || !($user->isAdmin() || $user->isProdManager() || $user->isCoo())) {
+            return response()->json(['success' => false, 'message' => 'Only the Class Production Manager, CEO, and COO can undo SUBCON.'], 403);
+        }
+        if (($sale->production_stage ?? '') !== 'SUBCON') {
+            return response()->json(['success' => false, 'message' => 'Hindi naka-SUBCON ang order na ito.'], 422);
+        }
+        $prevStage = \App\Models\ProductionStageLog::where('prototype_sale_id', $sale->id)
+            ->where('to_stage', 'SUBCON')
+            ->orderByDesc('id')
+            ->value('from_stage');
+        $restore = $prevStage ?: 'HOLD';
+        $sale->production_stage = $restore;
+        $sale->save();
+        \App\Models\ProductionStageLog::record($sale, 'SUBCON', $restore, $user->id);
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id'     => $sale->id,
+            'user_id'     => $user->id,
+            'action'      => 'subcon_undone',
+            'description' => 'SUBCON tag removed. Production status restored to ' . $restore . '.',
+            'details'     => json_encode(['restored_stage' => $restore]),
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+        return response()->json(['success' => true, 'production_stage' => $restore, 'message' => 'Na-undo ang SUBCON — ibinalik ang production status sa ' . $restore . '.']);
+    }
+
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
@@ -5867,6 +5946,16 @@ $services = json_decode($sale->services, true);
         // Class Production Manager: Class department only
         if (auth()->user() && auth()->user()->isClassScoped() && (int) $sale->department_id !== 4) {
             return response()->json(['success' => false, 'message' => 'Unauthorized access.'], 403);
+        }
+
+        // 🔒 SUBCON LOCK (Andrew 2026-10-08): kapag naka-SUBCON ang order, LOCKED ang
+        // production status — hindi pwedeng mag-tag ng ibang stage (dropdown man o kanban
+        // drag). Kailangan munang i-Undo ang Subcon (Prod Manager / CEO / COO).
+        if (($sale->production_stage ?? '') === 'SUBCON') {
+            return response()->json([
+                'success' => false,
+                'message' => '🔒 Naka-SUBCON ang order na ito — LOCKED ang production status. I-undo muna ang Subcon (Prod Manager / CEO / COO) bago makapag-tag ng ibang stage.',
+            ], 422);
         }
 
         // PAYMENT LOCK (server-side): cannot mark as DONE/completed while there is a pending balance due.
@@ -6420,6 +6509,7 @@ $services = json_decode($sale->services, true);
             'DISPATCH'     => 'ready_for_delivery',
             'UNPAID'       => 'delivered',
             'DONE'         => 'completed',
+            'SUBCON'       => 'production',
         ];
         $statusToStage = [
             'new'                => 'HOLD',

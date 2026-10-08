@@ -983,6 +983,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // KANBAN routes
         Route::get('/sales/prototype/kanban/{department?}', [App\Http\Controllers\PrototypeSalesController::class, 'kanban'])->name('sales.prototype.kanban');
         Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
+        Route::post('/sales/prototype/{id}/subcon', [App\Http\Controllers\PrototypeSalesController::class, 'markSubcon'])->name('sales.prototype.subcon');
+        Route::post('/sales/prototype/{id}/undo-subcon', [App\Http\Controllers\PrototypeSalesController::class, 'undoSubcon'])->name('sales.prototype.undo-subcon');
         Route::post('/sales/prototype/{id}/priority', [App\Http\Controllers\PrototypeSalesController::class, 'updatePriority'])->name('sales.prototype.priority');
         Route::post('/sales/prototype/{id}/ga-assign', [App\Http\Controllers\PrototypeSalesController::class, 'assignGa'])->name('sales.prototype.ga-assign');
         Route::post('/sales/prototype/{id}/ga-unassign', [App\Http\Controllers\PrototypeSalesController::class, 'unassignGa'])->name('sales.prototype.ga-unassign');

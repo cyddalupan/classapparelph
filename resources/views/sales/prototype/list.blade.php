@@ -265,6 +265,10 @@
     tr.has-pending:hover td {
         background: #fff8e1 !important;
     }
+    /* SUBCON row — yellow (Andrew 2026-10-08) */
+    .pipeline-table tbody tr.subcon-row,
+    .pipeline-table tbody tr.subcon-row > td { background: #fff59d !important; }
+    tr.subcon-row { border-left: 4px solid #f59e0b !important; }
     .pending-row-badge {
         margin-left: 6px;
         font-size: 12px;
@@ -866,7 +870,7 @@
                             else $daysLeftBucket = 'later';
                         }
                     @endphp
-                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" data-time-req="{{ !empty($sale->needed_by) ? 'set' : (!empty($sale->time_requested_at) ? 'requested' : 'none') }}" data-needed-by="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d H:i:s') : '' }}" data-days-left="{{ $daysLeftBucket }}" data-due="{{ $dlDate ? \Carbon\Carbon::parse($dlDate)->startOfDay()->format('Y-m-d') : '' }}" data-agent="{{ $sale->sales_agent_name ?? '' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ !empty($pendingCounts[$sale->id]) ? 'has-pending' : '' }}">
+                    <tr data-photos="{{ $allPhotos ? 'complete' : 'missing' }}" data-date="{{ \Carbon\Carbon::parse($sale->created_at)->format('Y-m-d') }}" data-stage="{{ $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD') }}" data-prio="{{ $sale->priority ?? '' }}" data-time-req="{{ !empty($sale->needed_by) ? 'set' : (!empty($sale->time_requested_at) ? 'requested' : 'none') }}" data-needed-by="{{ !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('Y-m-d H:i:s') : '' }}" data-days-left="{{ $daysLeftBucket }}" data-due="{{ $dlDate ? \Carbon\Carbon::parse($dlDate)->startOfDay()->format('Y-m-d') : '' }}" data-agent="{{ $sale->sales_agent_name ?? '' }}" onclick="window.location.href='{{ route('sales.prototype.show', $sale->id) }}'" class="{{ trim((!empty($pendingCounts[$sale->id]) ? 'has-pending ' : '') . (($sale->production_stage ?? '') === 'SUBCON' ? 'subcon-row' : '')) }}">
                         <td style="max-width:130px;">
                             <select class="form-select form-select-sm prio-select" data-sale-id="{{ $sale->id }}" data-current="{{ $sale->priority ?? '' }}" onclick="event.stopPropagation()" style="font-size:11px;min-width:80px;padding:1px 4px;margin-bottom:3px;{{ $sale->priority ? 'background:#fff3cd;color:#856404;font-weight:600;' : '' }}" title="Priority tag — nagamit na sa ibang order ang may (Taken)">
                                 <option value="" {{ !$sale->priority ? 'selected' : '' }}>Prio —</option>
@@ -929,15 +933,18 @@
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
                             @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); $balanceDue = (float) $sale->balance_due_computed; $bjStatusSale = in_array((int) $sale->id, $backjobStatusSaleIds ?? [], true); $bjDispatchLock = in_array((int) $sale->id, $backjobLockSaleIds ?? [], true); @endphp
-                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $currentStage }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;@if($bjStatusSale)background:#fdecea;color:#b02a37;font-weight:700;border-color:#f1aeb5;cursor:not-allowed;@elseif(!$hasFileShot)background:#e9ecef;color:#adb5bd;cursor:not-allowed;@endif" @if($bjStatusSale) disabled title="🔧 BACKJOB — may active backjob. I-clear muna lahat bago makapag-tag ng ibang production status." @elseif(!$hasFileShot) disabled title="🔒 Kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL" @endif>
+                            <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $currentStage }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;@if($currentStage === 'SUBCON')background:#fff3a3;color:#7a5300;font-weight:700;border-color:#f0c33c;cursor:not-allowed;@elseif($bjStatusSale)background:#fdecea;color:#b02a37;font-weight:700;border-color:#f1aeb5;cursor:not-allowed;@elseif(!$hasFileShot)background:#e9ecef;color:#adb5bd;cursor:not-allowed;@endif" @if($currentStage === 'SUBCON') disabled title="🔒 Naka-SUBCON — LOCKED ang production status. I-undo muna ang Subcon (Prod Manager / CEO / COO) bago makapag-tag ng ibang stage." @elseif($bjStatusSale) disabled title="🔧 BACKJOB — may active backjob. I-clear muna lahat bago makapag-tag ng ibang production status." @elseif(!$hasFileShot) disabled title="🔒 Kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL" @endif>
                                 @if($bjStatusSale)
                                     <option value="{{ $currentStage }}" selected>BACKJOB</option>
                                 @else
                                 @foreach($prodStageMap as $stage => $st)
-                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if($st === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE" @elseif($stage === 'DISPATCH' && $bjDispatchLock && $currentStage !== 'DISPATCH') disabled title="🔒 May active backjob / open freebie slip — i-clear muna lahat bago i-DISPATCH" @elseif(in_array($st, ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed']) && $hasFileShot && !$hasColorShot) disabled title="🔒 Kulang Approved Sample Color — kumpletuhin muna bago lumampas sa FOR SAMPLE / FOR APPROVAL" @endif>{{ $stage }}</option>
+                                    <option value="{{ $stage }}" data-status="{{ $st }}" {{ $currentStage === $stage ? 'selected' : '' }} @if($stage === 'SUBCON') disabled title="🔒 SUBCON — sa sales page button lang (Prod Manager / CEO / COO); hindi piliin dito" @elseif($st === 'completed' && $balanceDue > 0) disabled title="🔒 May pending balance (₱{{ number_format($balanceDue, 2) }}) — bayaran muna bago i-DONE" @elseif($stage === 'DISPATCH' && $bjDispatchLock && $currentStage !== 'DISPATCH') disabled title="🔒 May active backjob / open freebie slip — i-clear muna lahat bago i-DISPATCH" @elseif(in_array($st, ['design', 'production', 'quality_check', 'ready_for_delivery', 'delivered', 'completed']) && $hasFileShot && !$hasColorShot) disabled title="🔒 Kulang Approved Sample Color — kumpletuhin muna bago lumampas sa FOR SAMPLE / FOR APPROVAL" @endif>{{ $stage }}</option>
                                 @endforeach
                                 @endif
                             </select>
+                            @if($currentStage === 'SUBCON')
+                                <div style="font-size:10px;color:#b45309;margin-top:2px;">🔒 SUBCON — LOCKED ang production status. I-undo sa sales page bago makapag-tag ng iba.</div>
+                            @endif
                             @if($bjStatusSale)
                                 <div style="font-size:10px;color:#dc3545;margin-top:2px;">🔧 BACKJOB — hindi makakapag-tag ng ibang production status hangga't may active backjob</div>
                             @elseif($bjDispatchLock && $currentStage !== 'DISPATCH')

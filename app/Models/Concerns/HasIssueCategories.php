@@ -23,6 +23,7 @@ trait HasIssueCategories
         'wrong_color'           => 'Wrong Color',
         'typo_error'            => 'Typo / Spelling Error',
         'unapproved_design'     => 'Unapproved Design',
+        'unmatch_design'        => 'Unmatch Design',
 
         // Production
         'production_error'      => 'Production Error',

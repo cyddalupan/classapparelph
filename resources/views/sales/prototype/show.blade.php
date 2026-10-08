@@ -609,6 +609,81 @@
                 </div>
             </div>
 
+            <!-- SUBCON (Class Production Manager / CEO / COO only) — Andrew 2026-10-08 -->
+            @if($canSubcon)
+            <div class="detail-section mt-3" id="subconSection">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="detail-title mb-0" style="border-bottom:none;padding-bottom:0;">
+                        <i class="fas fa-truck-loading me-2"></i>Subcon
+                    </h5>
+                    @if($subconLocked)
+                        <span class="badge" style="background:#f59e0b;color:#3b2f00;font-size:12px;">🟡 SUBCON — production status LOCKED</span>
+                    @endif
+                </div>
+                @if($subconLocked)
+                    <div class="alert mt-2 mb-2" style="background:#fff8e1;border-left:5px solid #f59e0b;">
+                        <div style="font-size:13px;">
+                            Naka-tag ang order na ito bilang <strong>SUBCON</strong>. Hindi mababago ang production status hangga't hindi inundo.
+                            @if($subconByName)
+                                <br><small class="text-muted">Ni-tag ni <strong>{{ $subconByName }}</strong>{{ $subconLog ? ' · ' . $subconLog->created_at : '' }}</small>
+                            @endif
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline-warning" onclick="openSubconUndoModal()">
+                        <i class="fas fa-undo"></i> Undo Subcon
+                    </button>
+                @else
+                    <p class="text-muted mb-2" style="font-size:13px;">I-tag ang order bilang subcontracted. <strong>Hindi na ito reversible</strong> sa normal na paraan — LOCKED ang production status pagkatapos (i-undo para makagalaw ulit ang production history).</p>
+                    <button type="button" class="btn btn-warning" onclick="openSubconConfirmModal()">
+                        <i class="fas fa-truck-loading"></i> Subcon
+                    </button>
+                @endif
+            </div>
+
+            <!-- Subcon confirm modals -->
+            <div class="modal fade" id="subconConfirmModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background:#f59e0b;">
+                            <h5 class="modal-title" style="color:#3b2f00;">⚠️ I-tag bilang SUBCON?</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>I-tatag ang order <strong>#{{ $sale->sales_number }}</strong> bilang <strong>SUBCON</strong>.</p>
+                            <ul style="font-size:13px;">
+                                <li>Magiging <strong>LOCKED</strong> ang production status — hindi na mababago hangga't hindi inundo.</li>
+                                <li>Dilaw ang magiging card nito sa <strong>Manager Order List</strong>.</li>
+                                <li><strong>Hindi na ito reversible</strong> sa normal na paraan. Kailangan ng <strong>Undo Subcon</strong> para makagalaw ulit ang production history.</li>
+                            </ul>
+                            <p class="mb-0"><strong>Sigurado ka na ba?</strong></p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-warning" id="subconConfirmBtn" onclick="submitSubcon('subcon')"><i class="fas fa-check"></i> Oo, i-SUBCON</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal fade" id="subconUndoModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header" style="background:#64748b;">
+                            <h5 class="modal-title text-white">↩️ I-undo ang SUBCON?</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Ibabalik ang production status sa dating stage (bago na-tag na SUBCON) para makagalaw ulit ang production history.</p>
+                            <p class="mb-0"><strong>Sigurado ka na ba?</strong></p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" id="subconUndoBtn" onclick="submitSubcon('undo-subcon')"><i class="fas fa-undo"></i> Oo, i-undo</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             <!-- Audit History (hidden for GA) -->
             @if(!$isGa)
             <div class="detail-section mt-3">
@@ -4904,6 +4979,23 @@ function doneFreebie(id) {
 }
 
 document.addEventListener('DOMContentLoaded', function() { loadFreebies(); });
+
+// === SUBCON (Andrew 2026-10-08) ===
+function openSubconConfirmModal(){ new bootstrap.Modal(document.getElementById('subconConfirmModal')).show(); }
+function openSubconUndoModal(){ new bootstrap.Modal(document.getElementById('subconUndoModal')).show(); }
+function submitSubcon(action){
+    var btn = action === 'subcon' ? document.getElementById('subconConfirmBtn') : document.getElementById('subconUndoBtn');
+    var urls = { 'subcon': '{{ route('sales.prototype.subcon', $sale->id) }}', 'undo-subcon': '{{ route('sales.prototype.undo-subcon', $sale->id) }}' };
+    if (btn){ btn.disabled = true; var t = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Please wait...'; }
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch(urls[action], { method:'POST', headers:{ 'Content-Type':'application/json', 'X-CSRF-TOKEN': csrf?csrf.content:'', 'Accept':'application/json' }, body: JSON.stringify({}) })
+    .then(function(r){ return r.json().catch(function(){return {};}).then(function(d){ return {ok:r.ok,data:d}; }); })
+    .then(function(res){
+        if (res.ok && res.data.success){ window.location.reload(); }
+        else { if (btn){ btn.disabled=false; } alert('⚠️ ' + (res.data.message || 'Failed.')); }
+    })
+    .catch(function(){ if (btn){ btn.disabled=false; } alert('❌ Network error. Try again.'); });
+}
 
 </script>
 
