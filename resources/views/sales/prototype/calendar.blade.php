@@ -1029,6 +1029,7 @@ let currentView = 'month'; // 'week' | 'month'  // (Andrew 2026-10-03: naka-defa
 // ========== VIEW TOGGLE ==========
 function setView(view) {
     currentView = view;
+    customRange = null; // switching view clears any applied date range
     document.getElementById('viewWeekBtn').classList.toggle('active', view === 'week');
     document.getElementById('viewWeekBtn').classList.toggle('btn-outline-light', view !== 'week');
     document.getElementById('viewMonthBtn').classList.toggle('active', view === 'month');
@@ -1369,7 +1370,10 @@ function loadCal() {
     let label = '';
     let dateStart, dateEnd;
 
-    if (currentView === 'month') {
+    // A custom date range ("Show from / to" → Apply) takes precedence over the
+    // month/week toggle. Fixes: range picker had no effect while in Month view
+    // (default since 2026-10-03), so the side Summary never updated (Andrew 2026-10-09).
+    if (currentView === 'month' && !customRange) {
         // MONTH MODE — show the full month grid (weeks from 1st to last day)
         const firstOfMonth = new Date(curDate.getFullYear(), curDate.getMonth(), 1);
         const lastOfMonth = new Date(curDate.getFullYear(), curDate.getMonth() + 1, 0);
