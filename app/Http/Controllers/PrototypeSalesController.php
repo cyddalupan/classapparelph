@@ -4866,6 +4866,11 @@ $services = json_decode($sale->services, true);
         $dept = $request->get('dept', '');
         $dateFrom = $request->get('date_from', '');
         $dateTo = $request->get('date_to', '');
+        // Date-basis (Andrew 2026-10-09): '' = created_at (default, huwag baguhin),
+        // 'due' = effective due date (rescheduled_date kung meron, else estimated_completion_date).
+        // Kapag 'due', ang filter at ang FOR FORMAT count ay base sa due date — kaya hindi na
+        // kasama ang mga job na gawa nga ngayon pero due next week.
+        $dateBasis = trim((string) $request->get('date_basis', ''));
         $delayedOnly = $request->boolean('delayed');
         $priorityOnly = $request->boolean('priority');
         $myJobs = $request->boolean('my_jobs');
@@ -4954,11 +4959,19 @@ $services = json_decode($sale->services, true);
             ->when(filled($dept), function ($query) use ($dept) {
                 $query->where('department_id', (int) $dept);
             })
-            ->when(filled($dateFrom), function ($query) use ($dateFrom) {
-                $query->whereDate('created_at', '>=', $dateFrom);
+            ->when(filled($dateFrom), function ($query) use ($dateFrom, $dateBasis) {
+                if ($dateBasis === 'due') {
+                    $query->whereRaw('DATE(COALESCE(rescheduled_date, estimated_completion_date)) >= ?', [$dateFrom]);
+                } else {
+                    $query->whereDate('created_at', '>=', $dateFrom);
+                }
             })
-            ->when(filled($dateTo), function ($query) use ($dateTo) {
-                $query->whereDate('created_at', '<=', $dateTo);
+            ->when(filled($dateTo), function ($query) use ($dateTo, $dateBasis) {
+                if ($dateBasis === 'due') {
+                    $query->whereRaw('DATE(COALESCE(rescheduled_date, estimated_completion_date)) <= ?', [$dateTo]);
+                } else {
+                    $query->whereDate('created_at', '<=', $dateTo);
+                }
             })
             ->when($delayedOnly, function ($query) {
                 $query->where('is_delayed', 1);
@@ -5048,7 +5061,7 @@ $services = json_decode($sale->services, true);
             ->distinct()
             ->count('prototype_sale_id');
 
-        return view('sales.prototype.ga-order-list', compact('sales', 'prodStageMap', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'myJobs', 'gaFilter', 'gaUsers', 'assignments', 'activityLogs', 'completedCount', 'dueFilter', 'dueSort'));
+        return view('sales.prototype.ga-order-list', compact('sales', 'prodStageMap', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'myJobs', 'gaFilter', 'gaUsers', 'assignments', 'activityLogs', 'completedCount', 'dueFilter', 'dueSort', 'dateBasis'));
     }
 
     /**

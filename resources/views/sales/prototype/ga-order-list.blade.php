@@ -604,6 +604,13 @@
                 </select>
             </div>
             <div class="col-6 col-md-2">
+                <label class="form-label small text-muted mb-1 fw-semibold">📅 Date basis</label>
+                <select name="date_basis" class="form-select" title="Anong date ang gagamitin ng 'Date from / Date to' filter">
+                    <option value="" {{ ($dateBasis ?? '') === '' ? 'selected' : '' }}>Created date</option>
+                    <option value="due" {{ ($dateBasis ?? '') === 'due' ? 'selected' : '' }}>Due date</option>
+                </select>
+            </div>
+            <div class="col-6 col-md-2">
                 <label class="form-label small text-muted mb-1 fw-semibold">Date from</label>
                 <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control">
             </div>
@@ -613,7 +620,7 @@
             </div>
             <div class="col-12 col-md-2 d-flex gap-2 justify-content-md-end">
                 <button type="submit" class="btn btn-primary btn-sm px-3" style="background:linear-gradient(135deg,#6f42c1,#8e5bd8);border:none;border-radius:9px;font-weight:600;">Filter</button>
-                <a href="{{ route('sales.prototype.ga-order-list') }}" class="ga-clear-btn {{ ($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter) || $dueFilter !== '' || $dueSort !== '') ? 'ga-clear-active' : '' }}" title="Reset lahat ng filter"><i class="fas fa-undo"></i> Reset</a>
+                <a href="{{ route('sales.prototype.ga-order-list') }}" class="ga-clear-btn {{ ($q !== '' || $stage !== '' || $dept !== '' || $dateFrom !== '' || $dateTo !== '' || $delayedOnly || $priorityOnly || $myJobs || filled($gaFilter) || $dueFilter !== '' || $dueSort !== '' || ($dateBasis ?? '') !== '') ? 'ga-clear-active' : '' }}" title="Reset lahat ng filter"><i class="fas fa-undo"></i> Reset</a>
             </div>
             <div class="col-12 d-flex gap-2 flex-wrap pt-1">
                 <button type="submit" name="my_jobs" value="1" class="ga-myjobs-btn {{ $myJobs ? 'active-mine' : '' }}" onclick="this.form.my_jobs.value = this.classList.contains('active-mine') ? '' : '1'"><i class="fas fa-user-check"></i> My Jobs</button>
