@@ -9286,12 +9286,16 @@ SQL;
         $dailyTrend = []; // 'Y-m-d' => ['revenue' => float, 'orders' => int]
 
         foreach ($sales as $sale) {
-            $day = $sale->created_at->format('Y-m-d');
-            if (!isset($dailyTrend[$day])) {
-                $dailyTrend[$day] = ['revenue' => 0, 'orders' => 0];
+            // Defensive: may mga legacy/test row na NULL ang created_at (hal. TEST-20260906-FB, id 37)
+            // — huwag mag-crash sa ->format(); updated_at ang fallback, at laktawan kung wala pa rin. (Andrew 2026-10-09)
+            $day = optional($sale->created_at ?? $sale->updated_at)->format('Y-m-d');
+            if ($day !== null) {
+                if (!isset($dailyTrend[$day])) {
+                    $dailyTrend[$day] = ['revenue' => 0, 'orders' => 0];
+                }
+                $dailyTrend[$day]['revenue'] += (float) $sale->total_amount;
+                $dailyTrend[$day]['orders'] += 1;
             }
-            $dailyTrend[$day]['revenue'] += (float) $sale->total_amount;
-            $dailyTrend[$day]['orders'] += 1;
 
             $items = $sale->services;
             if (is_string($items)) {
