@@ -246,6 +246,7 @@
                             <th style="width:120px;">⭐ Prio</th>
                             <th>Sales #</th>
                             <th>Customer</th>
+                            <th style="width:70px;" class="text-center">Qty</th>
                             <th>Agent</th>
                             <th>Needed Date &amp; Time</th>
                             <th>Reason / Note</th>
@@ -265,6 +266,10 @@
                                 }
                                 if (!$mkMain && !empty($mkImgs)) $mkMain = $mkImgs[0];
                                 $mkUrl = is_string($mkMain) ? $mkMain : ($mkMain['url'] ?? '');
+                                // Total pcs (quantity) per order — kaparehong tantiya sa "List as Text" (Andrew 2026-10-09)
+                                $stlSvcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+                                $stlQty = 0;
+                                foreach ((array) $stlSvcItems as $stlSvc) { if (is_array($stlSvc)) { $stlQty += (int) ($stlSvc['quantity'] ?? 1); } }
                             @endphp
                             <tr class="stl-row" draggable="true" data-sale-id="{{ $sale->id }}">
                                 <td>
@@ -298,24 +303,42 @@
                                     <div style="font-size:11px;color:#6c757d;">{{ $sale->created_at ? \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') : '' }}</div>
                                 </td>
                                 <td>{{ $sale->customer_name ?: '—' }}</td>
+                                <td class="text-center"><strong>{{ $stlQty }}</strong> <span style="font-size:10px;color:#6c757d;">pcs</span></td>
                                 <td style="font-size:12px;color:#6c757d;">@if($sale->sales_agent_name)<x-user-chip :user="$sale->salesAgent" :name="$sale->sales_agent_name" :size="18" />@else —@endif</td>
                                 <td>
                                     @if(!empty($sale->needed_by))
-                                        <span class="badge bg-success d-inline-flex flex-column align-items-start" style="line-height:1.3;">
-                                            <span style="font-size:11px;"><i class="fas fa-calendar-day"></i> {{ \Carbon\Carbon::parse($sale->needed_by)->format('M d, Y') }}</span>
-                                            <span style="font-size:11px;"><i class="fas fa-clock"></i> {{ \Carbon\Carbon::parse($sale->needed_by)->format('g:i A') }}</span>
+                                        @php $nb = \Carbon\Carbon::parse($sale->needed_by); @endphp
+                                        {{-- Layout: ORAS muna (taas), DATE sa ibaba — parehong laki (balanced), hindi pinalaki — Andrew 2026-10-08 --}}
+                                        <span class="badge bg-success d-inline-flex flex-column align-items-start" style="line-height:1.3;text-align:left;">
+                                            <span style="font-size:11px;font-weight:700;"><i class="fas fa-clock"></i> {{ $nb->format('g:i A') }}</span>
+                                            <span style="font-size:11px;font-weight:700;"><i class="fas fa-calendar-day"></i> {{ $nb->format('M d, Y') }}</span>
                                         </span>
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
-                                </td>
-                                <td class="stl-note">
-                                    @if(!empty($sale->time_note))
-                                        {{ $sale->time_note }}
-                                    @else
-                                        <span class="text-muted">— walang note —</span>
+                                    @php
+                                        // True Class Calendar due date (Andrew 2026-10-08): effective = rescheduled ?? estimated.
+                                        $stlDue = $sale->rescheduled_date ?: $sale->estimated_completion_date;
+                                        $stlSplit = !empty($sale->split_start_date) && !empty($sale->split_end_date);
+                                        $stlMoved = !empty($sale->rescheduled_date) && !empty($sale->estimated_completion_date)
+                                            && \Carbon\Carbon::parse($sale->rescheduled_date)->format('Y-m-d') !== \Carbon\Carbon::parse($sale->estimated_completion_date)->format('Y-m-d');
+                                    @endphp
+                                    @if($stlDue || $stlSplit)
+                                        <div style="font-size:11px;margin-top:4px;white-space:nowrap;color:#0d6efd;font-weight:600;" title="Due date sa Class Calendar (rescheduled ?? estimated)">
+                                            <i class="fas fa-calendar-check"></i>
+                                            @if($stlSplit)
+                                                Due: {{ \Carbon\Carbon::parse($sale->split_start_date)->format('M d') }}–{{ \Carbon\Carbon::parse($sale->split_end_date)->format('M d, Y') }}
+                                            @else
+                                                Due: {{ \Carbon\Carbon::parse($stlDue)->format('M d, Y') }}
+                                            @endif
+                                            @if($stlMoved && !$stlSplit)
+                                                <span style="color:#adb5bd;font-weight:400;" title="Orihinal na estimated date bago i-reschedule">· orig {{ \Carbon\Carbon::parse($sale->estimated_completion_date)->format('M d') }}</span>
+                                            @endif
+                                        </div>
                                     @endif
                                 </td>
+                                {{-- NOTE: walang whitespace sa pagitan ng <td> at ng value — pre-wrap ang CSS, kaya kung may template indentation, nagiging leading spaces ito sa render (lumilitaw na right-aligned). Andrew 2026-10-08 --}}
+                                <td class="stl-note">@if(!empty($sale->time_note)){{ $sale->time_note }}@else<span class="text-muted">— walang note —</span>@endif</td>
                                 <td><span class="badge bg-secondary stl-badge">{{ $sale->department_name ?: '—' }}</span></td>
                                 <td>
                                     @php $curStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); @endphp
@@ -339,7 +362,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="text-center text-muted py-4">
+                                <td colspan="12" class="text-center text-muted py-4">
                                     @if(($tab ?? 'active') === 'done')
                                         Wala pang naka-Done sa Set Time List.
                                     @else
