@@ -22,6 +22,7 @@
     .lj-money-amber { color: #b45309; }
     .lj-money-blue { color: #1d4ed8; }
     .lj-money-rose { color: #be123c; }
+    .lj-money-reject { color: #b91c1c; text-decoration: line-through; text-decoration-color: rgba(185,28,28,.5); }
     .lj-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; letter-spacing: .3px; white-space: nowrap; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
 </style>
 @endpush
@@ -88,6 +89,7 @@
     {{-- Totals --}}
     <div class="row g-2 mb-3">
         <div class="col-md-3"><div class="lj-stat"><div class="lbl">Need I-verify</div><div class="val lj-money-rose">₱{{ number_format($totals['verify_amt'], 2) }}</div><div class="lj-muted">{{ $totals['verify_jobs'] }} job · bayad pa lang, hindi pa na-credit sa kita</div></div></div>
+        <div class="col-md-3"><div class="lj-stat"><div class="lbl">Rejected</div><div class="val lj-money-reject">₱{{ number_format($totals['reject_amt'], 2) }}</div><div class="lj-muted">{{ $totals['reject_jobs'] }} job · bayad na-reject, hindi kasama sa kita</div></div></div>
     </div>
     <div class="row g-2 mb-3">
         <div class="col-md-3"><div class="lj-stat"><div class="lbl">Total Earned (Kita)</div><div class="val lj-money">₱{{ number_format($totals['earned'], 2) }}</div><div class="lj-muted">{{ $totals['jobs'] }} tapos na layout job</div></div></div>
@@ -107,6 +109,7 @@
                         <th class="text-center">Jobs Done</th>
                         <th class="text-end">Earned</th>
                         <th class="text-end">Need I-verify</th>
+                        <th class="text-end">Rejected</th>
                         <th class="text-end">Nabigay Na</th>
                         <th class="text-end">Pending</th>
                         <th class="text-end">Available</th>
@@ -123,13 +126,14 @@
                         <td class="text-center">{{ $r->jobs }}</td>
                         <td class="text-end lj-amount lj-money">₱{{ number_format($r->earned, 2) }}</td>
                         <td class="text-end lj-amount lj-money-rose">{{ $r->verify_jobs ? $r->verify_jobs . ' · ' : '' }}₱{{ number_format($r->verify_amt, 2) }}</td>
+                        <td class="text-end lj-amount lj-money-reject">{{ $r->reject_jobs ? $r->reject_jobs . ' · ' : '' }}₱{{ number_format($r->reject_amt, 2) }}</td>
                         <td class="text-end lj-amount lj-money-blue">₱{{ number_format($r->given, 2) }}</td>
                         <td class="text-end lj-amount lj-money-amber">₱{{ number_format($r->pending, 2) }}</td>
                         <td class="text-end lj-amount">₱{{ number_format($r->available, 2) }}</td>
                         <td class="text-end"><a href="{{ route('sales.layout-jobs.all', ['ga' => $r->id]) }}" class="btn btn-outline-primary btn-sm" style="font-size:11.5px;">Tingnan jobs</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="text-center lj-muted py-4">Walang layout doer na tugma sa filter.</td></tr>
+                    <tr><td colspan="9" class="text-center lj-muted py-4">Walang layout doer na tugma sa filter.</td></tr>
                 @endforelse
                 </tbody>
                 @if(count($rows))
@@ -139,6 +143,7 @@
                         <th class="text-center">{{ $totals['jobs'] }}</th>
                         <th class="text-end lj-money">₱{{ number_format($totals['earned'], 2) }}</th>
                         <th class="text-end lj-money-rose">₱{{ number_format($totals['verify_amt'], 2) }}</th>
+                        <th class="text-end lj-money-reject">₱{{ number_format($totals['reject_amt'], 2) }}</th>
                         <th class="text-end lj-money-blue">₱{{ number_format($totals['given'], 2) }}</th>
                         <th class="text-end lj-money-amber">₱{{ number_format($totals['pending'], 2) }}</th>
                         <th class="text-end">₱{{ number_format($totals['available'], 2) }}</th>

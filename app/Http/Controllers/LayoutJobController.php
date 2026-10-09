@@ -240,6 +240,20 @@ class LayoutJobController extends Controller
             ->select('ga_user_id', DB::raw('SUM(amount) as verify_amt'), DB::raw('COUNT(*) as verify_jobs'))
             ->get()->keyBy('ga_user_id');
 
+        // --- Rejected (Andrew 2026-10-09): done + bayad + payment_status = rejected.
+        // Hindi kasama sa kita; ipinapakita para malaman kung ilan ang na-reject na bayad.
+        // Pantay na period filter sa Earned/Verify (COALESCE(done_at, created_at)).
+        $rejectQ = DB::table('layout_jobs')
+            ->where('status', 'done')
+            ->where('type', 'paid')
+            ->where('payment_status', 'rejected')
+            ->when($gaFilter, fn($q) => $q->where('ga_user_id', $gaFilter))
+            ->when($dFrom, fn($q) => $q->whereRaw('DATE(COALESCE(done_at, created_at)) >= ?', [$dFrom]))
+            ->when($dTo, fn($q) => $q->whereRaw('DATE(COALESCE(done_at, created_at)) <= ?', [$dTo]));
+        $rejectByGa = $rejectQ->groupBy('ga_user_id')
+            ->select('ga_user_id', DB::raw('SUM(amount) as reject_amt'), DB::raw('COUNT(*) as reject_jobs'))
+            ->get()->keyBy('ga_user_id');
+
         // --- Payouts: nabigay na / pending request (period-filtered) ---
         $payQ = DB::table('layout_job_payouts')
             ->whereIn('status', ['requested', 'paid', 'verified'])
@@ -273,12 +287,14 @@ class LayoutJobController extends Controller
         // --- Buuin ang per-doer rows ---
         $doers = $this->layoutDoerUsers()->when($gaFilter, fn($c) => $c->where('id', (int) $gaFilter));
         $rows = [];
-        $totals = ['jobs' => 0, 'earned' => 0.0, 'verify_jobs' => 0, 'verify_amt' => 0.0, 'given' => 0.0, 'pending' => 0.0, 'available' => 0.0];
+        $totals = ['jobs' => 0, 'earned' => 0.0, 'verify_jobs' => 0, 'verify_amt' => 0.0, 'reject_jobs' => 0, 'reject_amt' => 0.0, 'given' => 0.0, 'pending' => 0.0, 'available' => 0.0];
         foreach ($doers as $d) {
             $earned = (float) optional($earnedByGa->get($d->id))->earned;
             $jobs   = (int) optional($earnedByGa->get($d->id))->jobs;
             $verifyAmt  = (float) optional($verifyByGa->get($d->id))->verify_amt;
             $verifyJobs = (int) optional($verifyByGa->get($d->id))->verify_jobs;
+            $rejectAmt  = (float) optional($rejectByGa->get($d->id))->reject_amt;
+            $rejectJobs = (int) optional($rejectByGa->get($d->id))->reject_jobs;
             $given  = (float) optional($payAgg->get($d->id))->given;
             $pending = (float) optional($payAgg->get($d->id))->pending;
             $earnedAll = (float) optional($earnedAllAgg->get($d->id))->earned_all;
@@ -290,11 +306,14 @@ class LayoutJobController extends Controller
                 'jobs' => $jobs, 'earned' => $earned, 'given' => $given,
                 'pending' => $pending, 'available' => $available,
                 'verify_jobs' => $verifyJobs, 'verify_amt' => $verifyAmt,
+                'reject_jobs' => $rejectJobs, 'reject_amt' => $rejectAmt,
             ];
             $totals['jobs'] += $jobs;
             $totals['earned'] += $earned;
             $totals['verify_jobs'] += $verifyJobs;
             $totals['verify_amt'] += $verifyAmt;
+            $totals['reject_jobs'] += $rejectJobs;
+            $totals['reject_amt'] += $rejectAmt;
             $totals['given'] += $given;
             $totals['pending'] += $pending;
             $totals['available'] += $available;
