@@ -1618,11 +1618,18 @@ window.sub_addItemToOrder = function() {
         }
     }
     
+    // Reprocess requires a mockup design — validate BEFORE disabling the button
+    // so the user can still fix the form and resubmit (Andrew 2026-10-11).
+    var isReprocess = window.sub_reprocessMode === true;
+    if (isReprocess && !mockupData) {
+        alert('Mockup design is required for reprocess. Please upload the mockup design before submitting.');
+        return;
+    }
+
     // Submit
     var btn = document.getElementById('subAddItemBtn');
     btn.disabled = true;
     
-    var isReprocess = window.sub_reprocessMode === true;
     var submitText = isReprocess ? 'Submitting Reprocess...' : 'Adding...';
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> ' + submitText;
     

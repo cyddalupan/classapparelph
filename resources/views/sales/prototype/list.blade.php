@@ -836,7 +836,20 @@
                         $totalQty = 0;
                         foreach ((array)$svcItems as $svc) {
                             if (is_array($svc)) {
-                                $descParts[] = \App\Models\PrototypeSale::itemSpecSummary($svc);
+                                $spec = \App\Models\PrototypeSale::itemSpecSummary($svc);
+                                // Reprocess / Additional orders keep the customer in the item
+                                // name ("Reprocess Order - GRACE") but the spec summary drops it —
+                                // put the customer name back so the Description column shows
+                                // whose order it is, same as a normal order's project prefix
+                                // (Andrew 2026-10-11).
+                                $svcName = (string) ($svc['name'] ?? '');
+                                if (preg_match('/^(Reprocess|Additional)\s+Order\b/i', $svcName)) {
+                                    $custName = trim((string) ($sale->customer_name ?? ''));
+                                    if ($custName !== '' && $spec !== '—' && stripos($spec, $custName) === false) {
+                                        $spec = $custName . ' - ' . $spec;
+                                    }
+                                }
+                                $descParts[] = $spec;
                                 $totalQty += (int)($svc['quantity'] ?? 1);
                             }
                         }
