@@ -1089,6 +1089,37 @@
                         <div class="page-title">
                             @yield('page-title', 'Dashboard')
                         </div>
+
+                        {{-- Persistent scrolling reminders (per-user ticker). Andrew 2026-10-12.
+                             Add a user id here + messages to show an always-visible marquee
+                             beside the page title. Scoped per user so it can't affect others. --}}
+                        @php
+                            $hdTickerMap = [
+                                22 => ['MAG BASA NANG COMMENTS', 'MAG BASA NANG FORM', 'TIGNAN ANG MOCK UP'],
+                            ];
+                            $hdTickerMsgs = $hdTickerMap[auth()->id()] ?? [];
+                        @endphp
+                        @if(!empty($hdTickerMsgs))
+                        <div class="hd-ticker" title="Reminders">
+                            <i class="fas fa-bullhorn hd-ticker-ico"></i>
+                            <div class="hd-ticker-track">
+                                @for($hdT = 0; $hdT < 2; $hdT++)
+                                    @foreach($hdTickerMsgs as $hdMsg)
+                                        <span class="hd-ticker-item">{{ $hdMsg }}</span>
+                                    @endforeach
+                                @endfor
+                            </div>
+                        </div>
+                        <style>
+                            .hd-ticker{display:flex;align-items:center;gap:.5rem;background:linear-gradient(90deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:999px;padding:.3rem .8rem;max-width:min(52vw,560px);overflow:hidden;box-shadow:0 2px 6px rgba(245,158,11,.25);min-width:0;}
+                            .hd-ticker-ico{color:#b45309;flex-shrink:0;}
+                            .hd-ticker-track{display:inline-flex;gap:2.5rem;white-space:nowrap;animation:hdTicker 18s linear infinite;will-change:transform;}
+                            .hd-ticker-item{font-weight:800;color:#92400e;font-size:.95rem;letter-spacing:.03em;text-transform:uppercase;}
+                            .hd-ticker:hover .hd-ticker-track{animation-play-state:paused;}
+                            @keyframes hdTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+                            @media (max-width:768px){.hd-ticker{display:none;}}
+                        </style>
+                        @endif
                     </div>
                     
                     @auth
