@@ -1110,7 +1110,7 @@
                             </div>
                         </div>
                         <style>
-                            .hd-ticker{display:flex;align-items:center;gap:.5rem;background:linear-gradient(90deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:999px;padding:.3rem .8rem;max-width:min(52vw,560px);overflow:hidden;box-shadow:0 2px 6px rgba(245,158,11,.25);min-width:0;}
+                            .hd-ticker{display:flex;align-items:center;gap:.5rem;background:linear-gradient(90deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:999px;padding:.3rem .9rem;flex:1 1 auto;width:100%;max-width:min(90vw,1600px);overflow:hidden;box-shadow:0 2px 6px rgba(245,158,11,.25);min-width:0;}
                             .hd-ticker-track{display:inline-flex;gap:2.5rem;white-space:nowrap;animation:hdTicker 18s linear infinite;will-change:transform;}
                             .hd-ticker-item{font-weight:800;color:#92400e;font-size:.95rem;letter-spacing:.03em;text-transform:uppercase;}
                             .hd-ticker:hover .hd-ticker-track{animation-play-state:paused;}
