@@ -285,7 +285,7 @@
         <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
     </div>
     <div class="chart-card">
-        <div class="card-title"><i class="fas fa-truck-fast"></i> Released per Day <span style="font-size:.72rem;color:#94a3b8;font-weight:600;">(DISPATCH · last 14 days)</span></div>
+        <div class="card-title"><i class="fas fa-truck-fast"></i> Released per Day <span style="font-size:.72rem;color:#94a3b8;font-weight:600;">(DISPATCH · last 14 days, walang Sunday)</span></div>
         <div class="chart-wrap"><canvas id="releasedChart"></canvas></div>
         <div style="font-size:.75rem;color:#64748b;text-align:center;margin-top:.4rem;">
             Total: <b>{{ number_format($releasedTotal14) }}</b> order · <b>{{ number_format($releasedPcsTotal14) }}</b> pcs · Avg <b>{{ $releasedAvgPerDay }}</b> order/day — "QA pababa = hindi pa counted"
