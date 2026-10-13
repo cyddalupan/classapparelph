@@ -75,6 +75,7 @@
                         <tr>
                             <th>Sales #</th>
                             <th>Customer</th>
+                            <th>Agent</th>
                             <th>Department</th>
                             <th>Items</th>
                             <th>Total</th>
@@ -89,6 +90,7 @@
                                 $svc = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
                                 $itemCount = count($svc);
                                 $deptName = $sale->department_name ?: '—';
+                                $agentName = $sale->sales_agent_name ?: ($sale->salesAgent->name ?? 'Unassigned');
                                 $archivedLabel = $sale->archived_at ? \Carbon\Carbon::parse($sale->archived_at)->format('M d, Y h:i A') : '—';
                             @endphp
                             <tr>
@@ -97,6 +99,7 @@
                                     <div style="font-size:11px;color:#6c757d;">{{ $sale->created_at ? \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') : '' }}</div>
                                 </td>
                                 <td>{{ $sale->customer_name ?: '—' }}</td>
+                                <td>{{ $agentName }}</td>
                                 <td><span class="badge bg-secondary">{{ $deptName }}</span></td>
                                 <td>{{ $itemCount ? $itemCount . ' item(s)' : '—' }}</td>
                                 <td>₱{{ number_format($sale->total_amount ?? $sale->subtotal ?? 0, 2) }}</td>
@@ -117,7 +120,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center text-muted py-4">Walang archived projects — i-archive ang completed projects mula sa kanban board.</td>
+                                <td colspan="9" class="text-center text-muted py-4">Walang archived projects — i-archive ang completed projects mula sa kanban board.</td>
                             </tr>
                         @endforelse
                     </tbody>
