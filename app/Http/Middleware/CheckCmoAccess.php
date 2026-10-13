@@ -54,7 +54,6 @@ class CheckCmoAccess
         'sales.prototype.production-feedback.store',
         'sales.prototype.production-feedback.status',
         'sales.prototype.audit-history',
-        'sales.prototype.comments',
         'sales.prototype.edit', 'sales.prototype.update', 'sales.prototype.destroy',
         'sales.prototype.print-slip', 'sales.prototype.print-slip.pdf',
         'sales.destroy', 'sales.create', 'sales.edit', 'sales.show', 'sales.store',
