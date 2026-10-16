@@ -63,6 +63,12 @@ class CheckQaAccess
         'sales.prototype.delete-mockup',
         'sales.prototype.set-main-mockup',
 
+        // Reprocess Order (Sale Show page) — QA/Sales Agent can SUBMIT a reprocess for
+        // their own sale; the request still goes to Manager approval (nothing auto-applies).
+        // Added 2026-10-16 (Andrew): QA got 403 "Unauthorized access." on submit — the
+        // route was missing here kahit visible ang "Reprocess Order" button sa show page.
+        'sales.prototype.reprocess-order',
+
         // Pending add-on count badge (kanban/card headers)
         'sales.prototype.addon.pending-count',
 
