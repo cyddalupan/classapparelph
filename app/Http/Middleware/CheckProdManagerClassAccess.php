@@ -81,6 +81,7 @@ class CheckProdManagerClassAccess
         // Nav: Production → Priority Mockup Slideshow (read-only; Class only, scoped in controller)
         'sales.prototype.priority-slideshow',
         'sales.prototype.priority-slideshow.data',
+        'sales.prototype.priority-slideshow.video',
 
         // Nav: Production → Backjob List (Class only, scoped in controller)
         'sales.prototype.backjobs',
@@ -113,6 +114,14 @@ class CheckProdManagerClassAccess
         // Request Time (⏰ per-sale button on Manager List + Request Time All)
         'sales.prototype.request-time',
         'sales.prototype.request-time-all',
+
+        // Set Time List (Manager Order List shortcut in sidebar) — Class-scoped in controller.
+        // Added 2026-10-13: prod_manager (Jorell) got 403 because the route family was
+        // missing from this allowlist kahit nasa sidebar na at isManager() na sa controller.
+        'sales.prototype.set-time-list',
+        'sales.prototype.set-time-list.reorder',
+        'sales.prototype.set-time-prio',
+        'sales.prototype.set-time-done',
 
         // Add-ons (🔔 Add-ons button & approve/reject) — Class only, scoped in controller
         'sales.prototype.addon.all-pending',
