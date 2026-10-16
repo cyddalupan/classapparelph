@@ -905,6 +905,10 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // LIST route (MUST be before {id} route)
         Route::get('/sales/prototype/list', [App\Http\Controllers\PrototypeSalesController::class, 'list'])->name('sales.prototype.list');
 
+        // PENDING PAYMENT page (Andrew 2026-10-09) — DISPATCH orders grouped per agent
+        // (ipa-attach ang payment + ipa-sagot ang notification). MUST be before {id} route.
+        Route::get('/sales/prototype/pending-payment', [App\Http\Controllers\PrototypeSalesController::class, 'pendingPayment'])->name('sales.prototype.pending-payment');
+
         // BOARD MEMBER page (2026-09-30, Andrew) — read-only sales overview per department,
         // sama-sama lahat + filter. Board Member title lang ang makaka-access (controller gate).
         // MUST be before {id} route.
@@ -939,6 +943,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // PRIORITY MOCKUP SLIDESHOW — read-only, para sa Manager na i-play sa screen ayon sa priority order (Andrew 2026-09-10)
         Route::get('/sales/prototype/priority-slideshow', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshow'])->name('sales.prototype.priority-slideshow');
         Route::get('/sales/prototype/priority-slideshow/data', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowData'])->name('sales.prototype.priority-slideshow.data');
+        Route::get('/sales/prototype/priority-slideshow/video', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowVideo'])->name('sales.prototype.priority-slideshow.video');
 
         // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
         Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');
@@ -1012,6 +1017,21 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // "Action Required" gate page — hinaharang ang dashboard + create habang may pending items.
         Route::get('/sales/team/action-required', [App\Http\Controllers\PrototypeSalesController::class, 'agentActionRequired'])->middleware('auth')->name('sales.team.action-required');
         Route::get('/sales/team', [App\Http\Controllers\PrototypeSalesController::class, 'agentDashboard'])->middleware(['auth', 'agent.cleared'])->name('sales.team.dashboard');
+
+        // ======== TEAM BOARD (Andrew 2026-10-15) — motivational live dashboard for Sales Agents ========
+        // ADDITIVE: bagong page lang; agents see quotas/leaderboard/announcements, admin controls everything.
+        // Static paths MUST stay before any /sales/team/{id}/... routes to avoid collision.
+        Route::get('/sales/team/board', [App\Http\Controllers\TeamBoardController::class, 'board'])->middleware('auth')->name('sales.team.board');
+        Route::get('/sales/team/board/data', [App\Http\Controllers\TeamBoardController::class, 'data'])->middleware('auth')->name('sales.team.board.data');
+        Route::get('/sales/team/board/settings', [App\Http\Controllers\TeamBoardController::class, 'settings'])->middleware('auth')->name('sales.team.board.settings');
+        Route::post('/sales/team/board/settings', [App\Http\Controllers\TeamBoardController::class, 'saveSettings'])->middleware('auth')->name('sales.team.board.settings.save');
+        Route::post('/sales/team/board/quotas', [App\Http\Controllers\TeamBoardController::class, 'saveQuotas'])->middleware('auth')->name('sales.team.board.quotas.save');
+        Route::post('/sales/team/board/groups', [App\Http\Controllers\TeamBoardController::class, 'saveGroups'])->middleware('auth')->name('sales.team.board.groups.save');
+        Route::post('/sales/team/board/team-quota', [App\Http\Controllers\TeamBoardController::class, 'saveTeamQuota'])->middleware('auth')->name('sales.team.board.team-quota.save');
+        Route::post('/sales/team/board/announcement', [App\Http\Controllers\TeamBoardController::class, 'postAnnouncement'])->middleware('auth')->name('sales.team.board.announcement.post');
+        Route::post('/sales/team/board/announcement/{id}/toggle', [App\Http\Controllers\TeamBoardController::class, 'toggleAnnouncement'])->middleware('auth')->name('sales.team.board.announcement.toggle');
+        Route::post('/sales/team/board/announcement/{id}/pin', [App\Http\Controllers\TeamBoardController::class, 'togglePin'])->middleware('auth')->name('sales.team.board.announcement.pin');
+        Route::delete('/sales/team/board/announcement/{id}', [App\Http\Controllers\TeamBoardController::class, 'deleteAnnouncement'])->middleware('auth')->name('sales.team.board.announcement.delete');
         Route::get('/sales/team/archived', [App\Http\Controllers\PrototypeSalesController::class, 'agentArchived'])->middleware('auth')->name('sales.team.archived');
         Route::post('/sales/team/{id}/delay', [App\Http\Controllers\PrototypeSalesController::class, 'markDelayed'])->middleware('auth')->name('sales.team.delay');
         Route::post('/sales/team/{id}/submit-time', [App\Http\Controllers\PrototypeSalesController::class, 'submitTime'])->middleware('auth')->name('sales.team.submit-time');

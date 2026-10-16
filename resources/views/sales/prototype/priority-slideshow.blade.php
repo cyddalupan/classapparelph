@@ -99,6 +99,7 @@
     <span id="counter"></span>
     <button class="cbtn" id="speed" title="Palitan ang bilis">⏱ 6s</button>
     <button class="cbtn" id="scope" data-scope="{{ $scope }}">{{ $scope === 'prio' ? '★ Priority only' : '☰ Lahat ng WIP' }}</button>
+    <a class="cbtn" style="text-decoration:none;" href="{{ route('sales.prototype.priority-slideshow.video', ['scope' => $scope]) }}" title="I-download bilang MP4 (para i-play sa TV via USB)">⬇ Download MP4</a>
     <button class="cbtn" id="fs">⛶ Fullscreen</button>
 </div>
 
