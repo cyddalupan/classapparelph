@@ -82,6 +82,8 @@ class CheckProdManagerClassAccess
         'sales.prototype.priority-slideshow',
         'sales.prototype.priority-slideshow.data',
         'sales.prototype.priority-slideshow.video',
+        'sales.prototype.priority-slideshow.video.status',
+        'sales.prototype.priority-slideshow.video.file',
 
         // Nav: Production → Backjob List (Class only, scoped in controller)
         'sales.prototype.backjobs',

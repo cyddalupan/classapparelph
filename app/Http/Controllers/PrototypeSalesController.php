@@ -5132,24 +5132,88 @@ $services = json_decode($sale->services, true);
         $sec   = (int) $request->get('sec', 6);
         if ($sec < 2 || $sec > 30) { $sec = 6; }
 
-        // Rendering can take a while para sa maraming slides — huwag i-timeout.
-        @set_time_limit(0);
-
         $slides = $this->buildSlideshowSlides($user, $scope);
         if (empty($slides)) {
             return redirect()->route('sales.prototype.priority-slideshow', ['scope' => $scope])
                 ->with('error', 'Walang slide na ma-e-export.');
         }
 
-        $path = $this->renderSlideshowVideo($slides, $sec);
-        if (!$path) {
-            return redirect()->route('sales.prototype.priority-slideshow', ['scope' => $scope])
-                ->with('error', 'Hindi nagawa ang video. Subukan muli.');
+        $key = \App\Services\PrioritySlideshowVideo::key($scope, \App\Services\PrioritySlideshowVideo::sig($slides));
+
+        // Ready na (cached) — ibigay agad, walang hintay.
+        if (\App\Services\PrioritySlideshowVideo::isReady($key)) {
+            return response()->download(\App\Services\PrioritySlideshowVideo::path($key), 'priority-slideshow-' . $scope . '.mp4', ['Content-Type' => 'video/mp4']);
         }
 
-        $fname = 'priority-slideshow-' . date('Ymd_His') . '.mp4';
-        return response()->download($path, $fname, ['Content-Type' => 'video/mp4'])
-            ->deleteFileAfterSend(true);
+        // Wala pang tumatakbo — simulan sa background (detached) para hindi mag-hang ang tab.
+        if (!\App\Services\PrioritySlideshowVideo::isBuilding($key)) {
+            $this->startSlideshowVideoBuild((int) $user->id, $scope, $sec);
+        }
+
+        return view('sales.prototype.priority-slideshow-preparing', [
+            'scope' => $scope, 'sec' => $sec, 'key' => $key, 'total' => count($slides),
+        ]);
+    }
+
+    /**
+     * JSON status ng background MP4 build (para sa progress page).
+     */
+    public function prioritySlideshowVideoStatus(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $key = (string) $request->get('key', '');
+        if (!\App\Services\PrioritySlideshowVideo::isValidKey($key)) {
+            return response()->json(['state' => 'error', 'error' => 'bad key'], 422);
+        }
+
+        $st = \App\Services\PrioritySlideshowVideo::status($key);
+        if (\App\Services\PrioritySlideshowVideo::isReady($key)) { $st['state'] = 'done'; }
+        $st['url'] = route('sales.prototype.priority-slideshow.video.file', ['key' => $key]);
+
+        return response()->json($st);
+    }
+
+    /**
+     * Ihatid ang tapos nang MP4 (download).
+     */
+    public function prioritySlideshowVideoFile(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $key = (string) $request->get('key', '');
+        if (!\App\Services\PrioritySlideshowVideo::isValidKey($key)) {
+            abort(404);
+        }
+        if (!\App\Services\PrioritySlideshowVideo::isReady($key)) {
+            abort(404, 'Hindi pa ready ang video.');
+        }
+
+        return response()->download(
+            \App\Services\PrioritySlideshowVideo::path($key),
+            'priority-slideshow-' . explode('_', $key)[0] . '.mp4',
+            ['Content-Type' => 'video/mp4']
+        );
+    }
+
+    /**
+     * Simulan ang background MP4 build (detached artisan command).
+     */
+    private function startSlideshowVideoBuild(int $userId, string $scope, int $sec): void
+    {
+        $php = is_file('/usr/bin/php') ? '/usr/bin/php' : (PHP_BINARY ?: 'php');
+        $cmd = 'nohup ' . escapeshellarg($php) . ' ' . escapeshellarg(base_path('artisan'))
+            . ' slideshow:build --user=' . $userId
+            . ' --scope=' . escapeshellarg($scope)
+            . ' --sec=' . $sec
+            . ' >> ' . escapeshellarg(storage_path('logs/slideshow_build.log')) . ' 2>&1 &';
+        @exec($cmd);
     }
 
     /**
@@ -5338,7 +5402,7 @@ $services = json_decode($sale->services, true);
     /**
      * Build ang slides array mula sa live DB (walang cache) — shared ng page at data endpoint.
      */
-    private function buildSlideshowSlides($user, $scope)
+    public function buildSlideshowSlides($user, $scope)
     {
         $departmentLabels = [1 => 'iPrint', 2 => 'Consol', 3 => 'Cinco', 4 => 'Class', 5 => 'MTO', 6 => 'Other'];
 

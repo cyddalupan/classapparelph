@@ -944,6 +944,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/sales/prototype/priority-slideshow', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshow'])->name('sales.prototype.priority-slideshow');
         Route::get('/sales/prototype/priority-slideshow/data', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowData'])->name('sales.prototype.priority-slideshow.data');
         Route::get('/sales/prototype/priority-slideshow/video', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowVideo'])->name('sales.prototype.priority-slideshow.video');
+        Route::get('/sales/prototype/priority-slideshow/video/status', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowVideoStatus'])->name('sales.prototype.priority-slideshow.video.status');
+        Route::get('/sales/prototype/priority-slideshow/video/file', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowVideoFile'])->name('sales.prototype.priority-slideshow.video.file');
 
         // SPECIAL PRICE REVIEW route — read-only list of orders with special price overrides (reasons + project for manager review)
         Route::get('/sales/prototype/special-price-list', [App\Http\Controllers\PrototypeSalesController::class, 'specialPriceList'])->name('sales.prototype.special-price-list');
