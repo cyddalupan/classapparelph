@@ -1636,36 +1636,6 @@
         })();
         </script>
 
-        <script>
-        /* CSRF self-heal (Toybits 2026-10-16): keep every _token input and the
-           csrf-token meta in sync with the live XSRF-TOKEN cookie. Prevents
-           sporadic 419 "Page Expired" when a form is submitted from a tab that
-           was open before the session token rotated (login / switch-account /
-           password change) or that the mobile browser restored from bfcache. */
-        (function () {
-            function readCookie(name) {
-                var m = document.cookie.match(new RegExp('(^|;\\s*)' + name + '\\s*=\\s*([^;]+)'));
-                return m ? decodeURIComponent(m[2]) : null;
-            }
-            function syncToken() {
-                var t = readCookie('XSRF-TOKEN');
-                if (!t) return;
-                var meta = document.querySelector('meta[name="csrf-token"]');
-                if (meta) meta.setAttribute('content', t);
-                var inputs = document.querySelectorAll('input[name="_token"]');
-                for (var i = 0; i < inputs.length; i++) inputs[i].value = t;
-            }
-            // Refresh right before any form submits (capture phase).
-            document.addEventListener('submit', syncToken, true);
-            // Heal stale tabs after re-focus / history nav / bfcache restore.
-            document.addEventListener('visibilitychange', function () { if (!document.hidden) syncToken(); });
-            window.addEventListener('pageshow', syncToken);
-            window.addEventListener('focus', syncToken);
-            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncToken);
-            else syncToken();
-        })();
-        </script>
-
         @stack('scripts')
     </body>
 </html>
