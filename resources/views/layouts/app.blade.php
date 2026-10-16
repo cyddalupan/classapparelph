@@ -851,6 +851,13 @@
                             <i class="fas fa-th-list"></i>
                             <span class="nav-text">My Sales Dashboard</span>
                         </a>
+                        @php $tbCanView = Auth::user()->isAdmin() || \App\Models\SalesBoardSetting::current()->agents_can_view; @endphp
+                        @if($tbCanView)
+                        <a href="{{ route('sales.team.board') }}" class="nav-item {{ request()->routeIs('sales.team.board') ? 'active' : '' }}">
+                            <i class="fas fa-trophy"></i>
+                            <span class="nav-text">Team Board</span>
+                        </a>
+                        @endif
                         <a href="{{ route('sales.prototype.create') }}" class="nav-item {{ request()->routeIs('sales.prototype.create') ? 'active' : '' }}">
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Add New Sale</span>
@@ -858,6 +865,17 @@
                         <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
                             <i class="fas fa-palette"></i>
                             <span class="nav-text">Layout Job</span>
+                        </a>
+                    </div>
+                    @endif
+
+                    {{-- Team Board Control Panel (Admin only) — Andrew 2026-10-15 --}}
+                    @if(Auth::user()->isAdmin())
+                    <div class="nav-section">
+                        <div class="nav-section-title">Team Board</div>
+                        <a href="{{ route('sales.team.board.settings') }}" class="nav-item {{ request()->routeIs('sales.team.board.settings') ? 'active' : '' }}">
+                            <i class="fas fa-sliders-h"></i>
+                            <span class="nav-text">Team Board Control</span>
                         </a>
                     </div>
                     @endif
@@ -1615,6 +1633,36 @@
             window.addEventListener('scroll', function () { if (listEl && listEl.style.display === 'block' && input) place(input); }, true);
             window.addEventListener('resize', function () { if (listEl && listEl.style.display === 'block' && input) place(input); });
             window.__datalistEnhScan = scan;
+        })();
+        </script>
+
+        <script>
+        /* CSRF self-heal (Toybits 2026-10-16): keep every _token input and the
+           csrf-token meta in sync with the live XSRF-TOKEN cookie. Prevents
+           sporadic 419 "Page Expired" when a form is submitted from a tab that
+           was open before the session token rotated (login / switch-account /
+           password change) or that the mobile browser restored from bfcache. */
+        (function () {
+            function readCookie(name) {
+                var m = document.cookie.match(new RegExp('(^|;\\s*)' + name + '\\s*=\\s*([^;]+)'));
+                return m ? decodeURIComponent(m[2]) : null;
+            }
+            function syncToken() {
+                var t = readCookie('XSRF-TOKEN');
+                if (!t) return;
+                var meta = document.querySelector('meta[name="csrf-token"]');
+                if (meta) meta.setAttribute('content', t);
+                var inputs = document.querySelectorAll('input[name="_token"]');
+                for (var i = 0; i < inputs.length; i++) inputs[i].value = t;
+            }
+            // Refresh right before any form submits (capture phase).
+            document.addEventListener('submit', syncToken, true);
+            // Heal stale tabs after re-focus / history nav / bfcache restore.
+            document.addEventListener('visibilitychange', function () { if (!document.hidden) syncToken(); });
+            window.addEventListener('pageshow', syncToken);
+            window.addEventListener('focus', syncToken);
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncToken);
+            else syncToken();
         })();
         </script>
 

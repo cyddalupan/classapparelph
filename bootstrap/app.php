@@ -27,5 +27,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // CSRF / session-token mismatch ("419 Page Expired"). Sporadic in production
+        // when a form is submitted from a page that was open before the token rotated
+        // (login / switch-account / password change) or was restored from mobile bfcache.
+        // Instead of the raw 419 error screen, send the user back with a clear message
+        // so they can simply retry. (Toybits 2026-10-16)
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, $request) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json([
+                    'message' => 'Your session expired. Please refresh the page and try again.',
+                ], 419);
+            }
+
+            return redirect()->back()->withInput()->with(
+                'error',
+                'Session expired (security token). I-refresh ang page at subukan muli.'
+            );
+        });
     })->create();
