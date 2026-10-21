@@ -4143,7 +4143,7 @@ function psCommentsHtml(saleId, chk) {
         if (Array.isArray(comments)) {
             comments.forEach(function(c, idx) {
                 if (c && c.deleted) deleted.push({c: c, idx: idx});
-                else if (c && c.done && c.verified) done.push({c: c, idx: idx});
+                else if (c && c.done) done.push({c: c, idx: idx});
                 else active.push({c: c, idx: idx});
             });
         }
@@ -4166,7 +4166,11 @@ function psCommentsHtml(saleId, chk) {
         h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
         done.forEach(function(o) {
             var c = o.c;
-            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + (c.verified_by ? ' · ✓ verified by ' + escHtml(c.verified_by) + ' at ' + escHtml(c.verified_at || '') : '') + '</span></div>';
+            h += '<div class="ps-comment-done">'
+                + ((!c.verified && window.psCanVerify) ? '<button type="button" class="ps-bj-btn qa" style="margin-right:5px;vertical-align:middle;" onclick= + fn +  title="QA: i-verify (2nd done)">QA</button>' : '✓ ')
+                + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '')
+                + (c.verified_by ? ' · ✓ verified by ' + escHtml(c.verified_by) + ' at ' + escHtml(c.verified_at || '') : ' · ⏳ waiting QA verification')
+                + '</span></div>';
         });
         h += '</div>';
     }
@@ -4215,7 +4219,7 @@ function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
     var deleted = [];
     comments.forEach(function(c, idx) {
         if (c && c.deleted) deleted.push({c: c, idx: idx});
-        else if (c && c.done && c.verified) done.push({c: c, idx: idx});
+        else if (c && c.done) done.push({c: c, idx: idx});
         else active.push({c: c, idx: idx});
     });
     var idArg = "'" + String(itemId).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
@@ -4239,7 +4243,11 @@ function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
         h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
         done.forEach(function(o) {
             var c = o.c;
-            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + (c.verified_by ? ' · ✓ verified by ' + escHtml(c.verified_by) + ' at ' + escHtml(c.verified_at || '') : '') + '</span></div>';
+            h += '<div class="ps-comment-done">'
+                + ((!c.verified && window.psCanVerify) ? '<button type="button" class="ps-bj-btn qa" style="margin-right:5px;vertical-align:middle;" onclick= + fn +  title="QA: i-verify (2nd done)">QA</button>' : '✓ ')
+                + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '')
+                + (c.verified_by ? ' · ✓ verified by ' + escHtml(c.verified_by) + ' at ' + escHtml(c.verified_at || '') : ' · ⏳ waiting QA verification')
+                + '</span></div>';
         });
         h += '</div>';
     }
@@ -4277,7 +4285,7 @@ function psProjectCommentsHtml(saleId, itemId, map) {
     var deleted = [];
     comments.forEach(function(c, idx) {
         if (c && c.deleted) deleted.push({c: c, idx: idx});
-        else if (c && c.done && c.verified) done.push({c: c, idx: idx});
+        else if (c && c.done) done.push({c: c, idx: idx});
         else active.push({c: c, idx: idx});
     });
     var idArg = "'" + String(itemId).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
@@ -4299,7 +4307,11 @@ function psProjectCommentsHtml(saleId, itemId, map) {
         h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
         done.forEach(function(o) {
             var c = o.c;
-            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + (c.verified_by ? ' · ✓ verified by ' + escHtml(c.verified_by) + ' at ' + escHtml(c.verified_at || '') : '') + '</span></div>';
+            h += '<div class="ps-comment-done">'
+                + ((!c.verified && window.psCanVerify) ? '<button type="button" class="ps-bj-btn qa" style="margin-right:5px;vertical-align:middle;" onclick= + fn +  title="QA: i-verify (2nd done)">QA</button>' : '✓ ')
+                + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '')
+                + (c.verified_by ? ' · ✓ verified by ' + escHtml(c.verified_by) + ' at ' + escHtml(c.verified_at || '') : ' · ⏳ waiting QA verification')
+                + '</span></div>';
         });
         h += '</div>';
     }
