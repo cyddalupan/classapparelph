@@ -31,6 +31,12 @@ class LayoutJobPayout extends Model
         return $this->belongsTo(User::class, 'ga_user_id');
     }
 
+    /** Sino ang nag-confirm na natanggap niya ang payout (GA receipt) */
+    public function receivedBy()
+    {
+        return $this->belongsTo(User::class, 'received_by');
+    }
+
     public function jobs()
     {
         return $this->hasMany(LayoutJob::class, 'payout_id');

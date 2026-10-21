@@ -146,7 +146,7 @@
             <div class="table-responsive">
                 <table class="table table-sm table-hover mb-0 align-middle">
                     <thead class="table-light">
-                        <tr><th>#</th><th>Layout Doer</th><th>Amount</th><th>Account Details</th><th>Status</th><th>Paid / Reason</th><th>Requested</th></tr>
+                        <tr><th>#</th><th>Layout Doer</th><th>Amount</th><th>Account Details</th><th>Status</th><th>Paid / Reason</th><th>Received</th><th>Requested</th></tr>
                     </thead>
                     <tbody>
                     @forelse($history as $p)
@@ -179,10 +179,20 @@
                                     {{ $p->paid_at?->format('M d, Y h:i A') ?: '—' }}
                                 @endif
                             </td>
+                            <td class="lj-muted">
+                                @if($p->received_at)
+                                    @if($p->receivedBy)
+                                        <x-user-chip :user="$p->receivedBy" :size="16" />
+                                    @endif
+                                    <div><i class="fas fa-check-circle text-success"></i> {{ $p->received_at->timezone('Asia/Manila')->format('M d, Y g:i A') }}</div>
+                                @else
+                                    <span>hindi pa nag-confirm</span>
+                                @endif
+                            </td>
                             <td class="lj-muted">{{ $p->requested_at?->format('M d, Y h:i A') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="text-center lj-muted py-4">Wala pang history.</td></tr>
+                        <tr><td colspan="8" class="text-center lj-muted py-4">Wala pang history.</td></tr>
                     @endforelse
                     </tbody>
                 </table>

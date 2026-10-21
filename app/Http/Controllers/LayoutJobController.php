@@ -193,7 +193,7 @@ class LayoutJobController extends Controller
             ->whereIn('status', ['requested', 'paid'])
             ->orderByDesc('id')->get();
 
-        $history = LayoutJobPayout::with('gaUser')
+        $history = LayoutJobPayout::with(['gaUser', 'receivedBy'])
             ->whereIn('status', ['verified', 'rejected'])
             ->orderByDesc('id')->limit(100)->get();
 
