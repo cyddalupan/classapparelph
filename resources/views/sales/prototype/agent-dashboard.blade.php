@@ -116,6 +116,23 @@
 
 /* Sale card footer / actions */
 .sale-card-footer { display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem; background: #f8fafc; border-top: 1px solid #f1f5f9; flex-wrap: wrap; }
+.progress-btn { border-color:#0ea5e9 !important; color:#0369a1 !important; font-weight:700; }
+.progress-btn:hover { background:#e0f2fe; }
+#progressPanel .pg-head { display:flex; gap:.9rem; align-items:flex-start; }
+#progressPanel .pg-thumb { width:72px; height:72px; border-radius:10px; background:#f1f5f9; overflow:hidden; flex:0 0 72px; display:flex; align-items:center; justify-content:center; }
+#progressPanel .pg-thumb img { width:100%; height:100%; object-fit:contain; }
+#progressPanel .pg-sect { border-top:1px solid #e2e8f0; padding-top:.85rem; margin-top:.85rem; }
+#progressPanel .pg-lbl { font-size:.68rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#94a3b8; margin-bottom:.35rem; }
+#progressPanel .pg-stage { display:inline-block; background:#4f46e5; color:#fff; font-weight:800; font-size:.78rem; padding:.3rem .7rem; border-radius:999px; }
+#progressPanel .pg-bar { height:8px; background:#e2e8f0; border-radius:999px; overflow:hidden; }
+#progressPanel .pg-bar > span { display:block; height:100%; background:#10b981; }
+#progressPanel .pg-kv { display:flex; justify-content:space-between; gap:.6rem; font-size:.83rem; padding:.2rem 0; }
+#progressPanel .pg-kv b { color:#0f172a; }
+#progressPanel .pg-bj { font-size:.8rem; padding:.45rem .6rem; border-radius:8px; margin-bottom:.35rem; }
+#progressPanel .pg-bj.pending { background:#fef3c7; color:#92400e; }
+#progressPanel .pg-bj.waiting_qa { background:#dbeafe; color:#1e40af; }
+#progressPanel .pg-bj.verified { background:#dcfce7; color:#166534; }
+
 .action-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.15s; border: 1px solid #e2e8f0; background: white; color: #475569; text-decoration: none; }
 .action-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
 .action-btn.primary { background: #3b82f6; border-color: #3b82f6; color: white; }
@@ -604,6 +621,9 @@
             <a href="{{ route('sales.prototype.show', $sale->id) }}" class="action-btn">
                 <i class="fas fa-eye"></i> View Details
             </a>
+            <button type="button" class="action-btn progress-btn" onclick="openProgress({{ $sale->id }}, this)" title="What's happening in production">
+                <i class="fas fa-wave-square"></i> Progress
+            </button>
             @if(!empty($sale->time_requested_at))
                 @if(!empty($sale->needed_by))
                     <button type="button" class="action-btn" style="border-color:#10b981;color:#10b981;line-height:1.3;" data-bs-toggle="modal" data-bs-target="#timeModal{{ $sale->id }}" title="Needed time set — click to change">
@@ -877,6 +897,21 @@
     </div>
 </div>
 @endsection
+
+<!-- PROGRESS Panel (Andrew 2026-10-21) -->
+<div class="modal fade" id="progressModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:14px;border:none;">
+            <div class="modal-header" style="border-bottom:1px solid #f1f5f9;">
+                <h5 class="modal-title" style="font-weight:800;"><i class="fas fa-wave-square" style="color:#0ea5e9;"></i> Production Progress</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="progressPanel" style="min-height:220px;">
+                <div style="text-align:center;padding:2rem;color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading…</div>
+            </div>
+        </div>
+    </div>
+</div>
 
 @push('scripts')
 <script>
@@ -1242,5 +1277,98 @@ function wireDelayForms() {
     });
 }
 document.addEventListener('DOMContentLoaded', wireDelayForms);
+
+// ===== PROGRESS panel (Andrew 2026-10-21) =====
+function pgEsc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+function pgDate(v) {
+    if (!v) return '—';
+    var d = new Date(String(v).replace(' ', 'T'));
+    if (isNaN(d)) return pgEsc(v);
+    return d.toLocaleString('en-PH', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+}
+function openProgress(id, btn) {
+    var body = document.getElementById('progressPanel');
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
+    var modal = new bootstrap.Modal(document.getElementById('progressModal'));
+    modal.show();
+    fetch('/sales/prototype/' + id + '/progress', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+        if (!d.success) { body.innerHTML = '<div class="alert alert-danger">' + pgEsc(d.message || 'Error') + '</div>'; return; }
+        var s = d.sale, c = d.counts || {}, bj = d.backjob || {};
+        var html = '';
+        html += '<div class="pg-head">';
+        html += '<div class="pg-thumb">' + (s.mockup_url ? '<img src="' + pgEsc(s.mockup_url) + '" alt="mockup">' : '<i class="fas fa-image" style="color:#cbd5e1;font-size:1.4rem;"></i>') + '</div>';
+        html += '<div style="flex:1;min-width:0;">';
+        html += '<div style="font-weight:800;font-size:1rem;">' + pgEsc(s.sales_number) + '</div>';
+        html += '<div style="font-size:.85rem;color:#64748b;">' + pgEsc(s.customer) + (s.agent ? ' · ' + pgEsc(s.agent) : '') + '</div>';
+        html += '<div style="margin-top:.45rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;">';
+        html += '<span class="pg-stage">' + pgEsc(s.stage) + '</span>';
+        if (s.priority) html += '<span style="background:#fef3c7;color:#92400e;font-weight:700;font-size:.75rem;padding:.25rem .6rem;border-radius:999px;">Prio ' + pgEsc(s.priority) + '</span>';
+        if (s.needed_by) html += '<span style="background:#f1f5f9;color:#475569;font-size:.75rem;padding:.25rem .6rem;border-radius:999px;"><i class="far fa-clock"></i> ' + pgDate(s.needed_by) + '</span>';
+        html += '</div></div></div>';
+
+        // last movement
+        if (d.last_move) {
+            html += '<div class="pg-sect"><div class="pg-lbl">Last Movement</div>';
+            html += '<div class="pg-kv"><span>' + pgEsc(d.last_move.from || '—') + ' → <b>' + pgEsc(d.last_move.to || '—') + '</b></span><span style="color:#64748b;">' + pgDate(d.last_move.at) + '</span></div>';
+            if (d.last_move.by) html += '<div class="pg-kv"><span style="color:#64748b;">by</span><span>' + pgEsc(d.last_move.by) + '</span></div>';
+            html += '</div>';
+        }
+
+        // production slip progress
+        var rows = [['GA', c.ga], ['QA1', c.qa1], ['QA2', c.qa2]];
+        var any = rows.some(function (r) { return r[1] && r[1].total > 0; });
+        html += '<div class="pg-sect"><div class="pg-lbl">Production Slip</div>';
+        if (!any) {
+            html += '<div style="font-size:.83rem;color:#94a3b8;">Wala pang checklist na naitala.</div>';
+        } else {
+            rows.forEach(function (r) {
+                var v = r[1] || {done:0,total:0,pcs_done:0,pcs_total:0};
+                var pct = v.total ? Math.round((v.done / v.total) * 100) : 0;
+                html += '<div style="margin-bottom:.6rem;">';
+                html += '<div class="pg-kv"><b>' + r[0] + '</b><span>' + v.done + '/' + v.total + ' rows · ' + v.pcs_done + '/' + v.pcs_total + ' pcs</span></div>';
+                html += '<div class="pg-bar"><span style="width:' + pct + '%;"></span></div>';
+                html += '</div>';
+            });
+        }
+        html += '</div>';
+
+        // assignments
+        if (d.assignments && d.assignments.length) {
+            html += '<div class="pg-sect"><div class="pg-lbl">Assigned</div>';
+            d.assignments.slice(0, 4).forEach(function (a) {
+                html += '<div class="pg-kv"><span>' + pgEsc(a.stage) + '</span><span>' + pgEsc(a.user) + (a.completed_at ? ' <span style="color:#16a34a;">✓</span>' : ' <span style="color:#d97706;">⏳</span>') + '</span></div>';
+            });
+            html += '</div>';
+        }
+
+        // backjob
+        html += '<div class="pg-sect"><div class="pg-lbl">Backjob</div>';
+        if (!bj.active && !bj.waiting_qa) {
+            html += '<div style="font-size:.83rem;color:#16a34a;font-weight:600;">✓ Walang active backjob</div>';
+        } else {
+            html += '<div class="pg-kv" style="margin-bottom:.4rem;"><span>Active</span><b>' + (bj.active || 0) + '</b></div>';
+            html += '<div class="pg-kv" style="margin-bottom:.5rem;"><span>Waiting QA</span><b>' + (bj.waiting_qa || 0) + '</b></div>';
+            (bj.items || []).slice(0, 4).forEach(function (it) {
+                var lbl = it.state === 'waiting_qa' ? '⏳ waiting QA' : (it.state === 'verified' ? '✓ verified' : '🔧 ' + 'active');
+                html += '<div class="pg-bj ' + pgEsc(it.state) + '">' + pgEsc(lbl) + ' · ' + pgEsc(it.project) + '<br><span style="opacity:.8;">' + pgEsc((it.text || '').slice(0, 90)) + '</span></div>';
+            });
+        }
+        html += '</div>';
+
+        html += '<div class="pg-sect" style="display:flex;gap:.5rem;flex-wrap:wrap;">';
+        html += '<a href="' + pgEsc(d.show_url) + '" class="action-btn" target="_blank"><i class="fas fa-eye"></i> Open Order</a>';
+        html += '<a href="' + pgEsc(d.print_slip_url) + '" class="action-btn" target="_blank"><i class="fas fa-print"></i> Print Slip</a>';
+        html += '</div>';
+
+        body.innerHTML = html;
+    })
+    .catch(function () { body.innerHTML = '<div class="alert alert-danger">Hindi ma-load ang progress. Subukan ulit.</div>'; });
+}
 </script>
 @endpush

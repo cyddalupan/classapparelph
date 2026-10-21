@@ -9580,6 +9580,138 @@ SQL;
     /**
      * Show dedicated Sales Team dashboard — "My Sales" for agents/reps.
      */
+    /**
+     * PROGRESS panel (Andrew 2026-10-21) — production info ng isang sale para sa sales team
+     * dashboard. Read-only JSON lang; walang binabago sa data.
+     */
+    public function saleProgress($id)
+    {
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found'], 404);
+        }
+
+        $user = auth()->user();
+        if ($user && $user->isSalesAgent() && (int) $sale->sales_agent_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        // Stage + last movement
+        $lastLog = \App\Models\ProductionStageLog::where('prototype_sale_id', $sale->id)
+            ->orderByDesc('id')->first();
+        $lastBy = $lastLog && $lastLog->changed_by ? \App\Models\User::find($lastLog->changed_by) : null;
+
+        // GA/QA assignments (pinakabago kada stage)
+        $assignments = \DB::table('ga_assignments')
+            ->leftJoin('users', 'ga_assignments.user_id', '=', 'users.id')
+            ->where('ga_assignments.prototype_sale_id', $sale->id)
+            ->orderByDesc('ga_assignments.assigned_at')
+            ->limit(8)
+            ->get(['ga_assignments.stage', 'users.name as user_name', 'ga_assignments.assigned_at', 'ga_assignments.completed_at']);
+
+        // Production slip progress (GA / QA1 / QA2 rows + pcs)
+        $counts = \App\Services\ProductionCheckCountService::forSales([$sale->id])[$sale->id] ?? [];
+
+        // Backjob states from production_checklists
+        $chk = \App\Models\ProductionChecklist::where('sale_id', $sale->id)->first();
+        $bj = ['active' => 0, 'waiting_qa' => 0, 'verified' => 0, 'items' => []];
+        if ($chk) {
+            $decode = function ($raw) {
+                try { return json_decode($raw ?? '', true) ?: []; } catch (\Exception $e) { return []; }
+            };
+            $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+            $nameById = [];
+            foreach ((array) $svcItems as $svc) {
+                if (is_array($svc) && !empty($svc['id'])) {
+                    $nameById[(string) $svc['id']] = $svc['name'] ?? 'Project';
+                }
+            }
+
+            $scan = function ($comments, $project) use (&$bj) {
+                foreach ((array) $comments as $c) {
+                    if (!is_array($c) || !empty($c['deleted'])) continue;
+                    if (empty($c['done'])) {
+                        $bj['active']++;
+                        $state = 'pending';
+                    } elseif (empty($c['verified'])) {
+                        $bj['waiting_qa']++;
+                        $state = 'waiting_qa';
+                    } else {
+                        $bj['verified']++;
+                        $state = 'verified';
+                    }
+                    if (count($bj['items']) < 6) {
+                        $bj['items'][] = [
+                            'text' => $c['text'] ?? '',
+                            'project' => $project,
+                            'state' => $state,
+                            'at' => $c['at'] ?? '',
+                            'done_by' => $c['done_by'] ?? '',
+                            'done_at' => $c['done_at'] ?? '',
+                            'verified_by' => $c['verified_by'] ?? '',
+                        ];
+                    }
+                }
+            };
+
+            $scan($decode($chk->ga_notes), 'Main Production Slip');
+            foreach ($decode($chk->additional_comments) as $itemId => $comments) {
+                $scan($comments, $nameById[(string) $itemId] ?? 'Additional Project');
+            }
+            foreach ($decode($chk->product_comments) as $itemId => $comments) {
+                $scan($comments, $nameById[(string) $itemId] ?? 'Main Product');
+            }
+        }
+
+        // Mockup (main)
+        $mockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+        $mockupUrl = '';
+        foreach ((array) $mockups as $m) {
+            if (is_array($m) && !empty($m['is_main']) && !empty($m['url'])) { $mockupUrl = $m['url']; break; }
+        }
+        if (!$mockupUrl && !empty($mockups)) {
+            $first = is_array($mockups[0]) ? ($mockups[0]['url'] ?? '') : $mockups[0];
+            $mockupUrl = $first ?: '';
+        }
+
+        return response()->json([
+            'success' => true,
+            'sale' => [
+                'id' => $sale->id,
+                'sales_number' => $sale->sales_number,
+                'customer' => $sale->customer_name,
+                'agent' => $sale->sales_agent_name,
+                'stage' => $sale->production_stage ?: 'HOLD',
+                'priority' => $sale->priority,
+                'needed_by' => $sale->needed_by,
+                'created_at' => $sale->created_at,
+                'mockup_url' => $mockupUrl,
+            ],
+            'last_move' => $lastLog ? [
+                'from' => $lastLog->from_stage,
+                'to' => $lastLog->to_stage,
+                'at' => $lastLog->created_at,
+                'by' => $lastBy->name ?? '',
+            ] : null,
+            'assignments' => $assignments->map(function ($a) {
+                return [
+                    'stage' => $a->stage,
+                    'user' => $a->user_name ?: '—',
+                    'assigned_at' => $a->assigned_at,
+                    'completed_at' => $a->completed_at,
+                ];
+            }),
+            'counts' => [
+                'ga' => $counts['ga'] ?? null,
+                'qa1' => $counts['qa1'] ?? null,
+                'qa2' => $counts['qa2'] ?? null,
+            ],
+            'backjob' => $bj,
+            'print_slip_url' => route('sales.prototype.print-slip', $sale->id),
+            'show_url' => route('sales.prototype.show', $sale->id),
+        ]);
+    }
+
     public function agentDashboard(Request $request)
     {
         $user = auth()->user();

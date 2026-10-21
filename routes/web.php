@@ -1006,6 +1006,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
 
         Route::get('/sales/prototype/dashboard', [App\Http\Controllers\PrototypeSalesController::class, 'salesDashboard'])->name('sales.prototype.dashboard');
         Route::get('/sales/prototype/{id}/details', [App\Http\Controllers\PrototypeSalesController::class, 'details'])->name('sales.prototype.details');
+        // PROGRESS panel (Andrew 2026-10-21) — JSON para sa sales team dashboard button
+        Route::get('/sales/prototype/{id}/progress', [App\Http\Controllers\PrototypeSalesController::class, 'saleProgress'])->name('sales.prototype.progress');
         Route::get('/sales/prototype/{id}/print-slip', [App\Http\Controllers\PrototypeSalesController::class, 'printSlip'])->name('sales.prototype.print-slip');
         Route::get('/sales/prototype/{id}/print-slip/pdf', [App\Http\Controllers\PrototypeSalesController::class, 'printSlipPdf'])->name('sales.prototype.print-slip.pdf');
         Route::get('/api/production/checklist/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'getProductionChecklist'])->name('api.production.checklist.get');
