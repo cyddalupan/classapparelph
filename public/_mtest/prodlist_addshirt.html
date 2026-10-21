@@ -1,0 +1,465 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+        /* 5 BOXES DESIGN - SIDE BY SIDE! - USING FLEX FOR 5 COLUMNS! */
+        .category-box {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-color: #dee2e6 !important;
+            margin: 0.5rem;
+            /* Make it square */
+            aspect-ratio: 1 / 1; /* Perfect square */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Make boxes MALAKI NA! - 120px × 120px (NO MORE CRAMPED!) */
+            height: 120px !important; /* MALAKI NA! */
+            min-height: 120px !important; /* MALAKI NA! */
+            max-height: 120px !important; /* Don't grow! */
+            /* Ensure square on all screens */
+            width: 100% !important;
+            /* KUNTING RADIUS SA MGA KANTO - AS REQUESTED BY USER! */
+            border-radius: 10px !important; /* SOFT ROUNDED CORNERS! */
+        }
+        
+        .category-box:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-color: #0d6efd !important;
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS ON HOVER */
+        }
+        
+        .category-box.selected {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.05);
+            box-shadow: 0 5px 20px rgba(13, 110, 253, 0.2);
+            transform: scale(1.02);
+            border-radius: 10px !important; /* MAINTAIN ROUNDED CORNERS WHEN SELECTED */
+        }
+        
+        /* FLEX CONTAINER FOR 4 COLUMNS - AS REQUESTED BY USER! */
+        .row.gx-4.justify-content-center {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            gap: 1rem !important;
+        }
+        
+        /* MAKE SURE EACH BOX TAKES 25% WIDTH FOR 4 COLUMNS */
+        .row.gx-4.justify-content-center > div {
+            flex: 0 0 calc(25% - 1rem) !important; /* 4 columns with gap */
+            max-width: calc(25% - 1rem) !important;
+        }
+        
+        .category-icon {
+            height: 40px !important; /* MAS MALAKI NA ICON HEIGHT! */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem !important; /* MAS MALAKI NA SPACING! */
+        }
+        
+        .category-icon i {
+            font-size: 2rem !important; /* MAS MALAKI NA ICONS! (from fa-2x) */
+        }
+        
+        .category-box .card-title {
+            font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+        }
+        
+        /* Center content in square box */
+        .category-box .card-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0.75rem !important;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Better spacing for separated columns - HORIZONTAL ONLY */
+        .row.gx-4 {
+            --bs-gutter-x: 2rem;
+            --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+        }
+        
+        /* Make boxes stand out more */
+        .category-box .card-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            text-align: center;
+            font-size: 0.9rem !important;
+        }
+        
+        .category-box .card-text {
+            font-size: 0.7rem !important;
+            line-height: 1;
+            text-align: center;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Square box adjustments */
+        .category-box .selected-indicator {
+            margin-top: 0.5rem;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            /* FOR TABLET: 2 COLUMNS */
+            .row.gx-4.justify-content-center > div {
+                flex: 0 0 calc(50% - 1rem) !important; /* 2 columns with gap */
+                max-width: calc(50% - 1rem) !important;
+            }
+            
+            .category-box {
+                margin: 0.25rem;
+                min-height: 100px !important; /* MAS MALAKI PA! */
+            }
+            
+            .category-icon {
+                height: 25px; /* MAS MAIKLI PA! */
+            }
+            
+            .category-icon i {
+                font-size: 1.75rem !important; /* MAS MALAKI PA NA ICONS! */
+            }
+            
+            .category-box .card-body {
+                padding: 0.75rem !important; /* MAS MALAKI NA PADDING! */
+            }
+            
+            .category-box .card-title {
+                font-size: 0.95rem !important; /* MAS MALAKI NA TEXT! */
+            }
+            
+            .category-box .card-text {
+                font-size: 0.75rem !important; /* MAS MALAKI NA TEXT! */
+            }
+        }
+        
+        @media (max-width: 576px) {
+            /* FOR MOBILE: 1 COLUMN */
+            .row.gx-4.justify-content-center > div {
+                flex: 0 0 100% !important; /* 1 column */
+                max-width: 100% !important;
+            }
+            
+            .category-box {
+                min-height: 90px !important; /* MAS MALAKI PA! */
+            }
+            
+            .category-icon {
+                height: 20px; /* PINAKAMAIKLI! */
+            }
+            
+            .category-icon i {
+                font-size: 1.5rem !important; /* MAS MALAKI PA NA ICONS! */
+            }
+            
+            .row.gx-4 {
+                --bs-gutter-x: 0.5rem;
+                --bs-gutter-y: 0; /* NO VERTICAL SPACING */
+            }
+            
+            .category-box .card-title {
+                font-size: 1rem !important; /* MAS MALAKI NA TEXT! */
+            }
+            
+            .category-box .card-text {
+                font-size: 0.8rem !important; /* MAS MALAKI NA TEXT! */
+            }
+        }
+        
+        /* Fallback for browsers that don't support aspect-ratio */
+        @supports not (aspect-ratio: 1 / 1) {
+            .category-box::before {
+                content: "";
+                display: block;
+                padding-top: 100%; /* 1:1 Aspect Ratio */
+            }
+            
+            .category-box .card-body {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+            
+            .category-box {
+                position: relative;
+            }
+        }
+        
+        /* =========================================== */
+        /* =========================================== */
+        /* BUTTON CONTAINER STYLING - CENTERED + SPACING */
+        /* =========================================== */
+        
+        /* PERMANENT ADD NEW ITEM BUTTON - TOP RIGHT CORNER */
+        #general-add-button {
+            display: flex;
+            justify-content: flex-end !important; /* RIGHT ALIGNED IN TOP RIGHT CORNER */
+            align-items: center;
+            padding: 0;
+        }
+        
+        /* Shirt Products specific buttons - BELOW CATEGORY BOXES */
+        #shirt-products-buttons {
+            width: 100%;
+            display: flex;
+            justify-content: center !important; /* CENTERED BELOW CATEGORY BOXES */
+            align-items: center;
+            margin-top: 2rem !important; /* SPACING FROM CATEGORY BOXES */
+            padding: 1rem 0; /* VERTICAL PADDING */
+            gap: 2rem !important; /* MAS MALAKI NA SPACING BETWEEN BUTTONS */
+        }
+        
+        /* Button styling - MAS MALAKI NA BUTTONS! */
+        #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
+            min-width: 180px !important; /* MAS MALAKI NA BUTTON WIDTH */
+            padding: 0.75rem 1.5rem !important; /* MAS MALAKI NA PADDING */
+            font-size: 1.1rem !important; /* MAS MALAKI NA TEXT */
+            font-weight: 600 !important; /* MAS MAKAPAL NA TEXT */
+            border-radius: 8px !important; /* SOFT ROUNDED CORNERS */
+            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        }
+        
+        /* Button hover effects */
+        #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover, #add-new-shirt-product-btn:hover {
+            transform: translateY(-3px) scale(1.05) !important;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.25) !important;
+        }
+        
+        /* Shirt buttons specific hover - LIGHT GRAY HOVER WITH BLUE TEXT */
+        #shirt-add-item-btn:hover, #shirt-deduct-item-btn:hover {
+            background: #e9ecef !important; /* SLIGHTLY DARKER GRAY ON HOVER */
+            border-color: #adb5bd !important; /* SLIGHTLY DARKER BORDER */
+            color: #0a58ca !important; /* DARKER BLUE TEXT ON HOVER */
+        }
+        
+        /* Add New Shirt Product button hover - DARKER GREEN */
+        #add-new-shirt-product-btn:hover {
+            background: linear-gradient(135deg, #157347, #146c43) !important; /* DARKER GREEN GRADIENT */
+            box-shadow: 0 8px 20px rgba(25, 135, 84, 0.35) !important; /* STRONGER GREEN SHADOW */
+        }
+        
+        /* Button active effects */
+        #shirt-add-item-btn:active, #shirt-deduct-item-btn:active, #add-new-shirt-product-btn:active {
+            transform: translateY(-1px) scale(1.02) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+        }
+        
+        /* Shirt buttons specific active - EVEN DARKER GRAY */
+        #shirt-add-item-btn:active, #shirt-deduct-item-btn:active {
+            background: #dee2e6 !important; /* DARKER GRAY ON ACTIVE */
+            border-color: #6c757d !important; /* DARKER BORDER */
+            color: #0a58ca !important; /* DARKER BLUE TEXT ON ACTIVE */
+        }
+        
+        /* Add New Shirt Product button active - EVEN DARKER GREEN */
+        #add-new-shirt-product-btn:active {
+            background: linear-gradient(135deg, #146c43, #13653f) !important; /* EVEN DARKER GREEN */
+            box-shadow: 0 2px 8px rgba(25, 135, 84, 0.2) !important; /* SUBTLER SHADOW */
+        }
+        
+        /* Specific button colors */
+        #shirt-add-item-btn {
+            background: #f8f9fa !important; /* LIGHT GRAY BACKGROUND */
+            color: #0d6efd !important; /* BLUE TEXT */
+            border: 1px solid #dee2e6 !important; /* LIGHT BORDER */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* SUBTLE SHADOW */
+        }
+        
+        #shirt-deduct-item-btn {
+            background: #f8f9fa !important; /* SAME LIGHT GRAY BACKGROUND */
+            color: #0d6efd !important; /* BLUE TEXT */
+            border: 1px solid #dee2e6 !important; /* SAME LIGHT BORDER */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* SAME SUBTLE SHADOW */
+        }
+        
+        #add-new-shirt-product-btn {
+            background: linear-gradient(135deg, #198754, #157347) !important; /* GREEN GRADIENT */
+            color: white !important; /* WHITE TEXT */
+            border: none !important; /* NO BORDER */
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.25) !important; /* GREEN-TINTED SHADOW */
+        }
+        
+        /* Responsive button adjustments */
+        @media (max-width: 768px) {
+            /* Shirt Products buttons - stack vertically on mobile */
+            #shirt-products-buttons {
+                flex-direction: column; /* STACK VERTICALLY ON MOBILE */
+                gap: 1.5rem !important; /* MAS MALAKI PA NA SPACING ON MOBILE */
+            }
+            
+            /* All buttons - larger on mobile */
+            #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
+                min-width: 200px !important; /* MAS MALAKI PA ON MOBILE */
+                width: 100% !important; /* FULL WIDTH ON MOBILE */
+                max-width: 250px !important; /* BUT NOT TOO WIDE */
+            }
+            
+            /* Top right button - adjust for mobile */
+            #general-add-button {
+                justify-content: center !important; /* CENTER ON MOBILE FOR BETTER UX */
+                margin-top: 1rem !important; /* ADD SPACING ON MOBILE */
+            }
+        }
+        
+        @media (max-width: 576px) {
+            #shirt-add-item-btn, #shirt-deduct-item-btn, #add-new-shirt-product-btn {
+                min-width: 100% !important; /* FULL WIDTH ON SMALL MOBILE */
+                font-size: 1rem !important; /* SLIGHTLY SMALLER TEXT */
+                padding: 0.65rem 1.25rem !important;
+            }
+            
+            /* Shirt Products buttons - adjust spacing on small mobile */
+            #shirt-products-buttons {
+                margin-top: 1.5rem !important;
+                padding: 0.5rem 0;
+            }
+            
+            /* Top right button - adjust spacing on small mobile */
+            #general-add-button {
+                margin-top: 0.75rem !important;
+            }
+        }
+    </style></head><body>
+    <div class="modal fade" id="addShirtProductModal" tabindex="-1" aria-labelledby="addShirtProductModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addShirtProductModalLabel">
+                        <i class="fas fa-plus-circle me-2"></i>Add Shirt Product
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addShirtProductForm">
+                        @csrf
+                        <input type="hidden" name="category" value="Shirt Products">
+                        
+                        <div class="row g-3">
+                            <!-- SKU -->
+                            <div class="col-md-6">
+                                <label for="shirt_sku" class="form-label">SKU <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_sku" name="shirt_sku" placeholder="Enter SKU (e.g., SHIRT-001)" required>
+                                <div class="form-text">Unique identifier for this shirt product</div>
+                            </div>
+                            
+                            <!-- Brand -->
+                            <div class="col-md-6">
+                                <label for="shirt_brand" class="form-label">Brand <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_brand" name="shirt_brand" placeholder="Enter brand name" required>
+                                <div class="form-text">Brand of the shirt (e.g., Nike, Adidas, Uniqlo)</div>
+                            </div>
+                            
+                            <!-- Type of Shirt -->
+                            <div class="col-md-6">
+                                <label for="shirt_type" class="form-label">Type of Shirt <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_type" name="shirt_type" required>
+                                    <option value="" selected disabled>Select shirt type</option>
+                                    <option value="Polo">Polo</option>
+                                    <option value="T-Shirt">T-Shirt</option>
+                                    <option value="Long Sleeve">Long Sleeve</option>
+                                    <option value="Dress Shirt">Dress Shirt</option>
+                                    <option value="Tank Top">Tank Top</option>
+                                    <option value="Hoodie">Hoodie</option>
+                                    <option value="Sweatshirt">Sweatshirt</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <div class="form-text">Select the type of shirt</div>
+                            </div>
+                            
+                            <!-- Color -->
+                            <div class="col-md-6">
+                                <label for="shirt_color" class="form-label">Color <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="shirt_color" name="shirt_color" placeholder="Enter color (e.g., Red, Blue, Black)" required>
+                                <div class="form-text">Color of the shirt</div>
+                            </div>
+                            
+                            <!-- Size -->
+                            <div class="col-md-6">
+                                <label for="shirt_size" class="form-label">Size <span class="text-danger">*</span></label>
+                                <select class="form-select" id="shirt_size" name="shirt_size" required>
+                                    <option value="" selected disabled>Select size</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                    <option value="Custom">Custom Size</option>
+                                </select>
+                                <div class="form-text">Select the shirt size</div>
+                            </div>
+                            
+                            <!-- Price -->
+                            <div class="col-md-6">
+                                <label for="shirt_price" class="form-label">Price (₱) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control" id="shirt_price" name="shirt_price" placeholder="0.00" step="0.01" min="0" required>
+                                </div>
+                                <div class="form-text">Selling price per unit</div>
+                            </div>
+                            
+                            <!-- Current Stock/s -->
+                            <div class="col-md-6">
+                                <label for="current_stock" class="form-label">Current Stock/s <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="current_stock" name="current_stock" placeholder="0" min="0" required>
+                                <div class="form-text">Current quantity in inventory</div>
+                            </div>
+                            
+                            <!-- Add Stock/s -->
+                            <div class="col-md-6">
+                                <label for="add_stock" class="form-label">Add Stock/s <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="add_stock" name="add_stock" placeholder="0" min="0" required>
+                                <div class="form-text">Quantity to add to inventory</div>
+                            </div>
+                            
+                            <!-- Supplier -->
+                            <div class="col-md-6">
+                                <label for="shirt_supplier" class="form-label">Supplier</label>
+                                <input type="text" class="form-control" id="shirt_supplier" name="shirt_supplier" placeholder="Enter supplier name">
+                                <div class="form-text">Supplier of this shirt product</div>
+                            </div>
+                            
+                            <!-- Shop -->
+                            <div class="col-md-6">
+                                <label for="shirt_shop" class="form-label">Shop</label>
+                                <input type="text" class="form-control" id="shirt_shop" name="shirt_shop" placeholder="Enter shop name">
+                                <div class="form-text">Shop where this product is sold</div>
+                            </div>
+                            
+                            <!-- Additional Notes -->
+                            <div class="col-12">
+                                <label for="shirt_notes" class="form-label">Additional Notes</label>
+                                <textarea class="form-control" id="shirt_notes" name="shirt_notes" rows="2" placeholder="Any additional notes about this shirt product"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                    <button type="button" class="btn btn-primary" id="submitShirtProductBtn">
+                        <i class="fas fa-save me-2"></i>Save Shirt Product
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body></html>

@@ -111,6 +111,14 @@
                                                 @elseif($payment->payment_status === 'rejected')
                                                     <span class="badge bg-danger status-badge">Rejected</span>
                                                 @endif
+                                                {{-- Sale status (Andrew 2026-10-13): ipakita kung hindi pa approved ang sale --}}
+                                                @if(($payment->sale_status ?? null) === 'pending_approval')
+                                                    <span class="badge bg-warning text-dark status-badge" title="Hinihintay pa ang approval ng manager (overload) — pwede pa ring i-verify ang bayad."><i class="fas fa-hourglass-half"></i> Awaiting manager approval</span>
+                                                @elseif(($payment->sale_status ?? null) === 'cancelled')
+                                                    <span class="badge bg-danger status-badge" title="Cancelled na ang sale — hindi na mane-verify ang bayad."><i class="fas fa-ban"></i> Sale cancelled</span>
+                                                @elseif(($payment->sale_status ?? null) === 'draft')
+                                                    <span class="badge bg-secondary status-badge" title="Draft pa ang sale."><i class="fas fa-pencil-alt"></i> Draft</span>
+                                                @endif
                                                 <span class="payment-type-badge badge bg-secondary">
                                                     @if($payment->payment_type === 'down_payment') Down Payment
                                                     @elseif($payment->payment_type === 'additional') Additional
@@ -171,6 +179,11 @@
                                             </div>
                                         </div>
                                         <div class="text-end" style="min-width: 100px;">
+                                            @if(in_array($payment->sale_status ?? '', ['cancelled', 'draft']))
+                                                <span class="badge bg-danger" style="white-space:normal;font-size:.68rem;line-height:1.15;" title="Hindi na mane-verify — {{ $payment->sale_status }} ang sale. I-restore muna sa Rejected & Cancelled page kung kailangan.">
+                                                    <i class="fas fa-ban"></i> Hindi ma-verify<br>({{ $payment->sale_status === 'cancelled' ? 'Cancelled' : 'Draft' }} sale)
+                                                </span>
+                                            @else
                                             <button class="btn btn-sm btn-success w-100 mb-1" onclick="openVerifyModal({{ json_encode([
                                                 'payment_id' => $payment->payment_id ?? null,
                                                 'sale_id' => $payment->prototype_sale_id,
@@ -195,6 +208,7 @@
                                                     <i class="fas fa-pen"></i>
                                                 </button>
                                             </div>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>

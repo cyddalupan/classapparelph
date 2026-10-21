@@ -74,10 +74,14 @@ class ProductionCheckCountService
             ->get(['id', 'services'])
             ->keyBy('id');
 
+        // NOTE (2026-10-16, Andrew): HUWAG mag-ORDER BY sa SQL dito. May mga base64
+        // mockup rows (hal. services_after = ~35MB) na lumalampas sa MySQL
+        // sort_buffer_size -> error 1038 "Out of sort memory" -> 500. Kunin lahat,
+        // tapos i-sort sa PHP (memory_limit=-1). Kaparehong resulta, walang filesort.
         $changes = DB::table('prototype_sale_changes')
             ->whereIn('sale_id', $ids)
-            ->orderBy('created_at', 'asc')
             ->get()
+            ->sortBy('created_at')
             ->groupBy('sale_id');
 
         foreach ($checklists as $row) {
@@ -359,7 +363,13 @@ class ProductionCheckCountService
                 foreach ($r['columns'] as $c) {
                     $k = strtoupper(trim((string) ($c[0] ?? '')));
                     if ($k === 'QTY' || $k === 'QUANTITY') {
-                        $q = (int) ($c[1] ?? 0);
+                        // Bug fix (2026-10-14): blangkong QTY column (hal. "") ay dati nagiging 0,
+                        // kaya hindi binibilang ang roster member. Dapat default 1 (isang entry =
+                        // isang piraso). Null/'' lang ang hahayaan na bumaba sa default.
+                        $val = $c[1] ?? null;
+                        if ($val !== null && $val !== '') {
+                            $q = (int) $val;
+                        }
                         break;
                     }
                 }

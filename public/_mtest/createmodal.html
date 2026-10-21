@@ -1,0 +1,1255 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    .form-section {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+        color: #667eea;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .service-item {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        background: #f9f9f9;
+    }
+    
+    .upload-area {
+        border: 2px dashed #667eea;
+        border-radius: 10px;
+        padding: 3rem;
+        text-align: center;
+        background: #f8f9ff;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .upload-area:hover {
+        background: #eef1ff;
+        border-color: #764ba2;
+    }
+    
+    .upload-area.has-screenshot {
+        border-style: solid;
+        border-color: #28a745;
+        padding: 1rem;
+    }
+    
+    .upload-area.missing-screenshot {
+        border-color: #dc3545;
+        animation: shake 0.5s;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+    
+    .payment-method-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .payment-method-card:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+    
+    .payment-method-card.selected {
+        border-color: #667eea;
+        background: #eef1ff;
+    }
+    
+    .department-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .department-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .department-card.selected {
+        border-color: #667eea;
+        background: #eef1ff;
+    }
+    
+    /* Product Box Styles */
+    .product-box {
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .product-box .card-body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .product-box:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        border-color: #667eea;
+    }
+
+    /* Disabled / Coming Soon boxes */
+    .product-box.disabled {
+        filter: grayscale(1);
+        opacity: 0.55;
+        cursor: not-allowed;
+        pointer-events: none;
+        border-color: #d0d0d0 !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+    .soon-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #6c757d;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        z-index: 2;
+    }
+
+    /* Other Items — floating item-type boxes */
+    .other-type-tile {
+        border: 1px solid #e3e8ef;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 6px 16px rgba(17, 38, 74, 0.08);
+        transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+        color: #2b3a55;
+        min-height: 104px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    .other-type-tile:hover,
+    .other-type-tile:focus {
+        transform: translateY(-6px);
+        box-shadow: 0 14px 28px rgba(17, 38, 74, 0.16);
+        border-color: #17a2b8;
+        color: #0b7f92;
+        background: #fff;
+    }
+    .other-type-tile i {
+        color: #17a2b8;
+    }
+    .other-items-form-badge {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: #e7f7fa;
+        color: #0b7f92;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        box-shadow: 0 6px 14px rgba(17, 38, 74, 0.10);
+    }
+    
+    .product-icon {
+        color: #667eea;
+    }
+    
+    .department-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .badge-iprint {
+        background-color: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+        border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+    
+    .badge-consol {
+        background-color: rgba(23, 162, 184, 0.1);
+        color: #17a2b8;
+        border: 1px solid rgba(23, 162, 184, 0.3);
+    }
+    
+    .badge-cinco {
+        background-color: rgba(255, 193, 7, 0.1);
+        color: #ffc107;
+        border: 1px solid rgba(255, 193, 7, 0.3);
+    }
+    
+    .badge-class {
+        background-color: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+        border: 1px solid rgba(40, 167, 69, 0.3);
+    }
+    
+    .badge-mto {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+        border: 1px solid rgba(220, 53, 69, 0.3);
+    }
+    
+    .badge-other {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+        border: 1px solid rgba(108, 117, 125, 0.3);
+    }
+    
+    /* Selected Items Styles */
+    .selected-item-card {
+        border-left: 4px solid #667eea;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        background: white;
+    }
+    
+    .item-department-badge {
+        font-size: 0.75rem;
+        padding: 2px 8px;
+    }
+    
+    /* Modal Styles */
+    .product-modal .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .product-modal .modal-title i {
+        margin-right: 10px;
+    }
+    
+    /* Garment modal styles */
+    #garmentModalBody .print-size-checkbox.selected {
+        background-color: #e7f3ff;
+        border-color: #0d6efd !important;
+    }
+    #garmentModalBody .product-row .product-select {
+        font-size: 0.85rem;
+    }
+    #garmentModalBody .card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    #garmentModalBody .card-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+    #referenceDropZone:hover {
+        border-color: #0d6efd !important;
+        background-color: #f0f7ff;
+    }
+    #sublimationModalBody .card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    #sublimationModalBody .card-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+    #sublimationModalBody .form-text {
+        font-size: 0.8rem;
+    }
+    #sublimation_rosterTable th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    #sublimation_rosterBody tr.roster-row td {
+        vertical-align: middle;
+    }
+    #sublimation_rosterBody tr.roster-row:hover {
+        background-color: #f8f9fa;
+    }
+
+
+        @media print {
+            @page { size: A4 landscape; margin: 12mm 15mm; }
+            body * { visibility: hidden; }
+            #sublimation_printSlip, #sublimation_printSlip * { visibility: visible; }
+            #sublimation_printSlip { position: absolute; left: 0; top: 0; width: 100%; max-width: 277mm; display: block !important; }
+            .no-print { display: none !important; }
+        }
+        .print-slip { font-family: 'Courier New', monospace; font-size: 10pt; color: #000; width: 100%; }
+        .print-slip h1 { font-size: 16pt; margin: 0; text-align: center; }
+        .print-slip h2 { font-size: 13pt; margin: 0; text-align: center; }
+        .print-slip table { width: 100%; border-collapse: collapse; }
+        .print-slip td, .print-slip th { border: 1px solid #000; padding: 3px 5px; text-align: left; font-size: 9pt; vertical-align: top; }
+        .print-slip .no-border td, .print-slip .no-border { border: none; }
+        .print-slip .field-label { font-weight: bold; background: #f0f0f0; width: 1%; white-space: nowrap; }
+        .print-slip .mockup-box { border: 2px dashed #999; display: flex; align-items: center; justify-content: center; text-align: center; color: #999; font-size: 9pt; overflow: hidden; width:100%; aspect-ratio: 4 / 3; max-height:300px; }
+        .print-slip .mockup-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .print-slip .roster-table th { background: #e0e0e0; font-weight: bold; text-align: center; }
+        .print-slip .roster-table td { text-align: center; }
+        .print-slip .roster-table th, .print-slip .roster-table td { border: 1px solid #bbb; }
+        .print-slip .roster-table tr.roster-filler td { height: 12px; font-size: 6pt; line-height: 6pt; padding: 0; }
+        .print-slip .section-title { font-weight: bold; font-size: 11pt; margin-top: 4px; margin-bottom: 2px; }
+        .print-slip .divider { border-top: 2px solid #000; margin: 1px 0; }
+        /* ⬇️ Compress upper 3-column area — keep text size, reduce padding/margins */
+        #ps_upperInfo > tbody > tr > td { padding: 1px 3px !important; }
+        #ps_upperInfo table td, #ps_upperInfo table th { padding: 1px 3px !important; font-size: 9pt; }
+        #ps_upperInfo .section-title { margin-top: 1px; margin-bottom: 1px; font-size: 11pt; }
+        #ps_upperInfo .field-label { padding: 1px 3px !important; }
+    
+
+        @media print {
+            body.gps-printing * { visibility: hidden !important; }
+            body.gps-printing #garment_printSlip, body.gps-printing #garment_printSlip * { visibility: visible !important; }
+            body.gps-printing #garment_printSlip { position: absolute; left: 0; top: 0; width: 100%; max-width: 277mm; display: block !important; }
+            body.gps-printing #sublimation_printSlip { display: none !important; }
+            body.gps-printing .no-print { display: none !important; }
+        }
+    </style>
+</head><body>
+        <div class="modal fade product-modal" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="productModalLabel">
+                            <i class="fas fa-box"></i> Select Product
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Generic (non-garment) modal body -->
+                        <div id="genericModalBody">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <!-- FILTER SECTION -->
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light py-2">
+                                        <h6 class="mb-0"><i class="fas fa-filter me-1"></i> Filter Products</h6>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">Brand</label>
+                                                <input type="text" class="form-control form-control-sm" id="filterBrand" list="brandOptions" placeholder="Type or select brand...">
+                                                <datalist id="brandOptions">
+                                                    <!-- Brand options will be loaded dynamically -->
+                                                </datalist>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">Type</label>
+                                                <input type="text" class="form-control form-control-sm" id="filterType" list="typeOptions" placeholder="Type or select type...">
+                                                <datalist id="typeOptions">
+                                                    <!-- Type options will be loaded dynamically -->
+                                                </datalist>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-1">Color</label>
+                                                <input type="text" class="form-control form-control-sm" id="filterColor" list="colorOptions" placeholder="Type or select color...">
+                                                <datalist id="colorOptions">
+                                                    <!-- Color options will be loaded dynamically -->
+                                                </datalist>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 text-end">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="applyFilters()">
+                                                <i class="fas fa-filter me-1"></i> Apply Filters
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetFilters()">
+                                                <i class="fas fa-redo me-1"></i> Reset
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- END FILTER SECTION -->
+                                
+                                <!-- MULTIPLE PRODUCT ROWS SECTION -->
+                                <div class="mb-3">
+                                    <label class="form-label">Products *</label>
+                                    <div id="productRowsContainer">
+                                        <!-- Product Row Template (Hidden) -->
+                                        <div class="product-row-template d-none">
+                                            <div class="row g-2 mb-2 align-items-center">
+                                                <div class="col-md-6">
+                                                    <select class="form-control product-select" name="product_id[]">
+                                                        <option value="">Select a product</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <input type="number" class="form-control product-quantity" name="quantity[]" min="1" value="1" placeholder="Qty">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- First Product Row -->
+                                        <div class="product-row">
+                                            <div class="row g-2 mb-2 align-items-center">
+                                                <div class="col-md-6">
+                                                    <select class="form-control product-select" required>
+                                                        <option value="">Select a product</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <input type="number" class="form-control product-quantity" name="quantity[]" min="1" value="1" placeholder="Qty" required>
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-success" id="addProductRow">
+                                            <i class="fas fa-plus-circle me-1"></i> Add Another Product
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Add multiple products in one go. Products loaded from database based on category.</div>
+                                </div>
+                                
+                                <!-- Department auto-assigned from product box selection (no manual pick) -->
+                                
+                                <!-- Unit Price Display (Read-only) -->
+                                <div class="mb-3">
+                                    <label class="form-label">Unit Price (₱)</label>
+                                    <input type="text" class="form-control" id="productPriceDisplay" readonly value="₱0.00">
+                                    <div class="form-text">Price auto-filled when product is selected. Same price applies to all quantities.</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Notes (Optional)</label>
+                                    <textarea class="form-control" id="productNotes" rows="3" placeholder="Add special instructions, colors, sizes, etc."></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title mb-3">Order Summary</h6>
+                                        
+                                        <!-- Products Breakdown -->
+                                        <div id="productsBreakdown" class="mb-3">
+                                            <div class="text-muted small mb-2">No products selected yet</div>
+                                        </div>
+                                        
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Total Quantity:</span>
+                                            <span id="totalQuantityDisplay">0</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Unit Price:</span>
+                                            <span id="priceDisplay">₱0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Discount:</span>
+                                            <span id="discountDisplay" class="text-muted small">No bulk discount applied</span>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between fw-bold">
+                                            <span>Total Amount:</span>
+                                            <span id="itemTotalDisplay">₱0.00</span>
+                                        </div>
+                                        
+                                        <button type="button" class="btn btn-primary w-100 mt-4" id="addItemBtn">
+                                            <i class="fas fa-cart-plus me-2"></i> Add to Cart
+                                        </button>
+                                        
+                                        <div class="alert alert-info mt-3 small">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            Select the department that will handle this item. Managers will be notified automatically.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        
+                        <!-- Other Items modal body (hidden by default) -->
+                        <div id="otherItemsModalBody" style="display:none;">
+                            {{-- STEP 1: pick an item type (floating boxes) --}}
+                            <div id="otherItemsTypePane">
+                                <div class="mb-3">
+                                    <h6 class="mb-1">Pumili ng Item Type</h6>
+                                    <div class="text-muted small">I-click ang box ng item na kailangan para buksan ang form nito.</div>
+                                </div>
+                                <div id="otherItems_typeTiles" class="row g-3"></div>
+                            </div>
+
+                            {{-- STEP 2: item-specific form --}}
+                            <div id="otherItemsFormPane" style="display:none;">
+                                <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="otherItems_backBtn">
+                                    <i class="fas fa-arrow-left me-1"></i> Bumalik sa item types
+                                </button>
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="other-items-form-badge me-2"><i class="fas fa-box" id="otherItems_formIcon"></i></span>
+                                    <h5 class="mb-0" id="otherItems_formTitle">Item</h5>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label">Item Name / Description</label>
+                                                <input type="text" class="form-control" id="otherItems_itemName" placeholder="e.g. 11oz white mug, full wrap print">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Quantity *</label>
+                                                <input type="number" class="form-control" id="otherItems_qty" min="1" value="1">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Unit Price (₱) *</label>
+                                                <input type="number" class="form-control" id="otherItems_price" min="0" step="0.01" value="" placeholder="0.00">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Notes (Optional)</label>
+                                                <textarea class="form-control" id="otherItems_notes" rows="2" placeholder="Add special instructions, colors, sizes, etc."></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title mb-3">Summary</h6>
+                                                <div class="d-flex justify-content-between mb-2">
+                                                    <span>Item Type:</span>
+                                                    <span id="otherItems_summaryType">-</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between mb-2">
+                                                    <span>Quantity:</span>
+                                                    <span id="otherItems_summaryQty">0</span>
+                                                </div>
+                                                <hr>
+                                                <div class="d-flex justify-content-between fw-bold">
+                                                    <span>Total Amount:</span>
+                                                    <span id="otherItems_summaryTotal">₱0.00</span>
+                                                </div>
+                                                <button type="button" class="btn btn-primary w-100 mt-4" id="otherItems_addBtn">
+                                                    <i class="fas fa-cart-plus me-2"></i> Add to Cart
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Garment-specific modal body (hidden by default) -->
+                        <div id="garmentModalBody" style="display:none;">
+                            <ul class="nav nav-tabs mb-3" id="garmentTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="garment-products-tab" data-bs-toggle="tab" data-bs-target="#garment-products-pane" type="button" role="tab"><i class="fas fa-tshirt me-1"></i>Product Details</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="garment-sizes-tab" data-bs-toggle="tab" data-bs-target="#garment-sizes-pane" type="button" role="tab"><i class="fas fa-users me-1"></i>Sizes with name</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="garment-summary-tab" data-bs-toggle="tab" data-bs-target="#garment-summary-pane" type="button" role="tab"><i class="fas fa-shopping-cart me-1"></i>Order Summary</button>
+                                </li>
+                            </ul>
+                            <div class="tab-content" id="garmentTabContent">
+                            <!-- TAB 1: PRODUCTS -->
+                            <div class="tab-pane fade show active" id="garment-products-pane" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-7">
+                                    <!-- PROJECT NAME -->
+                                    <div class="mb-3">
+                                        <label class="form-label">Project Name *</label>
+                                        <input type="text" class="form-control" id="garment_projectName" placeholder="e.g. DANNA" required>
+                                    </div>
+                                    <!-- MULTIPLE PRODUCT ROWS SECTION -->
+                                    <!-- GARMENT FILTER SECTION -->
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light py-2">
+                                            <h6 class="mb-0"><i class="fas fa-filter me-1"></i> Filter Products</h6>
+                                        </div>
+                                        <div class="card-body p-3">
+                                            <div class="row g-2">
+                                                <div class="col-6 col-md-3">
+                                                    <label class="form-label small mb-1">Brand</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterBrand" list="garment_brandOptions" placeholder="Type or select brand...">
+                                                    <datalist id="garment_brandOptions"></datalist>
+                                                </div>
+                                                <div class="col-6 col-md-3">
+                                                    <label class="form-label small mb-1">Type</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterType" list="garment_typeOptions" placeholder="Type or select type...">
+                                                    <datalist id="garment_typeOptions"></datalist>
+                                                </div>
+                                                <div class="col-6 col-md-3">
+                                                    <label class="form-label small mb-1">Color</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterColor" list="garment_colorOptions" placeholder="Type or select color...">
+                                                    <datalist id="garment_colorOptions"></datalist>
+                                                </div>
+                                                <div class="col-6 col-md-3">
+                                                    <label class="form-label small mb-1">Size</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterSize" list="garment_sizeOptions" placeholder="Type or select size...">
+                                                    <datalist id="garment_sizeOptions"></datalist>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2 text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="garment_applyFilters()">
+                                                    <i class="fas fa-filter me-1"></i> Apply Filters
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="garment_resetFilters()">
+                                                    <i class="fas fa-redo me-1"></i> Reset
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Products *</label>
+                                        <div id="garment_productRowsContainer">
+                                            <!-- Product Row Template (Hidden) -->
+                                            <div class="product-row-template d-none">
+                                                <div class="row g-2 mb-2 align-items-center">
+                                                    <div class="col-md-6">
+                                                        <select class="form-control product-select" required>
+                                                            <option value="">Select a product</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- First Product Row -->
+                                            <div class="product-row">
+                                                <div class="row g-2 mb-2 align-items-center">
+                                                    <div class="col-md-6">
+                                                        <select class="form-control product-select" required>
+                                                            <option value="">Select a product</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-success" id="garment_addProductRowBtn">
+                                                <i class="fas fa-plus-circle me-1"></i> Add Another Product
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Department auto-assigned from product box selection (no manual pick) -->
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Date Needed <span class="text-danger">*</span></label>
+                                        <input type="date" class="form-control" id="garment_dateNeeded" required>
+                                        <small class="text-muted">Target completion / delivery date</small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Notes (Optional)</label>
+                                        <textarea class="form-control" id="garment_productNotes" rows="3" placeholder="Add special instructions..."></textarea>
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white small py-2">
+                                            <i class="fas fa-image me-1"></i> Mock-up Design
+                                        </div>
+                                        <div class="card-body py-2 text-center">
+                                            <div id="garment_mockupPreviewArea" class="mb-2" style="min-height:140px;display:flex;align-items:center;justify-content:center;border:2px dashed #ddd;border-radius:8px;cursor:pointer;background:#fafafa;overflow:hidden;" onclick="document.getElementById('garment_mockupUpload').click()">
+                                                <div id="garment_mockupPlaceholder">
+                                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted"></i>
+                                                    <p class="text-muted small mb-0 mt-1">Click to upload mock-up image</p>
+                                                </div>
+                                                <img id="garment_mockupPreview" src="" style="max-height:180px;display:none;max-width:100%;object-fit:contain;">
+                                            </div>
+                                            <input type="file" id="garment_mockupUpload" accept="image/*" style="display:none" onchange="garment_previewMockup(event)">
+                                            <div id="garment_mockupFileInfo" class="small" style="display:none;">
+                                                <span id="garment_mockupFileName" class="text-muted"></span>
+                                                <button type="button" class="btn btn-sm btn-outline-danger ms-2 py-0 px-1" onclick="garment_removeMockup()" title="Remove"><i class="fas fa-times"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card mt-3">
+                                        <div class="card-body">
+                                            <h6 class="card-title"><i class="fas fa-print me-2"></i>Printing Options</h6>
+                                            <div class="mb-3">
+                                                <label class="form-label">Print Type *</label>
+                                                <select class="form-control" id="garment_printTypeSelect" onchange="garment_loadPrintSizes(this.value)">
+                                                    <option value="">-- Select Print Type --</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Print Sizes</label>
+                                                <div id="garment_printSizesContainer" class="small" style="display:none;">
+                                                    <div id="garment_printSizesList"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                            <!-- TAB: SIZES WITH NAME (roster + Excel upload, mirrors Full Sublimation) -->
+                            <div class="tab-pane fade" id="garment-sizes-pane" role="tabpanel">
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="alert alert-success py-2 small">
+                                        <i class="fas fa-users me-1"></i> Piliin ang <strong>Brand / Type-Collar / Color</strong>, tapos mag-upload ng Excel (pangalan + size). Automatic nang bibilangin ang qty at price kada size.
+                                    </div>
+                                    <!-- Garment Specification (required for pricing) -->
+                                    <div class="card mb-3 border-primary">
+                                        <div class="card-header bg-primary text-white small py-2">
+                                            <i class="fas fa-tags me-1"></i> Garment Specification
+                                        </div>
+                                        <div class="card-body p-3">
+                                            <div class="row g-2">
+                                                <div class="col-6 col-md-4">
+                                                    <label class="form-label small mb-1">Brand *</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_specBrand" list="garment_specBrandOptions" placeholder="e.g. YALEX">
+                                                    <datalist id="garment_specBrandOptions"></datalist>
+                                                </div>
+                                                <div class="col-6 col-md-4">
+                                                    <label class="form-label small mb-1">Type / Collar *</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_specType" list="garment_specTypeOptions" placeholder="e.g. ROUNDNECK">
+                                                    <datalist id="garment_specTypeOptions"></datalist>
+                                                </div>
+                                                <div class="col-6 col-md-4">
+                                                    <label class="form-label small mb-1">Color</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_specColor" list="garment_specColorOptions" placeholder="e.g. BLACK">
+                                                    <datalist id="garment_specColorOptions"></datalist>
+                                                </div>
+                                            </div>
+                                            <small class="text-muted d-block mt-2"><i class="fas fa-info-circle me-1"></i> Kailangang may Brand at Type/Collar bago makapag-upload ng Excel.</small>
+                                        </div>
+                                    </div>
+                                    <!-- Excel Upload -->
+                                    <div class="mb-2">
+                                        <div class="d-flex gap-2 flex-wrap align-items-center">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" id="garment_excelBtn" disabled onclick="document.getElementById('garment_excelInput').click()">
+                                                <i class="fas fa-file-excel me-1"></i>Upload Excel
+                                            </button>
+                                            <span id="garment_excelGateHint" class="text-muted small">Piliin muna ang Brand at Type/Collar.</span>
+                                            <input type="file" id="garment_excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="garment_uploadExcel(event)">
+                                        </div>
+                                    </div>
+                                    <!-- Roster Table -->
+                                    <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+                                        <table class="table table-sm table-bordered mb-0" id="garment_rosterTable">
+                                            <thead class="table-light">
+                                                <tr id="garment_rosterHeader">
+                                                    <th style="width:50px">#</th>
+                                                    <th>Name</th>
+                                                    <th style="width:80px">Size</th>
+                                                    <th style="width:40px">Qty</th>
+                                                    <th style="width:40px"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="garment_rosterBody">
+                                                <tr id="garment_rosterEmpty">
+                                                    <td colspan="5" class="text-center text-muted small py-3">
+                                                        <i class="fas fa-user-plus me-1"></i> Add names above to build your roster.
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-1 text-end">
+                                        <small class="text-muted">
+                                            <span id="garment_rosterCount">0</span> people
+                                        </small>
+                                    </div>
+                                    <!-- Size pricing breakdown (from roster + spec) -->
+                                    <div class="card mt-3 border-success" id="garment_sizePricingCard" style="display:none;">
+                                        <div class="card-header bg-success text-white small py-2">
+                                            <i class="fas fa-calculator me-1"></i> Size Breakdown (auto)
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <div id="garment_sizePricingBody" class="small"></div>
+                                            <hr class="my-2">
+                                            <div class="d-flex justify-content-between fw-bold">
+                                                <span>Total: <span id="garment_sizePricingQty">0</span> pcs</span>
+                                                <span id="garment_sizePricingTotal">₱0.00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                            <!-- TAB 3: ORDER SUMMARY -->
+                            <div class="tab-pane fade" id="garment-summary-pane" role="tabpanel">
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6 class="card-title"><i class="fas fa-shopping-cart me-2"></i>Order Summary</h6>
+                                            
+                                            <!-- Products Breakdown -->
+                                            <div id="garment_productsBreakdown" class="mb-3">
+                                                <div class="text-muted small mb-2">No products selected yet</div>
+                                            </div>
+                                            
+                                            <hr>
+                                            
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Total Quantity:</span>
+                                                <span id="garment_totalQtyDisplay">0</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between fw-bold mb-2">
+                                                <span>Total Amount:</span>
+                                                <span id="garment_totalAmountDisplay">₱0.00</span>
+                                            </div>
+                                            
+                                            <!-- Print Summary Sidebar -->
+                                            <div id="garment_printSummarySidebar" style="display:none;">
+                                                <hr>
+                                                <div id="garment_printSizesBreakdown" class="small mb-2"></div>
+                                                <div class="d-flex justify-content-between small">
+                                                    <span>Print Cost/ea:</span>
+                                                    <span id="garment_printCostPerItemDisplay">₱0.00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small">
+                                                    <span>Qty:</span>
+                                                    <span id="garment_printQtyDisplay">0</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small">
+                                                    <span>Print Subtotal:</span>
+                                                    <span id="garment_printSubtotalDisplay">₱0.00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small text-danger" id="garment_comboDiscountRow" style="display:none;">
+                                                    <span>Combo Discount:</span>
+                                                    <span id="garment_comboDiscountDisplay">-₱0.00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between small text-danger" id="garment_bulkDiscountRow" style="display:none;">
+                                                    <span>Bulk Discount:</span>
+                                                    <span id="garment_bulkDiscountDisplay">-₱0.00</span>
+                                                </div>
+                                                <hr class="my-1">
+                                                <div class="d-flex justify-content-between fw-bold small">
+                                                    <span>Print Total:</span>
+                                                    <span id="garment_printTotalDisplay">₱0.00</span>
+                                                </div>
+                                                <hr>
+                                                <div class="d-flex justify-content-between fw-bold">
+                                                    <span>Grand Total:</span>
+                                                    <span id="garment_grandTotalDisplay">₱0.00</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Special Price Section -->
+                                            <div class="mt-3 p-2 bg-light rounded" id="garment_specialPriceSection" style="display:none;">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <span class="fw-bold small">💵 SPECIAL PRICE ACTIVE</span>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="garment_clearSpecialPrice()">✕ Clear</button>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="small text-muted">Set Print Total:</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text">₱</span>
+                                                        <input type="number" class="form-control" id="garment_specialPrintTotal" min="0" step="0.01" placeholder="0.00" oninput="garment_onSpecialPriceChange()">
+                                                    </div>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="small text-muted">Reason *</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_specialPriceReason" placeholder="Why special price?" required>
+                                                </div>
+                                            </div>
+                                            
+                                            <button type="button" class="btn btn-outline-warning btn-sm w-100 mt-2" id="garment_specialPriceBtn" onclick="garment_toggleSpecialPrice()">
+                                                💰 Special Price
+                                            </button>
+                                            
+                                            <button type="button" class="btn btn-primary w-100 mt-2" id="garment_addItemBtn">
+                                                <i class="fas fa-cart-plus me-2"></i> Add to Cart
+                                            </button>
+                                            <button type="button" class="btn btn-outline-info w-100 mt-2" id="garment_printOrderSlip" onclick="window.garment_printOrderSlip()">
+                                                <i class="fas fa-print me-2"></i> Print Order Slip
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                            </div>
+                        </div>
+
+                        <!-- SUBLIMATION MODAL BODY - CUSTOMER FORM (hidden by default) -->
+                        <div id="sublimationModalBody" style="display:none;">
+                            <ul class="nav nav-tabs mb-3" id="sublimationTab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="order-details-tab" data-bs-toggle="tab" data-bs-target="#order-details" type="button" role="tab">Order Details</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="specs-tab" data-bs-toggle="tab" data-bs-target="#specs" type="button" role="tab">Specifications</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="sizes-tab" data-bs-toggle="tab" data-bs-target="#sizes" type="button" role="tab">Sizes</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="pricing-tab-sub" data-bs-toggle="tab" data-bs-target="#pricing-tab-body" type="button" role="tab">Pricing</button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="sublimationTabContent">
+                                <!-- TAB 1: ORDER DETAILS -->
+                                <div class="tab-pane fade show active" id="order-details" role="tabpanel">
+                                    <div class="row">
+                                        <div class="col-md-7">
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Project Name *</label>
+                                                    <input type="text" class="form-control" id="sublimation_projectName" placeholder="e.g. DANNA" required oninput="sublimation_autoGenerateDescription()">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Description *</label>
+                                                    <input type="text" class="form-control" id="sublimation_description" placeholder="Auto-generated from selections" readonly style="background:#f0f0f0;cursor:default;">
+                                                    <div class="form-text small" id="sublimation_descHelp">Auto-generated from Garment + Fabric + Parts selection.</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Fabric *</label>
+                                                    <select class="form-control" id="sublimation_fabricSelect" onchange="sublimation_calculateTotal(); sublimation_autoGenerateDescription()">
+                                                        <option value="">-- Select Fabric --</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Designer *</label>
+                                                    <input type="text" class="form-control" id="sublimation_designer" placeholder="e.g. ALLAN - CONSOL" required>
+                                                </div>
+                                                <!-- Department auto-assigned; PIC field removed per business req -->
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Date Needed *</label>
+                                                    <input type="date" class="form-control" id="sublimation_dateNeeded" required>
+                                                    <div id="sublimation_capacityBadge" class="capacity-badge mt-1" style="display:none;"></div>
+                                                </div>
+                                            </div>
+                                            <div class="mt-3">
+                                                <label class="form-label">Notes / Special Instructions</label>
+                                                <textarea class="form-control" id="sublimation_notes" rows="2" placeholder="Additional notes for this order..."></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <div class="card border-primary">
+                                                <div class="card-header bg-primary text-white small py-2">
+                                                    <i class="fas fa-image me-1"></i> Mock-up Design
+                                                </div>
+                                                <div class="card-body py-2 text-center">
+                                                    <div id="mockupPreviewArea" class="mb-2" style="min-height:140px;display:flex;align-items:center;justify-content:center;border:2px dashed #ddd;border-radius:8px;cursor:pointer;background:#fafafa;overflow:hidden;" onclick="document.getElementById('mockupUpload').click()">
+                                                        <div id="mockupPlaceholder">
+                                                            <i class="fas fa-cloud-upload-alt fa-3x text-muted"></i>
+                                                            <p class="text-muted small mb-0 mt-1">Click to upload mock-up image</p>
+                                                        </div>
+                                                        <img id="mockupPreview" src="" style="max-height:180px;display:none;max-width:100%;object-fit:contain;">
+                                                    </div>
+                                                    <input type="file" id="mockupUpload" accept="image/*" style="display:none" onchange="sublimation_previewMockup(event)">
+                                                    <div id="mockupFileInfo" class="small" style="display:none;">
+                                                        <span id="mockupFileName" class="text-muted"></span>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger ms-2 py-0 px-1" onclick="sublimation_removeMockup()" title="Remove"><i class="fas fa-times"></i></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 2: SPECIFICATIONS -->
+                                <div class="tab-pane fade" id="specs" role="tabpanel">
+                                    <!-- Garment Type + Additional Parts at top for immediate visibility -->
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Garment Type *</label>
+                                            <select class="form-control" id="sublimation_garmentSelect" onchange="sublimation_renderSpecs(); sublimation_calculateTotal(); sublimation_autoGenerateDescription()">
+                                                <option value="">-- Select Garment --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Additional Parts</label>
+                                            <div id="sublimation_partsContainer" class="border rounded p-2 bg-light" style="max-height:80px;overflow-y:auto;">
+                                                <p class="text-muted small mb-0">Select Garment type first...</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div id="sublimation_specsFields">
+                                        <p class="text-muted small mb-0">Select a garment type to see specifications.</p>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 3: SIZES -->
+                                <div class="tab-pane fade" id="sizes" role="tabpanel">
+                                    <div class="btn-group btn-group-sm mb-3 w-100" role="group">
+                                        <input type="radio" class="btn-check" name="sublimationSizeMode" id="sizeModeByQty" value="by-qty" checked onchange="sublimation_toggleSizeMode()">
+                                        <label class="btn btn-outline-primary" for="sizeModeByQty"><i class="fas fa-list-ol me-1"></i>By Size</label>
+                                        <input type="radio" class="btn-check" name="sublimationSizeMode" id="sizeModeRoster" value="roster" onchange="sublimation_toggleSizeMode()">
+                                        <label class="btn btn-outline-primary" for="sizeModeRoster"><i class="fas fa-users me-1"></i>Per Person (Names)</label>
+                                    </div>
+
+                                    <!-- MODE 1: BY SIZE (default) -->
+                                    <div id="sublimationSizeByQty">
+                                        <div class="alert alert-info py-2 small">
+                                            <i class="fas fa-info-circle me-1"></i> Enter the quantity per size. Total will be auto-calculated.
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">XS</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="XS" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">Small</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="SMALL" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">Medium</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="MEDIUM" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">Large</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="LARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">2XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="2XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">3XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="3XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">4XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="4XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">5XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="5XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">6XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="6XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">7XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="7XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                            <div class="col-md-4 col-6">
+                                                <label class="form-label small">8XLARGE</label>
+                                                <input type="number" class="form-control form-control-sm size-qty" data-size="8XLARGE" min="0" value="0" oninput="sublimation_calculateTotal()">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MODE 2: PER PERSON (roster) -->
+                                    <div id="sublimationSizeRoster" style="display:none;">
+                                        <div class="alert alert-success py-2 small">
+                                            <i class="fas fa-users me-1"></i> Add each person's name and their assigned size. Total = number of people.
+                                        </div>
+
+                                        <!-- Excel Upload -->
+                                        <div class="mb-2">
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('sublimation_excelInput').click()">
+                                                    <i class="fas fa-file-excel me-1"></i>Upload Excel
+                                                </button>
+                                                <input type="file" id="sublimation_excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="sublimation_uploadExcel(event)">
+                                            </div>
+                                        </div>
+
+                                        <!-- Roster Table -->
+                                        <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+                                            <table class="table table-sm table-bordered mb-0" id="sublimation_rosterTable">
+                                                <thead class="table-light">
+                                                    <tr id="sublimation_rosterHeader">
+                                                        <th style="width:50px">#</th>
+                                                        <th>Name</th>
+                                                        <th style="width:80px">Size</th>
+                                                        <th style="width:40px">Qty</th>
+                                                        <th style="width:40px"></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="sublimation_rosterBody">
+                                                    <tr id="sublimation_rosterEmpty">
+                                                        <td colspan="5" class="text-center text-muted small py-3">
+                                                            <i class="fas fa-user-plus me-1"></i> Add names above to build your roster.
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="mt-1 text-end">
+                                            <small class="text-muted">
+                                                <span id="sublimation_rosterCount">0</span> people
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <!-- Column Mapping Modal -->
+                                    <div class="modal fade" id="sublimation_columnMapModal" tabindex="-1">
+                                        <div class="modal-dialog modal-sm">
+                                            <div class="modal-content">
+                                                <div class="modal-header py-2">
+                                                    <h6 class="modal-title"><i class="fas fa-columns me-1"></i>Map Columns</h6>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body py-2 small">
+                                                    <p class="mb-2 text-muted">Match your Excel columns to roster fields:</p>
+                                                    <div class="mb-2">
+                                                        <label class="form-label mb-0">→ <strong>Name</strong> column</label>
+                                                        <select class="form-select form-select-sm" id="mapCol_name">
+                                                            <option value="">-- skip --</option>
+                                                        </select>
+                                                        <div class="form-text mt-0">Person's name or identifier</div>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label class="form-label mb-0">→ <strong>Number</strong> column</label>
+                                                        <select class="form-select form-select-sm" id="mapCol_number">
+                                                            <option value="">-- skip --</option>
+                                                        </select>
+                                                        <div class="form-text mt-0">Jersey number / row number</div>
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <label class="form-label mb-0">→ <strong>Size</strong> column</label>
+                                                        <select class="form-select form-select-sm" id="mapCol_size">
+                                                            <option value="">-- skip --</option>
+                                                        </select>
+                                                        <div class="form-text mt-0">XS, S, M, L, XL, 2XL, etc.</div>
+                                                    </div>
+                                                    </div>
+                                                    <small class="text-muted" id="sublimation_mapPreview">Loading preview...</small>
+                                                </div>
+                                                <div class="modal-footer py-1">
+                                                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <button type="button" class="btn btn-sm btn-success" onclick="sublimation_applyMapping()">
+                                                        <i class="fas fa-check me-1"></i>Import
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- TAB 4: PRICING -->
+                                <div class="tab-pane fade" id="pricing-tab-body" role="tabpanel">
+                                    <div class="card border-success mt-3">
+                                        <div class="card-header bg-success text-white small py-2">
+                                            <i class="fas fa-file-invoice me-1"></i> Full Price Breakdown
+                                        </div>
+                                        <div class="card-body py-2">
+                                            <div class="d-flex justify-content-between small">
+                                                <span id="pricingTab_garmentLabel">Garment:</span>
+                                                <strong><span id="pricingTab_garmentPrice">₱0.00</span></strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between small">
+                                                <span id="pricingTab_fabricLabel">Fabric:</span>
+                                                <strong><span id="pricingTab_fabricPrice">₱0.00</span></strong>
+                                            </div>
+                                            <div id="pricingTab_partsBreakdown"></div>
+                                            <div id="pricingTab_sizeBreakdown"></div>
+                                            <hr class="my-1">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="fw-bold">Per Unit (base):</span>
+                                                <strong class="fs-6"><span id="pricingTab_unitPrice">₱0.00</span></strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between small">
+                                                <span>Total Qty (from Sizes tab):</span>
+                                                <strong><span id="pricingTab_totalQty">0</span></strong>
+                                            </div>
+                                            <hr class="my-1">
+                                            <div class="d-flex justify-content-between fw-bold fs-5" style="color:#198754;">
+                                                <span>TOTAL:</span>
+                                                <span id="pricingTab_grandTotal">₱0.00</span>
+                                            </div>
+                                            <div id="sublimation_specialPriceIndicator" class="alert alert-warning py-1 small mb-0 mt-2" style="display:none;">
+                                                <i class="fas fa-tag me-1"></i> <strong>Special Price:</strong> <span id="sublimation_specialPriceDisplay">₱0.00</span>/piece
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Special Price Section -->
+                                    <div class="mt-3 p-2 bg-light rounded" id="sublimation_specialPriceSection" style="display:none;">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="fw-bold small">💵 SPECIAL PRICE ACTIVE</span>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="sublimation_clearSpecialPrice()">✕ Clear</button>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="small text-muted">Set Price Per Piece:</label>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text">₱</span>
+                                                <input type="number" class="form-control" id="sublimation_specialPrintTotal" min="0" step="0.01" placeholder="0.00/piece" oninput="sublimation_onSpecialPriceChange()">
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label class="small text-muted">Reason *</label>
+                                            <input type="text" class="form-control form-control-sm" id="sublimation_specialPriceReason" placeholder="Why special price?" required>
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-outline-warning btn-sm w-100 mt-2" id="sublimation_specialPriceBtn" onclick="sublimation_toggleSpecialPrice()">
+                                        💰 Special Price
+                                    </button>
+
+                                    <button type="button" class="btn btn-success w-100 mt-2" id="sublimation_addItemBtn">
+                                        <i class="fas fa-check-circle me-2"></i> Confirm &amp; Add to Cart
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info w-100 mt-2" id="sublimation_printOrderSlip">
+                                        <i class="fas fa-print me-2"></i> Print Order Slip
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body></html>

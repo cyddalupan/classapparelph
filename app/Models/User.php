@@ -173,6 +173,17 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Trimmer/QA (role `trimmer_qa`): production trimmer na QA rin ang scope.
+     * Restricted access — Dashboard, Damage Reports, QA Job List (SEWING/QA/DISPATCH
+     * tags lang), Backjob List. Walang approval/assignment powers.
+     * Added 2026-10-21 (Andrew).
+     */
+    public function isTrimmerQa(): bool
+    {
+        return $this->role === 'trimmer_qa';
+    }
+
+    /**
      * Check if user has COO role
      */
     public function isCoo(): bool

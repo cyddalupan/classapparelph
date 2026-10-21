@@ -85,6 +85,8 @@
     .prod-check-mini .pc-ga  { background: #e2e8f0; color: #334155; }
     .prod-check-mini .pc-qa1 { background: #cff4fc; color: #055160; }
     .prod-check-mini .pc-qa2 { background: #d1e7dd; color: #0a3622; }
+    /* "Complete" badge — lumalabas kapag tapos na ang GA at QA1 (lahat ng row na-check) */
+    .prod-complete-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #059669; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 
     /* Dept badge */
     .dept-badge {
@@ -652,7 +654,7 @@
                 ⏸️ On Hold @if(($holdCount ?? 0) > 0)<span class="badge ms-1" style="background:#fff;color:#64748b;">{{ $holdCount ?? 0 }}</span>@endif
             </a>
             @if(!(auth()->user() && auth()->user()->isProdManager()))
-            <a href="{{ route('sales.prototype.create') }}" class="btn btn-new-order">➕ New Order</a>
+            <a href="{{ route('sales.prototype.pending-payment') }}" class="btn btn-new-order" style="background:linear-gradient(135deg,#b45309 0%,#f59e0b 100%);" title="Mga DISPATCH order na may pending payment — naka-group per agent. Ipa-attach ang payment at ipa-sagot ang notification.">💳 Pending Payment</a>
             @endif
             @if(isset($totalPending) && $totalPending > 0)
                 <button class="btn btn-pending-hdr" id="pendingToggleBtn" onclick="showPendingModal()" style="position:relative;">
@@ -1070,13 +1072,24 @@
                                     </div>
                                 @endforeach
                             </div>
-                            @php $pcc = $prodCheckCounts[$sale->id] ?? null; @endphp
+                            @php
+                                $pcc = $prodCheckCounts[$sale->id] ?? null;
+                                // "Complete" kapag tapos na ang GA at QA1 (may row at lahat na-check).
+                                $gaTotal  = (int) ($pcc['ga']['total'] ?? 0);
+                                $qa1Total = (int) ($pcc['qa1']['total'] ?? 0);
+                                $prodComplete = $pcc
+                                    && $gaTotal > 0 && (int) ($pcc['ga']['done'] ?? 0) >= $gaTotal
+                                    && $qa1Total > 0 && (int) ($pcc['qa1']['done'] ?? 0) >= $qa1Total;
+                            @endphp
                             @if($pcc && (($pcc['ga']['total'] ?? 0) > 0 || ($pcc['qa1']['total'] ?? 0) > 0 || ($pcc['qa2']['total'] ?? 0) > 0))
                             <div class="prod-check-mini" title="Production Check — rows na-check/kabuuan · piraso tapos/kabuuan">
                                 <span class="pc-ga">GA {{ $pcc['ga']['done'] }}/{{ $pcc['ga']['total'] }} · {{ $pcc['ga']['pcs_done'] }}/{{ $pcc['ga']['pcs_total'] }} pcs</span>
                                 <span class="pc-qa1">QA1 {{ $pcc['qa1']['done'] }}/{{ $pcc['qa1']['total'] }} · {{ $pcc['qa1']['pcs_done'] }}/{{ $pcc['qa1']['pcs_total'] }} pcs</span>
                                 <span class="pc-qa2">QA2 {{ $pcc['qa2']['done'] }}/{{ $pcc['qa2']['total'] }} · {{ $pcc['qa2']['pcs_done'] }}/{{ $pcc['qa2']['pcs_total'] }} pcs</span>
                             </div>
+                            @if($prodComplete)
+                                <span class="prod-complete-badge" title="Kompleto na ang GA at QA1 sa production slip"><i class="fas fa-check-circle"></i> Complete</span>
+                            @endif
                             @endif
                         </td>
                         <td>

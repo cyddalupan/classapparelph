@@ -280,6 +280,8 @@
                                 <span class="role-badge artist">Artist</span>
                                 @elseif(Auth::user()->isGa())
                                 <span class="role-badge ga">GA/Agent</span>
+                                @elseif(Auth::user()->isTrimmerQa())
+                                <span class="role-badge ga">Trimmer/QA</span>
                                 @elseif(Auth::user()->isCustomer())
                                 <span class="role-badge customer">Customer</span>
                                 @else
@@ -446,6 +448,20 @@
                             <span class="nav-text">Add New Sale</span>
                         </a>
                         @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs', 'ljRouteIs' => 'sales.layout-jobs*', 'ljLabel' => 'Layout Job'])
+                    </div>
+                    @endif
+                    @if(Auth::user()->isTrimmerQa())
+                    <!-- Trimmer/QA Navigation (Andrew 2026-10-21) -->
+                    <div class="nav-section">
+                        <div class="nav-section-title">Production</div>
+                        <a href="{{ route('sales.prototype.qa-job-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.qa-job-list') ? 'active' : '' }}">
+                            <i class="fas fa-clipboard-check"></i>
+                            <span class="nav-text">QA Job List</span>
+                        </a>
+                        <a href="{{ route('sales.prototype.backjobs') }}" class="nav-item {{ request()->routeIs('sales.prototype.backjobs') ? 'active' : '' }}">
+                            <i class="fas fa-tools"></i>
+                            <span class="nav-text">Backjob List</span>
+                        </a>
                     </div>
                     @endif
                     @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo())
@@ -653,7 +669,7 @@
                     </div>
                     @else
                     <!-- Show Business Operations only for NON-SALES AGENTS -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa() && !Auth::user()->isTrimmerQa())
                     <!-- Business Operations (orders, pricing, customers, production — hidden from procurement) -->
                     <div class="nav-section">
                         <div class="nav-section-title">Business</div>
@@ -678,7 +694,7 @@
                     @endif
 
                     <!-- Production Section -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa() && !Auth::user()->isTrimmerQa())
                     <div class="nav-section">
                         <div class="nav-section-title">Production</div>
                         <a href="{{ route('production.tracking') }}" class="nav-item {{ request()->routeIs('production.tracking') ? 'active' : '' }}">
@@ -794,7 +810,7 @@
                     @endif
 
                     <!-- Inventory Management (visible to all including procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa() && !Auth::user()->isTrimmerQa())
                     <div class="nav-section{{ $navDemoHide ? ' nav-demo-hidden' : '' }}">
                         <div class="nav-section-title">Supplies</div>
                         <a href="{{ route('inventory.unified') }}" class="nav-item {{ request()->routeIs('inventory.unified') ? 'active' : '' }}">
@@ -962,7 +978,7 @@
                     @endif
 
                     <!-- Design & Analytics (hidden from procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProcurement() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa() && !Auth::user()->isTrimmerQa())
                     <div class="nav-section">
                         <div class="nav-section-title">Design</div>
                         <a href="{{ route('design.studio') }}" class="nav-item {{ request()->routeIs('design.*') ? 'active' : '' }}">
@@ -985,7 +1001,7 @@
                     @endif
 
                     <!-- Finance (visible to all including procurement) -->
-                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa())
+                    @if(!Auth::user()->isSalesAgent() && !Auth::user()->isSalesRepresentative() && !Auth::user()->isProdManager() && !Auth::user()->isGa() && !Auth::user()->isQa() && !Auth::user()->isTrimmerQa())
                     <div class="nav-section{{ $navDemoHide ? ' nav-demo-hidden' : '' }}">
                         <div class="nav-section-title">Finance</div>
                         <a href="{{ route('finance.dashboard') }}" class="nav-item {{ request()->routeIs('finance.dashboard') ? 'active' : '' }}">

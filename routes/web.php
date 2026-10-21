@@ -940,6 +940,10 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // GA ORDER LIST route — read-only, only orders tagged FOR SAMPLE / FOR APPROVAL / FOR FORMAT / PRINTING
         Route::get('/sales/prototype/ga-order-list', [App\Http\Controllers\PrototypeSalesController::class, 'gaOrderList'])->name('sales.prototype.ga-order-list');
 
+        // QA JOB LIST (Trimmer/QA — Andrew 2026-10-21): parang GA Job List ang hitsura,
+        // pero SEWING / QA / DISPATCH lang ang lumalabas. Ibang tag = wala sa listahan.
+        Route::get('/sales/prototype/qa-job-list', [App\Http\Controllers\PrototypeSalesController::class, 'qaJobList'])->name('sales.prototype.qa-job-list');
+
         // PRIORITY MOCKUP SLIDESHOW — read-only, para sa Manager na i-play sa screen ayon sa priority order (Andrew 2026-09-10)
         Route::get('/sales/prototype/priority-slideshow', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshow'])->name('sales.prototype.priority-slideshow');
         Route::get('/sales/prototype/priority-slideshow/data', [App\Http\Controllers\PrototypeSalesController::class, 'prioritySlideshowData'])->name('sales.prototype.priority-slideshow.data');

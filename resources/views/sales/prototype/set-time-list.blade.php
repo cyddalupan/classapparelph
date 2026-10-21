@@ -120,8 +120,45 @@
     </div>
 
     @php
-        $sort = request('sort', 'arrangement');
+        $sort = request('sort', 'needed_asc');
         $hasFilters = request()->hasAny(['search','agent','department','status','prio','date_from','date_to','sort']);
+
+        // === "List as Text" (Andrew 2026-10-08; updated 2026-10-09) ===
+        // Prio-tagged orders LANG (skip ang walang prio) — naka-sort mula Prio 1 → 15
+        // (tapos needed date). Isang linya: Prio - pcs - Customer - Agent - Needed - Status,
+        // dagdag ang "May backjob pa" (kung may active backjob) at
+        // "May N pcs pa walang check sa QA1" (kung may natitira pang pcs sa QA1).
+        $stlBackjobSet = array_flip(array_map('intval', $stlBackjobSaleIds ?? []));
+        $stlSorted = [];
+        foreach ($sales as $sale) {
+            if (empty($sale->priority)) { continue; }
+            $svcItems = is_string($sale->services) ? json_decode($sale->services, true) : ($sale->services ?? []);
+            $qty = 0;
+            foreach ((array) $svcItems as $svc) { if (is_array($svc)) { $qty += (int) ($svc['quantity'] ?? 1); } }
+            $stage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD');
+            $needed = !empty($sale->needed_by) ? \Carbon\Carbon::parse($sale->needed_by)->format('M j, Y g:i A') : '—';
+            $line = 'Prio ' . $sale->priority
+                . ' - ' . $qty . ' pcs'
+                . ' - ' . ($sale->customer_name ?: '—')
+                . ' - ' . ($sale->sales_agent_name ?: '—')
+                . ' - ' . $needed
+                . ' - ' . $stage;
+            if (isset($stlBackjobSet[(int) $sale->id])) {
+                $line .= ' - May backjob pa';
+            }
+            $stlQa1 = (int) ($stlQa1Remaining[(int) $sale->id] ?? 0);
+            if ($stlQa1 > 0) {
+                $line .= ' - May ' . $stlQa1 . ' pcs pa walang check sa QA1';
+            }
+            $stlSorted[] = ['prio' => (int) $sale->priority, 'needed' => (string) ($sale->needed_by ?? ''), 'id' => (int) $sale->id, 'text' => $line];
+        }
+        // Prio 1 → 15; pareho ang prio → mas maagang needed_by muna, tapos id.
+        usort($stlSorted, function ($a, $b) {
+            if ($a['prio'] !== $b['prio']) return $a['prio'] <=> $b['prio'];
+            $cmp = strcmp($a['needed'], $b['needed']);
+            return $cmp !== 0 ? $cmp : ($a['id'] <=> $b['id']);
+        });
+        $stlText = implode("\n", array_column($stlSorted, 'text'));
     @endphp
     <form method="GET" action="{{ route('sales.prototype.set-time-list') }}" id="stlFilterForm" class="stl-filter-card">
         <div class="stl-filter-grid">
@@ -200,6 +237,7 @@
                 @if($hasFilters)
                     <a href="{{ route('sales.prototype.set-time-list') }}" class="btn stl-clear" title="Clear all filters"><i class="fas fa-rotate-left"></i> Clear</a>
                 @endif
+                <button type="button" class="btn stl-clear" id="stlTextBtn" title="Ilista ang buong listahan bilang text (copy-paste)"><i class="fas fa-clipboard-list"></i> List as Text</button>
             </div>
         </div>
 
@@ -669,6 +707,59 @@
     });
 
     // Touch devices: long-press fallback is not supported natively; leave a hint in UI.
+})();
+</script>
+
+{{-- ===== "List as Text" modal (Andrew 2026-10-08) — display-only, walang DB write ===== --}}
+<div class="modal fade" id="stlTextModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-clipboard-list"></i> Set Time List — as text</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <textarea id="stlTextArea" class="form-control" rows="16" readonly style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;white-space:pre;"></textarea>
+            </div>
+            <div class="modal-footer">
+                <span id="stlTextCopied" class="text-success me-auto" style="display:none;font-size:12px;">✓ Copied!</span>
+                <button type="button" class="btn btn-primary" id="stlTextCopy"><i class="fas fa-copy"></i> Copy</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var STL_TEXT = @json($stlText);
+    var btn = document.getElementById('stlTextBtn');
+    if (!btn) { return; }
+    var modalEl = document.getElementById('stlTextModal');
+    var area = document.getElementById('stlTextArea');
+
+    btn.addEventListener('click', function () {
+        area.value = STL_TEXT || '(walang laman ang listahan)';
+        if (window.bootstrap && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        } else {
+            window.prompt('Set Time List — as text (Ctrl/Cmd+C):', area.value);
+        }
+    });
+
+    var copyBtn = document.getElementById('stlTextCopy');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+            var done = function () {
+                var c = document.getElementById('stlTextCopied');
+                if (c) { c.style.display = 'inline'; setTimeout(function () { c.style.display = 'none'; }, 1500); }
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(area.value).then(done).catch(function () { area.select(); document.execCommand('copy'); done(); });
+            } else {
+                area.select(); document.execCommand('copy'); done();
+            }
+        });
+    }
 })();
 </script>
 @endpush

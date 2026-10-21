@@ -220,6 +220,8 @@
                     $paLoad = ($paNeedKey && array_key_exists($paNeedKey, $dayLoads ?? [])) ? $dayLoads[$paNeedKey] : null;
                     $paProjected = $paLoad !== null ? ($paLoad + $paEff) : null;
                     $paOver = $paProjected !== null ? max(0, $paProjected - ($capacity ?? 180)) : null;
+                    // Gaano na ka-over ang araw BAGO pa ang sale na ito (para hindi ma-misattribute sa kanya).
+                    $paPreOver = $paLoad !== null ? max(0, $paLoad - ($capacity ?? 180)) : 0;
                 @endphp
                 <div class="pa-meta mt-1 d-flex flex-wrap gap-1 align-items-center">
                     @if($paNeed)
@@ -231,6 +233,9 @@
                         <span class="pa-load-chip {{ $paOver > 0 ? 'pa-load-over' : '' }}">
                             Load {{ \Carbon\Carbon::parse($paNeedKey)->format('M d') }}: {{ $paLoad }}/{{ $capacity ?? 180 }} → {{ $paProjected }}@if($paOver > 0) (+{{ $paOver }} over)@endif
                         </span>
+                    @endif
+                    @if($paProjected !== null && $paPreOver > 0)
+                        <span class="pa-load-chip pa-load-over">⚠️ +{{ $paPreOver }} over na bago pa ito — +{{ $paEff }} lang ang dagdag nito</span>
                     @endif
                     @if($paNeedKey)
                         <a href="{{ route('sales.prototype.calendar', ['date' => $paNeedKey]) }}" target="_blank" class="pa-cal-link"><i class="fas fa-calendar-alt me-1"></i>Silipin sa Class Calendar</a>

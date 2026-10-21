@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Q4 Business Reset + Action Planning Workshop</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06080f; --bg2:#0b1020; --card:rgba(255,255,255,.055);
+  --stroke:rgba(255,255,255,.12);
+  --ink:#eef2fa; --muted:#96a3ba; --dim:#64708a;
+  --gold:#f6c860; --orange:#ff7a18; --coral:#ff5a3c; --teal:#35e0c4;
+  --grad:linear-gradient(120deg,#ff7a18,#f6c860 55%,#35e0c4);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Poppins',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color:var(--ink); background:var(--bg); overflow:hidden;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:
+  radial-gradient(1200px 800px at 12% -8%, #16203c 0%, transparent 55%),
+  radial-gradient(1100px 760px at 100% 108%, #1c1330 0%, transparent 55%),
+  linear-gradient(160deg,var(--bg),var(--bg2))}
+.bg .grid{position:absolute;inset:-2px;background-image:
+  linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+  background-size:64px 64px; mask-image:radial-gradient(circle at 50% 40%,#000 0%,transparent 78%);
+  animation:pan 40s linear infinite}
+@keyframes pan{to{background-position:64px 64px,64px 64px}}
+.orb{position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;mix-blend-mode:screen}
+.orb.a{width:46vw;height:46vw;left:-8vw;top:-10vw;background:radial-gradient(circle,#ff7a18,transparent 65%);animation:float1 22s ease-in-out infinite}
+.orb.b{width:40vw;height:40vw;right:-6vw;top:8vh;background:radial-gradient(circle,#35e0c4,transparent 65%);animation:float2 26s ease-in-out infinite}
+.orb.c{width:52vw;height:52vw;left:22vw;bottom:-24vw;background:radial-gradient(circle,#7a3cff,transparent 68%);animation:float3 30s ease-in-out infinite}
+@keyframes float1{50%{transform:translate(6vw,5vh) scale(1.12)}}
+@keyframes float2{50%{transform:translate(-5vw,6vh) scale(1.08)}}
+@keyframes float3{50%{transform:translate(-6vw,-5vh) scale(1.1)}}
+.vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+  box-shadow:inset 0 0 220px 60px rgba(0,0,0,.65)}
+
+.progress{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;
+  background:var(--grad);box-shadow:0 0 18px rgba(255,122,24,.6);transition:width .5s var(--ease)}
+.topbar{position:fixed;top:0;left:0;right:0;z-index:55;display:flex;justify-content:space-between;
+  align-items:center;padding:16px 26px;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--muted)}
+.topbar .brand i{width:9px;height:9px;border-radius:50%;background:var(--grad);display:inline-block;box-shadow:0 0 14px rgba(246,200,96,.8)}
+.counter{font-variant-numeric:tabular-nums;font-weight:600;color:var(--muted)}
+.counter b{color:var(--gold)}
+
+.stage{position:relative;z-index:10;height:100vh;width:100%}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+  padding:clamp(28px,6vw,110px);padding-top:clamp(70px,9vh,120px);padding-bottom:96px;
+  opacity:0;visibility:hidden;transform:translateY(34px) scale(.985);
+  transition:opacity .6s var(--ease), transform .7s var(--ease), visibility .6s;
+  pointer-events:none}
+.slide.active{opacity:1;visibility:visible;transform:none;pointer-events:auto}
+.slide.prev{transform:translateY(-30px) scale(.985)}
+
+.slide.active .rv{animation:rv .8s var(--ease) both;animation-delay:calc(var(--d,0)*90ms + 120ms)}
+@keyframes rv{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.slide.active .rv.l{animation-name:rvl}
+@keyframes rvl{from{opacity:0;transform:translateX(-32px)}to{opacity:1;transform:none}}
+.slide.active .rv.z{animation-name:rvz}
+@keyframes rvz{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+.slide.active .rv.grow{animation-name:rvw}
+@keyframes rvw{from{opacity:0;clip-path:inset(0 100% 0 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+
+.eyebrow{font-size:clamp(12px,1.5vw,15px);letter-spacing:.34em;text-transform:uppercase;
+  font-weight:600;color:var(--gold);margin-bottom:18px;display:flex;align-items:center;gap:14px}
+.eyebrow::before{content:"";width:46px;height:2px;background:var(--grad);border-radius:2px}
+h1{font-size:clamp(34px,6.4vw,86px);line-height:1.02;font-weight:800;letter-spacing:-.02em}
+h1 .serif{font-family:'Playfair Display',serif;font-style:italic;font-weight:600;
+  background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+h2{font-size:clamp(26px,4.3vw,56px);line-height:1.06;font-weight:700;letter-spacing:-.015em;margin-bottom:8px}
+h3{font-size:clamp(15px,1.8vw,21px);font-weight:600}
+.lead{font-size:clamp(16px,2.05vw,25px);color:var(--muted);line-height:1.5;max-width:62ch}
+.quote{font-family:'Playfair Display',serif;font-style:italic;font-size:clamp(18px,2.5vw,32px);
+  line-height:1.45;color:#f4e9d2;border-left:3px solid var(--gold);padding-left:26px;max-width:66ch}
+.accent{color:var(--gold)}
+.dim{color:var(--dim)}
+.strike{color:var(--dim);text-decoration:line-through;text-decoration-color:var(--coral);text-decoration-thickness:2px}
+
+.pill{display:inline-flex;align-items:center;gap:9px;padding:8px 16px;border-radius:999px;
+  background:rgba(255,255,255,.06);border:1px solid var(--stroke);font-size:13px;font-weight:600;color:var(--muted)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
+
+.cards{display:grid;gap:18px;margin-top:34px}
+.cards.c2{grid-template-columns:repeat(2,1fr)}
+.cards.c3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:24px 24px 26px;
+  backdrop-filter:blur(10px);position:relative;overflow:hidden;transition:transform .4s var(--ease),border-color .4s,background .4s}
+.card::after{content:"";position:absolute;left:0;top:0;height:100%;width:3px;background:var(--grad);opacity:.85}
+.card:hover{transform:translateY(-6px);border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.085)}
+.card .k{font-size:clamp(13px,1.35vw,15px);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:8px}
+.card p{color:var(--muted);font-size:clamp(14px,1.5vw,17px);line-height:1.5}
+
+.agenda{display:grid;gap:10px;margin-top:28px}
+.agenda .row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:16px;
+  padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);
+  transition:transform .35s var(--ease),background .35s,border-color .35s}
+.agenda .row:hover{transform:translateX(8px);background:rgba(255,255,255,.085);border-color:rgba(246,200,96,.4)}
+.agenda .n{font-weight:800;font-size:17px;color:transparent;background:var(--grad);-webkit-background-clip:text;background-clip:text;font-variant-numeric:tabular-nums}
+.agenda .t{font-weight:600;font-size:clamp(14px,1.6vw,18px)}
+.agenda .m{font-size:13px;color:var(--gold);font-weight:600;white-space:nowrap}
+
+.rule{display:grid;gap:16px;margin-top:34px}
+.rule .line{font-size:clamp(20px,3.4vw,44px);font-weight:800;letter-spacing:-.01em;display:flex;flex-wrap:wrap;gap:14px;align-items:baseline}
+.rule .line .a{color:var(--gold)} .rule .line .b{color:var(--coral)} .rule .line .c{color:var(--teal)} .rule .line .d{color:#a58bff}
+.rule .vs{font-size:.62em;color:var(--dim);font-weight:500;letter-spacing:.1em}
+
+.chips{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px;max-width:1080px}
+.chip{padding:11px 18px;border-radius:12px;background:rgba(255,255,255,.055);border:1px solid var(--stroke);
+  font-size:clamp(13px,1.5vw,17px);font-weight:500;color:#dbe3f0;transition:transform .3s var(--ease),border-color .3s,color .3s}
+.chip:hover{transform:translateY(-4px) scale(1.03);border-color:var(--gold);color:#fff}
+.chip.warn{border-color:rgba(255,90,60,.5)} .chip.warn:hover{border-color:var(--coral)}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center;margin-top:20px}
+.flow{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.flow .step{display:flex;gap:14px;align-items:center;padding:14px 18px;border-radius:14px;
+  background:var(--card);border:1px solid var(--stroke);font-weight:600;font-size:clamp(14px,1.6vw,18px);
+  transition:transform .35s var(--ease),border-color .35s}
+.flow .step:hover{transform:translateX(8px);border-color:var(--teal)}
+.flow .step .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:15px;background:var(--grad);color:#08111f;font-weight:800;flex:0 0 auto}
+
+.funnel{display:flex;flex-direction:column;gap:8px;margin-top:28px;max-width:640px}
+.funnel .bar{height:52px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;
+  font-weight:700;color:#07101e;position:relative;overflow:hidden}
+.funnel .bar span.v{font-variant-numeric:tabular-nums}
+.funnel .bar:nth-child(1){width:100%;background:linear-gradient(90deg,#ff7a18,#f6c860)}
+.funnel .bar:nth-child(2){width:84%;background:linear-gradient(90deg,#f6c860,#ffe6a1)}
+.funnel .bar:nth-child(3){width:66%;background:linear-gradient(90deg,#35e0c4,#8ef0de);color:#062018}
+.funnel .bar:nth-child(4){width:46%;background:linear-gradient(90deg,#8ef0de,#fff0c9);color:#062018}
+.funnel .bar:nth-child(5){width:30%;background:linear-gradient(90deg,#ff5a3c,#ff9a7a);color:#210603}
+
+.divider{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:center;margin-top:26px}
+.divider .arw{font-size:30px;color:var(--gold)}
+.kv{display:grid;gap:9px;margin-top:16px}
+.kv .i{display:flex;gap:12px;align-items:baseline;color:var(--muted);font-size:clamp(14px,1.55vw,18px)}
+.kv .i b{color:var(--ink)}
+.big-eq{font-family:'Playfair Display',serif;font-size:clamp(24px,3.6vw,46px);font-weight:600;color:#fff;margin-top:22px;line-height:1.3}
+.big-eq .val{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:30px}
+.three .col{border-radius:16px;padding:22px;border:1px solid var(--stroke);background:var(--card)}
+.three .col.keep{border-color:rgba(53,224,196,.45)} .three .col.red{border-color:rgba(246,200,96,.5)} .three .col.stop{border-color:rgba(255,90,60,.5)}
+.three .col h4{font-size:15px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px}
+.three .col.keep h4{color:var(--teal)} .three .col.red h4{color:var(--gold)} .three .col.stop h4{color:var(--coral)}
+.three .col p{color:var(--muted);font-size:14.5px;line-height:1.5}
+
+.commit{display:grid;grid-template-columns:1.15fr .85fr;gap:38px;align-items:center;margin-top:24px}
+.form{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:26px}
+.form .f{padding:12px 0;border-bottom:1px dashed rgba(255,255,255,.16);font-size:16px;color:var(--muted)}
+.form .f b{color:var(--ink)}
+.form .f .blank{display:inline-block;min-width:120px;border-bottom:1.5px solid var(--gold);color:transparent}
+
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:26px}
+.kpis .g{border-radius:16px;padding:20px;background:var(--card);border:1px solid var(--stroke)}
+.kpis .g h4{font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+.kpis .g ul{list-style:none;display:grid;gap:7px}
+.kpis .g li{color:var(--muted);font-size:15px;display:flex;gap:9px;align-items:center}
+.kpis .g li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal)}
+.banner{margin-top:28px;padding:18px 24px;border-radius:14px;background:linear-gradient(120deg,rgba(255,122,24,.16),rgba(53,224,196,.14));
+  border:1px solid rgba(246,200,96,.35);font-weight:700;font-size:clamp(16px,2vw,24px)}
+
+.final{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.final .exec{font-family:'Playfair Display',serif;font-style:italic;font-weight:600;
+  font-size:clamp(46px,11vw,150px);line-height:1;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+.controls{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:999px;
+  background:rgba(10,14,26,.72);border:1px solid var(--stroke);backdrop-filter:blur(14px)}
+.btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--stroke);background:rgba(255,255,255,.05);
+  color:var(--ink);display:grid;place-items:center;cursor:pointer;transition:transform .25s var(--ease),background .25s,border-color .25s;font-size:17px}
+.btn:hover{transform:translateY(-3px);background:rgba(255,255,255,.13);border-color:var(--gold)}
+.btn:active{transform:scale(.94)}
+.dots{display:flex;gap:7px;padding:0 6px;max-width:42vw;overflow:hidden}
+.dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.22);cursor:pointer;transition:all .35s var(--ease)}
+.dots i.on{background:var(--gold);width:20px;border-radius:6px;box-shadow:0 0 12px rgba(246,200,96,.7)}
+.hint{position:fixed;bottom:26px;right:26px;z-index:60;font-size:12px;color:var(--dim);letter-spacing:.05em;text-align:right;line-height:1.7}
+.hint b{color:var(--muted)}
+/* VIEWER MODE: read-only — viewers just follow the presenter */
+body.viewmode .controls,body.viewmode .hint{display:none!important}
+body.viewmode .dots i{pointer-events:none}
+@media (max-width:820px){
+  .cards.c3,.three,.kpis{grid-template-columns:1fr}
+  .split,.commit{grid-template-columns:1fr;gap:22px}
+  .hint{display:none}
+  .agenda .row{grid-template-columns:34px 1fr;grid-template-rows:auto auto}
+  .agenda .m{grid-column:2}
+}
+body.ov .slide{opacity:.28;visibility:visible;transform:scale(.62);pointer-events:none}
+body.ov .stage{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:80px 30px;height:100vh;overflow:auto;align-content:start;position:relative}
+body.ov .slide{position:relative;inset:auto;height:34vh;border-radius:14px;border:1px solid var(--stroke);overflow:hidden;background:rgba(255,255,255,.03)}
+body.ov .slide.active{opacity:1;border-color:var(--gold)}
+body.ov .slide>*{transform-origin:top left}
+</style>
+</head>
+<body>
+<div class="bg"><div class="grid"></div><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
+<div class="vignette"></div>
+<div class="progress" id="prog"></div>
+<div class="topbar">
+  <div class="brand"><i></i> Class Apparel PH · Q4 Reset</div>
+  <div class="counter"><b id="cur">01</b> / <span id="tot">18</span></div>
+</div>
+
+<main class="stage" id="stage">
+
+  <!-- 1 TITLE -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">Q4 · 2026 · Working Session</div>
+    <h1 class="rv" style="--d:1">Q4 Business Reset<br>+ <span class="serif">Action Planning</span> Workshop</h1>
+    <p class="lead rv" style="--d:2;margin-top:26px">“We are not here to discuss <i>why</i> sales are low. We are here to agree on what we will change, who will own it, and what we will do every week for the remaining quarter.”</p>
+    <div class="rv" style="--d:3;margin-top:34px;display:flex;gap:12px;flex-wrap:wrap">
+      <span class="pill"><span class="dot"></span> Class Apparel PH · 2026</span>
+    </div>
+  </section>
+
+  <!-- 2 RULE -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">Our rule for today</div>
+    <div class="rule">
+      <div class="line rv l" style="--d:1"><span class="a">FACTS</span><span class="vs">OVER</span><span>OPINIONS</span></div>
+      <div class="line rv l" style="--d:2"><span class="b">SOLUTIONS</span><span class="vs">OVER</span><span>BLAME</span></div>
+      <div class="line rv l" style="--d:3"><span class="c">OWNERSHIP</span><span class="vs">OVER</span><span>EXCUSES</span></div>
+      <div class="line rv l" style="--d:4"><span class="d">EXECUTION</span><span class="vs">OVER</span><span>INTENTION</span></div>
+    </div>
+  </section>
+
+  <!-- 3 MINDSET -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">Our mindset today</div>
+    <h2 class="rv" style="--d:1">We are not here to ask <span class="strike">who is responsible</span> — we are here to decide <span class="accent">what we will do differently.</span></h2>
+    <div class="cards c2">
+      <div class="card rv" style="--d:2"><div class="k">The wrong question</div><p class="strike">“Who is responsible for the problem?”</p></div>
+      <div class="card rv" style="--d:3"><div class="k">The question that matters</div><p style="color:var(--ink);font-weight:600">“What are WE going to do differently?”</p></div>
+    </div>
+    <p class="quote rv" style="--d:4;margin-top:30px">“Q4 will not be won by motivation alone. It will be won by execution.”</p>
+  </section>
+
+  <!-- 4 AGENDA -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">Today’s agenda</div>
+    <h2 class="rv" style="--d:1">How our day will run</h2>
+    <div class="agenda">
+      <div class="row rv l" style="--d:2"><span class="n">01</span><span class="t">Where We Are</span><span class="m">30 min</span></div>
+      <div class="row rv l" style="--d:3"><span class="n">02</span><span class="t">Why Change?</span><span class="m">30 min</span></div>
+      <div class="row rv l" style="--d:4"><span class="n">03</span><span class="t">Q4 Financial Reality</span><span class="m">45 min</span></div>
+      <div class="row rv l" style="--d:5"><span class="n">04</span><span class="t">How Do We Make the Money?</span><span class="m">60 min</span></div>
+      <div class="row rv l" style="--d:6"><span class="n">05</span><span class="t">Q4 Marketing War Room</span><span class="m">60 min</span></div>
+      <div class="row rv l" style="--d:7"><span class="n">06</span><span class="t">Sales Team Deep Dive</span><span class="m">45 min</span></div>
+    </div>
+  </section>
+
+  <!-- 5 AGENDA cont -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">Today’s agenda <span class="dim" style="letter-spacing:0;text-transform:none">(continued)</span></div>
+    <div class="agenda" style="margin-top:8px">
+      <div class="row rv l" style="--d:1"><span class="n">07</span><span class="t">Cost-Cutting Without Destroying the Business</span><span class="m">45 min</span></div>
+      <div class="row rv l" style="--d:2"><span class="n">08</span><span class="t">Stop Doing / Start Doing / Continue Doing</span><span class="m">30 min</span></div>
+      <div class="row rv l" style="--d:3"><span class="n">09</span><span class="t">The Q4 Commitment Session</span><span class="m">45 min</span></div>
+      <div class="row rv l" style="--d:4"><span class="n">10</span><span class="t">Build the Q4 Scoreboard</span><span class="m">30 min</span></div>
+      <div class="row rv l" style="--d:5"><span class="n">11</span><span class="t">Closing — The Commitment Forward</span><span class="m">20 min</span></div>
+    </div>
+  </section>
+
+  <!-- 6 SECTION 1 -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">01 · Where We Are</div>
+    <h2 class="rv" style="--d:1">Let’s face reality together</h2>
+    <p class="quote rv" style="--d:2;margin-top:24px">“If the results are not where we want them to be, then something in the way we are operating has to change. Today, we leave with clear targets, clear strategies, clear owners, and clear actions.”</p>
+  </section>
+
+  <!-- 7 THE NUMBERS -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">Our numbers</div>
+    <h2 class="rv" style="--d:1">The numbers we don’t argue with</h2>
+    <div class="chips rv" style="--d:2">
+      <span class="chip">Q4 sales target</span><span class="chip">Current avg daily sales</span><span class="chip">Q3 vs Q4 required growth</span>
+      <span class="chip">Gross margin</span><span class="chip">Net margin</span><span class="chip">Fixed expenses</span><span class="chip">Payroll</span>
+      <span class="chip warn">13th-month obligation</span><span class="chip warn">Other year-end obligations</span><span class="chip">Cash position</span>
+      <span class="chip">Sales conversion</span><span class="chip">Production capacity</span><span class="chip">Idle capacity / resources</span>
+    </div>
+    <p class="quote rv" style="--d:3;margin-top:30px">“These are the numbers. We don’t argue with the numbers. We decide what we’re going to do about them.”</p>
+  </section>
+
+  <!-- 8 SECTION 2 -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">02 · Why Change?</div>
+    <h2 class="rv" style="--d:1">Let’s ask ourselves honestly</h2>
+    <p class="big-eq rv" style="--d:2">“If we continue doing exactly what we’re doing today, <span class="val">where will we be 3 months from now?</span>”</p>
+  </section>
+
+  <!-- 9 WHAT IS PRODUCING -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">Let’s be honest about it</div>
+    <h2 class="rv" style="--d:1">What is producing the results we don’t like?</h2>
+    <div class="chips rv" style="--d:2">
+      <span class="chip warn">Too few leads</span><span class="chip warn">Slow response to customers</span><span class="chip warn">Low conversion</span>
+      <span class="chip warn">Weak follow-up</span><span class="chip warn">Too much idle production capacity</span><span class="chip warn">Poor scheduling</span>
+      <span class="chip warn">Excessive expenses</span><span class="chip warn">Wasted materials</span><span class="chip warn">Low-value work</span>
+      <span class="chip warn">No accountability</span><span class="chip warn">Managers reacting instead of planning</span>
+      <span class="chip warn">No aggressive Q4 campaigns</span><span class="chip warn">Customers not reactivated</span><span class="chip warn">No systematic upselling</span>
+    </div>
+    <div class="banner rv" style="--d:3">Which of these can we <b>actually change?</b></div>
+  </section>
+
+  <!-- 10 FINANCIAL REALITY -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">03 · Q4 Financial Reality</div>
+    <div class="split">
+      <div>
+        <h2 class="rv" style="--d:1">Money in ↓ &nbsp; Money out ↓</h2>
+        <div class="flow">
+          <div class="step rv l" style="--d:2"><span class="ic">↑</span> Required Q4 revenue</div>
+          <div class="step rv l" style="--d:3"><span class="ic">↓</span> Payroll · 13th month · Rent</div>
+          <div class="step rv l" style="--d:4"><span class="ic">↓</span> Utilities · Materials · Debt</div>
+          <div class="step rv l" style="--d:5"><span class="ic">↓</span> Operating expenses · Other obligations</div>
+          <div class="step rv l" style="--d:6"><span class="ic">=</span> What remains</div>
+        </div>
+      </div>
+      <div>
+        <p class="big-eq rv z" style="--d:3">₱3,000,000 / month<br><span class="dim" style="font-size:.55em">÷ 26 working days</span><br><span class="val">= ₱115,385 / day</span></p>
+        <p class="lead rv" style="--d:5;margin-top:18px">Our job isn’t simply to “sell more.” Our organization needs approximately <b style="color:var(--gold)">₱115K/day</b>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 BREAKOUT -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">04 · Group Breakout</div>
+    <h2 class="rv" style="--d:1">How Do We Make the Money?</h2>
+    <div class="cards c3">
+      <div class="card rv" style="--d:2"><div class="k">Group A · Sales</div><p>“How do we generate significantly more sales with the resources we already have?” — acquisition, reactivation, upsell, cross-sell, bundles, seasonal offers, corporate, resellers, bulk, referrals, partnerships.</p></div>
+      <div class="card rv" style="--d:3"><div class="k">Group B · Marketing</div><p>“How do we generate enough qualified leads for sales?” — real campaigns with offers, budgets, expected leads, conversion, and revenue.</p></div>
+      <div class="card rv" style="--d:4"><div class="k">Group C · Operations</div><p>“How can we increase output and reduce cost without increasing headcount?” — utilization, wastage, rework, scheduling, bottlenecks, idle time, inventory.</p></div>
+    </div>
+  </section>
+
+  <!-- 12 WAR ROOM -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">05 · Q4 Marketing War Room</div>
+    <h2 class="rv" style="--d:1">Our Oct–Nov–Dec campaign calendar</h2>
+    <div class="three">
+      <div class="col keep rv" style="--d:2"><h4>October</h4><p>Christmas early-bird orders · Corporate uniforms · School / organization bulk orders</p></div>
+      <div class="col rv" style="--d:3"><h4>November</h4><p>Christmas giveaways · Company shirts · Reseller / bulk packages</p></div>
+      <div class="col stop rv" style="--d:4"><h4>December</h4><p>Rush / last-minute orders</p></div>
+    </div>
+    <div class="banner rv" style="--d:5">Campaign → Target Market → Offer → Channel → Budget → <b>Owner</b> → Target Sales → Deadline</div>
+    <p class="lead rv" style="--d:6;margin-top:18px">Example: <b style="color:var(--gold)">Corporate Christmas Giveaway Package</b> — SMEs 20–200 staff · bulk customized products · FB + Messenger + outbound · ₱500K · Nov 15.</p>
+  </section>
+
+  <!-- 13 SALES DEEP DIVE -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">06 · Sales Team Deep Dive</div>
+    <h2 class="rv" style="--d:1">Where exactly are we losing customers?</h2>
+    <div class="funnel">
+      <div class="bar rv grow" style="--d:2"><span>Inquiries</span><span class="v">11,000</span></div>
+      <div class="bar rv grow" style="--d:3"><span>Qualified</span><span class="v">5,000</span></div>
+      <div class="bar rv grow" style="--d:4"><span>Quoted</span><span class="v">2,000</span></div>
+      <div class="bar rv grow" style="--d:5"><span>Followed up</span><span class="v">500</span></div>
+      <div class="bar rv grow" style="--d:6"><span>Closed</span><span class="v">201</span></div>
+    </div>
+    <p class="lead rv" style="--d:7;margin-top:24px">The biggest opportunity may not be <i>more leads</i> — it may be <b style="color:var(--ink)">converting the leads we already have.</b></p>
+  </section>
+
+  <!-- 14 COST CUTTING -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">07 · Cost-Cutting Without Destroying the Business</div>
+    <p class="quote rv" style="--d:1">“We are not cutting costs blindly. We are removing costs that don’t create value.”</p>
+    <div class="three">
+      <div class="col keep rv" style="--d:2"><h4>Keep</h4><p>Costs that directly support revenue or critical operations.</p></div>
+      <div class="col red rv" style="--d:3"><h4>Reduce</h4><p>Costs that can be optimized.</p></div>
+      <div class="col stop rv" style="--d:4"><h4>Stop</h4><p>Costs that don’t create enough value.</p></div>
+    </div>
+    <p class="lead rv" style="--d:5;margin-top:22px">Let’s categorize every cost <b style="color:var(--ink)">together</b> — so the solution is ours, not handed down.</p>
+  </section>
+
+  <!-- 15 STOP START CONTINUE -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">08 · Stop / Start / Continue</div>
+    <div class="cards c3">
+      <div class="card rv" style="--d:1"><div class="k" style="color:var(--coral)">Stop</div><p>What are we doing that needs to stop?</p></div>
+      <div class="card rv" style="--d:2"><div class="k" style="color:var(--gold)">Start</div><p>What must we start doing?</p></div>
+      <div class="card rv" style="--d:3"><div class="k" style="color:var(--teal)">Continue</div><p>What is working and must remain?</p></div>
+    </div>
+    <div class="banner rv" style="--d:4">If nothing changes, <b>nothing changes.</b></div>
+  </section>
+
+  <!-- 16 COMMITMENT -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">09 · The Q4 Commitment Session</div>
+    <h2 class="rv" style="--d:1">Our Q4 commitments</h2>
+    <div class="commit">
+      <div class="form rv" style="--d:2">
+        <div class="f"><b>My department’s target:</b> ₱ <span class="blank">_____</span></div>
+        <div class="f"><b>3 things I will change:</b> 1. ___ &nbsp; 2. ___ &nbsp; 3. ___</div>
+        <div class="f"><b>My weekly KPI:</b> <span class="blank">_____</span></div>
+        <div class="f"><b>What I need from other departments:</b> <span class="blank">_____</span></div>
+        <div class="f"><b>What I personally own:</b> <span class="blank">_____</span> &nbsp; <b>Deadline:</b> ___</div>
+      </div>
+      <div class="rv z" style="--d:3">
+        <div class="cards"><div class="card"><div class="k">We commit — not “try”</div><p class="strike">“We’ll try our best.”</p></div></div>
+        <p class="big-eq" style="font-size:clamp(18px,2.4vw,30px)">“What exactly will you do, by when, and how will we measure it?”</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 17 SCOREBOARD -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">10 · Build the Q4 Scoreboard</div>
+    <h2 class="rv" style="--d:1">Our 8–12 company KPIs</h2>
+    <div class="kpis">
+      <div class="g rv" style="--d:2"><h4>Company</h4><ul><li>Daily sales</li><li>Monthly sales</li><li>Gross margin</li><li>Net margin</li><li>Expenses</li><li>Cash position</li></ul></div>
+      <div class="g rv" style="--d:3"><h4>Sales</h4><ul><li>Leads</li><li>Response time</li><li>Quotations</li><li>Conversion rate</li><li>Follow-ups</li><li>Sales / person</li></ul></div>
+      <div class="g rv" style="--d:4"><h4>Operations</h4><ul><li>Production output</li><li>Rework</li><li>Wastage</li><li>Machine utilization</li><li>On-time delivery</li></ul></div>
+    </div>
+    <div class="banner rv" style="--d:5">Every KPI must have an <b>OWNER</b>. No owner = nobody owns it.</div>
+  </section>
+
+  <!-- 18 CLOSING -->
+  <section class="slide">
+    <div class="eyebrow rv" style="--d:0">11 · Closing</div>
+    <p class="quote rv" style="--d:1">“We are not powerless. We have people. We have machines. We have customers. We have products. We have experience. We have systems. And most importantly, we still have time to change the result.”</p>
+    <p class="big-eq rv" style="--d:2;font-size:clamp(18px,2.6vw,34px)">“I don’t expect perfection. I expect <span class="val">ownership.</span>”</p>
+    <p class="lead rv" style="--d:3;margin-top:22px">Leave this room knowing <b style="color:var(--gold)">exactly what you are responsible for on Monday morning.</b></p>
+  </section>
+
+  <!-- 19 FINAL -->
+  <section class="slide final">
+    <div class="eyebrow rv" style="--d:0;justify-content:center">Q4 2026 · C.L.A.S.S.</div>
+    <div class="exec rv z" style="--d:1">Let’s Execute.</div>
+    <p class="lead rv" style="--d:2;margin-top:22px;text-align:center">Not because things are easy — but because they are difficult, and this is exactly when we become better.</p>
+  </section>
+
+</main>
+
+<div class="controls">
+  <button class="btn" id="prev" aria-label="Previous">‹</button>
+  <div class="dots" id="dots"></div>
+  <button class="btn" id="next" aria-label="Next">›</button>
+</div>
+<div class="hint"><b>← →</b> navigate · <b>Space</b> next · <b>O</b> overview · <b>F</b> fullscreen</div>
+
+<script>
+(function(){
+  const slides=[...document.querySelectorAll('.slide')];
+  const total=slides.length; let idx=0;
+  document.getElementById('tot').textContent=String(total).padStart(2,'0');
+  const dots=document.getElementById('dots');
+  slides.forEach((_,i)=>{const d=document.createElement('i');d.onclick=()=>go(i);dots.appendChild(d);});
+  const dotEls=[...dots.children];
+  const prog=document.getElementById('prog'), cur=document.getElementById('cur');
+
+  function go(n){
+    n=Math.max(0,Math.min(total-1,n));
+    if(n===idx && slides[idx].classList.contains('active')){return;}
+    idx=n;
+    slides.forEach((s,i)=>{s.classList.toggle('active',i===idx);s.classList.toggle('prev',i<idx);});
+    slides[idx].querySelectorAll('.rv').forEach(el=>{el.style.animation='none';void el.offsetHeight;el.style.animation='';});
+    dotEls.forEach((d,i)=>d.classList.toggle('on',i===idx));
+    prog.style.width=((idx+1)/total*100)+'%';
+    cur.textContent=String(idx+1).padStart(2,'0');
+    history.replaceState(null,'','#'+(idx+1));
+  }
+  // ===== LIVE SYNC: presenter (host) controls, lahat ng iba view-only =====
+  const params=new URLSearchParams(location.search);
+  const hostKey=params.get('host');
+  const isHost=!!hostKey;
+  const api='sync.php';
+  function postSlide(n){
+    try{fetch(api,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'key='+encodeURIComponent(hostKey)+'&slide='+n,keepalive:true});}catch(e){}
+  }
+  // host: piggyback the push on the existing go()
+  const _go=go;
+  go=function(n,fromRemote){
+    _go(n);
+    if(isHost&&!fromRemote){postSlide(idx+1);}
+  };
+
+  function toggleFs(){ if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();} else {document.exitFullscreen&&document.exitFullscreen();} }
+
+  if(isHost){
+    document.getElementById('next').onclick=()=>go(idx+1);
+    document.getElementById('prev').onclick=()=>go(idx-1);
+    addEventListener('keydown',e=>{
+      const k=e.key;
+      if(k==='ArrowRight'||k===' '||k==='PageDown'||k==='Enter'){e.preventDefault();go(idx+1);}
+      else if(k==='ArrowLeft'||k==='PageUp'){e.preventDefault();go(idx-1);}
+      else if(k==='Home'){go(0);} else if(k==='End'){go(total-1);}
+      else if(k.toLowerCase()==='f'){toggleFs();}
+      else if(k.toLowerCase()==='o'){document.body.classList.toggle('ov');}
+    });
+    let x0=null,y0=null;
+    addEventListener('touchstart',e=>{x0=e.touches[0].clientX;y0=e.touches[0].clientY;},{passive:true});
+    addEventListener('touchend',e=>{
+      if(x0===null)return; const dx=e.changedTouches[0].clientX-x0, dy=e.changedTouches[0].clientY-y0;
+      if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)){dx<0?go(idx+1):go(idx-1);} x0=null;
+    },{passive:true});
+  } else {
+    // READ-ONLY viewer: walang keys / swipe / buttons / dots. Follow lang sa host.
+    document.body.classList.add('viewmode');
+    addEventListener('keydown',e=>{ if((e.key||'').toLowerCase()==='f'){toggleFs();} });
+    document.querySelectorAll('#next,#prev,#dots i').forEach(el=>{el.onclick=null;el.style.pointerEvents='none';});
+  }
+
+  function poll(){
+    fetch(api+'?t='+Date.now(),{cache:'no-store'}).then(r=>r.json()).then(d=>{
+      const n=(parseInt(d.slide,10)||1)-1;
+      if(n!==idx){_go(n);}
+    }).catch(()=>{});
+  }
+
+  const h=parseInt(location.hash.replace('#',''),10);
+  idx = (h&&h>=1&&h<=total)?h-1:0;
+  slides[idx].classList.add('active');
+  dotEls.forEach((d,i)=>d.classList.toggle('on',i===idx));
+  prog.style.width=((idx+1)/total*100)+'%'; cur.textContent=String(idx+1).padStart(2,'0');
+
+  if(isHost){ postSlide(idx+1); }
+  else { poll(); setInterval(poll, 1200); }
+})();
+</script>
+</body>
+</html>

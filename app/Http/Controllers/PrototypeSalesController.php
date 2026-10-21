@@ -5080,6 +5080,155 @@ $services = json_decode($sale->services, true);
     }
 
     /**
+     * QA JOB LIST (Trimmer/QA — Andrew 2026-10-21).
+     *
+     * Parang GA Job List ang hitsura, pero ANG LUMALABAS LANG ay ang mga sale na
+     * naka-tag na SEWING / QA / DISPATCH. Kapag na-retag sa iba (hal. PRINTING,
+     * DELIVERED), automatic na nawawala sa listahan — walang manual na pag-alis.
+     *
+     * Read-only: walang assign/unassign/complete — visibility lang para sa trimmer.
+     */
+    public function qaJobList()
+    {
+        $user = auth()->user();
+        if (!$user || !($user->isTrimmerQa() || $user->isQa() || $user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $request = request();
+        $q = trim((string) $request->get('q', ''));
+        $stage = trim((string) $request->get('stage', ''));
+        $dept = $request->get('dept', '');
+        $dateFrom = $request->get('date_from', '');
+        $dateTo = $request->get('date_to', '');
+        $dateBasis = trim((string) $request->get('date_basis', ''));
+        $delayedOnly = $request->boolean('delayed');
+        $priorityOnly = $request->boolean('priority');
+        $dueFilter = trim((string) $request->get('due', ''));
+        $dueSort = trim((string) $request->get('due_sort', ''));
+
+        // Trimmer/QA scope: SEWING → QA → DISPATCH lang.
+        $qaStages = ['SEWING', 'QA', 'DISPATCH'];
+
+        $statusToStage = [
+            'new'                => 'HOLD',
+            'sample_approval'    => 'FOR SAMPLE',
+            'design'             => 'FOR FORMAT',
+            'production'         => 'PRESSING',
+            'quality_check'      => 'QA',
+            'ready_for_delivery' => 'DISPATCH',
+            'delivered'          => 'UNPAID',
+            'completed'          => 'DONE',
+        ];
+        $departmentLabels = [
+            1 => "iPrint",
+            2 => "Consol",
+            3 => "Cinco",
+            4 => "Class",
+            5 => "MTO",
+            6 => "Other",
+        ];
+        $departmentColors = [
+            1 => "#0d6efd",
+            2 => "#198754",
+            3 => "#dc3545",
+            4 => "#6f42c1",
+            5 => "#fd7e14",
+            6 => "#6c757d",
+        ];
+
+        $sales = \App\Models\PrototypeSale::with(['payments', 'refunds'])
+            ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+            ->whereNull('archived_at')
+            // ANG CORE RULE: SEWING / QA / DISPATCH lang. Ibang tag → wala na agad.
+            ->whereIn('production_stage', $qaStages)
+            ->when($user->isClassScoped(), function ($query) {
+                $query->where('department_id', 4);
+            })
+            ->when(filled($q), function ($query) use ($q) {
+                $query->where(function ($sub) use ($q) {
+                    $sub->where('sales_number', 'like', '%' . $q . '%')
+                        ->orWhere('customer_name', 'like', '%' . $q . '%');
+                });
+            })
+            ->when(filled($stage) && in_array($stage, $qaStages, true), function ($query) use ($stage) {
+                $query->where('production_stage', $stage);
+            })
+            ->when(filled($dept), function ($query) use ($dept) {
+                $query->where('department_id', (int) $dept);
+            })
+            ->when(filled($dateFrom), function ($query) use ($dateFrom, $dateBasis) {
+                if ($dateBasis === 'due') {
+                    $query->whereRaw('DATE(COALESCE(rescheduled_date, estimated_completion_date)) >= ?', [$dateFrom]);
+                } else {
+                    $query->whereDate('created_at', '>=', $dateFrom);
+                }
+            })
+            ->when(filled($dateTo), function ($query) use ($dateTo, $dateBasis) {
+                if ($dateBasis === 'due') {
+                    $query->whereRaw('DATE(COALESCE(rescheduled_date, estimated_completion_date)) <= ?', [$dateTo]);
+                } else {
+                    $query->whereDate('created_at', '<=', $dateTo);
+                }
+            })
+            ->when($delayedOnly, function ($query) {
+                $query->where('is_delayed', 1);
+            })
+            ->when($priorityOnly, function ($query) {
+                $query->whereNotNull('priority');
+            })
+            ->when($dueFilter === 'overdue', function ($query) {
+                $query->whereNotNull(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'))
+                    ->whereRaw('COALESCE(rescheduled_date, estimated_completion_date) < ?', [now()->toDateString()]);
+            })
+            ->when($dueFilter === 'today', function ($query) {
+                $query->whereRaw('DATE(COALESCE(rescheduled_date, estimated_completion_date)) = ?', [now()->toDateString()]);
+            })
+            ->when($dueFilter === 'soon', function ($query) {
+                $query->whereNotNull(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'))
+                    ->whereRaw('COALESCE(rescheduled_date, estimated_completion_date) BETWEEN ? AND ?', [now()->toDateString(), now()->addDays(3)->toDateString()]);
+            })
+            ->when($dueFilter === 'week', function ($query) {
+                $query->whereNotNull(\DB::raw('COALESCE(rescheduled_date, estimated_completion_date)'))
+                    ->whereRaw('COALESCE(rescheduled_date, estimated_completion_date) BETWEEN ? AND ?', [now()->toDateString(), now()->addDays(7)->toDateString()]);
+            })
+            ->when($dueFilter === 'none', function ($query) {
+                $query->whereNull('rescheduled_date')->whereNull('estimated_completion_date');
+            })
+            ->when($dueSort === 'asc', function ($query) {
+                $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
+                    ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) ASC');
+            })
+            ->when($dueSort === 'desc', function ($query) {
+                $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
+                    ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) DESC');
+            })
+            ->when($dueSort === '' && in_array($dueFilter, ['overdue', 'today', 'soon', 'week'], true), function ($query) {
+                $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
+                    ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) ASC');
+            })
+            ->orderByRaw("CASE WHEN is_delayed = 1 THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
+            ->orderBy('priority', 'asc')
+            ->orderBy('created_at', 'desc')
+            ->paginate(50)
+            ->withQueryString();
+
+        $stageTotals = [];
+        foreach ($qaStages as $st) {
+            $stageTotals[$st] = \App\Models\PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+                ->whereNull('archived_at')
+                ->where('production_stage', $st)
+                ->when($user->isClassScoped(), function ($query) {
+                    $query->where('department_id', 4);
+                })
+                ->count();
+        }
+
+        return view('sales.prototype.qa-job-list', compact('sales', 'qaStages', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'dueFilter', 'dueSort', 'dateBasis', 'stageTotals'));
+    }
+
+    /**
      * PRIORITY MOCKUP SLIDESHOW (Andrew 2026-09-10) — read-only full-screen player
      * para sa Manager: ipinapakita ang jobs ayon sa priority (1,2,3...) kasama ang
      * main mockup image, quantity, customer, department, stage, at due date.
@@ -10840,7 +10989,7 @@ SQL;
     public function backjobList()
     {
         $user = auth()->user();
-        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped() || ($user->isGa() && !$user->isExternalGa()))) {
+        if (!$user || !($user->isAdmin() || $user->role === 'manager' || $user->isCoo() || $user->isClassScoped() || $user->isTrimmerQa() || ($user->isGa() && !$user->isExternalGa()))) {
             abort(403, 'Only managers and GA can view the backjob list.');
         }
 

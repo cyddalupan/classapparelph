@@ -70,7 +70,48 @@ class SaleStageTaggingService
             }
         }
 
-        if (empty($entries)) {
+        // ── (3) Priority tag events (Prio 1..15) — ADDITIVE (Andrew 2026-10-08) ──
+        // Isinasama sa timeline ang bawat pag-tag / pag-change / pag-alis ng Prio.
+        // Read-only; HINDI ito kasama sa duration computation ng stages (hiwalay na rows).
+        $prioRows = [];
+        if (Schema::hasTable('prototype_sale_audit_logs')) {
+            $pl = DB::table('prototype_sale_audit_logs')
+                ->where('sale_id', $saleId)
+                ->whereIn('action', ['priority_tagged', 'priority_forced', 'priority_cleared'])
+                ->orderBy('created_at')->orderBy('id')
+                ->get(['action', 'description', 'details', 'user_id', 'created_at']);
+            foreach ($pl as $r) {
+                $prio = null;
+                if (!empty($r->details)) {
+                    $d = json_decode($r->details, true);
+                    if (is_array($d) && isset($d['priority'])) {
+                        $prio = (int) $d['priority'];
+                    }
+                }
+                $prioRows[] = [
+                    'prio'   => $prio,
+                    't'      => (int) strtotime($r->created_at),
+                    'by'     => $r->user_id,
+                    'action' => $r->action,
+                ];
+            }
+        }
+
+        // Backfill: kung may Prio na ang sale pero wala pang naka-log na priority event
+        // (mga na-tag bago ang logging — hal. 2026-10-08), gamitin ang priority_set_at.
+        if (empty($prioRows)) {
+            $ps = DB::table('prototype_sales')->where('id', $saleId)->first(['priority', 'priority_set_at']);
+            if ($ps && !empty($ps->priority) && !empty($ps->priority_set_at)) {
+                $prioRows[] = [
+                    'prio'   => (int) $ps->priority,
+                    't'      => (int) strtotime($ps->priority_set_at),
+                    'by'     => null,
+                    'action' => 'priority_tagged',
+                ];
+            }
+        }
+
+        if (empty($entries) && empty($prioRows)) {
             return [];
         }
 
@@ -122,8 +163,30 @@ class SaleStageTaggingService
                 'duration'  => ProductionStageTimingService::human($hours),
                 'ongoing'   => $ongoing,
                 'current'   => $ongoing && $currentStage === $stage,
+                'is_prio'   => false,
+                't'         => $entry,
             ];
         }
+
+        // Priority rows (hiwalay sa stage rows — walang tagal, may ⭐ badge).
+        foreach ($prioRows as $pr) {
+            $rows[] = [
+                'stage'     => 'PRIO:' . ($pr['prio'] ?? 'X'),
+                'label'     => $pr['prio'] ? ('⭐ Prio ' . $pr['prio']) : '⭐ Prio —',
+                'tagged_at' => date('M d, Y g:i A', $pr['t']),
+                'tagged_by' => $pr['by'] ? ($names[$pr['by']] ?? ('User #' . $pr['by'])) : '—',
+                'ga'        => null,
+                'hours'     => null,
+                'duration'  => '—',
+                'ongoing'   => false,
+                'current'   => false,
+                'is_prio'   => true,
+                't'         => $pr['t'],
+            ];
+        }
+
+        // Pagsamahin at ayusin ayon sa oras (stage + priority events).
+        usort($rows, fn ($a, $b) => ($a['t'] ?? 0) <=> ($b['t'] ?? 0));
 
         return $rows;
     }

@@ -115,10 +115,24 @@ class NotificationComposer
             $counts['navCountApproval'] = (int) $q->count();
         }
 
-        // 🕒 Set Time List — page allows isManager() || isCoo(); badge = orders with a set needed time
-        // (kasama pa rin ang DISPATCH/DONE — nililipat sila sa Done tab, hindi tinatanggal; Andrew 2026-10-06)
+        // 🕒 Set Time List — page allows isManager() || isCoo(); badge = ACTIVE orders ONLY.
+        // Hindi na binibilang ang DONE/manual-done at ang mga "tapos na" stages:
+        // DISPATCH/UNPAID/DONE/HOLD, ready_for_delivery/delivered/completed kanban, o may
+        // set_time_done_at. Tugma ngayon ang badge sa "Active" tab ng page.
+        // (Andrew 2026-10-08 — dati kasama lahat ng may needed_by; 2026-10-14 — idinagdag
+        //  ang UNPAID at HOLD para tumugma sa na-update na active filter ng Set Time List.)
         if ($isManager || $isCoo) {
-            $q = PrototypeSale::whereNotNull('needed_by')->whereNull('archived_at');
+            $q = PrototypeSale::whereNotNull('needed_by')->whereNull('archived_at')
+                ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+                ->whereNull('set_time_done_at')
+                ->where(function ($q2) {
+                    $q2->whereNull('production_stage')
+                       ->orWhereNotIn('production_stage', ['DISPATCH', 'UNPAID', 'DONE', 'HOLD']);
+                })
+                ->where(function ($q2) {
+                    $q2->whereNull('kanban_status')
+                       ->orWhereNotIn('kanban_status', ['ready_for_delivery', 'delivered', 'completed']);
+                });
             if ($classDept !== null) {
                 $q->where('department_id', $classDept);
             }

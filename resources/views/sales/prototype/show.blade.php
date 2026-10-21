@@ -788,11 +788,19 @@
                                 </thead>
                                 <tbody>
                                     @foreach($stageTimeline as $tl)
-                                    <tr>
-                                        <td><span class="badge bg-secondary">{{ $tl['label'] }}</span></td>
+                                    <tr @if(!empty($tl['is_prio'])) style="background:#fff8e1;" @endif>
+                                        <td>
+                                            @if(!empty($tl['is_prio']))
+                                                <span class="badge bg-warning text-dark">{{ $tl['label'] }}</span>
+                                            @else
+                                                <span class="badge bg-secondary">{{ $tl['label'] }}</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $tl['tagged_at'] }}</td>
                                         <td>
-                                            @if($tl['current'])
+                                            @if(!empty($tl['is_prio']))
+                                                <span class="text-muted">—</span>
+                                            @elseif($tl['current'])
                                                 <span class="text-warning fw-semibold">{{ $tl['duration'] }}</span>
                                                 <small class="text-muted">(ongoing)</small>
                                             @else
