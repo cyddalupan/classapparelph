@@ -301,6 +301,11 @@ class PrototypeSalesController extends Controller
             abort(403, 'Board Member access only.');
         }
 
+        // TEMPORARY LOCK (Andrew 2026-10-21): admin-only muna habang may binabago/idinadagdag.
+        if (!$user->isAdmin()) {
+            abort(403, 'Layout Job List is temporarily locked. Admin is still working on it.');
+        }
+
         $view = app(\App\Http\Controllers\LayoutJobController::class)->all($request);
 
         return $view->with('boardTabs', true)->with('boardTabActive', 'layout-jobs');

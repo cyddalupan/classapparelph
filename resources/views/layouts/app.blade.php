@@ -445,10 +445,7 @@
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Add New Sale</span>
                         </a>
-                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
-                            <i class="fas fa-palette"></i>
-                            <span class="nav-text">Layout Job</span>
-                        </a>
+                        @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs', 'ljRouteIs' => 'sales.layout-jobs*', 'ljLabel' => 'Layout Job'])
                     </div>
                     @endif
                     @if(Auth::user()->isCoo() || Auth::user()->isCpo() || Auth::user()->isCmo())
@@ -476,11 +473,7 @@
                             <span class="nav-text">Manager List</span>
                             <span style="margin-left:auto;font-size:9px;font-weight:600;background:#334155;color:#94a3b8;padding:1px 6px;border-radius:8px;letter-spacing:0.5px;">Soon</span>
                         </span>
-                        <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
-                            <i class="fas fa-palette"></i>
-                            <span class="nav-text">Layout Job List</span>
-                            @if(($navCountLayoutPayout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#c026d3;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountLayoutPayout }}</span>@endif
-                        </a>
+                        @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs.all', 'ljRouteIs' => 'sales.layout-jobs.all', 'ljLabel' => 'Layout Job List', 'ljPayout' => ($navCountLayoutPayout ?? 0)])
                         @if(Auth::user()->isCmo())
                         <a href="{{ route('sales.prototype.ga-order-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.ga-order-list') ? 'active' : '' }}">
                             <i class="fas fa-clipboard-list"></i>
@@ -506,11 +499,7 @@
                             <i class="fas fa-play-circle"></i>
                             <span class="nav-text">Priority Slideshow</span>
                         </a>
-                        <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
-                            <i class="fas fa-palette"></i>
-                            <span class="nav-text">Layout Job List</span>
-                            @if(($navCountLayoutPayout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#c026d3;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountLayoutPayout }}</span>@endif
-                        </a>
+                        @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs.all', 'ljRouteIs' => 'sales.layout-jobs.all', 'ljLabel' => 'Layout Job List', 'ljPayout' => ($navCountLayoutPayout ?? 0)])
                         <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
                             <i class="fas fa-tags"></i>
                             <span class="nav-text">Special Price</span>
@@ -616,10 +605,7 @@
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Add New Sale</span>
                         </a>
-                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
-                            <i class="fas fa-palette"></i>
-                            <span class="nav-text">Layout Job</span>
-                        </a>
+                        @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs', 'ljRouteIs' => 'sales.layout-jobs*', 'ljLabel' => 'Layout Job'])
                     </div>
                     <div class="nav-section">
                         <div class="nav-section-title">Design</div>
@@ -718,11 +704,7 @@
                             <i class="fas fa-play-circle"></i>
                             <span class="nav-text">Priority Slideshow</span>
                         </a>
-                        <a href="{{ route('sales.layout-jobs.all') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs.all') ? 'active' : '' }}">
-                            <i class="fas fa-palette"></i>
-                            <span class="nav-text">Layout Job List</span>
-                            @if(($navCountLayoutPayout ?? 0) > 0)<span style="margin-left:auto;font-size:10px;font-weight:700;background:#c026d3;color:#fff;padding:1px 7px;border-radius:10px;">{{ $navCountLayoutPayout }}</span>@endif
-                        </a>
+                        @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs.all', 'ljRouteIs' => 'sales.layout-jobs.all', 'ljLabel' => 'Layout Job List', 'ljPayout' => ($navCountLayoutPayout ?? 0)])
                         <a href="{{ route('sales.prototype.special-price-list') }}" class="nav-item {{ request()->routeIs('sales.prototype.special-price-list') ? 'active' : '' }}">
                             <i class="fas fa-tags"></i>
                             <span class="nav-text">Special Price</span>
@@ -862,10 +844,7 @@
                             <i class="fas fa-plus-circle"></i>
                             <span class="nav-text">Add New Sale</span>
                         </a>
-                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs*') ? 'active' : '' }}">
-                            <i class="fas fa-palette"></i>
-                            <span class="nav-text">Layout Job</span>
-                        </a>
+                        @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs', 'ljRouteIs' => 'sales.layout-jobs*', 'ljLabel' => 'Layout Job'])
                     </div>
                     @endif
 
@@ -953,10 +932,7 @@
                     @endif
                     <div class="nav-section">
                         <div class="nav-section-title">My Layout</div>
-                        <a href="{{ route('sales.layout-jobs') }}" class="nav-item {{ request()->routeIs('sales.layout-jobs') || request()->routeIs('sales.layout-jobs.create') ? 'active' : '' }}">
-                            <i class="fas fa-palette"></i>
-                            <span class="nav-text">Layout Job</span>
-                        </a>
+                        @include('partials.nav-layout-job', ['ljRouteName' => 'sales.layout-jobs', 'ljRouteIs' => 'sales.layout-jobs', 'ljLabel' => 'Layout Job'])
                     </div>
                     @if(!$gaIsExternal)
                     <div class="nav-section">
