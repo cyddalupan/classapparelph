@@ -5227,6 +5227,10 @@ $services = json_decode($sale->services, true);
             ->paginate(50)
             ->withQueryString();
 
+        // QA2 Production slip counting (Andrew 2026-10-21): ilan na ang na-check na
+        // checkbox sa production slip — rows + pcs, batched (1 query para sa buong page).
+        $prodCheckCounts = \App\Services\ProductionCheckCountService::forSales($sales->pluck('id')->all());
+
         $stageTotals = [];
         foreach ($qaStages as $st) {
             $stageTotals[$st] = \App\Models\PrototypeSale::whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
@@ -5238,7 +5242,7 @@ $services = json_decode($sale->services, true);
                 ->count();
         }
 
-        return view('sales.prototype.qa-job-list', compact('sales', 'qaStages', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'dueFilter', 'dueSort', 'dateBasis', 'stageTotals'));
+        return view('sales.prototype.qa-job-list', compact('sales', 'qaStages', 'statusToStage', 'departmentLabels', 'departmentColors', 'q', 'stage', 'dept', 'dateFrom', 'dateTo', 'delayedOnly', 'priorityOnly', 'dueFilter', 'dueSort', 'dateBasis', 'stageTotals', 'prodCheckCounts'));
     }
 
     /**

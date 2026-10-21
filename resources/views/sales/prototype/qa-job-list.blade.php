@@ -58,6 +58,16 @@
     .qa-table-card tbody tr:hover { background: #f9fbfd; }
     .qa-table-card tbody tr.qa-row { cursor: pointer; }
     .qa-table-card tbody tr.qa-row:hover { background: #eefaf8; }
+    .qa-check-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        margin-top: 5px; padding: 3px 8px; border-radius: 8px;
+        background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46;
+        font-size: 10.5px; font-weight: 800; white-space: nowrap;
+    }
+    .qa-check-chip.full { background: #dcfce7; border-color: #4ade80; color: #14532d; }
+    .qa-check-chip.empty { background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; }
+    .qa-check-chip .bar { width: 42px; height: 5px; border-radius: 3px; background: #d1fae5; overflow: hidden; }
+    .qa-check-chip .bar > i { display: block; height: 100%; background: #10b981; }
     .qa-sales-link { color: #0f766e; text-decoration: none; font-weight: 800; }
     .qa-sales-link:hover { text-decoration: underline; }
     .qa-open-btn {
@@ -274,7 +284,27 @@
                                 <div style="font-size:12px;line-height:1.4;" title="{{ $description }}">{{ \Illuminate\Support\Str::limit($description, 70) }}</div>
                             </td>
                             <td class="text-center" style="font-weight:700;">{{ $totalQty ?: '—' }}</td>
-                            <td><span class="stage-badge" style="background:{{ $stageBg }};">{{ $stageLabel }}</span></td>
+                            <td>
+                                <span class="stage-badge" style="background:{{ $stageBg }};">{{ $stageLabel }}</span>
+                                @php
+                                    $pcc = $prodCheckCounts[$sale->id] ?? null;
+                                    $qa2Done = (int) ($pcc['qa2']['done'] ?? 0);
+                                    $qa2Total = (int) ($pcc['qa2']['total'] ?? 0);
+                                    $qa2PcsDone = (int) ($pcc['qa2']['pcs_done'] ?? 0);
+                                    $qa2PcsTotal = (int) ($pcc['qa2']['pcs_total'] ?? 0);
+                                    $qa2Pct = $qa2Total > 0 ? (int) round(($qa2Done / $qa2Total) * 100) : 0;
+                                    $qa2Class = $qa2Total === 0 ? 'empty' : ($qa2Done >= $qa2Total ? 'full' : '');
+                                @endphp
+                                @if($qa2Total > 0)
+                                <div>
+                                    <span class="qa-check-chip {{ $qa2Class }}" title="QA2 Production slip: {{ $qa2Done }} sa {{ $qa2Total }} checkbox ang naka-check · {{ number_format($qa2PcsDone) }}/{{ number_format($qa2PcsTotal) }} pcs">
+                                        <i class="fas fa-check-square"></i> QA2 {{ $qa2Done }}/{{ $qa2Total }}
+                                        <span class="bar"><i style="width:{{ $qa2Pct }}%;"></i></span>
+                                        <span style="font-weight:700;opacity:.85;">{{ number_format($qa2PcsDone) }}/{{ number_format($qa2PcsTotal) }} pcs</span>
+                                    </span>
+                                </div>
+                                @endif
+                            </td>
                             <td style="white-space:nowrap;">
                                 @if($effDue)
                                     <div style="font-weight:600;font-size:12px;">{{ \Carbon\Carbon::parse($effDue)->format('M d, Y') }}</div>
