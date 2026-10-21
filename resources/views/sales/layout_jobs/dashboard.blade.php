@@ -95,7 +95,7 @@
         <div class="col-md-3"><div class="lj-stat"><div class="lbl">Total Earned (Kita)</div><div class="val lj-money">₱{{ number_format($totals['earned'], 2) }}</div><div class="lj-muted">{{ $totals['jobs'] }} tapos na layout job</div></div></div>
         <div class="col-md-3"><div class="lj-stat"><div class="lbl">Nabigay Na</div><div class="val lj-money-blue">₱{{ number_format($totals['given'], 2) }}</div><div class="lj-muted">paid + verified payout</div></div></div>
         <div class="col-md-3"><div class="lj-stat"><div class="lbl">Pending Request</div><div class="val lj-money-amber">₱{{ number_format($totals['pending'], 2) }}</div><div class="lj-muted">hiniling pa lang, di pa nabayaran</div></div></div>
-        <div class="col-md-3"><div class="lj-stat"><div class="lbl">Available (Pwede Pa Makuha)</div><div class="val">₱{{ number_format($totals['available'], 2) }}</div><div class="lj-muted">kasalukuyang balanse</div></div></div>
+        <div class="col-md-3"><div class="lj-stat"><div class="lbl">Available (Pwede Pa Makuha)</div><div class="val" style="{{ $totals['available'] < 0 ? 'color:#b91c1c;' : '' }}">₱{{ number_format($totals['available'], 2) }}</div><div class="lj-muted">{{ $totals['available'] < 0 ? '⚠️ sobra ang nabigay — i-adjust ang amount o payout' : 'kasalukuyang balanse' }}</div></div></div>
     </div>
 
     {{-- Per-GA table --}}
@@ -129,7 +129,7 @@
                         <td class="text-end lj-amount lj-money-reject">{{ $r->reject_jobs ? $r->reject_jobs . ' · ' : '' }}₱{{ number_format($r->reject_amt, 2) }}</td>
                         <td class="text-end lj-amount lj-money-blue">₱{{ number_format($r->given, 2) }}</td>
                         <td class="text-end lj-amount lj-money-amber">₱{{ number_format($r->pending, 2) }}</td>
-                        <td class="text-end lj-amount">₱{{ number_format($r->available, 2) }}</td>
+                        <td class="text-end lj-amount" style="{{ $r->available < 0 ? 'color:#b91c1c;font-weight:700;' : '' }}" @if($r->available < 0) title="Sobra ang nabigay na payout kaysa sa earned — i-adjust ang amount o payout" @endif>₱{{ number_format($r->available, 2) }}@if($r->available < 0) ⚠️@endif</td>
                         <td class="text-end"><a href="{{ route('sales.layout-jobs.all', ['ga' => $r->id]) }}" class="btn btn-outline-primary btn-sm" style="font-size:11.5px;">Tingnan jobs</a></td>
                     </tr>
                 @empty
@@ -146,7 +146,7 @@
                         <th class="text-end lj-money-reject">₱{{ number_format($totals['reject_amt'], 2) }}</th>
                         <th class="text-end lj-money-blue">₱{{ number_format($totals['given'], 2) }}</th>
                         <th class="text-end lj-money-amber">₱{{ number_format($totals['pending'], 2) }}</th>
-                        <th class="text-end">₱{{ number_format($totals['available'], 2) }}</th>
+                        <th class="text-end" style="{{ $totals['available'] < 0 ? 'color:#b91c1c;' : '' }}">₱{{ number_format($totals['available'], 2) }}</th>
                         <th></th>
                     </tr>
                 </tfoot>

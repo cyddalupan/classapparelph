@@ -238,12 +238,19 @@ class LayoutJobController extends Controller
             $dTo   = $toIn ?: null;
         }
 
-        // --- Earned (kita): done + naka-link sa sales + (paid verified | free na may amount) ---
+        // --- Earned (kita): done + (may sale O naka-mark na "Hindi Tumuloy") + (paid verified | free na may amount) ---
+        // Parehong rule sa gaCredit() para tugma ang dashboard at ang credit ng doer (Andrew 2026-10-21).
         $earnedQ = DB::table('layout_jobs')
             ->where('status', 'done')
-            ->whereNotNull('sale_id')
             ->where(function ($q) {
-                $q->where(function ($s) { $s->where('type', 'paid')->where('payment_status', 'verified'); })
+                $q->whereNotNull('sale_id')->orWhereNotNull('cancelled_at');
+            })
+            ->where(function ($q) {
+                $q->where(function ($s) {
+                    $s->where('type', 'paid')->where(function ($p) {
+                        $p->where('payment_status', 'verified')->orWhereNotNull('amount_set_by');
+                    });
+                })
                   ->orWhere(function ($s) { $s->where('type', 'free')->whereNotNull('amount'); });
             })
             ->when($gaFilter, fn($q) => $q->where('ga_user_id', $gaFilter))
@@ -295,9 +302,16 @@ class LayoutJobController extends Controller
 
         // --- Available (kasalukuyang balanse, all-time): earned_all - reserved(requested/paid/verified) ---
         $earnedAllAgg = DB::table('layout_jobs')
-            ->where('status', 'done')->whereNotNull('sale_id')
+            ->where('status', 'done')
             ->where(function ($q) {
-                $q->where(function ($s) { $s->where('type', 'paid')->where('payment_status', 'verified'); })
+                $q->whereNotNull('sale_id')->orWhereNotNull('cancelled_at');
+            })
+            ->where(function ($q) {
+                $q->where(function ($s) {
+                    $s->where('type', 'paid')->where(function ($p) {
+                        $p->where('payment_status', 'verified')->orWhereNotNull('amount_set_by');
+                    });
+                })
                   ->orWhere(function ($s) { $s->where('type', 'free')->whereNotNull('amount'); });
             })
             ->when($gaFilter, fn($q) => $q->where('ga_user_id', $gaFilter))
@@ -326,7 +340,8 @@ class LayoutJobController extends Controller
             $pending = (float) optional($payAgg->get($d->id))->pending;
             $earnedAll = (float) optional($earnedAllAgg->get($d->id))->earned_all;
             $reserved  = (float) optional($reservedAgg->get($d->id))->reserved;
-            $available = max(0, round($earnedAll - $reserved, 2));
+            // Raw difference (hindi naka-clamp) — para makita kung sobra ang nabigay na payout.
+            $available = round($earnedAll - $reserved, 2);
 
             $rows[] = (object) [
                 'id' => $d->id, 'name' => $d->name, 'position' => $d->position,
@@ -418,14 +433,15 @@ class LayoutJobController extends Controller
             ->get(['id', 'name', 'position']);
     }
 
-    /** GA credit computation */
-    public function gaCredit(int $gaUserId): float
+    /**
+     * Earned (kita) ng isang layout doer — iisang rule lang, ginagamit ng credit at dashboard.
+     *   done  +  (may sale O naka-tag na "Hindi Tumuloy")  +
+     *   bayad: verified ang payment O may amount na nilagay ng CEO/COO (rejected)
+     *   libre: may amount na nilagay ng approver
+     */
+    private function gaEarnedQuery(int $gaUserId)
     {
-        // Bagong rule (Andrew 2026-10-21):
-        //   done na ang DOER  +  may sale O naka-tag na "Hindi Tumuloy"  +
-        //   bayad: verified ang payment O may amount na nilagay ng CEO/COO (rejected)
-        //   libre: may amount na nilagay ng approver
-        $earned = (float) LayoutJob::where('ga_user_id', $gaUserId)
+        return LayoutJob::where('ga_user_id', $gaUserId)
             ->where('status', 'done')
             ->where(function ($q) {
                 $q->whereNotNull('sale_id')->orWhereNotNull('cancelled_at');
@@ -438,16 +454,56 @@ class LayoutJobController extends Controller
                 })->orWhere(function ($free) {
                     $free->where('type', 'free')->whereNotNull('amount');
                 });
-            })
-            ->sum('amount');
+            });
+    }
 
-        // Reservation-based: lahat ng hindi pa rejected (requested/paid/verified)
-        // ay bawas agad sa available credit para hindi mag-double request.
-        $reserved = (float) LayoutJobPayout::where('ga_user_id', $gaUserId)
+    /** Reserved (requested/paid/verified) — bawas agad sa credit para hindi mag-double request. */
+    private function gaReserved(int $gaUserId): float
+    {
+        return (float) LayoutJobPayout::where('ga_user_id', $gaUserId)
             ->whereIn('status', ['requested', 'paid', 'verified'])
             ->sum('amount');
+    }
+
+    /** GA credit computation — clamped sa 0 (para walang negative na mahihingi). */
+    public function gaCredit(int $gaUserId): float
+    {
+        $earned = (float) $this->gaEarnedQuery($gaUserId)->sum('amount');
+        $reserved = $this->gaReserved($gaUserId);
 
         return max(0, round($earned - $reserved, 2));
+    }
+
+    /**
+     * Hiiram na kita ng job kung sakaling mabago ang amount/doer (Andrew 2026-10-21).
+     * Ginagamit para hindi hayaang maging negative ang balanse ng doer pagkatapos
+     * may nakuha nang payout.
+     */
+    private function jobEarnedImpact(LayoutJob $job, float $newAmount, ?int $newGaId = null): float
+    {
+        $counts = $job->status === 'done'
+            && ($job->sale_id || $job->cancelled_at)
+            && (
+                ($job->type === 'paid' && ($job->payment_status === 'verified' || $job->amount_set_by))
+                || ($job->type === 'free' && $newAmount > 0)
+            );
+        if (!$counts) {
+            return 0.0;
+        }
+        $gaId = $newGaId ?: (int) $job->ga_user_id;
+        if ($gaId !== (int) $job->ga_user_id) {
+            return 0.0; // lumipat sa ibang doer — ibang balanse ang apektado
+        }
+
+        return round($newAmount - (float) $job->amount, 2);
+    }
+
+    /** Balanse ng doer pagkatapos ng hypothetical na pagbabago (para sa guard). */
+    private function projectedCredit(int $gaUserId, float $earnedDelta = 0.0): float
+    {
+        $earned = (float) $this->gaEarnedQuery($gaUserId)->sum('amount');
+
+        return round($earned + $earnedDelta - $this->gaReserved($gaUserId), 2);
     }
 
     /**
@@ -781,6 +837,27 @@ class LayoutJobController extends Controller
         $newGa = \App\Models\User::find($data['ga_user_id']);
         $oldGaId = $job->ga_user_id;
 
+        // Guard (Andrew 2026-10-21): kung nakuha na ng dating doer ang bayad para sa job na ito,
+        // bababa ang earned niya — i-block kung mag-negative ang balanse niya.
+        $jobEarned = (float) $job->amount;
+        $countsForEarned = $job->status === 'done'
+            && ($job->sale_id || $job->cancelled_at)
+            && (
+                ($job->type === 'paid' && ($job->payment_status === 'verified' || $job->amount_set_by))
+                || ($job->type === 'free' && $jobEarned > 0)
+            );
+        if ($countsForEarned && $oldGaId && $jobEarned > 0) {
+            $projected = $this->projectedCredit((int) $oldGaId, -$jobEarned);
+            if ($projected < -0.001) {
+                $oldName = $job->gaUser?->name ?? 'layout doer';
+
+                return response()->json([
+                    'error' => 'Hindi pwedeng ilipat — sobra na ang nakuha ni ' . $oldName . ' (kulang ₱'
+                        . number_format(abs($projected), 2) . '). I-adjust o i-reject muna ang payout niya bago ilipat ang job.',
+                ], 422);
+            }
+        }
+
         $wasDone = $job->status === 'done';
         $update = [
             'ga_user_id'  => (int) $data['ga_user_id'],
@@ -845,6 +922,23 @@ class LayoutJobController extends Controller
         }
 
         $amount = (float) $request->validate(['amount' => 'required|numeric|min:0'])['amount'];
+
+        // Guard (Andrew 2026-10-21): baka nakuha na ng doer ang payout tapos babaan ang amount
+        // → mag-negative ang balanse. I-block at ipakita ang sobra.
+        if ($job->ga_user_id) {
+            $delta = $this->jobEarnedImpact($job, $amount);
+            if (abs($delta) > 0.001) {
+                $projected = $this->projectedCredit((int) $job->ga_user_id, $delta);
+                if ($projected < -0.001) {
+                    $gaName = $job->gaUser?->name ?? 'layout doer';
+
+                    return response()->json([
+                        'error' => 'Hindi pwedeng gawing ₱' . number_format($amount, 2) . ' — sobra na ang nakuha ni ' . $gaName
+                            . ' (kulang ₱' . number_format(abs($projected), 2) . '). I-adjust o i-reject muna ang payout bago baguhin ang amount.',
+                    ], 422);
+                }
+            }
+        }
 
         $job->update([
             'amount' => $amount,
