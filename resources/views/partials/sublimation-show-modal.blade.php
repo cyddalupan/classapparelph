@@ -1648,7 +1648,15 @@ window.sub_addItemToOrder = function() {
         },
         body: JSON.stringify(item)
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+        // Guard: a 403/419/500 returns an HTML error page, and r.json() would throw
+        // the cryptic "Unexpected token '<', <!DOCTYPE..." message. Surface it clearly.
+        var ctype = (r.headers.get('content-type') || '').toLowerCase();
+        if (ctype.indexOf('application/json') === -1) {
+            throw new Error('Server returned HTTP ' + r.status + ' (hindi JSON). I-refresh ang page at subukan muli.');
+        }
+        return r.json();
+    })
     .then(function(data) {
         if (data.success) {
             // Close modal

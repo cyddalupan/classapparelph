@@ -3072,6 +3072,12 @@ public function details(Request $request, string $id)
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
         }
 
+        // QA / Sales Agent: sariling benta lang — huwag gagalaw sa benta ng iba
+        $currentUser = $request->user();
+        if ($currentUser && $currentUser->isQa() && (int) $sale->sales_agent_id !== (int) $currentUser->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized: you can only manage your own sales.'], 403);
+        }
+
         // Check if already in completed/delivered
         if (in_array($sale->kanban_status, ['delivered', 'completed', 'cancelled'])) {
             return response()->json(['success' => false, 'message' => 'Cannot add product to a completed or cancelled order.']);

@@ -63,6 +63,13 @@ class CheckQaAccess
         'sales.prototype.delete-mockup',
         'sales.prototype.set-main-mockup',
 
+        // Add Product (Sale Show page / sublimation modal) — QA/Sales Agent can submit
+        // an ADDITION for their OWN sale (ownership enforced in the controller).
+        // Added 2026-10-21 (Andrew): QA got "Network error: Unexpected token '<'" on
+        // add-product — route was missing here, so the middleware returned a 403 HTML
+        // page and the modal's r.json() choked on the DOCTYPE.
+        'sales.prototype.add-product',
+
         // Reprocess Order (Sale Show page) — QA/Sales Agent can SUBMIT a reprocess for
         // their own sale; the request still goes to Manager approval (nothing auto-applies).
         // Added 2026-10-16 (Andrew): QA got 403 "Unauthorized access." on submit — the
