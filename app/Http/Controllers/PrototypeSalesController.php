@@ -9657,17 +9657,15 @@ SQL;
                         $bj['verified']++;
                         $state = 'verified';
                     }
+                    // Andrew 2026-10-21: huwag isama ang pangalan (privacy) at ang nilalaman
+                    // ng backjob — position (GA/QA) + oras lang ang ipapakita.
                     if (count($bj['items']) < 6) {
                         $bj['items'][] = [
-                            'text' => $c['text'] ?? '',
                             'project' => $project,
                             'state' => $state,
                             'at' => $c['at'] ?? '',
-                            'done_by' => $c['done_by'] ?? '',
                             'done_at' => $c['done_at'] ?? '',
-                            'verified_by' => $c['verified_by'] ?? '',
                             'verified_at' => $c['verified_at'] ?? '',
-                            'by' => $c['by'] ?? '',
                         ];
                     }
                 }
