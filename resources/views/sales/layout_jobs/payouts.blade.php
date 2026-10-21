@@ -33,6 +33,7 @@
     .lj-muted { color: #6b7280; font-size: .8rem; }
     .lj-amount { font-size: 15px; font-weight: 800; color: #111827; }
     .lj-btn-mini { font-size: 11.5px; padding: 3px 10px; border-radius: 8px; font-weight: 600; }
+    .lj-thumb { width: 46px; height: 46px; border-radius: 10px; object-fit: cover; border: 1px solid #e5e7eb; background: #f9fafb; cursor: pointer; }
     .modal-img-preview { max-width: 100%; max-height: 240px; border-radius: 10px; border: 1px solid #e5e7eb; }
 </style>
 @endpush
@@ -85,7 +86,7 @@
                 <table class="table table-sm table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>#</th><th>Layout Doer</th><th>Amount</th><th>Account Details</th>
+                            <th>#</th><th>Layout Doer</th><th>Amount</th><th>Account Details</th><th>Payment</th>
                             <th>Notes</th><th>Status</th><th>Requested</th><th class="text-end">Action</th>
                         </tr>
                     </thead>
@@ -104,18 +105,33 @@
                             <td>
                                 <div>{{ $p->account_name ?: '—' }} {{ $p->account_number ? '· ' . $p->account_number : '' }}</div>
                                 @if($p->account_proof_path)
-                                <a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $p->account_proof_path) }}')"><i class="fas fa-image"></i> view proof</a>
+                                <a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $p->account_proof_path) }}')"><i class="fas fa-image"></i> account proof</a>
+                                @endif
+                            </td>
+                            <td>
+                                @if($p->payment_proof_path)
+                                <img src="{{ asset('storage/' . $p->payment_proof_path) }}" class="lj-thumb" title="Payment proof — i-click para palakihin" onclick="showImage('{{ asset('storage/' . $p->payment_proof_path) }}')">
+                                <div class="lj-muted" style="font-size:10.5px;">{{ $p->payment_method ?: '—' }}{{ $p->payment_reference ? ' · ' . $p->payment_reference : '' }}</div>
+                                @else
+                                <span class="lj-muted">— wala pa</span>
                                 @endif
                             </td>
                             <td class="lj-muted" style="max-width:220px;">{{ $p->request_notes ?: '—' }}</td>
                             <td><span class="lj-badge {{ $p->status === 'paid' ? 'pending' : 'requested' }}">{{ $p->status }}</span></td>
                             <td class="lj-muted">{{ $p->requested_at?->format('M d, Y h:i A') }}</td>
                             <td class="text-end">
+                                @if($p->status === 'requested')
                                 <button class="btn btn-sm btn-warning lj-btn-mini" onclick="openPayPayout({{ $p->id }})">💸 Pay</button>
+                                @elseif($p->status === 'paid')
+                                {{-- Bayad na — walang Pay button. Verify na lang para ma-close. --}}
+                                <button class="btn btn-sm btn-success lj-btn-mini" onclick="verifyPaidPayout({{ $p->id }}, '{{ addslashes($p->payment_method ?? '') }}', '{{ addslashes($p->payment_reference ?? '') }}')">✅ Verify</button>
+                                @else
+                                <span class="lj-muted">—</span>
+                                @endif
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="text-center lj-muted py-4">Walang pending payout request ngayon. 👍</td></tr>
+                        <tr><td colspan="9" class="text-center lj-muted py-4">Walang pending payout request ngayon. 👍</td></tr>
                     @endforelse
                     </tbody>
                 </table>
@@ -150,7 +166,9 @@
                                 <span class="lj-muted"><i class="fas fa-wallet"></i> {{ $p->payment_method }}{{ $p->payment_reference ? ' · ' . $p->payment_reference : '' }}</span>
                                 @endif
                                 @if($p->payment_proof_path)
-                                <a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $p->payment_proof_path) }}')"><i class="fas fa-receipt"></i> proof</a>
+                                <a href="javascript:void(0)" onclick="showImage('{{ asset('storage/' . $p->payment_proof_path) }}')">
+                                    <img src="{{ asset('storage/' . $p->payment_proof_path) }}" class="lj-thumb" title="Payment proof">
+                                </a>
                                 @endif
                             </td>
                             <td><span class="lj-badge {{ $p->status === 'verified' ? 'verified' : 'rejected' }}">{{ $p->status }}</span></td>
@@ -251,6 +269,22 @@ function submitPayPayout(action) {
         body: fd
     }).then(r => r.json()).then(d => {
         alert(d.error || 'Saved ✓');
+        if (!d.error) location.reload();
+    }).catch(() => alert('May error — subukan ulit.'));
+}
+
+function verifyPaidPayout(id, method, ref) {
+    if (!confirm('I-verify ang payout #' + id + '? Markahan itong bayad na at isasara ang payout.')) return;
+    const fd = new FormData();
+    fd.append('action', 'verify');
+    fd.append('payment_method', method || 'Cash');
+    fd.append('payment_reference', ref || '');
+    fetch('/sales/layout-jobs/payout/' + id + '/pay', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
+        body: fd
+    }).then(r => r.json()).then(d => {
+        alert(d.error || 'Verified ✓');
         if (!d.error) location.reload();
     }).catch(() => alert('May error — subukan ulit.'));
 }
