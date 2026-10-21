@@ -13,18 +13,10 @@
        style="{{ request()->routeIs('sales.prototype.board.damage*') ? $tabOn : $tabOff }}">
         <i class="fas fa-exclamation-triangle"></i> Damage Report
     </a>
-    {{-- TEMPORARY LOCK (Andrew 2026-10-21): admin-only muna ang Layout Job List --}}
-    @if(auth()->check() && auth()->user()->isAdmin())
     <a href="{{ route('sales.prototype.board.layout-jobs') }}"
        style="{{ request()->routeIs('sales.prototype.board.layout-jobs*') ? $tabOn : $tabOff }}">
         <i class="fas fa-palette"></i> Layout Job List
     </a>
-    @else
-    <span title="Temporarily locked — admin is still working on this"
-          style="{{ $tabBase }}background:#e5e7eb;color:#9ca3af;cursor:not-allowed;">
-        <i class="fas fa-palette"></i> Layout Job List
-    </span>
-    @endif
     <a href="{{ route('sales.prototype.board.special-price') }}"
        style="{{ request()->routeIs('sales.prototype.board.special-price*') ? $tabOn : $tabOff }}">
         <i class="fas fa-tags"></i> Special Price

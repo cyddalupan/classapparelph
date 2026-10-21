@@ -1101,30 +1101,26 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::get('/sales/refunds', [App\Http\Controllers\PrototypeSalesController::class, 'refundList'])->name('sales.prototype.refunds');
 
         // LAYOUT JOB SYSTEM (bayad/libre layout jobs — pre-sale at sale-linked)
-        // TEMPORARY LOCK (Andrew 2026-10-21): admin-only muna habang may binabago/idinadagdag.
-        // Ibinalik sa lahat: tanggalin lang ang middleware('admin') sa group na ito.
-        Route::middleware('admin')->group(function () {
-            // LAYOUT JOB SYSTEM (bayad/libre layout jobs — pre-sale at sale-linked)
-            Route::get('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'index'])->name('sales.layout-jobs');
-            Route::get('/sales/layout-jobs/all', [App\Http\Controllers\LayoutJobController::class, 'all'])->name('sales.layout-jobs.all');
-            Route::get('/sales/layout-jobs/dashboard', [App\Http\Controllers\LayoutJobController::class, 'dashboard'])->name('sales.layout-jobs.dashboard');
-            Route::get('/sales/layout-jobs/payouts', [App\Http\Controllers\LayoutJobController::class, 'payouts'])->name('sales.layout-jobs.payouts');
-            Route::get('/sales/layout-jobs/history', [App\Http\Controllers\LayoutJobController::class, 'history'])->name('sales.layout-jobs.history');
-            Route::get('/sales/layout-jobs/create', [App\Http\Controllers\LayoutJobController::class, 'create'])->name('sales.layout-jobs.create');
-            Route::post('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'store'])->name('sales.layout-jobs.store');
-            Route::post('/sales/layout-jobs/{id}/verify-payment', [App\Http\Controllers\LayoutJobController::class, 'verifyPayment'])->name('sales.layout-jobs.verify-payment');
-            Route::post('/sales/layout-jobs/{id}/resubmit-payment', [App\Http\Controllers\LayoutJobController::class, 'resubmitPayment'])->name('sales.layout-jobs.resubmit-payment');
-            Route::post('/sales/layout-jobs/{id}/upload-payment', [App\Http\Controllers\LayoutJobController::class, 'uploadFreePayment'])->name('sales.layout-jobs.upload-payment');
-            Route::post('/sales/layout-jobs/{id}/retag', [App\Http\Controllers\LayoutJobController::class, 'retag'])->name('sales.layout-jobs.retag');
-            Route::post('/sales/layout-jobs/{id}/set-amount', [App\Http\Controllers\LayoutJobController::class, 'setAmount'])->name('sales.layout-jobs.set-amount');
-            Route::post('/sales/layout-jobs/{id}/done', [App\Http\Controllers\LayoutJobController::class, 'done'])->name('sales.layout-jobs.done');
-            Route::post('/sales/layout-jobs/payout-request', [App\Http\Controllers\LayoutJobController::class, 'requestPayout'])->name('sales.layout-jobs.payout-request');
-            Route::post('/sales/layout-jobs/payout/{payoutId}/pay', [App\Http\Controllers\LayoutJobController::class, 'payPayout'])->name('sales.layout-jobs.payout-pay');
-            Route::post('/sales/layout-jobs/payout/{payoutId}/confirm-receipt', [App\Http\Controllers\LayoutJobController::class, 'confirmReceipt'])->name('sales.layout-jobs.payout-confirm-receipt');
-            Route::post('/sales/layout-jobs/{id}/link-sale', [App\Http\Controllers\LayoutJobController::class, 'linkSale'])->name('sales.layout-jobs.link-sale');
-            Route::post('/sales/layout-jobs/{id}/cancel', [App\Http\Controllers\LayoutJobController::class, 'cancel'])->name('sales.layout-jobs.cancel');
-            Route::get('/sales/layout-jobs/pending-counts', [App\Http\Controllers\LayoutJobController::class, 'pendingCounts'])->name('sales.layout-jobs.pending-counts');
-        });
+        // Bukas na ulit sa lahat ng role (Andrew 2026-10-21) — dating naka-lock sa admin.
+        Route::get('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'index'])->name('sales.layout-jobs');
+        Route::get('/sales/layout-jobs/all', [App\Http\Controllers\LayoutJobController::class, 'all'])->name('sales.layout-jobs.all');
+        Route::get('/sales/layout-jobs/dashboard', [App\Http\Controllers\LayoutJobController::class, 'dashboard'])->name('sales.layout-jobs.dashboard');
+        Route::get('/sales/layout-jobs/payouts', [App\Http\Controllers\LayoutJobController::class, 'payouts'])->name('sales.layout-jobs.payouts');
+        Route::get('/sales/layout-jobs/history', [App\Http\Controllers\LayoutJobController::class, 'history'])->name('sales.layout-jobs.history');
+        Route::get('/sales/layout-jobs/create', [App\Http\Controllers\LayoutJobController::class, 'create'])->name('sales.layout-jobs.create');
+        Route::post('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'store'])->name('sales.layout-jobs.store');
+        Route::post('/sales/layout-jobs/{id}/verify-payment', [App\Http\Controllers\LayoutJobController::class, 'verifyPayment'])->name('sales.layout-jobs.verify-payment');
+        Route::post('/sales/layout-jobs/{id}/resubmit-payment', [App\Http\Controllers\LayoutJobController::class, 'resubmitPayment'])->name('sales.layout-jobs.resubmit-payment');
+        Route::post('/sales/layout-jobs/{id}/upload-payment', [App\Http\Controllers\LayoutJobController::class, 'uploadFreePayment'])->name('sales.layout-jobs.upload-payment');
+        Route::post('/sales/layout-jobs/{id}/retag', [App\Http\Controllers\LayoutJobController::class, 'retag'])->name('sales.layout-jobs.retag');
+        Route::post('/sales/layout-jobs/{id}/set-amount', [App\Http\Controllers\LayoutJobController::class, 'setAmount'])->name('sales.layout-jobs.set-amount');
+        Route::post('/sales/layout-jobs/{id}/done', [App\Http\Controllers\LayoutJobController::class, 'done'])->name('sales.layout-jobs.done');
+        Route::post('/sales/layout-jobs/payout-request', [App\Http\Controllers\LayoutJobController::class, 'requestPayout'])->name('sales.layout-jobs.payout-request');
+        Route::post('/sales/layout-jobs/payout/{payoutId}/pay', [App\Http\Controllers\LayoutJobController::class, 'payPayout'])->name('sales.layout-jobs.payout-pay');
+        Route::post('/sales/layout-jobs/payout/{payoutId}/confirm-receipt', [App\Http\Controllers\LayoutJobController::class, 'confirmReceipt'])->name('sales.layout-jobs.payout-confirm-receipt');
+        Route::post('/sales/layout-jobs/{id}/link-sale', [App\Http\Controllers\LayoutJobController::class, 'linkSale'])->name('sales.layout-jobs.link-sale');
+        Route::post('/sales/layout-jobs/{id}/cancel', [App\Http\Controllers\LayoutJobController::class, 'cancel'])->name('sales.layout-jobs.cancel');
+        Route::get('/sales/layout-jobs/pending-counts', [App\Http\Controllers\LayoutJobController::class, 'pendingCounts'])->name('sales.layout-jobs.pending-counts');
 });
 
         // Department Inventory Management (iPrint & others)
