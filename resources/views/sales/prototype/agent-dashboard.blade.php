@@ -128,6 +128,7 @@
 #progressPanel .pg-bar > span { display:block; height:100%; background:#10b981; }
 #progressPanel .pg-kv { display:flex; justify-content:space-between; gap:.6rem; font-size:.83rem; padding:.2rem 0; }
 #progressPanel .pg-kv b { color:#0f172a; }
+#progressPanel .pg-note { margin-top:.5rem; background:#eff6ff; border-left:3px solid #3b82f6; color:#1e40af; font-size:.82rem; font-weight:600; padding:.5rem .7rem; border-radius:6px; line-height:1.35; }
 #progressPanel .pg-bj { font-size:.8rem; padding:.45rem .6rem; border-radius:8px; margin-bottom:.35rem; }
 #progressPanel .pg-bj.pending { background:#fef3c7; color:#92400e; }
 #progressPanel .pg-bj.waiting_qa { background:#dbeafe; color:#1e40af; }
@@ -1312,13 +1313,18 @@ function openProgress(id, btn) {
         if (s.needed_by) html += '<span style="background:#f1f5f9;color:#475569;font-size:.75rem;padding:.25rem .6rem;border-radius:999px;"><i class="far fa-clock"></i> ' + pgDate(s.needed_by) + '</span>';
         html += '</div></div></div>';
 
-        // last movement
+        // last movement (+ paliwanag ng stage)
+        html += '<div class="pg-sect"><div class="pg-lbl">Last Movement</div>';
         if (d.last_move) {
-            html += '<div class="pg-sect"><div class="pg-lbl">Last Movement</div>';
             html += '<div class="pg-kv"><span>' + pgEsc(d.last_move.from || '—') + ' → <b>' + pgEsc(d.last_move.to || '—') + '</b></span><span style="color:#64748b;">' + pgDate(d.last_move.at) + '</span></div>';
             if (d.last_move.by) html += '<div class="pg-kv"><span style="color:#64748b;">by</span><span>' + pgEsc(d.last_move.by) + '</span></div>';
-            html += '</div>';
+        } else {
+            html += '<div class="pg-kv"><span style="color:#94a3b8;">Wala pang stage movement na naitala</span></div>';
         }
+        if (d.stage_note) {
+            html += '<div class="pg-note"><i class="fas fa-info-circle"></i> ' + pgEsc(d.stage_note) + '</div>';
+        }
+        html += '</div>';
 
         // production slip progress
         var rows = [['GA', c.ga], ['QA1', c.qa1], ['QA2', c.qa2]];
