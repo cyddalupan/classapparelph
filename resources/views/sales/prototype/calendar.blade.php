@@ -583,6 +583,14 @@
     .pslip table.roster-table tr.roster-filler td { border:1px solid #bbb !important; height:14px; }
 .ps-comment-list { margin-top:6px; max-height:150px; overflow-y:auto; }
 .ps-comment-entry { padding:6px 8px; margin-bottom:4px; background:#f8f9fa; border-radius:4px; font-size:12px; border-left:3px solid #0d6efd; line-height:1.4; }
+    .ps-bj-btn { border:none; border-radius:4px; height:22px; padding:0 6px; font-size:9px; font-weight:800; letter-spacing:.3px; line-height:1; cursor:pointer; flex-shrink:0; color:#fff; }
+    .ps-bj-btn.ga { background:#6f42c1; }
+    .ps-bj-btn.ga:hover:not([disabled]) { background:#5a35a0; }
+    .ps-bj-btn.qa { background:#0b5ed7; }
+    .ps-bj-btn.qa:hover:not([disabled]) { background:#0a53be; }
+    .ps-bj-btn.is-done { background:#198754; cursor:default; }
+    .ps-bj-btn[disabled] { background:#e9ecef !important; color:#adb5bd !important; cursor:not-allowed; }
+
 .ps-comment-entry .time { font-size:10px; color:#999; }
 .ps-comment-input { display:flex; gap:4px; margin-top:4px; }
 .ps-comment-input input { flex:1; border:1px solid #dee2e6; border-radius:4px; padding:6px 8px; font-size:12px; }
@@ -1007,6 +1015,10 @@ const IS_SALES_AGENT = @json(auth()->user() && (auth()->user()->isSalesAgent() |
 const IS_GA = @json(auth()->user() && auth()->user()->isGa());
 const IS_QA = @json(auth()->user() && auth()->user()->isQa());
 const psCanEdit = !IS_SALES_AGENT && !IS_GA && !IS_QA;
+
+@php $__canVerifyBj = auth()->user() && (auth()->user()->isAdmin() || auth()->user()->isCoo() || auth()->user()->isProdManager() || auth()->user()->isQa() || auth()->user()->isTrimmerQa() || auth()->user()->role === 'manager'); @endphp
+window.psCanVerify = {{ $__canVerifyBj ? 'true' : 'false' }};
+
 // CEO (admin) / COO / managers / Class Production Manager lang ang pwedeng mag-split
 const CAN_SPLIT = @json(auth()->user() && (auth()->user()->isManager() || auth()->user()->isCoo()));
 // Class per-date CLOSED switch: Prod Manager / CEO / COO lang (same roles as split)
@@ -3337,6 +3349,65 @@ function addComment(saleId) {
 }
 
 
+
+// Two-stage backjob buttons (Andrew 2026-10-21): GA = stage 1 (done), QA = stage 2 (verify).
+// QA button greyed out hangga't hindi pa na-done ng GA. Kapag na-verify = fully closed (history).
+function psBjButtons(c, fnGa, fnQa) {
+    var h = '';
+    if (!(psCanEdit || window.psCanVerify)) return h;
+    var doneInfo = c.done_by ? (' — ' + c.done_by + (c.done_at ? ' ' + c.done_at : '')) : '';
+    if (c.done) {
+        h += '<button type="button" class="ps-bj-btn ga is-done" disabled title="GA: tapos na' + escHtml(doneInfo) + '">GA ✓</button>';
+    } else if (psCanEdit) {
+        h += '<button type="button" class="ps-bj-btn ga" onclick="' + fnGa + '" title="GA: tapusin ang backjob">GA</button>';
+    } else {
+        h += '<button type="button" class="ps-bj-btn ga" disabled title="GA stage">GA</button>';
+    }
+    if (c.done && window.psCanVerify) {
+        h += '<button type="button" class="ps-bj-btn qa" onclick="' + fnQa + '" title="QA: i-verify (2nd done)">QA</button>';
+    } else {
+        h += '<button type="button" class="ps-bj-btn qa" disabled title="' + (c.done ? 'QA: walang permission mag-verify' : 'QA: hintayin muna ang GA') + '">QA</button>';
+    }
+    return h;
+}
+
+function verifyProductComment(saleId, itemId, idx) {
+    fetch('/api/production/checklist/' + saleId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var comments = [];
+        var map = {};
+        try { map = JSON.parse(data.checklist.product_comments || '{}'); } catch(e) { map = {}; }
+        comments = map[String(itemId)] || [];
+        if (!Array.isArray(comments) || idx < 0 || idx >= comments.length) return;
+        if (!comments[idx].done) { showToast('Hintayin muna ang GA bago mag-verify.', 'warning'); return; }
+        if (comments[idx].verified) { showToast('Verified na ito.', 'info'); return; }
+        var now = new Date();
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        comments[idx].verified = true;
+        comments[idx].verified_by = window.psCurrentUserName || 'Unknown';
+        comments[idx].verified_at = pad(now.getMonth()+1) + '/' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+        map[String(itemId)] = comments;
+        return fetch('/api/production/checklist/' + saleId + '/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+            },
+            body: JSON.stringify({ product_comments: JSON.stringify(map) })
+        });
+    })
+    .then(function(r) { return r ? r.json() : null; })
+    .then(function(data) {
+        if (data && data.success) {
+            refreshPsComments(saleId);
+        } else if (data) {
+            showToast('Failed to verify comment.', 'danger');
+        }
+    })
+    .catch(function(err) { console.error('Failed to verify comment', err); });
+}
+
 function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
     var h = '';
     var key;
@@ -3357,7 +3428,7 @@ function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
     var deleted = [];
     comments.forEach(function(c, idx) {
         if (c && c.deleted) deleted.push({c: c, idx: idx});
-        else if (c && c.done) done.push({c: c, idx: idx});
+        else if (c && c.done && c.verified) done.push({c: c, idx: idx});
         else active.push({c: c, idx: idx});
     });
     var idArg = "'" + String(itemId).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
@@ -3366,8 +3437,8 @@ function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
     active.forEach(function(o) {
         var c = o.c;
         h += '<div class="ps-comment-entry">';
-        if (psCanEdit && !isLegacy) {
-            h += '<button type="button" class="ps-comment-check" onclick="markProductCommentDone(' + saleId + ',' + idArg + ',' + o.idx + ')" title="Mark backjob as done (QA)">✓</button>';
+        if (!isLegacy) {
+            h += psBjButtons(c, 'markProductCommentDone(' + saleId + ',' + idArg + ',' + o.idx + ')', 'verifyProductComment(' + saleId + ',' + idArg + ',' + o.idx + ')');
         }
         h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
         if (psCanEdit && !isLegacy) {
@@ -3380,7 +3451,7 @@ function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
         h += '<div class="ps-comment-history"><div class="ps-comment-history-title">✅ Done history</div>';
         done.forEach(function(o) {
             var c = o.c;
-            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + '</span></div>';
+            h += '<div class="ps-comment-done">✓ ' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span> <span class="time">— done by ' + escHtml(c.done_by || '?') + ' at ' + escHtml(c.done_at || '') + (c.verified_by ? ' · ✓ verified by ' + escHtml(c.verified_by) + ' at ' + escHtml(c.verified_at || '') : '') + '</span></div>';
         });
         h += '</div>';
     }
