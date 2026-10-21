@@ -351,8 +351,8 @@
                                 $accOwnerId = $job->paymentAccount?->user_id;
                                 $canVerifyPay = auth()->user()->isAdmin() || ($accOwnerId && auth()->id() === $accOwnerId);
                             @endphp
-                            @if($job->isPaid() && $job->payment_status === 'rejected' && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
-                            {{-- Rejected payment → pwedeng mag-upload ulit ng proof/ref (Andrew 2026-10-21) --}}
+                            @if(($mode ?? 'personal') !== 'global' && $job->isPaid() && $job->payment_status === 'rejected' && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
+                            {{-- Rejected payment → pwedeng mag-upload ulit ng proof/ref (Andrew 2026-10-21). Personal list lang — hindi sa Layout Job List (All). --}}
                             <button class="btn btn-sm btn-outline-danger lj-btn-mini mb-1" onclick="openResubmitPayment({{ $job->id }}, '{{ $job->job_no }}', {{ (int) $job->payment_account_id }}, '{{ addslashes($job->payment_reference ?? '') }}')">📤 Upload Payment Ulit</button>
                             @endif
                             @if($mode === 'global' && $job->isPaid() && $job->payment_status === 'pending' && $canVerifyPay)
@@ -369,8 +369,8 @@
                                 {{-- Spec: ang nag-create lang ang pwedeng mag-link; bayad = verified muna, libre = pwede agad (Andrew 2026-09-17) --}}
                                 <button class="btn btn-sm btn-outline-primary lj-btn-mini mb-1" onclick="openLinkSale({{ $job->id }}, '{{ $job->job_no }}')">Link Sale</button>
                             @endif
-                            @if(!$job->sale_id && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
-                            {{-- "Hindi Tumuloy" — libreng layout na walang sale (hindi tumuloy ang client). Andrew 2026-09-29 --}}
+                            @if(($mode ?? 'personal') !== 'global' && !$job->sale_id && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
+                            {{-- "Hindi Tumuloy" — personal list lang (Andrew 2026-10-21: hindi na sa Layout Job List) — libreng layout na walang sale (hindi tumuloy ang client). Andrew 2026-09-29 --}}
                             <button class="btn btn-sm btn-outline-secondary lj-btn-mini mb-1" onclick="openCancelJob({{ $job->id }}, '{{ $job->job_no }}', '{{ $job->isFree() ? 'libre' : 'bayad' }}')">🚫 Hindi Tumuloy</button>
                             @endif
                             @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id && !$job->isCancelled())
