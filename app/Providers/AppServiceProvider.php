@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Http\View\Composers\NotificationComposer;
+use App\Models\LayoutJob;
+use App\Models\LayoutJobPayout;
+use App\Observers\LayoutJobObserver;
+use App\Observers\LayoutJobPayoutObserver;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -29,5 +33,10 @@ class AppServiceProvider extends ServiceProvider
         // renders unstyled SVGs (huge/broken arrows) because our pages load
         // Bootstrap, not Tailwind CSS.
         Paginator::useBootstrapFive();
+
+        // Audit trail (Andrew 2026-10-21): lahat ng galaw sa layout job at payout
+        // ay awtomatikong naka-log para transparent sa board members.
+        LayoutJob::observe(LayoutJobObserver::class);
+        LayoutJobPayout::observe(LayoutJobPayoutObserver::class);
     }
 }

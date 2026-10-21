@@ -89,6 +89,7 @@
                 @endif
                 @if(in_array(auth()->user()->role, ['admin','coo','cpo','cmo']))
                 <a href="{{ route('sales.layout-jobs.dashboard') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-chart-line"></i> Layout Dashboard</a>
+                <a href="{{ route('sales.layout-jobs.history') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-history"></i> History</a>
                 @endif
                 @if(in_array(auth()->user()->role, ['admin','staff','coo','cpo','cmo','sales_agent','sales_representative','prod_manager','qa','hr_accountant_agent']))
                 <a href="{{ route('sales.layout-jobs.create') }}" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> New Layout Job</a>

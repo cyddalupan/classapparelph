@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\LayoutJob;
+use App\Models\LayoutJobAudit;
 use App\Models\LayoutJobPayout;
 use App\Models\PaymentAccount;
 use App\Services\ImageOptimizer;
@@ -201,6 +202,42 @@ class LayoutJobController extends Controller
         $paymentAccounts = $this->paymentAccounts();
 
         return view('sales.layout_jobs.payouts', compact('pending', 'history', 'payoutMap', 'paymentAccounts'));
+    }
+
+    /**
+     * Layout History / Audit Trail (Andrew 2026-10-21).
+     * Lahat ng galaw sa layout jobs at payouts — sino, kailan, luma → bago.
+     * Para transparent sa board members. Approvers lang ang may access.
+     */
+    public function history(Request $request)
+    {
+        if (!$this->canReview()) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $logs = LayoutJobAudit::query()
+            ->when($request->filled('job_no'), function ($q) use ($request) {
+                $term = trim((string) $request->get('job_no'));
+                $q->where('job_no', 'like', '%' . $term . '%');
+            })
+            ->when($request->filled('type'), fn($q) => $q->where('subject_type', $request->get('type')))
+            ->when($request->filled('event'), fn($q) => $q->where('event', $request->get('event')))
+            ->when($request->filled('user'), fn($q) => $q->where('user_id', (int) $request->get('user')))
+            ->when($request->filled('from'), fn($q) => $q->whereDate('created_at', '>=', $request->get('from')))
+            ->when($request->filled('to'), fn($q) => $q->whereDate('created_at', '<=', $request->get('to')))
+            ->with('user')
+            ->orderByDesc('id')
+            ->paginate(50)
+            ->withQueryString();
+
+        $totalMoves = LayoutJobAudit::count();
+        $users = \App\Models\User::whereIn(
+            'id',
+            LayoutJobAudit::query()->select('user_id')->whereNotNull('user_id')->distinct()
+        )->orderBy('name')->get(['id', 'name']);
+        $events = LayoutJobAudit::query()->select('event')->distinct()->orderBy('event')->pluck('event');
+
+        return view('sales.layout_jobs.history', compact('logs', 'users', 'events', 'totalMoves'));
     }
 
     /**
