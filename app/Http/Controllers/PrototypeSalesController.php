@@ -9666,6 +9666,8 @@ SQL;
                             'done_by' => $c['done_by'] ?? '',
                             'done_at' => $c['done_at'] ?? '',
                             'verified_by' => $c['verified_by'] ?? '',
+                            'verified_at' => $c['verified_at'] ?? '',
+                            'by' => $c['by'] ?? '',
                         ];
                     }
                 }

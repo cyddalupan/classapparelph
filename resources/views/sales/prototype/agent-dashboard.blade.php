@@ -131,6 +131,7 @@
 #progressPanel .pg-sub { font-size:.78rem; font-weight:600; margin-top:.3rem; line-height:1.35; }
 #progressPanel .pg-sub.ok { color:#15803d; }
 #progressPanel .pg-sub.warn { color:#b45309; }
+#progressPanel .pg-hist { margin-top:.35rem; padding-top:.3rem; border-top:1px dashed rgba(0,0,0,.15); font-size:.74rem; line-height:1.45; }
 #progressPanel .pg-note { margin-top:.5rem; background:#eff6ff; border-left:3px solid #3b82f6; color:#1e40af; font-size:.82rem; font-weight:600; padding:.5rem .7rem; border-radius:6px; line-height:1.35; }
 #progressPanel .pg-bj { font-size:.8rem; padding:.45rem .6rem; border-radius:8px; margin-bottom:.35rem; }
 #progressPanel .pg-bj.pending { background:#fef3c7; color:#92400e; }
@@ -1408,9 +1409,17 @@ function openProgress(id, btn) {
         } else {
             html += '<div class="pg-kv" style="margin-bottom:.4rem;"><span>Active</span><b>' + (bj.active || 0) + '</b></div>';
             html += '<div class="pg-kv" style="margin-bottom:.5rem;"><span>Waiting QA</span><b>' + (bj.waiting_qa || 0) + '</b></div>';
-            (bj.items || []).slice(0, 4).forEach(function (it) {
-                var lbl = it.state === 'waiting_qa' ? '⏳ waiting QA' : (it.state === 'verified' ? '✓ verified' : '🔧 ' + 'active');
-                html += '<div class="pg-bj ' + pgEsc(it.state) + '">' + pgEsc(lbl) + ' · ' + pgEsc(it.project) + '<br><span style="opacity:.8;">' + pgEsc((it.text || '').slice(0, 90)) + '</span></div>';
+            (bj.items || []).slice(0, 5).forEach(function (it) {
+                var lbl = it.state === 'waiting_qa' ? '⏳ Waiting QA' : (it.state === 'verified' ? '✓ Verified' : '🔧 Active');
+                html += '<div class="pg-bj ' + pgEsc(it.state) + '">';
+                html += '<div><b>' + pgEsc(lbl) + '</b> · ' + pgEsc(it.project) + '</div>';
+                html += '<div style="opacity:.85;font-size:.76rem;">' + pgEsc((it.text || '').slice(0, 100)) + '</div>';
+                html += '<div class="pg-hist">';
+                if (it.at) html += '<div><i class="far fa-clock"></i> Created: ' + pgDate(it.at) + '</div>';
+                if (it.done_at) html += '<div><i class="fas fa-check"></i> GA done: ' + pgEsc(it.done_by || 'GA') + ' · ' + pgDate(it.done_at) + '</div>';
+                if (it.verified_at) html += '<div><i class="fas fa-check-double"></i> QA verified: ' + pgEsc(it.verified_by || 'QA') + ' · ' + pgDate(it.verified_at) + '</div>';
+                if (it.done_at && !it.verified_at) html += '<div style="opacity:.75;"><i class="fas fa-hourglass-half"></i> Hinihintay pa ang QA</div>';
+                html += '</div></div>';
             });
         }
         html += '</div>';
