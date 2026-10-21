@@ -379,6 +379,11 @@
                         </td>
                         <td style="white-space:nowrap;">
                             <strong style="font-size:11px;">{{ $q['sales_number'] }}</strong>
+                            @if(!empty($q['priority']))
+                                <div style="margin-top:2px;">
+                                    <span style="display:inline-block;background:#fff3cd;color:#856404;font-weight:600;font-size:10px;padding:1px 7px;border-radius:10px;">Prio {{ $q['priority'] }}</span>
+                                </div>
+                            @endif
                         </td>
                         <td><div class="bj-comment">{{ $q['text'] ?: '—' }}</div></td>
                         <td style="max-width:200px;"><span style="font-size:12px;">{{ \Illuminate\Support\Str::limit($q['project'], 40) }}</span></td>
