@@ -397,15 +397,22 @@ class LayoutJobController extends Controller
     /** GA credit computation */
     public function gaCredit(int $gaUserId): float
     {
+        // Bagong rule (Andrew 2026-10-21):
+        //   done na ang DOER  +  may sale O naka-tag na "Hindi Tumuloy"  +
+        //   bayad: verified ang payment O may amount na nilagay ng CEO/COO (rejected)
+        //   libre: may amount na nilagay ng approver
         $earned = (float) LayoutJob::where('ga_user_id', $gaUserId)
             ->where('status', 'done')
-            // Andrew 2026-09-17: hindi pumapasok sa kita kapag hindi naka-link sa sales.
-            ->whereNotNull('sale_id')
             ->where(function ($q) {
-                $q->where(function ($sub) { // bayad na verified
-                    $sub->where('type', 'paid')->where('payment_status', 'verified');
-                })->orWhere(function ($sub) { // libre na may amount
-                    $sub->where('type', 'free')->whereNotNull('amount');
+                $q->whereNotNull('sale_id')->orWhereNotNull('cancelled_at');
+            })
+            ->where(function ($q) {
+                $q->where(function ($paid) {
+                    $paid->where('type', 'paid')->where(function ($p) {
+                        $p->where('payment_status', 'verified')->orWhereNotNull('amount_set_by');
+                    });
+                })->orWhere(function ($free) {
+                    $free->where('type', 'free')->whereNotNull('amount');
                 });
             })
             ->sum('amount');
@@ -716,26 +723,40 @@ class LayoutJobController extends Controller
     }
 
     /**
-     * Approver: maglagay ng amount sa libreng layout job → reflect sa GA + history.
+     * Approver: maglagay / magpalit ng amount → reflect sa GA credit.
+     *
+     * Libre  : approver (admin/coo/cpo/cmo) — kailangan may sale O naka-mark na "Hindi Tumuloy".
+     * Bayad  : kapag REJECTED ang payment, admin/COO lang ang pwedeng maglagay ng amount
+     *          (parang libre) — Andrew 2026-10-21.
      */
     public function setAmount(Request $request, int $id)
     {
+        $u = auth()->user();
         if (!$this->canReview()) {
             return response()->json(['error' => 'Unauthorized.'], 403);
         }
 
         $job = LayoutJob::findOrFail($id);
-        if (!$job->isFree()) {
-            return response()->json(['error' => 'Bayad na layout — may amount na ito.'], 422);
+
+        if ($job->isPaid()) {
+            if ($job->payment_status !== 'rejected') {
+                return response()->json(['error' => 'Bayad na layout — hindi rejected ang payment. Ito ay para lang sa rejected payment.'], 422);
+            }
+            if (!$u->isAdmin() && !$u->isCoo()) {
+                return response()->json(['error' => 'CEO (admin) o COO lang ang pwedeng maglagay ng amount sa rejected payment.'], 403);
+            }
         }
-        if (!$job->sale_id) {
-            return response()->json(['error' => 'I-link muna sa sale bago mag-set ng amount.'], 422);
+
+        // Kailangan may sale O naka-mark na Hindi Tumuloy bago lagyan ng amount.
+        if (!$job->sale_id && !$job->isCancelled()) {
+            return response()->json(['error' => 'I-link muna sa sale (o i-mark na "Hindi Tumuloy") bago mag-set ng amount.'], 422);
         }
+
         $amount = (float) $request->validate(['amount' => 'required|numeric|min:0'])['amount'];
 
         $job->update([
             'amount' => $amount,
-            'amount_set_by' => auth()->id(),
+            'amount_set_by' => $u->id,
             'amount_set_at' => now(),
         ]);
 
@@ -953,6 +974,11 @@ class LayoutJobController extends Controller
 
         if ($job->isCancelled()) {
             return response()->json(['error' => 'Naka-marka na itong "Hindi Tumuloy".'], 422);
+        }
+        // Bayad: dapat verified O rejected na ang payment bago pwedeng i-mark na hindi tumuloy
+        // (Andrew 2026-10-21) — para hindi mawala sa ere ang pending payment.
+        if ($job->isPaid() && !in_array($job->payment_status, ['verified', 'rejected'], true)) {
+            return response()->json(['error' => 'Hintayin munang ma-verify o ma-reject ang payment bago i-mark na "Hindi Tumuloy".'], 422);
         }
         if ($job->sale_id) {
             return response()->json(['error' => 'Naka-link na ito sa sale — hindi na pwedeng i-mark na hindi tumuloy.'], 422);

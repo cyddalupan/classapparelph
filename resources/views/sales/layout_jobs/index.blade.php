@@ -381,8 +381,14 @@
                                 <button class="btn btn-sm btn-danger lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'reject')">Reject</button>
                             @endif
                             @if($isApprover)
-                                @if($job->isFree() && $job->amount === null && $job->sale_id)
-                                <button class="btn btn-sm btn-dark lj-btn-mini mb-1" onclick="openSetAmount({{ $job->id }}, '{{ $job->job_no }}')">Set Amount</button>
+                                @php
+                                    // Amount: libre (may sale O hindi tumuloy) ; bayad (rejected, CEO/COO lang)
+                                    $canSetAmount = ($job->sale_id || $job->isCancelled())
+                                        && ($job->isFree() || ($job->isPaid() && $job->payment_status === 'rejected'))
+                                        && ($job->isFree() || auth()->user()->isAdmin() || auth()->user()->isCoo());
+                                @endphp
+                                @if($canSetAmount)
+                                <button class="btn btn-sm btn-dark lj-btn-mini mb-1" onclick="openSetAmount({{ $job->id }}, '{{ $job->job_no }}', {{ $job->amount !== null ? (float) $job->amount : 'null' }})">{{ $job->amount === null ? 'Set Amount' : '✏️ Edit Amount' }}</button>
                                 @endif
                             @endif
                             @if(!$job->sale_id && auth()->id() === $job->created_by)
@@ -393,11 +399,11 @@
                             {{-- Retag / undo ng layout doer (Andrew 2026-10-21) — may nagkakamali ng tag. Done → undo + 7-day lock. --}}
                             <button class="btn btn-sm btn-outline-dark lj-btn-mini mb-1" onclick="openRetag({{ $job->id }}, '{{ $job->job_no }}', {{ (int) $job->ga_user_id }}, '{{ addslashes($job->gaUser?->name ?? '') }}', '{{ $job->status }}')">🔁 {{ $job->status === 'done' ? 'Undo / Retag' : 'Retag' }}</button>
                             @endif
-                            @if(($mode ?? 'personal') !== 'global' && !$job->sale_id && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
-                            {{-- "Hindi Tumuloy" — personal list lang (Andrew 2026-10-21: hindi na sa Layout Job List) — libreng layout na walang sale (hindi tumuloy ang client). Andrew 2026-09-29 --}}
+                            @if(($mode ?? 'personal') !== 'global' && !$job->sale_id && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover) && (!$job->isPaid() || in_array($job->payment_status, ['verified', 'rejected'], true)))
+                            {{-- "Hindi Tumuloy" — personal list lang (Andrew 2026-10-21). Bayad: kailangan verified o rejected ang payment muna. --}}
                             <button class="btn btn-sm btn-outline-secondary lj-btn-mini mb-1" onclick="openCancelJob({{ $job->id }}, '{{ $job->job_no }}', '{{ $job->isFree() ? 'libre' : 'bayad' }}')">🚫 Hindi Tumuloy</button>
                             @endif
-                            @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id && !$job->isCancelled())
+                            @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id)
                                 @if($job->retag_locked_until && now()->lt($job->retag_locked_until))
                                 <button class="btn btn-sm btn-secondary lj-btn-mini mb-1" disabled title="Naka-lock hanggang {{ $job->retag_locked_until->timezone('Asia/Manila')->format('M d, Y g:i A') }}">✓ Done 🔒</button>
                                 @else
@@ -639,9 +645,9 @@ function verifyPayment(id, action) {
     }).then(r => r.json()).then(d => { alert(d.error || 'Saved ✓'); location.reload(); });
 }
 
-function openSetAmount(id, jobNo) {
+function openSetAmount(id, jobNo, currentAmount) {
     document.getElementById('setAmountJobId').value = id;
-    document.getElementById('setAmountValue').value = '';
+    document.getElementById('setAmountValue').value = (currentAmount === null || currentAmount === undefined) ? '' : currentAmount;
     bootstrap.Modal.getOrCreateInstance(document.getElementById('setAmountModal')).show();
 }
 
