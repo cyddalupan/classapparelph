@@ -9586,25 +9586,15 @@ SQL;
      */
     private function stageNoteText(?string $stage): string
     {
+        // Andrew 2026-10-21: CUTTING at SEWING lang muna ang may lalabas na text.
         $map = [
-            'HOLD' => 'Naka-HOLD pa — hinihintay ang go signal bago simulan.',
-            'FOR SAMPLE' => 'Gumagawa pa lang ng sample — hindi pa ito production.',
-            'FOR APPROVAL' => 'Hinihintay ang approval ng sample.',
-            'FOR FORMAT' => 'Nasa design/format pa — hinihintay ang mockup approval.',
-            'PRINTING' => 'Printing na ito — nasa production pa, hindi pa tapos.',
             'CUTTING' => 'Cutting na ito, pwedeng sa WH or sa CLASS.',
             'SEWING' => 'Sewing na ito ibig sabihin nasa CLASS na.',
-            'PRESSING' => 'Pressing na ito — nasa CLASS, finishing stage na.',
-            'SUBCON' => 'Nasa sub-contractor — hindi pa bumabalik sa CLASS.',
-            'QA' => 'QA na ito — nasa CLASS, hinihintay ang quality check.',
-            'DISPATCH' => 'Ready na — for dispatch na, hinihintay lang ang delivery/pickup.',
-            'UNPAID' => 'Na-deliver na pero may balance pang hindi bayad.',
-            'DONE' => 'Tapos na ang order na ito.',
         ];
 
         $key = strtoupper(trim((string) $stage));
 
-        return $map[$key] ?? ('Kasalukuyang stage: ' . ($key ?: 'HOLD'));
+        return $map[$key] ?? '';
     }
 
     /**
