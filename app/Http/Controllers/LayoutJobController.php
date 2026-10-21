@@ -552,7 +552,8 @@ class LayoutJobController extends Controller
 
     /**
      * Verify/reject bayad na layout job payment.
-     * Permission: admin O ang may-ari ng payment account (tulad ng sales/prototype system).
+     * Permission (Andrew 2026-10-21): ANG MAY-ARI lang ng payment account.
+     * Admin = fallback lang kapag company account (walang naka-assign na owner).
      */
     public function verifyPayment(Request $request, int $id)
     {
@@ -562,14 +563,15 @@ class LayoutJobController extends Controller
             return response()->json(['error' => 'Hindi bayad na layout ito.'], 422);
         }
 
-        // Account owner check: company accounts (walang user_id) → admin lang.
+        // Account owner check: may-ari lang; company accounts (walang user_id) → admin lang.
         $accountOwnerId = $job->paymentAccount?->user_id;
-        $isAdmin = $u && $u->isAdmin();
-        $isOwner = $accountOwnerId && $u && $u->id === $accountOwnerId;
-        if (!$isAdmin && !$isOwner) {
+        $canVerify = $accountOwnerId
+            ? ($u && (int) $u->id === (int) $accountOwnerId)
+            : ($u && $u->isAdmin());
+        if (!$canVerify) {
             $ownerName = $job->paymentAccount?->user?->name ?? 'Company';
             return response()->json([
-                'error' => "Ikaw ay hindi ang verifier ng payment na ito. Ang payment ay nasa " . ($job->paymentAccount?->name ?? 'account') . " — si " . $ownerName . " (o admin) lang ang pwedeng mag-verify."
+                'error' => "Ikaw ay hindi ang verifier ng payment na ito. Ang payment ay nasa " . ($job->paymentAccount?->name ?? 'account') . " — si " . $ownerName . " lang ang pwedeng mag-verify."
             ], 403);
         }
 

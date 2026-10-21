@@ -339,9 +339,12 @@
                         <td class="text-end">
                             @php
                                 $isApprover = auth()->user()->isAdmin() || auth()->user()->isCoo() || auth()->user()->isCpo() || auth()->user()->isCmo();
-                                // Verify payment: admin O ang may-ari ng payment account
+                                // Verify payment: ANG MAY-ARI lang ng payment account (Andrew 2026-10-21).
+                                // Admin lang ang fallback kapag company account (walang owner).
                                 $accOwnerId = $job->paymentAccount?->user_id;
-                                $canVerifyPay = auth()->user()->isAdmin() || ($accOwnerId && auth()->id() === $accOwnerId);
+                                $canVerifyPay = $accOwnerId
+                                    ? (auth()->id() === $accOwnerId)
+                                    : auth()->user()->isAdmin();
                             @endphp
                             @if(($mode ?? 'personal') !== 'global' && $job->isPaid() && $job->payment_status === 'rejected' && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
                             {{-- Rejected payment → pwedeng mag-upload ulit ng proof/ref (Andrew 2026-10-21). Personal list lang — hindi sa Layout Job List (All). --}}
