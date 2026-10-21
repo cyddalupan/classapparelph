@@ -380,8 +380,8 @@
                                 <button class="btn btn-sm btn-success lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'verify')">Verify Pay</button>
                                 <button class="btn btn-sm btn-danger lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'reject')">Reject</button>
                             @endif
-                            @if(($mode ?? 'personal') !== 'global' && $job->isFree() && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
-                            {{-- Libre → biglang nagbayad ang client: i-upload ang payment → magiging BAYAD (Andrew 2026-10-21) --}}
+                            @if(($mode ?? 'personal') !== 'global' && $job->isFree() && !$job->isCancelled() && !$job->payout_id && auth()->id() === $job->created_by)
+                            {{-- Libre → biglang nagbayad ang client: CREATOR lang ang pwedeng mag-upload (Andrew 2026-10-21) --}}
                             <button class="btn btn-sm btn-outline-success lj-btn-mini mb-1" onclick="openFreePayment({{ $job->id }}, '{{ $job->job_no }}')">💳 Upload Payment</button>
                             @endif
                             @if($isApprover)

@@ -667,8 +667,9 @@ class LayoutJobController extends Controller
         if ($job->payout_id) {
             return response()->json(['error' => 'May payout request na ito — sarado na.'], 422);
         }
-        if ((int) $job->created_by !== (int) $u->id && !$this->canReview()) {
-            return response()->json(['error' => 'Ikaw lang ang gumawa ng job na ito (o approver) ang pwedeng mag-upload ng payment.'], 403);
+        // Creator lang ang pwedeng mag-upload ng payment sa libreng job (Andrew 2026-10-21).
+        if ((int) $job->created_by !== (int) $u->id) {
+            return response()->json(['error' => 'Ang gumawa lang ng layout job na ito ang pwedeng mag-upload ng payment.'], 403);
         }
 
         $data = $request->validate([
