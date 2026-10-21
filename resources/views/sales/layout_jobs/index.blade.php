@@ -246,6 +246,10 @@
                 <tbody>
                     @forelse($jobs as $job)
                     <tr>
+                        @php
+                            // Isang beses lang i-define per row (ginagamit sa ilang cell) — Andrew 2026-10-21
+                            $isApprover = auth()->user()->isAdmin() || auth()->user()->isCoo() || auth()->user()->isCpo() || auth()->user()->isCmo();
+                        @endphp
                         <td><strong>{{ $job->job_no }}</strong><br><span class="lj-muted">{{ $job->created_at->format('M d, Y') }}</span></td>
                         <td>{{ $job->displayCustomer() }}</td>
                         <td style="max-width:280px;">
@@ -347,7 +351,6 @@
                         </td>
                         <td class="text-end">
                             @php
-                                $isApprover = auth()->user()->isAdmin() || auth()->user()->isCoo() || auth()->user()->isCpo() || auth()->user()->isCmo();
                                 // Verify payment: ANG MAY-ARI lang ng payment account (Andrew 2026-10-21).
                                 // Admin lang ang fallback kapag company account (walang owner).
                                 $accOwnerId = $job->paymentAccount?->user_id;
