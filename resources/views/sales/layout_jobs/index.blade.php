@@ -267,12 +267,17 @@
                     <tr>
                         <td><strong>{{ $job->job_no }}</strong><br><span class="lj-muted">{{ $job->created_at->format('M d, Y') }}</span></td>
                         <td>{{ $job->displayCustomer() }}</td>
-                        <td style="max-width:220px;">
+                        <td style="max-width:280px;">
                             <div class="d-flex align-items-start gap-2">
                                 @if($job->reference_image_path)
                                 <img src="{{ asset('storage/' . $job->reference_image_path) }}" class="lj-thumb flex-shrink-0" style="cursor:pointer" onclick="showImage('{{ asset('storage/' . $job->reference_image_path) }}')">
                                 @endif
-                                <span class="text-truncate d-block" style="font-size:.85rem;">{{ $job->description ?: '—' }}</span>
+                                {{-- Layout notes / design info mula sa creation (textarea) — buo na, may line breaks --}}
+                                @if($job->description)
+                                <span class="d-block" title="{{ $job->description }}" style="font-size:.85rem;white-space:pre-line;max-height:4.9em;overflow:hidden;word-break:break-word;">{{ $job->description }}</span>
+                                @else
+                                <span class="lj-muted">—</span>
+                                @endif
                             </div>
                             @if($job->sale_id)
                             <a href="{{ route('sales.prototype.show', $job->sale_id) }}" target="_blank" rel="noopener" class="lj-badge verified mt-1 d-inline-block" style="text-decoration:none;"><i class="fas fa-link"></i> Sale #{{ $job->sale_id }}</a>
