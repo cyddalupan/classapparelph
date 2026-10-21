@@ -73,6 +73,7 @@
     .ps-bj-btn.qa:hover:not([disabled]) { background:#0a53be; }
     .ps-bj-btn.is-done { background:#198754; cursor:default; }
     .ps-bj-btn[disabled] { background:#e9ecef !important; color:#adb5bd !important; cursor:not-allowed; }
+    .ps-bj-wait { font-size:9px; font-weight:700; color:#8a5a00; background:#fff3cd; border:1px solid #ffe69c; border-radius:9px; padding:1px 6px; white-space:nowrap; flex-shrink:0; }
 
     .ps-comment-del { margin-left:auto; background:none; border:1px solid #dc3545; color:#dc3545; border-radius:4px; width:22px; height:22px; font-size:13px; font-weight:700; line-height:1; cursor:pointer; vertical-align:middle; flex-shrink:0; }
     .ps-comment-del:hover { background:#dc3545; color:#fff; }
@@ -4154,6 +4155,7 @@ function psCommentsHtml(saleId, chk) {
         h += '<div class="ps-comment-entry">';
         h += psBjButtons(c, 'markCommentDone(' + saleId + ',' + o.idx + ')', 'verifyComment(' + saleId + ',' + o.idx + ')');
         h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
+        h += (c.done && !c.verified) ? '<span class="ps-bj-wait" title="Na-done na ng GA — hinihintay ang QA verification">⏳ waiting QA</span>' : '';
         if (psCanEdit) {
             h += '<button type="button" class="ps-comment-del" onclick="askDeleteComment(' + saleId + ',' + o.idx + ')" title="Delete comment">✕</button>';
         }
@@ -4226,6 +4228,7 @@ function psProductCommentsHtml(saleId, itemId, map, legacyComments) {
             h += psBjButtons(c, 'markProductCommentDone(' + saleId + ',' + idArg + ',' + o.idx + ')', 'verifyProductComment(' + saleId + ',' + idArg + ',' + o.idx + ')');
         }
         h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
+        h += (c.done && !c.verified) ? '<span class="ps-bj-wait" title="Na-done na ng GA — hinihintay ang QA verification">⏳ waiting QA</span>' : '';
         if (psCanEdit && !isLegacy) {
             h += '<button type="button" class="ps-comment-del" onclick="askDeleteComment(' + saleId + ',' + o.idx + ',' + idArg + ',\'product\')" title="Delete comment">✕</button>';
         }
@@ -4285,6 +4288,7 @@ function psProjectCommentsHtml(saleId, itemId, map) {
         h += '<div class="ps-comment-entry">';
         h += psBjButtons(c, 'markProjectCommentDone(' + saleId + ',' + idArg + ',' + o.idx + ')', 'verifyProjectComment(' + saleId + ',' + idArg + ',' + o.idx + ')');
         h += '<span class="ps-comment-text">' + escHtml(c.text) + ' <span class="time">' + escHtml(c.at) + '</span></span>';
+        h += (c.done && !c.verified) ? '<span class="ps-bj-wait" title="Na-done na ng GA — hinihintay ang QA verification">⏳ waiting QA</span>' : '';
         if (psCanEdit) {
             h += '<button type="button" class="ps-comment-del" onclick="askDeleteComment(' + saleId + ',' + o.idx + ',' + idArg + ')" title="Delete comment">✕</button>';
         }
