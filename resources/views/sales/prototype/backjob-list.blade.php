@@ -356,6 +356,7 @@
         <table class="bj-table">
             <thead>
                 <tr>
+                    <th>Mock Up</th>
                     <th>Sales #</th>
                     <th>Backjob Comment</th>
                     <th>Project</th>
@@ -369,6 +370,13 @@
                 @forelse(($qaRows ?? []) as $q)
                     <tr data-dept="{{ $q['department_id'] ?? '' }}" data-agent="{{ $q['agent'] ?? '' }}"
                         onclick="if(!event.target.closest('form')) window.location.href='{{ route('sales.prototype.show', $q['sale_id']) }}'">
+                        <td>
+                            @if(!empty($q['mockup_url']))
+                                <img src="{{ $q['mockup_url'] }}" alt="mockup" style="width:72px;height:auto;max-height:80px;object-fit:contain;border-radius:6px;cursor:pointer;" title="Click to open order" onerror="this.style.display='none'">
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
                         <td style="white-space:nowrap;">
                             <strong style="font-size:11px;">{{ $q['sales_number'] }}</strong>
                         </td>
@@ -401,7 +409,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div style="padding:22px;text-align:center;color:#6c757d;">
                                 <i class="fas fa-clipboard-check" style="font-size:22px;color:#cfe2ff;"></i>
                                 <div style="font-size:12px;margin-top:6px;">Walang naka-queue — wala pang backjob na na-done ng GA.</div>
