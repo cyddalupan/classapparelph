@@ -11030,6 +11030,9 @@ SQL;
 
         // Build one row per ACTIVE backjob comment (not done, not deleted)
         $rows = [];
+        // Two-stage backjob (Andrew 2026-10-21): pag na-DONE ng GA, hindi agad nawawala —
+        // lumilipat sa QA Verification queue (done && !verified). Pag na-verify ng QA/COO/PM, saka lang fully closed.
+        $qaRows = [];
         $mockupCache = [];
         $getMockup = function ($sale) use (&$mockupCache) {
             if (isset($mockupCache[$sale->id])) return $mockupCache[$sale->id];
@@ -11054,15 +11057,15 @@ SQL;
                 continue;
             }
 
-            // Main slip comments (ga_notes) — show only the FIRST active (FIFO)
+            // Main slip comments (ga_notes) — FIFO: isang active row + isang for-QA row kada section
             $mainNotes = [];
             try { $mainNotes = json_decode($chk->ga_notes ?? '', true) ?: []; } catch (\Exception $e) { $mainNotes = []; }
             if (is_array($mainNotes)) {
-                foreach ($mainNotes as $c) {
-                    if (!is_array($c)) continue;
-                    if (!empty($c['deleted']) || !empty($c['done'])) continue;
-                    // First active comment found → this is the current backjob
-                    $rows[] = [
+                $seenActive = false;
+                $seenQa = false;
+                foreach ($mainNotes as $ci => $c) {
+                    if (!is_array($c) || !empty($c['deleted'])) continue;
+                    $base = [
                         'sale_id' => $chk->sale_id,
                         'sales_number' => $sale->sales_number,
                         'customer' => $sale->customer_name,
@@ -11071,12 +11074,25 @@ SQL;
                         'project' => 'Main Production Slip',
                         'text' => $c['text'] ?? '',
                         'at' => $c['at'] ?? '',
-                        'done' => false,
                         'mockup_url' => $getMockup($sale),
                         'priority' => $sale->priority ?? '',
                         'needed_by' => $sale->needed_by ?? '',
+                        'section' => 'main',
+                        'item_id' => '',
+                        'ci' => $ci,
                     ];
-                    break; // FIFO: only the earliest pending comment per section
+                    if (empty($c['done'])) {
+                        if ($seenActive) continue;
+                        $rows[] = $base + ['done' => false];
+                        $seenActive = true;
+                    } elseif (empty($c['verified']) && !$seenQa) {
+                        $qaRows[] = $base + [
+                            'done' => true,
+                            'done_by' => $c['done_by'] ?? '',
+                            'done_at' => $c['done_at'] ?? '',
+                        ];
+                        $seenQa = true;
+                    }
                 }
             }
 
@@ -11106,11 +11122,11 @@ SQL;
                     if (!is_array($comments)) continue;
                     $projName = $nameById[(string) $itemId] ?? 'Additional Project';
                     $projMockup = $mockupByItem[(string) $itemId] ?? $getMockup($sale);
-                    foreach ($comments as $c) {
-                        if (!is_array($c)) continue;
-                        if (!empty($c['deleted']) || !empty($c['done'])) continue;
-                        // First active comment for this project → current backjob
-                        $rows[] = [
+                    $seenActive = false;
+                    $seenQa = false;
+                    foreach ($comments as $ci => $c) {
+                        if (!is_array($c) || !empty($c['deleted'])) continue;
+                        $base = [
                             'sale_id' => $chk->sale_id,
                             'sales_number' => $sale->sales_number,
                             'customer' => $sale->customer_name,
@@ -11119,12 +11135,25 @@ SQL;
                             'project' => $projName,
                             'text' => $c['text'] ?? '',
                             'at' => $c['at'] ?? '',
-                            'done' => false,
                             'mockup_url' => $projMockup,
                             'priority' => $sale->priority ?? '',
                             'needed_by' => $sale->needed_by ?? '',
+                            'section' => 'additional',
+                            'item_id' => (string) $itemId,
+                            'ci' => $ci,
                         ];
-                        break; // FIFO: only the earliest pending comment per project
+                        if (empty($c['done'])) {
+                            if ($seenActive) continue;
+                            $rows[] = $base + ['done' => false];
+                            $seenActive = true;
+                        } elseif (empty($c['verified']) && !$seenQa) {
+                            $qaRows[] = $base + [
+                                'done' => true,
+                                'done_by' => $c['done_by'] ?? '',
+                                'done_at' => $c['done_at'] ?? '',
+                            ];
+                            $seenQa = true;
+                        }
                     }
                 }
             }
@@ -11137,11 +11166,11 @@ SQL;
                     if (!is_array($comments)) continue;
                     $projName = $nameById[(string) $itemId] ?? 'Main Product';
                     $projMockup = $mockupByItem[(string) $itemId] ?? $getMockup($sale);
-                    foreach ($comments as $c) {
-                        if (!is_array($c)) continue;
-                        if (!empty($c['deleted']) || !empty($c['done'])) continue;
-                        // First active comment for this product → current backjob
-                        $rows[] = [
+                    $seenActive = false;
+                    $seenQa = false;
+                    foreach ($comments as $ci => $c) {
+                        if (!is_array($c) || !empty($c['deleted'])) continue;
+                        $base = [
                             'sale_id' => $chk->sale_id,
                             'sales_number' => $sale->sales_number,
                             'customer' => $sale->customer_name,
@@ -11150,13 +11179,26 @@ SQL;
                             'project' => $projName,
                             'text' => $c['text'] ?? '',
                             'at' => $c['at'] ?? '',
-                            'done' => false,
                             'mockup_url' => $projMockup,
                             'priority' => $sale->priority ?? '',
                             'needed_by' => $sale->needed_by ?? '',
                             'kind' => 'backjob',
+                            'section' => 'product',
+                            'item_id' => (string) $itemId,
+                            'ci' => $ci,
                         ];
-                        break; // FIFO: only the earliest pending comment per product
+                        if (empty($c['done'])) {
+                            if ($seenActive) continue;
+                            $rows[] = $base + ['done' => false];
+                            $seenActive = true;
+                        } elseif (empty($c['verified']) && !$seenQa) {
+                            $qaRows[] = $base + [
+                                'done' => true,
+                                'done_by' => $c['done_by'] ?? '',
+                                'done_at' => $c['done_at'] ?? '',
+                            ];
+                            $seenQa = true;
+                        }
                     }
                 }
             }
@@ -11210,6 +11252,13 @@ SQL;
             return strcmp($b['at'], $a['at']);
         });
 
+        // For-QA queue: pinakabagong na-done ng GA ang nauuna
+        usort($qaRows, function ($a, $b) {
+            $ta = strtotime($a['done_at'] ?: $a['at']) ?: 0;
+            $tb = strtotime($b['done_at'] ?: $b['at']) ?: 0;
+            return $tb <=> $ta;
+        });
+
         // Attach sale created date for display
         foreach ($rows as $i => $r) {
             $s = \DB::table('prototype_sales')->select('created_at', 'status', 'kanban_status')->find($r['sale_id']);
@@ -11255,6 +11304,8 @@ SQL;
                 'added_at' => $c['at'] ?? '',
                 'action' => $isDel ? 'deleted' : 'done',
                 'by' => $by ?: '—',
+                'verified_by' => !empty($c['verified_by']) ? $c['verified_by'] : '',
+                'verified_at' => !empty($c['verified_at']) ? $c['verified_at'] : '',
                 'at' => $when ?: ($c['at'] ?? ''),
                 'sort_ts' => $parseWhen($when ?: ($c['at'] ?? '')),
             ];
@@ -11324,7 +11375,119 @@ SQL;
         usort($history, function ($a, $b) { return $b['sort_ts'] <=> $a['sort_ts']; });
         $history = array_slice($history, 0, 500);
 
-        return view('sales.prototype.backjob-list', compact('rows', 'departmentLabels', 'history'));
+        return view('sales.prototype.backjob-list', compact('rows', 'qaRows', 'departmentLabels', 'history'));
+    }
+
+    /**
+     * Stage 2 ng backjob — VERIFY (Andrew 2026-10-21).
+     * Pag na-DONE ng GA ang backjob comment, lumilipat ito sa QA Verification queue.
+     * Sino ang pwedeng mag-verify: QA, CEO/COO, Prod Manager (at admin/manager).
+     * Kapag na-verify na → fully closed: wala na sa Backjob List at QA List, nasa History na.
+     * Additive lang: bagong JSON keys (verified / verified_by / verified_at), walang schema change.
+     */
+    public function verifyBackjob(Request $request)
+    {
+        $user = auth()->user();
+        $canVerify = $user && (
+            $user->isAdmin()
+            || $user->isCoo()
+            || $user->isProdManager()
+            || $user->isQa()
+            || $user->isTrimmerQa()
+            || $user->role === 'manager'
+        );
+        if (!$canVerify) {
+            abort(403, 'QA, CEO/COO, o Production Manager lang ang pwedeng mag-verify ng backjob.');
+        }
+
+        $saleId = (int) $request->input('sale_id');
+        $section = (string) $request->input('section');
+        $itemId = (string) $request->input('item_id', '');
+        $ci = (int) $request->input('ci', -1);
+
+        $sale = \DB::table('prototype_sales')->find($saleId);
+        if (!$sale) {
+            abort(404);
+        }
+        if ($user->isClassScoped() && (int) $sale->department_id !== 4) {
+            abort(403, 'Class department only.');
+        }
+
+        $chk = \App\Models\ProductionChecklist::where('sale_id', $saleId)->first();
+        if (!$chk) {
+            return back()->with('error', 'Walang production checklist ang order na ito.');
+        }
+
+        $decode = function ($raw) {
+            try { return json_decode($raw ?? '', true) ?: []; } catch (\Exception $e) { return []; }
+        };
+
+        $arr = [];
+        if ($section === 'main') {
+            $arr = $decode($chk->ga_notes);
+        } elseif ($section === 'additional') {
+            $map = $decode($chk->additional_comments);
+            $arr = is_array($map) ? ($map[$itemId] ?? []) : [];
+        } elseif ($section === 'product') {
+            $map = $decode($chk->product_comments);
+            $arr = is_array($map) ? ($map[$itemId] ?? []) : [];
+        } else {
+            return back()->with('error', 'Invalid section.');
+        }
+
+        if (!isset($arr[$ci]) || !is_array($arr[$ci])) {
+            return back()->with('error', 'Hindi mahanap ang backjob comment (nabago na siguro — refresh lang).');
+        }
+        // Guard: kung iba na ang comment sa index na ito (may nagdagdag/nagbago), huwag i-verify.
+        $sentAt = (string) $request->input('at', '');
+        if ($sentAt !== '' && (string) ($arr[$ci]['at'] ?? '') !== $sentAt) {
+            return back()->with('error', 'Nagbago ang listahan — refresh at ulitin ang verify.');
+        }
+        if (!empty($arr[$ci]['deleted'])) {
+            return back()->with('error', 'Deleted na ang comment na ito.');
+        }
+        if (empty($arr[$ci]['done'])) {
+            return back()->with('error', 'Hindi pa na-done ng GA ang backjob na ito — wala pa sa QA queue.');
+        }
+        if (!empty($arr[$ci]['verified'])) {
+            return back()->with('success', 'Verified na ito dati — closed na.');
+        }
+
+        $arr[$ci]['verified'] = true;
+        $arr[$ci]['verified_by'] = $user->name;
+        $arr[$ci]['verified_at'] = now()->format('m/d H:i');
+
+        if ($section === 'main') {
+            $chk->ga_notes = json_encode(array_values($arr));
+        } elseif ($section === 'additional') {
+            $map = $decode($chk->additional_comments);
+            $map[$itemId] = array_values($arr);
+            $chk->additional_comments = json_encode($map);
+        } else {
+            $map = $decode($chk->product_comments);
+            $map[$itemId] = array_values($arr);
+            $chk->product_comments = json_encode($map);
+        }
+        $chk->save();
+
+        // Audit trail — additive, read-only sa History section
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $saleId,
+            'user_id' => $user->id,
+            'action' => 'backjob_verified',
+            'description' => 'Backjob verified (QA stage): ' . ($arr[$ci]['text'] ?? '')
+                . ' — GA done by ' . ($arr[$ci]['done_by'] ?? '?') . ', verified by ' . $user->name,
+            'details' => json_encode([
+                'section' => $section,
+                'item_id' => $itemId,
+                'index' => $ci,
+                'done_by' => $arr[$ci]['done_by'] ?? null,
+                'done_at' => $arr[$ci]['done_at'] ?? null,
+            ]),
+            'created_at' => now(),
+        ]);
+
+        return back()->with('success', 'Backjob verified — fully closed na. ✅');
     }
 
     /**

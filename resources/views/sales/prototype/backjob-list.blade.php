@@ -215,6 +215,7 @@
             <h2>🔧 Backjob List</h2>
             <div class="header-sub">
                 <span class="header-stat">🛠️ {{ count($rows) }} pending backjob(s)</span>
+                <span class="header-stat" style="background:#e7f5ff;color:#0b5ed7;">🔍 {{ count($qaRows ?? []) }} for QA verification</span>
                 <span class="header-stat">📦 {{ collect($rows)->pluck('sale_id')->unique()->count() }} order(s)</span>
                 <span class="header-stat">💡 mula sa Production Slip & Additional Production Slip</span>
             </div>
@@ -324,6 +325,86 @@
                                 <i class="fas fa-check-circle"></i>
                                 <h4>Wala pang pending backjob 🎉</h4>
                                 <p>Lahat ng backjob comments sa production slips ay tapos na o wala pang backjob.</p>
+                            </div>
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    @php
+        $canVerifyBj = auth()->user() && (
+            auth()->user()->isAdmin()
+            || auth()->user()->isCoo()
+            || auth()->user()->isProdManager()
+            || auth()->user()->isQa()
+            || auth()->user()->isTrimmerQa()
+            || auth()->user()->role === 'manager'
+        );
+    @endphp
+
+    <!-- 🔍 QA VERIFICATION — stage 2: na-DONE na ng GA, hinihintay ang verify ng QA/COO/PM -->
+    <div style="background:#fff;border-radius:12px;border:1px solid #cfe2ff;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.04);margin-top:18px;">
+        <div style="padding:12px 16px;background:#e7f5ff;border-bottom:1px solid #cfe2ff;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h5 style="margin:0;font-size:14px;color:#0b5ed7;">🔍 QA Verification Queue</h5>
+                <div style="font-size:11px;color:#4a6fa5;">Na-done na ng GA — kailangan ng verify ng QA / CEO / COO / Prod Manager bago tuluyang ma-close.</div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:#0b5ed7;">{{ count($qaRows ?? []) }} item(s)</span>
+        </div>
+        <table class="bj-table">
+            <thead>
+                <tr>
+                    <th>Sales #</th>
+                    <th>Backjob Comment</th>
+                    <th>Project</th>
+                    <th>Done by GA</th>
+                    <th>Customer</th>
+                    <th>Department</th>
+                    <th style="text-align:center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse(($qaRows ?? []) as $q)
+                    <tr data-dept="{{ $q['department_id'] ?? '' }}" data-agent="{{ $q['agent'] ?? '' }}"
+                        onclick="if(!event.target.closest('form')) window.location.href='{{ route('sales.prototype.show', $q['sale_id']) }}'">
+                        <td style="white-space:nowrap;">
+                            <strong style="font-size:11px;">{{ $q['sales_number'] }}</strong>
+                        </td>
+                        <td><div class="bj-comment">{{ $q['text'] ?: '—' }}</div></td>
+                        <td style="max-width:200px;"><span style="font-size:12px;">{{ \Illuminate\Support\Str::limit($q['project'], 40) }}</span></td>
+                        <td style="white-space:nowrap;font-size:11px;">
+                            <div style="font-weight:600;color:#198754;">✓ {{ $q['done_by'] ?: '—' }}</div>
+                            <div style="color:#999;">{{ $q['done_at'] ?: '' }}</div>
+                        </td>
+                        <td>{{ $q['customer'] ?: '—' }}</td>
+                        <td>
+                            @php $ql = $departmentLabels[$q['department_id']] ?? 'Other'; $qc = [1=>"#0d6efd",2=>"#198754",3=>"#dc3545",4=>"#6f42c1",5=>"#fd7e14",6=>"#6c757d"][$q['department_id']] ?? "#6c757d"; @endphp
+                            <span class="bj-dept" style="background:{{ $qc }};">{{ $ql }}</span>
+                        </td>
+                        <td style="text-align:center;white-space:nowrap;">
+                            @if($canVerifyBj)
+                                <form method="POST" action="{{ route('sales.prototype.backjobs.verify') }}" style="display:inline;" onsubmit="return confirm('I-verify ang backjob na ito? Fully closed na pag na-verify.');">
+                                    @csrf
+                                    <input type="hidden" name="sale_id" value="{{ $q['sale_id'] }}">
+                                    <input type="hidden" name="section" value="{{ $q['section'] ?? '' }}">
+                                    <input type="hidden" name="item_id" value="{{ $q['item_id'] ?? '' }}">
+                                    <input type="hidden" name="ci" value="{{ $q['ci'] ?? -1 }}">
+                                    <input type="hidden" name="at" value="{{ $q['at'] ?? '' }}">
+                                    <button type="submit" class="btn btn-sm" style="background:#0b5ed7;color:#fff;font-size:11px;padding:3px 10px;border-radius:8px;">✓ Verify</button>
+                                </form>
+                            @else
+                                <span class="text-muted" style="font-size:11px;">waiting</span>
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="7">
+                            <div style="padding:22px;text-align:center;color:#6c757d;">
+                                <i class="fas fa-clipboard-check" style="font-size:22px;color:#cfe2ff;"></i>
+                                <div style="font-size:12px;margin-top:6px;">Walang naka-queue — wala pang backjob na na-done ng GA.</div>
                             </div>
                         </td>
                     </tr>

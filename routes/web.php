@@ -986,6 +986,9 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // BACKJOB LIST route — all pending backjob comments from production slips
         Route::get('/sales/prototype/backjobs', [App\Http\Controllers\PrototypeSalesController::class, 'backjobList'])->name('sales.prototype.backjobs');
 
+        // BACKJOB stage 2 — QA/COO/PM verification (pag na-done na ng GA)
+        Route::post('/sales/prototype/backjobs/verify', [App\Http\Controllers\PrototypeSalesController::class, 'verifyBackjob'])->name('sales.prototype.backjobs.verify');
+
         // ARCHIVE routes
         Route::get('/sales/prototype/archived', [App\Http\Controllers\PrototypeSalesController::class, 'archived'])->name('sales.prototype.archived');
         Route::post('/sales/prototype/{id}/archive', [App\Http\Controllers\PrototypeSalesController::class, 'archive'])->name('sales.prototype.archive');
