@@ -6407,7 +6407,7 @@ $services = json_decode($sale->services, true);
             $bjMain = json_decode($chk->ga_notes ?? '', true) ?: [];
             if (is_array($bjMain)) {
                 foreach ($bjMain as $c) {
-                    if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
+                    if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
                 }
             }
 
@@ -6416,7 +6416,7 @@ $services = json_decode($sale->services, true);
                 foreach ($bjAdd as $itemId => $comments) {
                     if (!is_array($comments)) continue;
                     foreach ($comments as $c) {
-                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
+                        if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
                     }
                 }
             }
@@ -6426,7 +6426,7 @@ $services = json_decode($sale->services, true);
                 foreach ($bjProd as $itemId => $comments) {
                     if (!is_array($comments)) continue;
                     foreach ($comments as $c) {
-                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
+                        if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
                     }
                 }
             }
@@ -6724,7 +6724,7 @@ $services = json_decode($sale->services, true);
                 $bjMain = json_decode($bjChk->ga_notes ?? '', true) ?: [];
                 if (is_array($bjMain)) {
                     foreach ($bjMain as $c) {
-                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $bjLocked = true; $bjReasons['backjob'] = true; break 2; }
+                        if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $bjLocked = true; $bjReasons['backjob'] = true; break 2; }
                     }
                 }
                 foreach (['additional_comments', 'product_comments'] as $bjField) {
@@ -6733,7 +6733,7 @@ $services = json_decode($sale->services, true);
                     foreach ($bjData as $itemId => $comments) {
                         if (!is_array($comments)) continue;
                         foreach ($comments as $c) {
-                            if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $bjLocked = true; $bjReasons['backjob'] = true; break 3; }
+                            if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $bjLocked = true; $bjReasons['backjob'] = true; break 3; }
                         }
                     }
                 }
@@ -10655,7 +10655,7 @@ SQL;
                 if (isset($stlBackjobSaleIds[$sid])) continue;
                 // Main slip (ga_notes) — any active comment
                 foreach ((json_decode($chk->ga_notes ?? '', true) ?: []) as $c) {
-                    if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $stlBackjobSaleIds[$sid] = true; break; }
+                    if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $stlBackjobSaleIds[$sid] = true; break; }
                 }
                 if (isset($stlBackjobSaleIds[$sid])) continue;
                 // Additional + product comments (keyed by item id)
@@ -10666,7 +10666,7 @@ SQL;
                     foreach ($map as $comments) {
                         if (!is_array($comments)) continue;
                         foreach ($comments as $c) {
-                            if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $hit = true; break 2; }
+                            if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $hit = true; break 2; }
                         }
                     }
                     if ($hit) { $stlBackjobSaleIds[$sid] = true; break; }
@@ -11709,13 +11709,13 @@ SQL;
             $active = 0;
             $mainNotes = json_decode($chk->ga_notes ?? '', true) ?: [];
             foreach ((array) $mainNotes as $c) {
-                if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $active++; break; }
+                if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $active++; break; }
             }
             if (!$active) {
                 $addMap = json_decode($chk->additional_comments ?? '', true) ?: [];
                 foreach ((array) $addMap as $comments) {
                     foreach ((array) $comments as $c) {
-                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $active++; break; }
+                        if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $active++; break; }
                     }
                     if ($active) break;
                 }
@@ -11724,7 +11724,7 @@ SQL;
                 $prodMap = json_decode($chk->product_comments ?? '', true) ?: [];
                 foreach ((array) $prodMap as $comments) {
                     foreach ((array) $comments as $c) {
-                        if (is_array($c) && empty($c['deleted']) && empty($c['done'])) { $active++; break; }
+                        if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $active++; break; }
                     }
                     if ($active) break;
                 }
