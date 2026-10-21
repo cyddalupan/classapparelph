@@ -101,16 +101,24 @@
     <div class="row g-2 mb-3">
         <div class="col-md-4">
             <div class="lj-stat">
-                <div class="lbl">My Available Credit (Total Layout)</div>
-                <div class="val">₱{{ number_format($credit, 2) }}</div>
+                <div class="lbl">{{ $credit < 0 ? 'Utang sa Company (Layout)' : 'My Available Credit (Total Layout)' }}</div>
+                <div class="val" style="{{ $credit < 0 ? 'color:#b91c1c;' : '' }}">₱{{ number_format($credit, 2) }}</div>
+                @if($credit < 0)
+                <div class="lj-muted">⚠️ Sobra na ang nakuha mong payout kaysa sa earned mo. Bawas ito sa mga susunod na layout job — kumuha ng bagong job para mawala ang negative.</div>
+                @else
                 <div class="lj-muted">done + verified na layout jobs, minus lahat ng na-request nang payout (requested/paid/verified). Bawas agad pag nag-request ka para hindi mag-double.</div>
+                @endif
             </div>
         </div>
         <div class="col-md-8">
             <div class="lj-stat d-flex align-items-center justify-content-between flex-wrap gap-2" style="min-height:100%;">
                 <div>
                     <div class="lbl">Payout Request</div>
+                    @if($credit <= 0)
+                    <div class="lj-muted">Wala pang pwedeng i-request — kailangan mo munang magkaroon ng bagong layout job para mabayaran ang negative/utang.</div>
+                    @else
                     <div class="lj-muted">Mag-request ng payout — buo o partial (max ₱{{ number_format($credit, 2) }}). Pwede kang maglagay ng amount, account number/name, picture proof, at notes.</div>
+                    @endif
                 </div>
                 <button class="btn btn-dark btn-sm" onclick="openPayoutModal()" {{ $credit <= 0 ? 'disabled' : '' }}>
                     <i class="fas fa-hand-holding-usd"></i> Request Payout

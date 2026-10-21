@@ -465,45 +465,17 @@ class LayoutJobController extends Controller
             ->sum('amount');
     }
 
-    /** GA credit computation — clamped sa 0 (para walang negative na mahihingi). */
+    /**
+     * GA credit computation — PEDENG NEGATIVE (Andrew 2026-10-21).
+     * Kapag nag-negative, ibig sabihin sobra na ang nakuha niyang payout kaysa sa
+     * earned niya → may "utang" siya sa company na nababawasan pag may bagong job.
+     */
     public function gaCredit(int $gaUserId): float
     {
         $earned = (float) $this->gaEarnedQuery($gaUserId)->sum('amount');
         $reserved = $this->gaReserved($gaUserId);
 
-        return max(0, round($earned - $reserved, 2));
-    }
-
-    /**
-     * Hiiram na kita ng job kung sakaling mabago ang amount/doer (Andrew 2026-10-21).
-     * Ginagamit para hindi hayaang maging negative ang balanse ng doer pagkatapos
-     * may nakuha nang payout.
-     */
-    private function jobEarnedImpact(LayoutJob $job, float $newAmount, ?int $newGaId = null): float
-    {
-        $counts = $job->status === 'done'
-            && ($job->sale_id || $job->cancelled_at)
-            && (
-                ($job->type === 'paid' && ($job->payment_status === 'verified' || $job->amount_set_by))
-                || ($job->type === 'free' && $newAmount > 0)
-            );
-        if (!$counts) {
-            return 0.0;
-        }
-        $gaId = $newGaId ?: (int) $job->ga_user_id;
-        if ($gaId !== (int) $job->ga_user_id) {
-            return 0.0; // lumipat sa ibang doer — ibang balanse ang apektado
-        }
-
-        return round($newAmount - (float) $job->amount, 2);
-    }
-
-    /** Balanse ng doer pagkatapos ng hypothetical na pagbabago (para sa guard). */
-    private function projectedCredit(int $gaUserId, float $earnedDelta = 0.0): float
-    {
-        $earned = (float) $this->gaEarnedQuery($gaUserId)->sum('amount');
-
-        return round($earned + $earnedDelta - $this->gaReserved($gaUserId), 2);
+        return round($earned - $reserved, 2);
     }
 
     /**
@@ -837,26 +809,9 @@ class LayoutJobController extends Controller
         $newGa = \App\Models\User::find($data['ga_user_id']);
         $oldGaId = $job->ga_user_id;
 
-        // Guard (Andrew 2026-10-21): kung nakuha na ng dating doer ang bayad para sa job na ito,
-        // bababa ang earned niya — i-block kung mag-negative ang balanse niya.
-        $jobEarned = (float) $job->amount;
-        $countsForEarned = $job->status === 'done'
-            && ($job->sale_id || $job->cancelled_at)
-            && (
-                ($job->type === 'paid' && ($job->payment_status === 'verified' || $job->amount_set_by))
-                || ($job->type === 'free' && $jobEarned > 0)
-            );
-        if ($countsForEarned && $oldGaId && $jobEarned > 0) {
-            $projected = $this->projectedCredit((int) $oldGaId, -$jobEarned);
-            if ($projected < -0.001) {
-                $oldName = $job->gaUser?->name ?? 'layout doer';
-
-                return response()->json([
-                    'error' => 'Hindi pwedeng ilipat — sobra na ang nakuha ni ' . $oldName . ' (kulang ₱'
-                        . number_format(abs($projected), 2) . '). I-adjust o i-reject muna ang payout niya bago ilipat ang job.',
-                ], 422);
-            }
-        }
+        // Note (Andrew 2026-10-21): OK lang ma-transfer sa ibang doer kahit nakuha na ng
+        // dating doer ang bayad — mag-negative lang siya (utang sa company) at
+        // mababayaran iyon pag may bago siyang job.
 
         $wasDone = $job->status === 'done';
         $update = [
@@ -922,23 +877,6 @@ class LayoutJobController extends Controller
         }
 
         $amount = (float) $request->validate(['amount' => 'required|numeric|min:0'])['amount'];
-
-        // Guard (Andrew 2026-10-21): baka nakuha na ng doer ang payout tapos babaan ang amount
-        // → mag-negative ang balanse. I-block at ipakita ang sobra.
-        if ($job->ga_user_id) {
-            $delta = $this->jobEarnedImpact($job, $amount);
-            if (abs($delta) > 0.001) {
-                $projected = $this->projectedCredit((int) $job->ga_user_id, $delta);
-                if ($projected < -0.001) {
-                    $gaName = $job->gaUser?->name ?? 'layout doer';
-
-                    return response()->json([
-                        'error' => 'Hindi pwedeng gawing ₱' . number_format($amount, 2) . ' — sobra na ang nakuha ni ' . $gaName
-                            . ' (kulang ₱' . number_format(abs($projected), 2) . '). I-adjust o i-reject muna ang payout bago baguhin ang amount.',
-                    ], 422);
-                }
-            }
-        }
 
         $job->update([
             'amount' => $amount,
@@ -1014,6 +952,12 @@ class LayoutJobController extends Controller
 
         $amount = round((float) $data['amount'], 2);
         $available = $this->gaCredit($gaUserId);
+        if ($available <= 0) {
+            return response()->json([
+                'error' => 'Wala kang available credit ngayon — may utang ka pang ₱' . number_format(abs($available), 2)
+                    . ' sa company (sobra ang naunang payout). Kailangan mo munang magkaroon ng bagong layout job para mabayaran ito.',
+            ], 422);
+        }
         if ($amount > $available + 0.001) {
             return response()->json([
                 'error' => 'Halagang ₱' . number_format($amount, 2) . ' ay lampas sa available credit mo (₱' . number_format($available, 2) . ').',
