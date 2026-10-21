@@ -15,6 +15,7 @@ class LayoutJob extends Model
         'payment_status', 'payment_verified_by', 'payment_verified_at', 'payment_reject_reason',
         'payment_resubmit_count', 'payment_last_reject_reason', 'payment_last_reject_at',
         'ga_user_id', 'assigned_by', 'assigned_at',
+        'retagged_at', 'retagged_by', 'retag_locked_until', 'retag_count',
         'status', 'done_by', 'done_at',
         'payout_id', 'payout_requested_at',
         'sale_id', 'linked_to_sale_at',
@@ -32,6 +33,8 @@ class LayoutJob extends Model
         'payout_requested_at' => 'datetime',
         'linked_to_sale_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'retagged_at' => 'datetime',
+        'retag_locked_until' => 'datetime',
     ];
 
     /* ------------------------------------------------------------------

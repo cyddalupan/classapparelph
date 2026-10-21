@@ -30,6 +30,9 @@ use App\Services\ImageOptimizer;
  */
 class LayoutJobController extends Controller
 {
+    /** Ilang araw na lock bago pwedeng i-done ulit pagkatapos ng retag/undo (Andrew 2026-10-21) */
+    private const RETAG_LOCK_DAYS = 7;
+
     /* ------------------------------------------------------------------
      * Permission helpers
      * ---------------------------------------------------------------- */
@@ -648,17 +651,20 @@ class LayoutJobController extends Controller
         $u = auth()->user();
         $job = LayoutJob::findOrFail($id);
 
-        if ($job->status !== 'open') {
-            return response()->json(['error' => 'Done na ang job na ito — hindi na pwedeng i-retag.'], 422);
-        }
+        $isCurrentGa = $job->gaUser && (int) $job->ga_user_id === (int) $u->id;
+
         if ($job->isCancelled()) {
             return response()->json(['error' => 'Naka-marka na itong "Hindi Tumuloy" — hindi na pwedeng i-retag.'], 422);
         }
         if ($job->payout_id) {
             return response()->json(['error' => 'May payout request na ito — sarado na.'], 422);
         }
-        if ((int) $job->created_by !== (int) $u->id && !$this->canReview()) {
-            return response()->json(['error' => 'Ikaw lang ang gumawa ng job na ito (o approver) ang pwedeng mag-retag.'], 403);
+        if (!in_array($job->status, ['open', 'done'], true)) {
+            return response()->json(['error' => 'Hindi pwedeng i-retag sa status na ito.'], 422);
+        }
+        // Done na + hindi ikaw ang naka-tag + hindi ka creator/approver → bawal.
+        if ((int) $job->created_by !== (int) $u->id && !$this->canReview() && !$isCurrentGa) {
+            return response()->json(['error' => 'Ang gumawa, ang naka-tag na layout doer, o approver lang ang pwedeng mag-retag/undo.'], 403);
         }
 
         $data = $request->validate([
@@ -676,13 +682,37 @@ class LayoutJobController extends Controller
         $newGa = \App\Models\User::find($data['ga_user_id']);
         $oldGaId = $job->ga_user_id;
 
-        $job->update([
+        $wasDone = $job->status === 'done';
+        $update = [
             'ga_user_id'  => (int) $data['ga_user_id'],
             'assigned_by' => $u->id,
             'assigned_at' => now(),
-        ]);
+            'retagged_at' => now(),
+            'retagged_by' => $u->id,
+            'retag_count' => (int) $job->retag_count + 1,
+        ];
 
-        return response()->json(['ok' => true, 'ga_user_id' => (int) $data['ga_user_id'], 'ga' => $newGa?->name, 'previous_ga_user_id' => $oldGaId]);
+        // Undo mula done → balik sa open, may 7-day lock bago pwedeng i-done ulit.
+        $lockUntil = null;
+        if ($wasDone) {
+            $lockUntil = now()->addDays(self::RETAG_LOCK_DAYS);
+            $update['status'] = 'open';
+            $update['done_by'] = null;
+            $update['done_at'] = null;
+            $update['retag_locked_until'] = $lockUntil;
+        }
+
+        $job->update($update);
+
+        return response()->json([
+            'ok' => true,
+            'ga_user_id' => (int) $data['ga_user_id'],
+            'ga' => $newGa?->name,
+            'previous_ga_user_id' => $oldGaId,
+            'undone' => $wasDone,
+            'locked_until' => $lockUntil?->toIso8601String(),
+            'lock_days' => self::RETAG_LOCK_DAYS,
+        ]);
     }
 
     /**
@@ -726,6 +756,14 @@ class LayoutJobController extends Controller
         }
         if ($job->status === 'done') {
             return response()->json(['error' => 'Done na ang job na ito.'], 422);
+        }
+        // Anti-abuse: pagka-retag/undo, may 7-day lock bago pwedeng i-done ulit.
+        if ($job->retag_locked_until && now()->lt($job->retag_locked_until)) {
+            $daysLeft = (int) ceil(now()->diffInSeconds($job->retag_locked_until, false) / 86400);
+            return response()->json([
+                'error' => 'Naka-lock pa ang job na ito hanggang ' . $job->retag_locked_until->timezone('Asia/Manila')->format('M d, Y g:i A')
+                    . ' (' . max(1, $daysLeft) . ' araw pa) dahil na-retag/undo — hindi pa pwedeng i-done.',
+            ], 422);
         }
 
         $job->update([

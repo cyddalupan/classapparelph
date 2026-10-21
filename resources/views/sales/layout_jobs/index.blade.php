@@ -341,7 +341,27 @@
                             @elseif($job->payout_id)
                             <span class="lj-badge requested">💸 Payout #{{ $job->payout_id }} ({{ $job->payout?->status ?? '' }})</span>
                             @else
+                            @php
+                                $canRetagRow = ($mode ?? 'personal') !== 'global'
+                                    && !$job->isCancelled() && !$job->payout_id
+                                    && (auth()->id() === $job->created_by || $isApprover || auth()->id() === $job->ga_user_id);
+                                $retagLocked = $job->retag_locked_until && now()->lt($job->retag_locked_until);
+                            @endphp
+                            @if($job->status === 'done' && $canRetagRow)
+                            {{-- Clickable status → undo + change tag (may confirmation) --}}
+                            <a href="javascript:void(0)" class="text-decoration-none" title="I-click para i-undo / i-retag sa ibang doer"
+                               onclick="openRetag({{ $job->id }}, '{{ $job->job_no }}', {{ (int) $job->ga_user_id }}, '{{ addslashes($job->gaUser?->name ?? '') }}', 'done')">
+                                <span class="lj-badge done">✓ Done <i class="fas fa-sync-alt" style="font-size:9px;"></i></span>
+                            </a>
+                            @else
                             <span class="lj-badge {{ $job->status === 'done' ? 'done' : 'open' }}">{{ $job->status === 'done' ? '✓ Done' : 'Open' }}</span>
+                            @endif
+                            @if($retagLocked && $job->status === 'open')
+                            <br><span class="lj-muted" style="font-size:11px;" title="Naka-lock pagkatapos ng retag/undo"><i class="fas fa-lock"></i> done lock hanggang {{ $job->retag_locked_until->timezone('Asia/Manila')->format('M d, Y') }}</span>
+                            @endif
+                            @if($job->retag_count > 0)
+                            <br><span class="lj-muted" style="font-size:11px;"><i class="fas fa-retweet"></i> na-retag {{ $job->retag_count }}x</span>
+                            @endif
                             @endif
                         </td>
                         <td class="text-end">
@@ -369,16 +389,20 @@
                                 {{-- Spec: ang nag-create lang ang pwedeng mag-link; bayad = verified muna, libre = pwede agad (Andrew 2026-09-17) --}}
                                 <button class="btn btn-sm btn-outline-primary lj-btn-mini mb-1" onclick="openLinkSale({{ $job->id }}, '{{ $job->job_no }}')">Link Sale</button>
                             @endif
-                            @if(($mode ?? 'personal') !== 'global' && $job->status === 'open' && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
-                            {{-- Retag ng layout doer habang open (Andrew 2026-10-21) — may nagkakamali ng tag --}}
-                            <button class="btn btn-sm btn-outline-dark lj-btn-mini mb-1" onclick="openRetag({{ $job->id }}, '{{ $job->job_no }}', {{ (int) $job->ga_user_id }}, '{{ addslashes($job->gaUser?->name ?? '') }}')">🔁 Retag</button>
+                            @if(($mode ?? 'personal') !== 'global' && in_array($job->status, ['open', 'done']) && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover || auth()->id() === $job->ga_user_id))
+                            {{-- Retag / undo ng layout doer (Andrew 2026-10-21) — may nagkakamali ng tag. Done → undo + 7-day lock. --}}
+                            <button class="btn btn-sm btn-outline-dark lj-btn-mini mb-1" onclick="openRetag({{ $job->id }}, '{{ $job->job_no }}', {{ (int) $job->ga_user_id }}, '{{ addslashes($job->gaUser?->name ?? '') }}', '{{ $job->status }}')">🔁 {{ $job->status === 'done' ? 'Undo / Retag' : 'Retag' }}</button>
                             @endif
                             @if(($mode ?? 'personal') !== 'global' && !$job->sale_id && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
                             {{-- "Hindi Tumuloy" — personal list lang (Andrew 2026-10-21: hindi na sa Layout Job List) — libreng layout na walang sale (hindi tumuloy ang client). Andrew 2026-09-29 --}}
                             <button class="btn btn-sm btn-outline-secondary lj-btn-mini mb-1" onclick="openCancelJob({{ $job->id }}, '{{ $job->job_no }}', '{{ $job->isFree() ? 'libre' : 'bayad' }}')">🚫 Hindi Tumuloy</button>
                             @endif
                             @if($job->gaUser && auth()->id() === $job->ga_user_id && $job->status === 'open' && !$job->payout_id && !$job->isCancelled())
-                            <button class="btn btn-sm btn-primary lj-btn-mini mb-1" onclick="markDone({{ $job->id }})">✓ Done</button>
+                                @if($job->retag_locked_until && now()->lt($job->retag_locked_until))
+                                <button class="btn btn-sm btn-secondary lj-btn-mini mb-1" disabled title="Naka-lock hanggang {{ $job->retag_locked_until->timezone('Asia/Manila')->format('M d, Y g:i A') }}">✓ Done 🔒</button>
+                                @else
+                                <button class="btn btn-sm btn-primary lj-btn-mini mb-1" onclick="markDone({{ $job->id }})">✓ Done</button>
+                                @endif
                             @endif
                             @if($isApprover && $job->payout_id && in_array($job->payout?->status, ['requested','paid']))
                             <button class="btn btn-sm btn-warning lj-btn-mini mb-1" onclick="openPayPayout({{ $job->payout_id }})">💸 Pay Payout</button>
@@ -491,6 +515,9 @@
     <div class="modal-header"><h6 class="modal-title">🔁 Retag ng Layout Doer <span class="lj-muted" id="retagJobNoLabel"></span></h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
         <p class="lj-muted mb-2">Kasalukuyang naka-tag: <b id="retagCurrentGa">—</b>. Pwede pang palitan hangga't <b>open</b> pa ang job.</p>
+        <div id="retagUndoNote" style="display:none;" class="mb-2 p-2 rounded" style="background:#fef2f2;border:1px solid #fecaca;font-size:12px;">
+            <b>⚠️ Done na ang job na ito.</b> Pag i-retag mo, <b>ma-undo ang Done</b> → balik sa <b>Open</b>, at <b>hindi pwedeng i-mark done ng 7 araw</b> (anti-abuse sa credit).
+        </div>
         <label class="lj-muted">Bagong Layout Doer</label>
         <select id="retagGa" class="form-select">
             <option value="">— piliin ang layout doer —</option>
@@ -501,7 +528,7 @@
         <input type="hidden" id="retagJobId">
         <input type="hidden" id="retagCurrentId">
     </div>
-    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-dark" onclick="submitRetag()">I-retag</button></div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-dark" id="retagSubmitBtn" onclick="submitRetag()">I-retag</button></div>
 </div></div></div>
 
 {{-- Re-upload payment after rejection (Andrew 2026-10-21) --}}
@@ -653,12 +680,16 @@ function submitCancelJob() {
     }).then(r => r.json()).then(d => { alert(d.error || 'Na-marka na: Hindi Tumuloy ✓'); if (!d.error) location.reload(); });
 }
 
-function openRetag(id, jobNo, currentId, currentName) {
+function openRetag(id, jobNo, currentId, currentName, status) {
     document.getElementById('retagJobId').value = id;
     document.getElementById('retagCurrentId').value = currentId || '';
     document.getElementById('retagJobNoLabel').textContent = jobNo ? '(' + jobNo + ')' : '';
     document.getElementById('retagCurrentGa').textContent = currentName || '—';
     document.getElementById('retagGa').value = '';
+    const isDone = status === 'done';
+    document.getElementById('retagUndoNote').style.display = isDone ? 'block' : 'none';
+    document.getElementById('retagSubmitBtn').textContent = isDone ? 'Undo at I-retag' : 'I-retag';
+    document.getElementById('retagSubmitBtn').className = isDone ? 'btn btn-danger' : 'btn btn-dark';
     bootstrap.Modal.getOrCreateInstance(document.getElementById('retagModal')).show();
 }
 
@@ -669,13 +700,25 @@ function submitRetag() {
     if (String(gaId) === String(document.getElementById('retagCurrentId').value)) {
         return alert('Siya na ang naka-tag — pumili ng iba.');
     }
+    const isUndo = document.getElementById('retagUndoNote').style.display === 'block';
+    if (isUndo) {
+        const ok = confirm('UNDO + RETAG\n\nBabalik sa OPEN ang job na ito at mawawala ang "Done" ni ' +
+            (document.getElementById('retagCurrentGa').textContent || 'kasalukuyang doer') +
+            '.\n\nPagka-retag, HINDI pwedeng i-mark done ng 7 araw.\n\nSigurado ka ba?');
+        if (!ok) return;
+    } else {
+        if (!confirm('I-retag ang layout doer? Lilipat ang job sa account ng bagong doer.')) return;
+    }
     fetch('/sales/layout-jobs/' + id + '/retag', {
         method: 'POST',
         headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: JSON.stringify({ga_user_id: gaId})
     }).then(r => r.json()).then(d => {
-        alert(d.error || (d.message ? 'Error: ' + d.message : 'Na-retag kay ' + (d.ga || 'bagong GA') + ' ✓'));
-        if (!d.error && !d.message) location.reload();
+        if (d.error || d.message) return alert(d.error || ('Error: ' + d.message));
+        let msg = 'Na-retag kay ' + (d.ga || 'bagong GA') + ' ✓';
+        if (d.undone) msg += '\n\nNa-undo ang Done → balik sa Open. Naka-lock ng 7 araw bago pwedeng i-done ulit.';
+        alert(msg);
+        location.reload();
     }).catch(() => alert('May error — subukan ulit.'));
 }
 
