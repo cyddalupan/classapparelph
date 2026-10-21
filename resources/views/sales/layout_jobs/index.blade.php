@@ -73,10 +73,10 @@
             </div>
             <div class="d-flex gap-2 flex-wrap">
                 @if(($mode ?? 'personal') === 'global')
-                <button class="btn btn-warning btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#payoutReqPanel" aria-expanded="{{ (isset($payoutRequests) && $payoutRequests->isNotEmpty()) ? 'true' : 'false' }}">
+                <a href="{{ route('sales.layout-jobs.payouts') }}" class="btn btn-warning btn-sm">
                     <i class="fas fa-hand-holding-usd"></i> Payout Requests
                     <span class="badge bg-dark ms-1">{{ isset($payoutRequests) ? $payoutRequests->count() : 0 }}</span>
-                </button>
+                </a>
                 @endif
                 @if(in_array(auth()->user()->role, ['admin','coo','cpo','cmo']))
                 <a href="{{ route('sales.layout-jobs.dashboard') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-chart-line"></i> Layout Dashboard</a>
@@ -111,52 +111,7 @@
     </div>
     @endif
 
-    @if(($mode ?? 'personal') === 'global')
-    <div class="collapse {{ (isset($payoutRequests) && $payoutRequests->isNotEmpty()) ? 'show' : '' }}" id="payoutReqPanel">
-    @if(isset($payoutRequests) && $payoutRequests->isNotEmpty())
-    {{-- Approver: lahat ng pending payout requests (requested/paid) --}}
-    <div class="lj-card mb-3">
-        <div class="p-3">
-            <h6 class="mb-1">💸 Payout Requests <span class="lj-badge requested">{{ $payoutRequests->count() }} pending</span></h6>
-            <div class="lj-muted mb-2">Mga payout request ng layout-doers — i-check ang account details at magbayad. Bawas agad sa available credit nila pag na-request.</div>
-            <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0 align-middle">
-                    <thead class="table-light"><tr><th>#</th><th>Layout Doer</th><th>Amount</th><th>Account Details</th><th>Notes</th><th>Status</th><th class="text-end">Action</th></tr></thead>
-                    <tbody>
-                    @foreach($payoutRequests as $p)
-                    <tr>
-                        <td>#{{ $p->id }}</td>
-                        <td>
-                            @if($p->gaUser)
-                                <x-user-chip :user="$p->gaUser" :size="18" />
-                            @else
-                                —
-                            @endif
-                        </td>
-                        <td class="lj-amount">₱{{ number_format($p->amount, 2) }}</td>
-                        <td>
-                            <div>{{ $p->account_name ?: '—' }} {{ $p->account_number ? '· ' . $p->account_number : '' }}</div>
-                            @if($p->account_proof_path)
-                            <a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $p->account_proof_path) }}')"><i class="fas fa-image"></i> view proof</a>
-                            @endif
-                        </td>
-                        <td class="lj-muted" style="max-width:200px;">{{ $p->request_notes ?: '—' }}</td>
-                        <td><span class="lj-badge {{ $p->status === 'paid' ? 'pending' : 'requested' }}">{{ $p->status }}</span></td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-warning lj-btn-mini" onclick="openPayPayout({{ $p->id }})">💸 Pay</button>
-                        </td>
-                    </tr>
-                    @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    @else
-    <div class="lj-card mb-3"><div class="p-3 lj-muted text-center">Walang pending payout request ngayon. 👍</div></div>
-    @endif
-    </div>
-    @endif
+    {{-- Payout Requests: may sariling page na (Andrew 2026-10-21) — /sales/layout-jobs/payouts --}}
 
     @if(($mode ?? 'personal') !== 'global' && isset($payoutRequests) && $payoutRequests->isNotEmpty())
     {{-- GA: sariling payout requests history --}}

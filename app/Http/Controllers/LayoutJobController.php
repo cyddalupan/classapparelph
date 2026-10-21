@@ -180,6 +180,30 @@ class LayoutJobController extends Controller
     }
 
     /**
+     * Payout Requests — sariling page na (Andrew 2026-10-21).
+     * Dati naka-collapse/dropdown lang sa Layout Job List (All).
+     */
+    public function payouts(Request $request)
+    {
+        if (!$this->canReview()) {
+            abort(403, 'Unauthorized.');
+        }
+
+        $pending = LayoutJobPayout::with('gaUser')
+            ->whereIn('status', ['requested', 'paid'])
+            ->orderByDesc('id')->get();
+
+        $history = LayoutJobPayout::with('gaUser')
+            ->whereIn('status', ['verified', 'rejected'])
+            ->orderByDesc('id')->limit(100)->get();
+
+        $payoutMap = $this->buildPayoutMap(collect(), $pending);
+        $paymentAccounts = $this->paymentAccounts();
+
+        return view('sales.layout_jobs.payouts', compact('pending', 'history', 'payoutMap', 'paymentAccounts'));
+    }
+
+    /**
      * Layout Dashboard (Andrew 2026-09-17) — per layout-doer money view:
      *   Earned (nakamagkano na) · Nabigay na (given) · Pending request · Available (pwede pa makuha).
      * Approvers (admin/coo/cpo/cmo) lang ang may access.
