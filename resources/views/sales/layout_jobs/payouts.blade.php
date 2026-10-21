@@ -55,21 +55,28 @@
     </div>
 
     <div class="row g-2 mb-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="lj-stat">
                 <div class="lbl">Pending Requests</div>
-                <div class="val">{{ $pending->count() }}</div>
-                <div class="lj-muted">requested / paid (hinihintay pa ang payout)</div>
+                <div class="val">{{ $pending->where('status', 'requested')->count() }}</div>
+                <div class="lj-muted">requested — hindi pa bayad</div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="lj-stat">
                 <div class="lbl">Pending Amount</div>
-                <div class="val">₱{{ number_format($pending->sum('amount'), 2) }}</div>
+                <div class="val">₱{{ number_format($pending->where('status', 'requested')->sum('amount'), 2) }}</div>
                 <div class="lj-muted">kabuuang halagang hinihintay bayaran</div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="lj-stat">
+                <div class="lbl">For Verification</div>
+                <div class="val">{{ $pending->where('status', 'paid')->count() }}</div>
+                <div class="lj-muted">bayad na — hintay ang confirm ng GA</div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="lj-stat">
                 <div class="lbl">Bayad na (history)</div>
                 <div class="val">{{ $history->where('status', 'verified')->count() }}</div>

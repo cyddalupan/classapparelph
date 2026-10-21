@@ -75,7 +75,16 @@
                 @if(($mode ?? 'personal') === 'global')
                 <a href="{{ route('sales.layout-jobs.payouts') }}" class="btn btn-warning btn-sm">
                     <i class="fas fa-hand-holding-usd"></i> Payout Requests
-                    <span class="badge bg-dark ms-1">{{ isset($payoutRequests) ? $payoutRequests->count() : 0 }}</span>
+                    @php
+                        // Badge = requested lang (hindi pa bayad). Yung paid na ay "for verification" na —
+                        // hindi na pending request (Andrew 2026-10-21).
+                        $badgeRequested = isset($payoutRequests) ? $payoutRequests->where('status', 'requested')->count() : 0;
+                        $badgePaid = isset($payoutRequests) ? $payoutRequests->where('status', 'paid')->count() : 0;
+                    @endphp
+                    <span class="badge bg-dark ms-1">{{ $badgeRequested }}</span>
+                    @if($badgePaid > 0)
+                    <span class="badge bg-success ms-1" title="Bayad na — hinihintay ang confirm ng layout doer o verify ng approver">✓ {{ $badgePaid }}</span>
+                    @endif
                 </a>
                 @endif
                 @if(in_array(auth()->user()->role, ['admin','coo','cpo','cmo']))
