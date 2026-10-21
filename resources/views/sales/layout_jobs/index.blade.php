@@ -308,6 +308,12 @@
                                 @if($job->payment_screenshot_path)
                                 <br><a href="javascript:void(0)" class="lj-muted" onclick="showImage('{{ asset('storage/' . $job->payment_screenshot_path) }}')"><i class="fas fa-receipt"></i> view proof</a>
                                 @endif
+                                @if($ps === 'rejected' && $job->payment_reject_reason)
+                                <br><span class="text-danger" style="font-size:11px;" title="{{ $job->payment_reject_reason }}">✗ {{ \Illuminate\Support\Str::limit($job->payment_reject_reason, 45) }}</span>
+                                @endif
+                                @if($ps === 'pending' && $job->payment_resubmit_count > 0)
+                                <br><span class="lj-muted" style="font-size:11px;"><i class="fas fa-redo"></i> re-upload #{{ $job->payment_resubmit_count }}</span>
+                                @endif
                             @else
                             <span class="lj-muted">N/A (libre)</span>
                             @endif
@@ -345,6 +351,10 @@
                                 $accOwnerId = $job->paymentAccount?->user_id;
                                 $canVerifyPay = auth()->user()->isAdmin() || ($accOwnerId && auth()->id() === $accOwnerId);
                             @endphp
+                            @if($job->isPaid() && $job->payment_status === 'rejected' && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
+                            {{-- Rejected payment → pwedeng mag-upload ulit ng proof/ref (Andrew 2026-10-21) --}}
+                            <button class="btn btn-sm btn-outline-danger lj-btn-mini mb-1" onclick="openResubmitPayment({{ $job->id }}, '{{ $job->job_no }}', {{ (int) $job->payment_account_id }}, '{{ addslashes($job->payment_reference ?? '') }}')">📤 Upload Payment Ulit</button>
+                            @endif
                             @if($mode === 'global' && $job->isPaid() && $job->payment_status === 'pending' && $canVerifyPay)
                                 {{-- Verify/Reject sa personal list ay inalis — nasa Payment Verification hub na ang pag-verify ng sariling account (2026-09-08). Sa All list lang ito para sa company accounts at admin review. --}}
                                 <button class="btn btn-sm btn-success lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'verify')">Verify Pay</button>
@@ -472,6 +482,35 @@
     </div>
 </div></div></div>
 
+{{-- Re-upload payment after rejection (Andrew 2026-10-21) --}}
+<div class="modal fade" id="resubmitPaymentModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">📤 Upload Payment Ulit <span class="lj-muted" id="resubmitJobNoLabel"></span></h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <p class="lj-muted mb-2">Na-reject ang payment na ito. Mag-upload ng <b>bagong</b> reference at/o bagong screenshot — babalik ito sa verifier bilang <b>Pending</b>.</p>
+        <label class="lj-muted">Payment Account</label>
+        <select id="resubmitAccount" class="form-select mb-2">
+            <option value="">— piliin ang account —</option>
+            @foreach($paymentAccounts ?? [] as $pa)
+            <option value="{{ $pa->id }}">{{ $pa->name }}</option>
+            @endforeach
+        </select>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="lj-muted">Reference #</label>
+                <input type="text" id="resubmitRef" class="form-control" placeholder="Transaction / ref #">
+            </div>
+            <div class="col-6">
+                <label class="lj-muted">Date ng Payment</label>
+                <input type="date" id="resubmitDate" class="form-control" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}">
+            </div>
+        </div>
+        <label class="lj-muted">Payment Screenshot (bagong proof)</label>
+        <input type="file" id="resubmitProof" class="form-control" accept="image/*">
+        <input type="hidden" id="resubmitJobId">
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-danger" onclick="submitResubmitPayment()">I-submit Ulit</button></div>
+</div></div></div>
+
 {{-- Payout request modal (GA) --}}
 <div class="modal fade" id="payoutModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h6 class="modal-title">💸 Request Payout</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -590,6 +629,36 @@ function submitCancelJob() {
         headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: JSON.stringify({reason: reason})
     }).then(r => r.json()).then(d => { alert(d.error || 'Na-marka na: Hindi Tumuloy ✓'); if (!d.error) location.reload(); });
+}
+
+function openResubmitPayment(id, jobNo, accountId, ref) {
+    document.getElementById('resubmitJobId').value = id;
+    document.getElementById('resubmitJobNoLabel').textContent = jobNo ? '(' + jobNo + ')' : '';
+    document.getElementById('resubmitAccount').value = accountId ? String(accountId) : '';
+    document.getElementById('resubmitRef').value = ref || '';
+    document.getElementById('resubmitDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('resubmitProof').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('resubmitPaymentModal')).show();
+}
+
+function submitResubmitPayment() {
+    const id = document.getElementById('resubmitJobId').value;
+    const ref = document.getElementById('resubmitRef').value.trim();
+    const proof = document.getElementById('resubmitProof').files[0];
+    if (!ref && !proof) return alert('Maglagay ng bagong reference # O bagong screenshot.');
+    const fd = new FormData();
+    fd.append('payment_account_id', document.getElementById('resubmitAccount').value || '');
+    fd.append('payment_reference', ref);
+    fd.append('payment_date', document.getElementById('resubmitDate').value || '');
+    if (proof) fd.append('payment_screenshot', proof);
+    fetch('/sales/layout-jobs/' + id + '/resubmit-payment', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
+        body: fd
+    }).then(r => r.json()).then(d => {
+        alert(d.error || (d.message ? 'Error: ' + d.message : 'Naka-submit ulit — balik sa Pending ✓'));
+        if (!d.error && !d.message) location.reload();
+    }).catch(() => alert('May error sa upload — subukan ulit.'));
 }
 
 function markDone(id) {

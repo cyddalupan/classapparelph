@@ -558,6 +558,85 @@ class LayoutJobController extends Controller
     }
 
     /**
+     * Re-upload ng payment pagkatapos ma-reject (Andrew 2026-10-21).
+     *
+     * Kapag rejected na ang payment, hindi na dedead-end ang job: ang gumawa
+     * (created_by) o approver ay pwedeng mag-upload ulit ng bagong proof/ref.
+     * Nire-reset ang payment_status pabalik sa 'pending' → balik sa verifier.
+     * Ini-archive ang huling reject reason (last_reject_*) para may audit trail.
+     */
+    public function resubmitPayment(Request $request, int $id)
+    {
+        $u = auth()->user();
+        $job = LayoutJob::with('paymentAccount')->findOrFail($id);
+
+        if (!$job->isPaid()) {
+            return response()->json(['error' => 'Libre na layout ito — walang payment na ire-resubmit.'], 422);
+        }
+        if ($job->isCancelled()) {
+            return response()->json(['error' => 'Naka-marka na itong "Hindi Tumuloy" — hindi na pwedeng mag-upload ng payment.'], 422);
+        }
+        if ($job->payout_id) {
+            return response()->json(['error' => 'May payout request na ito — sarado na ang payment nito.'], 422);
+        }
+        // Re-upload lang kapag rejected. Pending/verified = sarado.
+        if ($job->payment_status !== 'rejected') {
+            return response()->json(['error' => 'Hindi pa na-reject ang payment na ito — hintayin ang verifier.'], 422);
+        }
+        // Ang gumawa lang (o approver) ang pwedeng mag-upload ulit.
+        if ((int) $job->created_by !== (int) $u->id && !$this->canReview()) {
+            return response()->json(['error' => 'Ikaw lang ang gumawa ng job na ito (o approver) ang pwedeng mag-upload ulit ng payment.'], 403);
+        }
+
+        $data = $request->validate([
+            'payment_account_id' => 'nullable|integer|exists:payment_accounts,id',
+            'payment_reference'  => 'nullable|string|max:255',
+            'payment_date'       => 'nullable|date|before_or_equal:today',
+            'payment_screenshot' => 'nullable|image|max:5120',
+        ]);
+
+        if (empty($data['payment_reference']) && !$request->hasFile('payment_screenshot')) {
+            return response()->json(['error' => 'Maglagay ng bagong reference number O bagong payment screenshot.'], 422);
+        }
+
+        $accountName = $job->payment_method;
+        if (!empty($data['payment_account_id'])) {
+            $account = PaymentAccount::where('is_active', true)->find($data['payment_account_id']);
+            if (!$account) {
+                return response()->json(['error' => 'Hindi valid ang payment account na pinili.'], 422);
+            }
+            $accountName = $account->name;
+        }
+
+        $payPath = $job->payment_screenshot_path;
+        if ($request->hasFile('payment_screenshot')) {
+            $payPath = ImageOptimizer::store($request->file('payment_screenshot'), 'layout-jobs/payment', 'public');
+        }
+
+        $job->update([
+            'payment_account_id'      => $data['payment_account_id'] ?? $job->payment_account_id,
+            'payment_method'          => $accountName,
+            'payment_reference'       => $data['payment_reference'] ?? $job->payment_reference,
+            'payment_date'            => $data['payment_date'] ?? now()->toDateString(),
+            'payment_screenshot_path' => $payPath,
+            // Archive muna ang huling reject bago i-reset → balik sa verifier
+            'payment_last_reject_reason' => $job->payment_reject_reason,
+            'payment_last_reject_at'     => now(),
+            'payment_reject_reason'   => null,
+            'payment_status'          => 'pending',
+            'payment_verified_by'     => null,
+            'payment_verified_at'     => null,
+            'payment_resubmit_count'  => (int) $job->payment_resubmit_count + 1,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'payment_status' => 'pending',
+            'resubmit_count' => (int) $job->payment_resubmit_count,
+        ]);
+    }
+
+    /**
      * Approver: maglagay ng amount sa libreng layout job → reflect sa GA + history.
      */
     public function setAmount(Request $request, int $id)

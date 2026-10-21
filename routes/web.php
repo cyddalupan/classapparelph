@@ -1111,6 +1111,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
             Route::get('/sales/layout-jobs/create', [App\Http\Controllers\LayoutJobController::class, 'create'])->name('sales.layout-jobs.create');
             Route::post('/sales/layout-jobs', [App\Http\Controllers\LayoutJobController::class, 'store'])->name('sales.layout-jobs.store');
             Route::post('/sales/layout-jobs/{id}/verify-payment', [App\Http\Controllers\LayoutJobController::class, 'verifyPayment'])->name('sales.layout-jobs.verify-payment');
+            Route::post('/sales/layout-jobs/{id}/resubmit-payment', [App\Http\Controllers\LayoutJobController::class, 'resubmitPayment'])->name('sales.layout-jobs.resubmit-payment');
             Route::post('/sales/layout-jobs/{id}/set-amount', [App\Http\Controllers\LayoutJobController::class, 'setAmount'])->name('sales.layout-jobs.set-amount');
             Route::post('/sales/layout-jobs/{id}/done', [App\Http\Controllers\LayoutJobController::class, 'done'])->name('sales.layout-jobs.done');
             Route::post('/sales/layout-jobs/payout-request', [App\Http\Controllers\LayoutJobController::class, 'requestPayout'])->name('sales.layout-jobs.payout-request');
