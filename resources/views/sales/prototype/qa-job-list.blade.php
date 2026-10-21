@@ -56,6 +56,17 @@
         font-size: 12.5px; color: #1f2937; vertical-align: middle;
     }
     .qa-table-card tbody tr:hover { background: #f9fbfd; }
+    .qa-table-card tbody tr.qa-row { cursor: pointer; }
+    .qa-table-card tbody tr.qa-row:hover { background: #eefaf8; }
+    .qa-sales-link { color: #0f766e; text-decoration: none; font-weight: 800; }
+    .qa-sales-link:hover { text-decoration: underline; }
+    .qa-open-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 10px; border-radius: 9px; font-size: 11px; font-weight: 700;
+        background: #ecfdf5; color: #0f766e; border: 1px solid #a7f3d0; text-decoration: none;
+        white-space: nowrap;
+    }
+    .qa-open-btn:hover { background: #0f766e; color: #fff; border-color: #0f766e; }
 
     .sales-no { font-weight: 800; color: #0f766e; font-size: 12.5px; }
     .sales-date { font-size: 10.5px; color: #94a3b8; }
@@ -202,6 +213,7 @@
                         <th>Due Date</th>
                         <th>Department</th>
                         <th>Customer</th>
+                        <th class="text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -244,9 +256,9 @@
                                 else                     { $dueInfo = ['#10b981', '🟢 ' . $diffDays . 'd left']; }
                             }
                         @endphp
-                        <tr>
+                        <tr class="qa-row" data-href="{{ route('sales.prototype.show', $sale->id) }}">
                             <td style="max-width:150px;">
-                                <div class="sales-no">{{ $sale->sales_number }}</div>
+                                <a href="{{ route('sales.prototype.show', $sale->id) }}" class="qa-sales-link" onclick="event.stopPropagation()">{{ $sale->sales_number }}</a>
                                 <div class="sales-date">{{ \Carbon\Carbon::parse($sale->created_at)->format('M d, Y') }}</div>
                                 @if($sale->is_delayed)<span class="qa-chip delayed">⏰ Delayed</span>@endif
                                 @if(!empty($sale->priority))<span class="qa-chip prio">⭐ Prio {{ $sale->priority }}</span>@endif
@@ -277,10 +289,13 @@
                             <td style="max-width:200px;">
                                 <div style="font-weight:600;font-size:12px;">{{ $sale->customer_name ?: '—' }}</div>
                             </td>
+                            <td class="text-center">
+                                <a href="{{ route('sales.prototype.show', $sale->id) }}" class="qa-open-btn" onclick="event.stopPropagation()"><i class="fas fa-up-right-from-square"></i> Open</a>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-5">
+                            <td colspan="9" class="text-center text-muted py-5">
                                 <i class="fas fa-inbox fa-2x d-block mb-2" style="color:#cbd5e1;"></i>
                                 Walang job na naka-tag na SEWING / QA / DISPATCH sa ngayon.
                             </td>
@@ -292,4 +307,16 @@
         <div class="p-3">{{ $sales->links() }}</div>
     </div>
 </div>
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('tr.qa-row[data-href]').forEach(function (row) {
+        row.addEventListener('click', function (e) {
+            if (e.target.closest('a, button, input, select, label')) return;
+            window.location.href = row.dataset.href;
+        });
+    });
+});
+</script>
+@endpush
 @endsection
