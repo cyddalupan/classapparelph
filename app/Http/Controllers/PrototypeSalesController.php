@@ -5207,9 +5207,22 @@ $services = json_decode($sale->services, true);
                 $query->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) IS NULL')
                     ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) ASC');
             })
-            ->orderByRaw("CASE WHEN is_delayed = 1 THEN 0 ELSE 1 END")
+            // ── HIERARCHY (Andrew 2026-10-21) ─────────────────────────────
+            // 1) DISPATCH sa PINAKABABA (tapos na sa QA/SEWING)
+            // 2) Priority list muna (⭐ 1,2,3...)
+            // 3) Overdue → Due today → Due soon (≤3d) → Later → Walang due date
+            // 4) Pinakabago ang nauna sa loob ng parehong grupo
+            ->orderByRaw("CASE WHEN production_stage = 'DISPATCH' THEN 1 ELSE 0 END")
             ->orderByRaw("CASE WHEN priority IS NOT NULL THEN 0 ELSE 1 END")
             ->orderBy('priority', 'asc')
+            ->orderByRaw("CASE
+                WHEN COALESCE(rescheduled_date, estimated_completion_date) IS NULL THEN 4
+                WHEN DATE(COALESCE(rescheduled_date, estimated_completion_date)) < CURDATE() THEN 0
+                WHEN DATE(COALESCE(rescheduled_date, estimated_completion_date)) = CURDATE() THEN 1
+                WHEN DATE(COALESCE(rescheduled_date, estimated_completion_date)) <= DATE_ADD(CURDATE(), INTERVAL 3 DAY) THEN 2
+                ELSE 3
+            END")
+            ->orderByRaw('COALESCE(rescheduled_date, estimated_completion_date) ASC')
             ->orderBy('created_at', 'desc')
             ->paginate(50)
             ->withQueryString();
