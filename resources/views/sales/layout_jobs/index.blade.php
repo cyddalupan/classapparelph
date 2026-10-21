@@ -380,6 +380,10 @@
                                 <button class="btn btn-sm btn-success lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'verify')">Verify Pay</button>
                                 <button class="btn btn-sm btn-danger lj-btn-mini mb-1" onclick="verifyPayment({{ $job->id }}, 'reject')">Reject</button>
                             @endif
+                            @if(($mode ?? 'personal') !== 'global' && $job->isFree() && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
+                            {{-- Libre → biglang nagbayad ang client: i-upload ang payment → magiging BAYAD (Andrew 2026-10-21) --}}
+                            <button class="btn btn-sm btn-outline-success lj-btn-mini mb-1" onclick="openFreePayment({{ $job->id }}, '{{ $job->job_no }}')">💳 Upload Payment</button>
+                            @endif
                             @if($isApprover)
                                 @php
                                     // Amount: libre (may sale O hindi tumuloy) ; bayad (rejected, CEO/COO lang)
@@ -514,6 +518,43 @@
         <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
         <button class="btn btn-danger" id="cancelJobBtn" disabled onclick="submitCancelJob()">Oo, Hindi Tumuloy</button>
     </div>
+</div></div></div>
+
+{{-- Libre → Bayad: upload payment modal (Andrew 2026-10-21) --}}
+<div class="modal fade" id="freePaymentModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">💳 Upload Payment <span class="lj-muted" id="freePayJobNoLabel"></span></h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <p class="lj-muted mb-2">Libre ang layout na ito — kung nagbayad pala ang client, i-upload dito. Magiging <b>BAYAD</b> ang job at lalabas sa Payment column, tapos i-verify ng verifier.</p>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="lj-muted">Amount (₱)</label>
+                <input type="number" id="freePayAmount" class="form-control" min="0.01" step="0.01" placeholder="0.00">
+            </div>
+            <div class="col-6">
+                <label class="lj-muted">Payment Account</label>
+                <select id="freePayAccount" class="form-select">
+                    <option value="">— piliin —</option>
+                    @foreach($paymentAccounts ?? [] as $pa)
+                    <option value="{{ $pa->id }}">{{ $pa->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="lj-muted">Reference #</label>
+                <input type="text" id="freePayRef" class="form-control" placeholder="Transaction / ref #">
+            </div>
+            <div class="col-6">
+                <label class="lj-muted">Date ng Payment</label>
+                <input type="date" id="freePayDate" class="form-control" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}">
+            </div>
+        </div>
+        <label class="lj-muted">Payment Screenshot</label>
+        <input type="file" id="freePayProof" class="form-control" accept="image/*">
+        <input type="hidden" id="freePayJobId">
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" onclick="submitFreePayment()">I-upload at gawing BAYAD</button></div>
 </div></div></div>
 
 {{-- Retag layout doer modal (habang open pa) --}}
@@ -684,6 +725,44 @@ function submitCancelJob() {
         headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: JSON.stringify({reason: reason})
     }).then(r => r.json()).then(d => { alert(d.error || 'Na-marka na: Hindi Tumuloy ✓'); if (!d.error) location.reload(); });
+}
+
+function openFreePayment(id, jobNo) {
+    document.getElementById('freePayJobId').value = id;
+    document.getElementById('freePayJobNoLabel').textContent = jobNo ? '(' + jobNo + ')' : '';
+    document.getElementById('freePayAmount').value = '';
+    document.getElementById('freePayAccount').value = '';
+    document.getElementById('freePayRef').value = '';
+    document.getElementById('freePayDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('freePayProof').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('freePaymentModal')).show();
+}
+
+function submitFreePayment() {
+    const id = document.getElementById('freePayJobId').value;
+    const amount = document.getElementById('freePayAmount').value;
+    const account = document.getElementById('freePayAccount').value;
+    const ref = document.getElementById('freePayRef').value.trim();
+    const proof = document.getElementById('freePayProof').files[0];
+    if (!amount || Number(amount) <= 0) return alert('Ilagay ang amount na binayad.');
+    if (!account) return alert('Piliin kung saang account binayad.');
+    if (!ref && !proof) return alert('Maglagay ng reference # O screenshot ng payment.');
+    if (!confirm('Gawing BAYAD ang libreng layout na ito at i-submit sa verifier?')) return;
+    const fd = new FormData();
+    fd.append('amount', amount);
+    fd.append('payment_account_id', account);
+    fd.append('payment_reference', ref);
+    fd.append('payment_date', document.getElementById('freePayDate').value || '');
+    if (proof) fd.append('payment_screenshot', proof);
+    fetch('/sales/layout-jobs/' + id + '/upload-payment', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'},
+        body: fd
+    }).then(r => r.json()).then(d => {
+        if (d.error || d.message) return alert(d.error || ('Error: ' + d.message));
+        alert('Naka-upload ✓ BAYAD na ang job — hintayin ang verification.');
+        location.reload();
+    }).catch(() => alert('May error sa upload — subukan ulit.'));
 }
 
 function openRetag(id, jobNo, currentId, currentName, status) {

@@ -647,6 +647,71 @@ class LayoutJobController extends Controller
     }
 
     /**
+     * Libre → Bayad: nagbayad pala ang client (Andrew 2026-10-21).
+     *
+     * May mga client na una libre ang layout tapos biglang magbabayad. Kapag
+     * nag-upload ng payment ang gumawa (o approver), magiging BAYAD na ang job
+     * at lalabas na ang payment details/proof sa Payment column.
+     */
+    public function uploadFreePayment(Request $request, int $id)
+    {
+        $u = auth()->user();
+        $job = LayoutJob::findOrFail($id);
+
+        if (!$job->isFree()) {
+            return response()->json(['error' => 'Bayad na ang layout na ito — may payment na.'], 422);
+        }
+        if ($job->isCancelled()) {
+            return response()->json(['error' => 'Naka-marka na itong "Hindi Tumuloy" — hindi na pwedeng lagyan ng payment.'], 422);
+        }
+        if ($job->payout_id) {
+            return response()->json(['error' => 'May payout request na ito — sarado na.'], 422);
+        }
+        if ((int) $job->created_by !== (int) $u->id && !$this->canReview()) {
+            return response()->json(['error' => 'Ikaw lang ang gumawa ng job na ito (o approver) ang pwedeng mag-upload ng payment.'], 403);
+        }
+
+        $data = $request->validate([
+            'amount'             => 'required|numeric|min:0.01',
+            'payment_account_id' => 'required|integer|exists:payment_accounts,id',
+            'payment_reference'  => 'nullable|string|max:255',
+            'payment_date'       => 'nullable|date|before_or_equal:today',
+            'payment_screenshot' => 'nullable|image|max:5120',
+        ]);
+
+        $account = PaymentAccount::where('is_active', true)->find($data['payment_account_id']);
+        if (!$account) {
+            return response()->json(['error' => 'Hindi valid ang payment account na pinili.'], 422);
+        }
+        if (empty($data['payment_reference']) && !$request->hasFile('payment_screenshot')) {
+            return response()->json(['error' => 'Maglagay ng reference number O payment screenshot.'], 422);
+        }
+
+        $payPath = null;
+        if ($request->hasFile('payment_screenshot')) {
+            $payPath = ImageOptimizer::store($request->file('payment_screenshot'), 'layout-jobs/payment', 'public');
+        }
+
+        $job->update([
+            'type'               => 'paid',
+            'amount'             => round((float) $data['amount'], 2),
+            'amount_set_by'      => null,
+            'amount_set_at'      => null,
+            'payment_method'     => $account->name,
+            'payment_account_id' => (int) $data['payment_account_id'],
+            'payment_reference'  => $data['payment_reference'] ?? null,
+            'payment_date'       => $data['payment_date'] ?? now()->toDateString(),
+            'payment_screenshot_path' => $payPath,
+            'payment_status'     => 'pending',
+            'payment_verified_by' => null,
+            'payment_verified_at' => null,
+            'payment_reject_reason' => null,
+        ]);
+
+        return response()->json(['ok' => true, 'type' => 'paid', 'payment_status' => 'pending']);
+    }
+
+    /**
      * Retag ng Layout Doer habang OPEN pa ang job (Andrew 2026-10-21).
      *
      * May mga user na nagkakamali ng tag. Hangga't hindi pa done ang job
