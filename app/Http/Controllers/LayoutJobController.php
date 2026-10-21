@@ -1011,6 +1011,42 @@ class LayoutJobController extends Controller
     }
 
     /**
+     * Layout doer confirms na pumasok/natanggap na niya ang payout (Andrew 2026-10-21).
+     *
+     * Kapag na-mark na 'paid' ng approver (may proof ng bayad), pwede nang
+     * i-confirm ng GA na natanggap niya → status 'verified' + received_by/at.
+     * Sariling payout lang ang pwedeng i-confirm.
+     */
+    public function confirmReceipt(Request $request, int $payoutId)
+    {
+        $u = auth()->user();
+        $payout = LayoutJobPayout::findOrFail($payoutId);
+
+        if ((int) $payout->ga_user_id !== (int) $u->id) {
+            return response()->json(['error' => 'Sariling payout request mo lang ang pwedeng i-confirm.'], 403);
+        }
+        if ($payout->status === 'verified') {
+            return response()->json(['error' => 'Verified na ang payout na ito.'], 422);
+        }
+        if ($payout->status === 'rejected') {
+            return response()->json(['error' => 'Rejected ang payout na ito — hindi pwedeng i-confirm.'], 422);
+        }
+        if ($payout->status !== 'paid') {
+            return response()->json(['error' => 'Hintayin munang mabayaran ng approver bago ka mag-confirm na natanggap mo na.'], 422);
+        }
+
+        $payout->update([
+            'status'       => 'verified',
+            'received_by'  => $u->id,
+            'received_at'  => now(),
+            'verified_by'  => $u->id,
+            'verified_at'  => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'status' => 'verified']);
+    }
+
+    /**
      * Approver/creator: ilink ang bayad na layout job sa sale.
      * LIBRE = HINDI pwedeng i-link (spec ni Andrew).
      */

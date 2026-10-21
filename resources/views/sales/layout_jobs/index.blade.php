@@ -121,7 +121,7 @@
             <div class="lj-muted mb-2">Nasa review ng approver ang requested. Bawas agad sa available credit mo ang requested/paid/verified.</div>
             <div class="table-responsive">
                 <table class="table table-sm table-hover mb-0 align-middle">
-                    <thead class="table-light"><tr><th>#</th><th>Amount</th><th>Account Details</th><th>Notes</th><th>Status</th><th>Requested</th></tr></thead>
+                    <thead class="table-light"><tr><th>#</th><th>Amount</th><th>Account Details</th><th>Notes</th><th>Status</th><th>Requested</th><th class="text-end">Action</th></tr></thead>
                     <tbody>
                     @foreach($payoutRequests as $p)
                     <tr>
@@ -139,6 +139,14 @@
                         <td class="lj-muted" style="max-width:200px;">{{ $p->request_notes ?: '—' }}</td>
                         <td><span class="lj-badge {{ in_array($p->status, ['requested', 'pending']) ? 'requested' : ($p->status === 'rejected' ? 'rejected' : 'verified') }}">{{ $p->status }}</span></td>
                         <td class="lj-muted">{{ $p->requested_at?->format('M d, Y h:i A') }}</td>
+                        <td class="text-end">
+                            @if($p->status === 'paid')
+                            {{-- Bayad na ng approver (may proof) → GA confirm na natanggap niya (Andrew 2026-10-21) --}}
+                            <button class="btn btn-sm btn-success lj-btn-mini" onclick="confirmReceipt({{ $p->id }}, {{ (float) $p->amount }})">✅ Natanggap ko na</button>
+                            @else
+                            <span class="lj-muted">—</span>
+                            @endif
+                        </td>
                     </tr>
                     @endforeach
                     </tbody>
@@ -718,6 +726,17 @@ function submitFreePayment() {
         alert('Naka-upload ✓ BAYAD na ang job — hintayin ang verification.');
         location.reload();
     }).catch(() => alert('May error sa upload — subukan ulit.'));
+}
+
+function confirmReceipt(payoutId, amount) {
+    if (!confirm('Kinumpirma mo bang NATANGGAP mo na ang ₱' + Number(amount).toLocaleString(undefined, {minimumFractionDigits: 2}) + ' na payout?\n\nPag na-confirm, maitatak na itong VERIFIED.')) return;
+    fetch('/sales/layout-jobs/payout/' + payoutId + '/confirm-receipt', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json'}
+    }).then(r => r.json()).then(d => {
+        alert(d.error || 'Confirmed ✓ Salamat!');
+        if (!d.error) location.reload();
+    }).catch(() => alert('May error — subukan ulit.'));
 }
 
 function openRetag(id, jobNo, currentId, currentName, status) {

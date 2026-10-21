@@ -14,6 +14,7 @@ class LayoutJobPayout extends Model
         'account_name', 'account_number', 'account_proof_path',
         'payment_method', 'payment_reference', 'payment_proof_path',
         'paid_by', 'paid_at',
+        'received_by', 'received_at',
         'verified_by', 'verified_at', 'reject_reason',
     ];
 
@@ -21,6 +22,7 @@ class LayoutJobPayout extends Model
         'amount' => 'float',
         'requested_at' => 'datetime',
         'paid_at' => 'datetime',
+        'received_at' => 'datetime',
         'verified_at' => 'datetime',
     ];
 

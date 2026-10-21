@@ -1119,6 +1119,7 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
             Route::post('/sales/layout-jobs/{id}/done', [App\Http\Controllers\LayoutJobController::class, 'done'])->name('sales.layout-jobs.done');
             Route::post('/sales/layout-jobs/payout-request', [App\Http\Controllers\LayoutJobController::class, 'requestPayout'])->name('sales.layout-jobs.payout-request');
             Route::post('/sales/layout-jobs/payout/{payoutId}/pay', [App\Http\Controllers\LayoutJobController::class, 'payPayout'])->name('sales.layout-jobs.payout-pay');
+            Route::post('/sales/layout-jobs/payout/{payoutId}/confirm-receipt', [App\Http\Controllers\LayoutJobController::class, 'confirmReceipt'])->name('sales.layout-jobs.payout-confirm-receipt');
             Route::post('/sales/layout-jobs/{id}/link-sale', [App\Http\Controllers\LayoutJobController::class, 'linkSale'])->name('sales.layout-jobs.link-sale');
             Route::post('/sales/layout-jobs/{id}/cancel', [App\Http\Controllers\LayoutJobController::class, 'cancel'])->name('sales.layout-jobs.cancel');
             Route::get('/sales/layout-jobs/pending-counts', [App\Http\Controllers\LayoutJobController::class, 'pendingCounts'])->name('sales.layout-jobs.pending-counts');
