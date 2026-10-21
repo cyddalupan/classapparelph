@@ -1783,7 +1783,9 @@ public function details(Request $request, string $id)
         $currentUser = auth()->user();
         $isManager = $currentUser && $currentUser->isManager();
         // GA role: simplified read-only view (no phone, payments, order items, audit history)
-        $isGa = $currentUser && $currentUser->isGa();
+        // Trimmer/QA (Andrew 2026-10-21): parehong restricted view — walang Add Product,
+        // Reprocess Order, Payment, Balance, Payment History. Visibility lang sa production.
+        $isGa = $currentUser && ($currentUser->isGa() || $currentUser->isTrimmerQa());
         // Sales agents can view the production slip but cannot modify it (checklist, GA/QA boxes, comments)
         $canEditProdSlip = $currentUser && !$currentUser->isSalesAgent();
         // COO can give production feedback too (but is NOT a manager otherwise)
