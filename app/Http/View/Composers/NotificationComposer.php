@@ -418,6 +418,8 @@ class NotificationComposer
 
     /**
      * Active backjob comments + open freebie slips.
+     * Kasama na rin ang GA-done-but-unverified (QA Verification Queue) — Andrew 2026-10-21:
+     * pending pa rin ang backjob hangga't hindi na-verify ng QA/CEO/COO/PM.
      * Mirrors the backjobCount computation in PrototypeSalesController::list().
      * $classDept = 4 → Class only; null → all departments.
      */
@@ -444,7 +446,7 @@ class NotificationComposer
 
             // Main slip comments (a flat list)
             foreach (json_decode($chk->ga_notes ?? '', true) ?: [] as $c) {
-                if (is_array($c) && empty($c['deleted']) && empty($c['done'])) {
+                if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) {
                     $hasActive = true;
                     break;
                 }
@@ -458,7 +460,7 @@ class NotificationComposer
                             continue;
                         }
                         foreach ($comments as $c) {
-                            if (is_array($c) && empty($c['deleted']) && empty($c['done'])) {
+                            if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) {
                                 $hasActive = true;
                                 break 2;
                             }
