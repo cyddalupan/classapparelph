@@ -128,6 +128,9 @@
 #progressPanel .pg-bar > span { display:block; height:100%; background:#10b981; }
 #progressPanel .pg-kv { display:flex; justify-content:space-between; gap:.6rem; font-size:.83rem; padding:.2rem 0; }
 #progressPanel .pg-kv b { color:#0f172a; }
+#progressPanel .pg-sub { font-size:.78rem; font-weight:600; margin-top:.3rem; line-height:1.35; }
+#progressPanel .pg-sub.ok { color:#15803d; }
+#progressPanel .pg-sub.warn { color:#b45309; }
 #progressPanel .pg-note { margin-top:.5rem; background:#eff6ff; border-left:3px solid #3b82f6; color:#1e40af; font-size:.82rem; font-weight:600; padding:.5rem .7rem; border-radius:6px; line-height:1.35; }
 #progressPanel .pg-bj { font-size:.8rem; padding:.45rem .6rem; border-radius:8px; margin-bottom:.35rem; }
 #progressPanel .pg-bj.pending { background:#fef3c7; color:#92400e; }
@@ -1291,6 +1294,50 @@ function pgDate(v) {
     if (isNaN(d)) return pgEsc(v);
     return d.toLocaleString('en-PH', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
 }
+function slipNote(label, v, stage) {
+    var st = String(stage || '').toUpperCase();
+    if (!v.total) {
+        return '<div class="pg-sub" style="color:#94a3b8;">Wala pang checklist na naitala dito.</div>';
+    }
+    var rowsLeft = Math.max(0, v.total - v.done);
+    var pcsLeft = Math.max(0, (v.pcs_total || 0) - (v.pcs_done || 0));
+
+    if (rowsLeft === 0) {
+        var msg = '';
+        if (label === 'GA') {
+            msg = 'Completo na sa GA — tapos na ang gawa, susunod na ang QA1.';
+        } else if (label === 'QA1') {
+            if (st === 'SEWING') {
+                msg = 'Completo na sa QA1, naka-tag pa na SEWING — possible tinatahi na lahat, wait mo na lang ma-QA.';
+            } else if (st === 'QA') {
+                msg = 'Completo na sa QA1 at QA na ang tag — hinihintay na lang ang QA2/final check.';
+            } else {
+                msg = 'Completo na sa QA1 — wait mo na lang ang QA2.';
+            }
+        } else if (label === 'QA2') {
+            msg = (st === 'DISPATCH' || st === 'UNPAID' || st === 'DONE')
+                ? 'Completo na sa QA2 — tapos na sa production, for dispatch/delivery na.'
+                : 'Completo na sa QA2 — wait mo na lang i-move sa DISPATCH.';
+        } else {
+            msg = 'Completo na sa ' + label + '.';
+        }
+        return '<div class="pg-sub ok"><i class="fas fa-check-circle"></i> ' + pgEsc(msg) + '</div>';
+    }
+
+    var txt = 'Kulang pa ng ' + rowsLeft + ' row' + (rowsLeft > 1 ? 's' : '');
+    if (pcsLeft > 0) txt += ' (' + pcsLeft + ' pcs)';
+    var extra = '';
+    if (!v.done) {
+        extra = ' — wala pang nasimulan dito.';
+    } else if (label === 'GA') {
+        extra = ' — ginagawa pa lang, hindi pa tapos ang production.';
+    } else if (label === 'QA1') {
+        extra = ' — hindi pa tapos ang quality check.';
+    } else if (label === 'QA2') {
+        extra = ' — hinihintay pa ang final check.';
+    }
+    return '<div class="pg-sub warn"><i class="fas fa-hourglass-half"></i> ' + pgEsc(txt + extra) + '</div>';
+}
 function openProgress(id, btn) {
     var body = document.getElementById('progressPanel');
     body.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading…</div>';
@@ -1336,9 +1383,10 @@ function openProgress(id, btn) {
             rows.forEach(function (r) {
                 var v = r[1] || {done:0,total:0,pcs_done:0,pcs_total:0};
                 var pct = v.total ? Math.round((v.done / v.total) * 100) : 0;
-                html += '<div style="margin-bottom:.6rem;">';
+                html += '<div style="margin-bottom:.7rem;">';
                 html += '<div class="pg-kv"><b>' + r[0] + '</b><span>' + v.done + '/' + v.total + ' rows · ' + v.pcs_done + '/' + v.pcs_total + ' pcs</span></div>';
                 html += '<div class="pg-bar"><span style="width:' + pct + '%;"></span></div>';
+                html += slipNote(r[0], v, s.stage);
                 html += '</div>';
             });
         }
