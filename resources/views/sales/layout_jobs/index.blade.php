@@ -369,6 +369,10 @@
                                 {{-- Spec: ang nag-create lang ang pwedeng mag-link; bayad = verified muna, libre = pwede agad (Andrew 2026-09-17) --}}
                                 <button class="btn btn-sm btn-outline-primary lj-btn-mini mb-1" onclick="openLinkSale({{ $job->id }}, '{{ $job->job_no }}')">Link Sale</button>
                             @endif
+                            @if(($mode ?? 'personal') !== 'global' && $job->status === 'open' && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
+                            {{-- Retag ng layout doer habang open (Andrew 2026-10-21) — may nagkakamali ng tag --}}
+                            <button class="btn btn-sm btn-outline-dark lj-btn-mini mb-1" onclick="openRetag({{ $job->id }}, '{{ $job->job_no }}', {{ (int) $job->ga_user_id }}, '{{ addslashes($job->gaUser?->name ?? '') }}')">🔁 Retag</button>
+                            @endif
                             @if(($mode ?? 'personal') !== 'global' && !$job->sale_id && !$job->isCancelled() && !$job->payout_id && (auth()->id() === $job->created_by || $isApprover))
                             {{-- "Hindi Tumuloy" — personal list lang (Andrew 2026-10-21: hindi na sa Layout Job List) — libreng layout na walang sale (hindi tumuloy ang client). Andrew 2026-09-29 --}}
                             <button class="btn btn-sm btn-outline-secondary lj-btn-mini mb-1" onclick="openCancelJob({{ $job->id }}, '{{ $job->job_no }}', '{{ $job->isFree() ? 'libre' : 'bayad' }}')">🚫 Hindi Tumuloy</button>
@@ -480,6 +484,24 @@
         <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
         <button class="btn btn-danger" id="cancelJobBtn" disabled onclick="submitCancelJob()">Oo, Hindi Tumuloy</button>
     </div>
+</div></div></div>
+
+{{-- Retag layout doer modal (habang open pa) --}}
+<div class="modal fade" id="retagModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h6 class="modal-title">🔁 Retag ng Layout Doer <span class="lj-muted" id="retagJobNoLabel"></span></h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <p class="lj-muted mb-2">Kasalukuyang naka-tag: <b id="retagCurrentGa">—</b>. Pwede pang palitan hangga't <b>open</b> pa ang job.</p>
+        <label class="lj-muted">Bagong Layout Doer</label>
+        <select id="retagGa" class="form-select">
+            <option value="">— piliin ang layout doer —</option>
+            @foreach($gaUsers ?? [] as $g)
+            <option value="{{ $g->id }}">{{ $g->name }}</option>
+            @endforeach
+        </select>
+        <input type="hidden" id="retagJobId">
+        <input type="hidden" id="retagCurrentId">
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-dark" onclick="submitRetag()">I-retag</button></div>
 </div></div></div>
 
 {{-- Re-upload payment after rejection (Andrew 2026-10-21) --}}
@@ -629,6 +651,32 @@ function submitCancelJob() {
         headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
         body: JSON.stringify({reason: reason})
     }).then(r => r.json()).then(d => { alert(d.error || 'Na-marka na: Hindi Tumuloy ✓'); if (!d.error) location.reload(); });
+}
+
+function openRetag(id, jobNo, currentId, currentName) {
+    document.getElementById('retagJobId').value = id;
+    document.getElementById('retagCurrentId').value = currentId || '';
+    document.getElementById('retagJobNoLabel').textContent = jobNo ? '(' + jobNo + ')' : '';
+    document.getElementById('retagCurrentGa').textContent = currentName || '—';
+    document.getElementById('retagGa').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('retagModal')).show();
+}
+
+function submitRetag() {
+    const id = document.getElementById('retagJobId').value;
+    const gaId = document.getElementById('retagGa').value;
+    if (!gaId) return alert('Piliin ang bagong layout doer.');
+    if (String(gaId) === String(document.getElementById('retagCurrentId').value)) {
+        return alert('Siya na ang naka-tag — pumili ng iba.');
+    }
+    fetch('/sales/layout-jobs/' + id + '/retag', {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: JSON.stringify({ga_user_id: gaId})
+    }).then(r => r.json()).then(d => {
+        alert(d.error || (d.message ? 'Error: ' + d.message : 'Na-retag kay ' + (d.ga || 'bagong GA') + ' ✓'));
+        if (!d.error && !d.message) location.reload();
+    }).catch(() => alert('May error — subukan ulit.'));
 }
 
 function openResubmitPayment(id, jobNo, accountId, ref) {

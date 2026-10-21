@@ -637,6 +637,55 @@ class LayoutJobController extends Controller
     }
 
     /**
+     * Retag ng Layout Doer habang OPEN pa ang job (Andrew 2026-10-21).
+     *
+     * May mga user na nagkakamali ng tag. Hangga't hindi pa done ang job
+     * (status = open), pwede itong i-retag sa ibang layout doer — walang
+     * credit impact dahil done pa lang ang pumapasok sa credit.
+     */
+    public function retag(Request $request, int $id)
+    {
+        $u = auth()->user();
+        $job = LayoutJob::findOrFail($id);
+
+        if ($job->status !== 'open') {
+            return response()->json(['error' => 'Done na ang job na ito — hindi na pwedeng i-retag.'], 422);
+        }
+        if ($job->isCancelled()) {
+            return response()->json(['error' => 'Naka-marka na itong "Hindi Tumuloy" — hindi na pwedeng i-retag.'], 422);
+        }
+        if ($job->payout_id) {
+            return response()->json(['error' => 'May payout request na ito — sarado na.'], 422);
+        }
+        if ((int) $job->created_by !== (int) $u->id && !$this->canReview()) {
+            return response()->json(['error' => 'Ikaw lang ang gumawa ng job na ito (o approver) ang pwedeng mag-retag.'], 403);
+        }
+
+        $data = $request->validate([
+            'ga_user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $allowedIds = $this->layoutDoerUsers()->pluck('id')->map(fn ($v) => (int) $v)->all();
+        if (!in_array((int) $data['ga_user_id'], $allowedIds, true)) {
+            return response()->json(['error' => 'Hindi layout doer ang napiling user.'], 422);
+        }
+        if ((int) $data['ga_user_id'] === (int) $job->ga_user_id) {
+            return response()->json(['error' => 'Siya na ang naka-tag na layout doer.'], 422);
+        }
+
+        $newGa = \App\Models\User::find($data['ga_user_id']);
+        $oldGaId = $job->ga_user_id;
+
+        $job->update([
+            'ga_user_id'  => (int) $data['ga_user_id'],
+            'assigned_by' => $u->id,
+            'assigned_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'ga_user_id' => (int) $data['ga_user_id'], 'ga' => $newGa?->name, 'previous_ga_user_id' => $oldGaId]);
+    }
+
+    /**
      * Approver: maglagay ng amount sa libreng layout job → reflect sa GA + history.
      */
     public function setAmount(Request $request, int $id)
