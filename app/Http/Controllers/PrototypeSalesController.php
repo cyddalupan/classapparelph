@@ -1125,6 +1125,21 @@ class PrototypeSalesController extends Controller
             $allItems = json_decode($itemsJson, true) ?: [];
         }
         
+        // GUARD (2026-10-22, Andrew): huwag payagan ang sale na walang item.
+        // Dati: kapag empty ang cart, bumabagsak sa `$deptGroups['iprint'] = []` sa ibaba
+        // -> gumagawa ng ghost sale sa iPrint Dept na 0.00 ang total
+        // (nangyari sa #236-239 at #425).
+        if (empty($allItems)) {
+            \Log::warning('prototype_sales.store blocked: no items', [
+                'user_id' => auth()->id(),
+                'customer' => $request->customer_name,
+            ]);
+
+            return back()->withInput()->withErrors([
+                'items' => 'Walang item ang sale na ito. Magdagdag ng kahit isang product bago i-save — walang na-create na sale.',
+            ]);
+        }
+
         // Group items by department
         $deptGroups = [];
         foreach ($allItems as $item) {
@@ -1135,9 +1150,12 @@ class PrototypeSalesController extends Controller
             $deptGroups[$dept][] = $item;
         }
         
-        // Ensure at least one department group
+        // Safety net lang ito (dati ito ang dahilan ng ghost iPrint sales).
+        // Hindi na ito maaabot dahil sa guard sa itaas, pero huwag nang i-default sa iPrint.
         if (empty($deptGroups)) {
-            $deptGroups['iprint'] = [];
+            return back()->withInput()->withErrors([
+                'items' => 'Walang item ang sale na ito. Magdagdag ng kahit isang product bago i-save.',
+            ]);
         }
         
         // Calculate overall totals
