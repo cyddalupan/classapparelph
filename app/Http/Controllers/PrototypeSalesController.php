@@ -7356,6 +7356,10 @@ SQL;
             $items = [];
             $raw = $p->services;
             $services = [];
+            // FIX (2026-10-22, Andrew): $totalQty dati ay nasa loob ng `if ($raw)` — kapag
+            // walang services (null/empty) nag-throw ng "Undefined variable $totalQty"
+            // -> 500 -> "Failed to load calendar" tuwing ALL at iPrint tab.
+            $totalQty = 0;
             if ($raw) {
                 // Handle cases: string JSON, already decoded array, or just a string
                 if (is_string($raw)) {
