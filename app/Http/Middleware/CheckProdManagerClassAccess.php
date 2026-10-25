@@ -120,6 +120,9 @@ class CheckProdManagerClassAccess
         // Set Time List (Manager Order List shortcut in sidebar) — Class-scoped in controller.
         // Added 2026-10-13: prod_manager (Jorell) got 403 because the route family was
         // missing from this allowlist kahit nasa sidebar na at isManager() na sa controller.
+        // "Dumating na Backjob" ack sa Manager Order List Progress column (Andrew 2026-10-22)
+        'sales.prototype.backjob-ack',
+
         'sales.prototype.set-time-list',
         'sales.prototype.set-time-list.reorder',
         'sales.prototype.set-time-prio',

@@ -124,6 +124,11 @@ class NotificationComposer
         if ($isManager || $isCoo) {
             $q = PrototypeSale::whereNotNull('needed_by')->whereNull('archived_at')
                 ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
+                // SUBCON orders are excluded from the Set Time List (Andrew 2026-10-23).
+                ->where(function ($q2) {
+                    $q2->whereNull('production_stage')
+                       ->orWhere('production_stage', '<>', 'SUBCON');
+                })
                 ->whereNull('set_time_done_at')
                 ->where(function ($q2) {
                     $q2->whereNull('production_stage')

@@ -87,6 +87,15 @@ class CheckQaAccess
         // Nav: Production → Manager List (Class only, scoped in controller)
         'sales.prototype.list',
 
+        // Nav: Production → Priority Mockup Slideshow (read-only; Class only, scoped in controller)
+        // Added 2026-10-25 (Andrew): QA (Arsen) got 403 kahit nasa nav bar ang
+        // "Priority Slideshow" — route family was missing from this allowlist.
+        'sales.prototype.priority-slideshow',
+        'sales.prototype.priority-slideshow.data',
+        'sales.prototype.priority-slideshow.video',
+        'sales.prototype.priority-slideshow.video.status',
+        'sales.prototype.priority-slideshow.video.file',
+
         // Nav: Production → Backjob List (Class only, scoped in controller)
         'sales.prototype.backjobs',
 
@@ -149,6 +158,14 @@ class CheckQaAccess
         'sales.team.dashboard',
         'sales.prototype.dashboard',
 
+        // Nav: Team Board (read-only) — lahat ng nagbebenta dapat makakita.
+        // Added 2026-10-22 (Andrew): hindi lumalabas/nag-403 para kina Emy at Mary Ann
+        // dahil role nila ay `qa` (position: QA/Sales Agent) at wala ang routes sa allowlist.
+        'sales.team.board',
+        'sales.team.board.data',
+        // Top 1 privilege: champion message (controller ang nagche-check kung #1).
+        'sales.team.board.champion.message',
+
         // My Sales → My Delays (own delays only, scoped in controller)
         'sales.team.delays',
 
@@ -160,6 +177,18 @@ class CheckQaAccess
         'sales.team.archived',
         'sales.team.submit-time',
         'sales.team.delay',
+
+        // "Dumating na Backjob" ack sa Manager Order List Progress column.
+        'sales.prototype.backjob-ack',
+
+        // WH → CLASS delivery schedule (single global set, header ng Manager Order List).
+        // Added 2026-10-22 (Andrew): QA can view + set.
+        'sales.prototype.wh-class-schedule.save',
+
+        // My Sales → Progress panel (JSON, "What's happening in production" button).
+        // Added 2026-10-22 (Andrew): QA got 403 "Unauthorized access." on clicking
+        // Progress sa My Sales — route name was missing sa allowlist.
+        'sales.prototype.progress',
 
         // My Sales → Production Feedback list (own/Class feedback, scoped in controller)
         'sales.prototype.production-feedback.list',

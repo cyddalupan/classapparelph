@@ -28,10 +28,24 @@ class TeamBoardController extends Controller
     /** Roles na pinapayagang makita ang Team Board. */
     private function canViewBoard(User $user): bool
     {
-        return $user->isSalesAgent()
+        if ($user->isSalesAgent()
             || $user->isSalesRepresentative()
             || $user->isAdmin()
-            || $user->isCoo();
+            || $user->isCoo()) {
+            return true;
+        }
+
+        // Lahat ng nagbebenta dapat makapasok — kahit anong role (hal. QA/Sales Agent).
+        // Andrew 2026-10-22.
+        if (stripos((string) $user->position, 'sales') !== false) {
+            return true;
+        }
+
+        return PrototypeSale::query()
+            ->where('sales_agent_id', $user->id)
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'cancelled')
+            ->exists();
     }
 
     /** Admin-only: control panel + announcements. */
@@ -189,6 +203,136 @@ class TeamBoardController extends Controller
         return $out;
     }
 
+    /**
+     * Ilang sunod-sunod na araw nang #1 ang champion (Andrew 2026-10-22).
+     * Basis: cumulative monthly revenue at the end of each day — sino ang leader.
+     */
+    private function topStreakDays(array $visibleRows, ?int $championId): int
+    {
+        if (!$championId || empty($visibleRows)) {
+            return 0;
+        }
+
+        $ids = array_map(fn ($r) => (int) $r['user_id'], $visibleRows);
+        [$start] = $this->currentPeriod();
+        $today = Carbon::now()->startOfDay();
+
+        $daily = [];
+        foreach (PrototypeSale::query()
+            ->whereIn('sales_agent_id', $ids)
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('created_at', '>=', $start)
+            ->whereDate('created_at', '<=', $today->toDateString())
+            ->selectRaw('sales_agent_id, DATE(created_at) as d, SUM(total_amount) as rev')
+            ->groupBy('sales_agent_id', 'd')
+            ->get() as $r) {
+            $daily[(int) $r->sales_agent_id][(string) $r->d] = (float) $r->rev;
+        }
+
+        $cum = array_fill_keys($ids, 0.0);
+        $leaderByDay = [];
+        for ($d = Carbon::parse($start)->startOfDay(); $d->lte($today); $d->addDay()) {
+            $key = $d->toDateString();
+            foreach ($ids as $id) {
+                $cum[$id] += $daily[$id][$key] ?? 0;
+            }
+            $best = null;
+            $bestRev = -1.0;
+            foreach ($ids as $id) {
+                if ($cum[$id] > $bestRev) {
+                    $bestRev = $cum[$id];
+                    $best = $id;
+                }
+            }
+            if ($bestRev > 0) {
+                $leaderByDay[$key] = $best;
+            }
+        }
+
+        $streak = 0;
+        for ($d = $today->copy(); $d->gte(Carbon::parse($start)); $d->subDay()) {
+            if (($leaderByDay[$d->toDateString()] ?? null) !== $championId) {
+                break;
+            }
+            $streak++;
+        }
+
+        return $streak;
+    }
+
+    /** Lider ng kasalukuyang linggo (Mon–Sun) — fresh start bawat Lunes. */
+    private function weekLeader(array $visibleRows): ?array
+    {
+        $ids = array_map(fn ($r) => (int) $r['user_id'], $visibleRows);
+        if (empty($ids)) {
+            return null;
+        }
+
+        $start = Carbon::now()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $end = Carbon::now();
+
+        $row = PrototypeSale::query()
+            ->whereIn('sales_agent_id', $ids)
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('created_at', '>=', $start->toDateString())
+            ->whereDate('created_at', '<=', $end->toDateString())
+            ->groupBy('sales_agent_id')
+            ->selectRaw('sales_agent_id, SUM(total_amount) as rev')
+            ->orderByDesc('rev')
+            ->first();
+
+        if (!$row || (float) $row->rev <= 0) {
+            return null;
+        }
+
+        $hit = collect($visibleRows)->firstWhere('user_id', (int) $row->sales_agent_id);
+        if (!$hit) {
+            return null;
+        }
+
+        return [
+            'name' => $hit['name'] ?? '—',
+            'initials' => $hit['initials'] ?? null,
+            'avatar' => $hit['avatar'] ?? null,
+            'amount' => (float) $row->rev,
+            'range' => $start->format('M j') . ' – ' . $end->format('M j'),
+            'ends_in' => max(0, (int) Carbon::now()->startOfDay()
+                ->diffInDays($start->copy()->addDays(7)->startOfDay())),
+        ];
+    }
+
+    /** Champion ng nakaraang buwan (Hall of Fame). */
+    private function lastMonthChampion(): ?array
+    {
+        $start = Carbon::now()->subMonthNoOverflow()->startOfMonth();
+        $end = Carbon::now()->subMonthNoOverflow()->endOfMonth();
+
+        $row = PrototypeSale::query()
+            ->whereNotNull('sales_agent_id')
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('created_at', '>=', $start->toDateString())
+            ->whereDate('created_at', '<=', $end->toDateString())
+            ->groupBy('sales_agent_id')
+            ->selectRaw('sales_agent_id, SUM(total_amount) as revenue')
+            ->orderByDesc('revenue')
+            ->first();
+
+        if (!$row || (float) $row->revenue <= 0) {
+            return null;
+        }
+
+        $user = User::find($row->sales_agent_id);
+
+        return [
+            'name' => $user->name ?? '—',
+            'amount' => (float) $row->revenue,
+            'label' => $start->format('F Y'),
+        ];
+    }
+
     /** Buuin ang buong board payload (ginagamit ng view at ng live JSON). */
     private function buildPayload(): array
     {
@@ -268,11 +412,21 @@ class TeamBoardController extends Controller
 
         // I-map ang rank sa lahat ng rows (null kapag hidden) para sa 'me' lookup.
         $rankByUser = [];
+        $gapByUser = [];
+        $overtakeByUser = [];
+        $prevRanked = null;
         foreach ($visibleRows as $r) {
             $rankByUser[$r['user_id']] = $r['rank'];
+            $gapByUser[$r['user_id']] = $prevRanked
+                ? max(0.0, round((float) $prevRanked['revenue'] - (float) $r['revenue'], 2))
+                : 0.0;
+            $overtakeByUser[$r['user_id']] = $prevRanked['name'] ?? null;
+            $prevRanked = $r;
         }
         foreach ($rows as &$r) {
             $r['rank'] = $rankByUser[$r['user_id']] ?? null;
+            $r['gap_to_next'] = $gapByUser[$r['user_id']] ?? 0.0;
+            $r['overtake_name'] = $overtakeByUser[$r['user_id']] ?? null;
         }
         unset($r);
 
@@ -388,6 +542,10 @@ class TeamBoardController extends Controller
             'champion_amount' => $champion['revenue'] ?? 0,
             'champion_initials' => $champion['initials'] ?? null,
             'champion_avatar' => $champion['avatar'] ?? null,
+            'champion_days_on_top' => $champion ? $this->topStreakDays($visibleRows, (int) $champion['user_id']) : 0,
+            'days_left' => (int) Carbon::now()->startOfDay()->diffInDays(Carbon::now()->endOfMonth()->startOfDay()) + 1,
+            'last_champion' => $this->lastMonthChampion(),
+            'week_leader' => $this->weekLeader($visibleRows),
             'top_mover_id' => $topMover['user_id'] ?? null,
             'top_mover_name' => $topMover['name'] ?? null,
             'top_mover_delta' => $topMover['week_delta'] ?? 0,
@@ -403,7 +561,13 @@ class TeamBoardController extends Controller
         if ($name === '') {
             return '?';    
         }
-        $parts = preg_split('/\s+/', $name);
+        // Alisin ang mga bracket/role suffix gaya ng "(Agent)" para malinis ang initials.
+        $name = preg_replace('/[^\p{L}\p{N}\s]/u', '', $name);
+        $name = trim(preg_replace('/\s+/', ' ', $name));
+        if ($name === '') {
+            return '?';
+        }
+        $parts = explode(' ', $name);
         $first = mb_substr($parts[0], 0, 1);
         $last = count($parts) > 1 ? mb_substr(end($parts), 0, 1) : '';
 
@@ -633,6 +797,41 @@ class TeamBoardController extends Controller
         ]);
 
         return back()->with('ok', 'Na-post ang announcement.');
+    }
+
+    /**
+     * PRIVILEGE ng Top 1 (champion): makapag-post ng inspiring message na
+     * makikita ng lahat sa Team Board. Ito lang ang non-admin na pwedeng mag-post.
+     * Andrew 2026-10-22.
+     */
+    public function postChampionMessage(Request $request)
+    {
+        $user = auth()->user();
+        abort_unless($user, 403);
+
+        $payload = $this->buildPayload();
+        abort_unless(
+            !empty($payload['champion_id']) && (int) $payload['champion_id'] === (int) $user->id,
+            403,
+            'Top 1 lang ang may privilege na mag-post ng message.'
+        );
+
+        $data = $request->validate([
+            'message' => 'required|string|max:600',
+        ]);
+
+        SalesAnnouncement::create([
+            'title' => 'Message from the Champion — ' . $user->name,
+            'body' => $data['message'],
+            'images' => null,
+            'type' => 'champion',
+            'pinned' => true,
+            'active' => true,
+            'publish_at' => Carbon::now(),
+            'created_by' => $user->id,
+        ]);
+
+        return back()->with('ok', 'Na-post ang champion message mo! 🏆');
     }
 
     public function toggleAnnouncement(Request $request, $id)

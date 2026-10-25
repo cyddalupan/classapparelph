@@ -425,6 +425,10 @@
                             <i class="fas fa-tools"></i>
                             <span class="nav-text">Backjob List</span>
                         </a>
+                        <a href="{{ route('sales.prototype.priority-slideshow') }}" class="nav-item {{ request()->routeIs('sales.prototype.priority-slideshow*') ? 'active' : '' }}">
+                            <i class="fas fa-play-circle"></i>
+                            <span class="nav-text">Priority Slideshow</span>
+                        </a>
                         <a href="{{ route('sales.prototype.calendar') }}" class="nav-item {{ request()->routeIs('sales.prototype.calendar') ? 'active' : '' }}">
                             <i class="fas fa-calendar-alt"></i>
                             <span class="nav-text">Calendar</span>
@@ -841,16 +845,39 @@
                 </div>
                 @endif
 
+                    {{-- Team Board: dapat lumabas sa LAHAT ng nagbebenta (Andrew 2026-10-22).
+                         Kasama ang QA/Sales Agent, at kahit anong role na may sale. --}}
+                    @php
+                        $tbUser = Auth::user();
+                        $tbPrimarySales = $tbUser->isAdmin() || $tbUser->isSalesAgent() || $tbUser->isSalesRepresentative();
+                        $tbIsSeller = $tbPrimarySales
+                            || stripos((string) $tbUser->position, 'sales') !== false
+                            || \Illuminate\Support\Facades\Cache::remember('tb_seller_' . $tbUser->id, 600, function () use ($tbUser) {
+                                return \App\Models\PrototypeSale::where('sales_agent_id', $tbUser->id)->exists();
+                            });
+                        $tbCanView = $tbUser->isAdmin()
+                            || ($tbUser->isCoo() ?? false)
+                            || \App\Models\SalesBoardSetting::current()->agents_can_view;
+                    @endphp
+                    @if($tbIsSeller && !$tbPrimarySales && $tbCanView)
+                    <div class="nav-section">
+                        <div class="nav-section-title">Team</div>
+                        <a href="{{ route('sales.team.board') }}" class="nav-item {{ request()->routeIs('sales.team.board') ? 'active' : '' }}">
+                            <i class="fas fa-trophy"></i>
+                            <span class="nav-text">Team Board</span>
+                        </a>
+                    </div>
+                    @endif
+
                     <!-- Sales Agent Navigation (Only for Sales Agents/Reps) -->
-                    @if(Auth::user()->isAdmin() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative())
+                    @if($tbPrimarySales ?? (Auth::user()->isAdmin() || Auth::user()->isSalesAgent() || Auth::user()->isSalesRepresentative()))
                     <div class="nav-section">
                         <div class="nav-section-title">My Sales</div>
                         <a href="{{ route('sales.team.dashboard') }}" class="nav-item {{ request()->routeIs('sales.team.dashboard') ? 'active' : '' }}">
                             <i class="fas fa-th-list"></i>
                             <span class="nav-text">My Sales Dashboard</span>
                         </a>
-                        @php $tbCanView = Auth::user()->isAdmin() || \App\Models\SalesBoardSetting::current()->agents_can_view; @endphp
-                        @if($tbCanView)
+                        @if($tbCanView ?? false)
                         <a href="{{ route('sales.team.board') }}" class="nav-item {{ request()->routeIs('sales.team.board') ? 'active' : '' }}">
                             <i class="fas fa-trophy"></i>
                             <span class="nav-text">Team Board</span>

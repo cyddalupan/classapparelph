@@ -86,6 +86,9 @@
     .prod-check-mini .pc-qa1 { background: #cff4fc; color: #055160; }
     .prod-check-mini .pc-qa2 { background: #d1e7dd; color: #0a3622; }
     /* "Complete" badge — lumalabas kapag tapos na ang GA at QA1 (lahat ng row na-check) */
+    .bj-ack-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 10px; border: 1px dashed #d97706; background: #fffbeb; color: #b45309; cursor: pointer; line-height: 1.3; text-align: left; }
+    .bj-ack-badge:hover { background: #fef3c7; }
+    .bj-ack-badge.done { border: 1px solid #059669; background: #ecfdf5; color: #047857; cursor: default; }
     .prod-complete-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #059669; color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
 
     /* Dept badge */
@@ -630,6 +633,18 @@
             </div>
         </div>
         <div class="list-actions">
+            @if($canSetWhClass ?? false)
+            <button type="button" class="btn" data-bs-toggle="modal" data-bs-target="#whClassScheduleModal"
+                    style="background:#0f766e;color:#fff;"
+                    title="Schedule kung kailan ipapadala ang parts from Warehouse papuntang Class">
+                🚚 WH → CLASS:
+                @if($whClassSchedule)
+                    {{ $whClassSchedule->format('M d, g:i A') }}
+                @else
+                    Set schedule
+                @endif
+            </button>
+            @endif
             @if(!$isAgent && auth()->user() && auth()->user()->isManager())
             <button class="btn" id="requestTimeAllBtn" onclick="requestTimeAll()" style="background:#0d6efd;color:#fff;" title="Enable the Set Time button for ALL sales due within 1 day (or overdue) in every agent's My Sales">
                 ⏰ Request Time (due ≤1d)
@@ -1091,6 +1106,13 @@
                                 <span class="prod-complete-badge" title="Kompleto na ang GA at QA1 sa production slip"><i class="fas fa-check-circle"></i> Complete</span>
                             @endif
                             @endif
+                            @if(isset($backjobBadges[$sale->id]))
+                                @if($backjobBadges[$sale->id] === 'pending')
+                                    <button type="button" class="bj-ack-badge" data-id="{{ $sale->id }}" onclick="ackBackjob(this)" title="I-click kung dumating na ang backjob sa Class">⚠️ May backjob ito — dumating na ba?</button>
+                                @else
+                                    <span class="bj-ack-badge done" title="Na-confirm na dumating ang backjob">✓ Dumating na Backjob</span>
+                                @endif
+                            @endif
                         </td>
                         <td>
                             <span class="dept-badge" style="background:{{ $departmentColors[$sale->department_id] ?? '#6c757d' }};">
@@ -1159,10 +1181,72 @@
     </div>
 
 </div>
+            <div class="modal fade" id="whClassScheduleModal" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog">
+                <form method="POST" action="{{ route('sales.prototype.wh-class-schedule.save') }}" class="modal-content">
+                  @csrf
+                  <div class="modal-header">
+                    <h5 class="modal-title">🚚 WH → CLASS Schedule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <p style="font-size:.85rem;color:#64748b;margin-bottom:.75rem;">Isang schedule lang para sa lahat — kailan ipapadala ang parts from Warehouse papuntang Class.</p>
+                    <label class="form-label" style="font-weight:600;font-size:.85rem;">Date &amp; time</label>
+                    <input type="datetime-local" name="scheduled_at" class="form-control" required
+                           value="{{ $whClassSchedule ? $whClassSchedule->format('Y-m-d\TH:i') : '' }}">
+                    <label class="form-label mt-3" style="font-weight:600;font-size:.85rem;">Travel time (minutes)</label>
+                    <input type="number" name="travel_minutes" class="form-control" min="0" max="1440" step="5" value="{{ $whClassTravel ?? 120 }}">
+                    <div style="font-size:.75rem;color:#94a3b8;margin-top:.25rem;">Default 120 min (2 oras) — WH papuntang CLASS.</div>
+                    <label class="form-label mt-3" style="font-weight:600;font-size:.85rem;">Note (optional)</label>
+                    <input type="text" name="note" class="form-control" maxlength="255" value="{{ $whClassNote }}" placeholder="e.g. 2 boxes — cotton blanks">
+                    @if($whClassSetBy)
+                      <div style="font-size:.78rem;color:#94a3b8;margin-top:.6rem;">Last set by {{ $whClassSetBy->name }}{{ $whClassSchedule ? ' · ' . $whClassSchedule->format('M d, Y g:i A') : '' }}</div>
+                    @endif
+                  </div>
+                  <div class="modal-footer">
+                    @if($whClassSchedule)
+                      <button type="submit" name="clear" value="1" class="btn btn-outline-danger" formnovalidate>Clear</button>
+                    @endif
+                    <button type="submit" class="btn btn-primary">Save</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
 @endsection
 
 @push('scripts')
 <script>
+/* "Dumating na Backjob" badge — click to acknowledge (Andrew 2026-10-22) */
+function ackBackjob(btn) {
+    var id = btn.getAttribute('data-id');
+    if (!id) return;
+    btn.disabled = true;
+    fetch('/sales/prototype/' + id + '/backjob-ack', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        },
+        body: '{}'
+    }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d && d.success) {
+            var span = document.createElement('span');
+            span.className = 'bj-ack-badge done';
+            span.title = 'Na-confirm na dumating ang backjob';
+            span.textContent = '✓ Dumating na Backjob';
+            btn.replaceWith(span);
+        } else {
+            btn.disabled = false;
+            alert((d && d.message) || 'Hindi na-save. Subukan ulit.');
+        }
+    }).catch(function () {
+        btn.disabled = false;
+        alert('Hindi na-save. Subukan ulit.');
+    });
+}
 function showPendingModal() {
     document.getElementById('pendingModal').style.display = 'block';
 }

@@ -58,6 +58,13 @@ class CheckTrimmerQaAccess
         'api.production.checklist.get',
         'api.production.additional.get',
 
+        // QA2 checkbox save (Production slip sa Show page).
+        // Added 2026-10-25 (Andrew): trimmer_qa (Gizelle) got 403 "Unauthorized access."
+        // on every QA2 check — the save route was missing here, kaya hindi nag-sasave.
+        // NOTE: controller strips everything except qa2_done/qa2_count/qa2_notes
+        // for trimmer_qa, so GA/QA1/notes stay read-only para sa kanila.
+        'api.production.checklist.save',
+
         // Notifications
         'sales.prototype.notification-read',
         'sales.prototype.notifications-read-all',

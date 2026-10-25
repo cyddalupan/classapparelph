@@ -1017,6 +1017,11 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         // DAPAT nasa ITAAS ng `/sales/prototype/{id}` wildcard, kung hindi 404 (tinatrato na id).
         Route::get('/sales/prototype/set-time-list', [App\Http\Controllers\PrototypeSalesController::class, 'setTimeList'])->middleware('auth')->name('sales.prototype.set-time-list');
         Route::post('/sales/prototype/set-time-list/reorder', [App\Http\Controllers\PrototypeSalesController::class, 'setTimeReorder'])->middleware('auth')->name('sales.prototype.set-time-list.reorder');
+        // "Dumating na Backjob" ack — Progress column badge sa Manager Order List
+        Route::post('/sales/prototype/{id}/backjob-ack', [App\Http\Controllers\PrototypeSalesController::class, 'ackBackjob'])->middleware('auth')->name('sales.prototype.backjob-ack');
+
+        // WH → CLASS delivery schedule (single global set) — CEO / COO / QA only
+        Route::post('/sales/prototype/wh-class-schedule', [App\Http\Controllers\PrototypeSalesController::class, 'saveWhClassSchedule'])->middleware('auth')->name('sales.prototype.wh-class-schedule.save');
         Route::post('/sales/prototype/{id}/set-time-prio', [App\Http\Controllers\PrototypeSalesController::class, 'setTimePrio'])->middleware('auth')->name('sales.prototype.set-time-prio');
         Route::post('/sales/prototype/{id}/set-time-done', [App\Http\Controllers\PrototypeSalesController::class, 'setTimeDone'])->middleware('auth')->name('sales.prototype.set-time-done');
         Route::get('/sales/prototype/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'show'])->name('sales.prototype.show');
@@ -1039,6 +1044,8 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/team/board/quotas', [App\Http\Controllers\TeamBoardController::class, 'saveQuotas'])->middleware('auth')->name('sales.team.board.quotas.save');
         Route::post('/sales/team/board/groups', [App\Http\Controllers\TeamBoardController::class, 'saveGroups'])->middleware('auth')->name('sales.team.board.groups.save');
         Route::post('/sales/team/board/team-quota', [App\Http\Controllers\TeamBoardController::class, 'saveTeamQuota'])->middleware('auth')->name('sales.team.board.team-quota.save');
+        // Top 1 privilege: champion message (visible sa lahat) — Andrew 2026-10-22
+        Route::post('/sales/team/board/champion-message', [App\Http\Controllers\TeamBoardController::class, 'postChampionMessage'])->middleware('auth')->name('sales.team.board.champion.message');
         Route::post('/sales/team/board/announcement', [App\Http\Controllers\TeamBoardController::class, 'postAnnouncement'])->middleware('auth')->name('sales.team.board.announcement.post');
         Route::post('/sales/team/board/announcement/{id}/toggle', [App\Http\Controllers\TeamBoardController::class, 'toggleAnnouncement'])->middleware('auth')->name('sales.team.board.announcement.toggle');
         Route::post('/sales/team/board/announcement/{id}/pin', [App\Http\Controllers\TeamBoardController::class, 'togglePin'])->middleware('auth')->name('sales.team.board.announcement.pin');

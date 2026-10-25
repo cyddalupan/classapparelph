@@ -1393,12 +1393,18 @@ function openProgress(id, btn) {
         }
         html += '</div>';
 
-        // assignments
-        if (d.assignments && d.assignments.length) {
-            html += '<div class="pg-sect"><div class="pg-lbl">Assigned</div>';
-            d.assignments.slice(0, 4).forEach(function (a) {
-                html += '<div class="pg-kv"><span>' + pgEsc(a.stage) + '</span><span>' + pgEsc(a.user) + (a.completed_at ? ' <span style="color:#16a34a;">✓</span>' : ' <span style="color:#d97706;">⏳</span>') + '</span></div>';
-            });
+        // WH → CLASS schedule + backjob cutoff explanation (Andrew 2026-10-22)
+        if (d.wh_class) {
+            var w = d.wh_class;
+            html += '<div class="pg-sect"><div class="pg-lbl">🚚 WH → CLASS</div>';
+            html += '<div class="pg-kv"><span>Naka-schedule</span><b>' + pgEsc(w.scheduled_label) + '</b></div>';
+            html += '<div class="pg-kv"><span>Travel time</span><span>' + pgEsc(w.travel_label) + ' → dating ~' + pgEsc(w.arrival_label) + '</span></div>';
+            html += '<div class="pg-kv"><span>Backjob bago ang cutoff</span><span>GA done ' + (w.ga_done || 0) + ' / ' + (w.total || 0) + ' · QA verified ' + (w.qa_verified || 0) + ' / ' + (w.total || 0) + '</span></div>';
+            if (w.note) html += '<div class="pg-kv"><span>Note</span><span>' + pgEsc(w.note) + '</span></div>';
+            var wWarn = (w.pending_ga > 0) ? 'warn' : ((w.pending_qa > 0) ? 'warn' : '');
+            html += '<div class="pg-note ' + wWarn + '"><i class="fas fa-truck"></i> ' + pgEsc(w.headline) + '</div>';
+            html += '<div class="pg-kv" style="margin-top:.45rem;"><span>Backjob arrival</span><b style="color:' + (w.arrived ? '#047857' : '#b45309') + ';">' + (w.arrived ? 'Dumating ' + pgEsc(w.ack_label) : 'Hindi pa dumating') + '</b></div>';
+            html += '<div class="pg-note ' + (w.arrived ? '' : 'warn') + '"><i class="fas fa-box-open"></i> ' + pgEsc(w.arrival_note) + '</div>';
             html += '</div>';
         }
 
@@ -1420,6 +1426,9 @@ function openProgress(id, btn) {
                 if (it.done_at && !it.verified_at) html += '<div style="opacity:.75;"><i class="fas fa-hourglass-half"></i> Hinihintay pa ang QA</div>';
                 html += '</div></div>';
             });
+        }
+        if (bj.last_at) {
+            html += '<div class="pg-kv" style="margin-top:.5rem;"><span>Last backjob na tapos</span><b>' + pgEsc(bj.last_at) + '</b></div>';
         }
         html += '</div>';
 

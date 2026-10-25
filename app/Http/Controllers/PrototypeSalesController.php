@@ -4447,6 +4447,46 @@ $services = json_decode($sale->services, true);
 
         $input = request()->all();
 
+        // Trimmer/QA (Gizelle, 2026-10-25 Andrew): QA2 column lang ang pwedeng i-save.
+        // Ang UI ay nagpapakita ng GA / QA1 / QA2 (read-only reference), kaya dito
+        // hinihiwalay: alisin lahat maliban sa qa2_done / qa2_count / qa2_notes.
+        if ($user && $user->isTrimmerQa()) {
+            $filtered = [];
+            foreach (['qa2_done', 'qa2_notes'] as $k) {
+                if (array_key_exists($k, $input)) {
+                    $filtered[$k] = $input[$k];
+                }
+            }
+            foreach (['items', 'additional_items'] as $bucket) {
+                if (empty($input[$bucket]) || !is_array($input[$bucket])) {
+                    continue;
+                }
+                $rows = [];
+                foreach ($input[$bucket] as $row) {
+                    if (!is_array($row)) {
+                        continue;
+                    }
+                    $keep = [];
+                    if (array_key_exists('index', $row)) {
+                        $keep['index'] = $row['index'];
+                    }
+                    foreach (['qa2_done', 'qa2_count'] as $k) {
+                        if (array_key_exists($k, $row)) {
+                            $keep[$k] = $row[$k];
+                        }
+                    }
+                    // Walang QA2 field → huwag isama (walang dapat baguhin).
+                    if (count($keep) > 1) {
+                        $rows[] = $keep;
+                    }
+                }
+                if (!empty($rows)) {
+                    $filtered[$bucket] = $rows;
+                }
+            }
+            $input = $filtered;
+        }
+
         // Update individual item statuses
         if (isset($input['items'])) {
             $incomingItems = $input['items'];
@@ -5277,7 +5317,7 @@ $services = json_decode($sale->services, true);
     public function prioritySlideshow()
     {
         $user = auth()->user();
-        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+        if (!$user || !($user->isProdManager() || $user->isQa() || $user->isCoo() || $user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5295,7 +5335,7 @@ $services = json_decode($sale->services, true);
     public function prioritySlideshowData()
     {
         $user = auth()->user();
-        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+        if (!$user || !($user->isProdManager() || $user->isQa() || $user->isCoo() || $user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5317,7 +5357,7 @@ $services = json_decode($sale->services, true);
     public function prioritySlideshowVideo(Request $request)
     {
         $user = auth()->user();
-        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+        if (!$user || !($user->isProdManager() || $user->isQa() || $user->isCoo() || $user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5354,7 +5394,7 @@ $services = json_decode($sale->services, true);
     public function prioritySlideshowVideoStatus(Request $request)
     {
         $user = auth()->user();
-        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+        if (!$user || !($user->isProdManager() || $user->isQa() || $user->isCoo() || $user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -5376,7 +5416,7 @@ $services = json_decode($sale->services, true);
     public function prioritySlideshowVideoFile(Request $request)
     {
         $user = auth()->user();
-        if (!$user || !($user->isProdManager() || $user->isCoo() || $user->isAdmin())) {
+        if (!$user || !($user->isProdManager() || $user->isQa() || $user->isCoo() || $user->isAdmin())) {
             abort(403, 'Unauthorized access.');
         }
 
@@ -6412,6 +6452,7 @@ $services = json_decode($sale->services, true);
         // 🔒 DISPATCH-lock set: sale ids na may ACTIVE backjob comment o open freebie slip
         // (hindi pwedeng i-DISPATCH hangga't hindi na-clear lahat)
         $backjobLockSaleIds = [];
+        $bjLatestAt = []; // sale_id => pinakabagong backjob timestamp (para sa "Dumating na ba?" badge)
         $bjChecklists = \App\Models\ProductionChecklist::where(function ($q) {
             $q->whereNotNull('ga_notes')->where('ga_notes', '!=', '')
               ->orWhereNotNull('additional_comments')->where('additional_comments', '!=', '')
@@ -6439,6 +6480,22 @@ $services = json_decode($sale->services, true);
                 }
             }
 
+            // Latest backjob timestamp — lahat ng comments (active o resolved)
+            $scanLatestBj = function ($comments) use (&$bjLatestAt, $chk) {
+                foreach ((array) $comments as $c) {
+                    if (!is_array($c) || !empty($c['deleted'])) continue;
+                    $at = $c['at'] ?? null;
+                    if (!$at) continue;
+                    $sid = (int) $chk->sale_id;
+                    if (!isset($bjLatestAt[$sid]) || strtotime($at) > strtotime($bjLatestAt[$sid])) {
+                        $bjLatestAt[$sid] = $at;
+                    }
+                }
+            };
+            $scanLatestBj($bjMain);
+            foreach ((array) $bjAdd as $cs) { $scanLatestBj($cs); }
+            foreach ((array) ($bjProd ?? []) as $cs) { $scanLatestBj($cs); }
+
             $bjProd = json_decode($chk->product_comments ?? '', true) ?: [];
             if (is_array($bjProd)) {
                 foreach ($bjProd as $itemId => $comments) {
@@ -6447,6 +6504,18 @@ $services = json_decode($sale->services, true);
                         if (is_array($c) && empty($c['deleted']) && (empty($c['done']) || empty($c['verified']))) { $backjobCount++; $backjobLockSaleIds[(int) $chk->sale_id] = true; break; }
                     }
                 }
+            }
+        }
+
+        // "Dumating na Backjob" badge state (Andrew 2026-10-22):
+        // pending kapag may backjob na mas bago kaysa sa huling ack (o wala pang ack).
+        $backjobBadges = [];
+        if (!empty($bjLatestAt)) {
+            $ackMap = \DB::table('prototype_sales')->whereIn('id', array_keys($bjLatestAt))
+                ->pluck('backjob_ack_at', 'id');
+            foreach ($bjLatestAt as $sid => $latestAt) {
+                $ack = $ackMap[$sid] ?? null;
+                $backjobBadges[$sid] = ($ack && strtotime($ack) >= strtotime($latestAt)) ? 'done' : 'pending';
             }
         }
 
@@ -6519,18 +6588,91 @@ $services = json_decode($sale->services, true);
         }
         $agentOptions = $agentOptionsQuery->distinct()->orderBy('sales_agent_name')->pluck('sales_agent_name');
 
+        // WH → CLASS delivery schedule — single global set (Andrew 2026-10-22).
+        // Visible/editable sa CEO (admin), COO at QA lang.
+        $canSetWhClass = $user && ($user->isAdmin() || $user->isCoo() || $user->isQa());
+        $whClassRow = \DB::table('wh_class_schedule')->where('id', 1)->first();
+        $whClassSchedule = $whClassRow && $whClassRow->scheduled_at ? \Carbon\Carbon::parse($whClassRow->scheduled_at) : null;
+        $whClassNote = $whClassRow->note ?? null;
+        $whClassTravel = (int) ($whClassRow->travel_minutes ?? 120);
+        $whClassSetBy = $whClassRow && $whClassRow->set_by ? \App\Models\User::find($whClassRow->set_by) : null;
+
         return view("sales.prototype.list", compact(
             "sales", "kanbanStatuses", "kanbanLabels", "prodStageMap", "statusToStage",
             "filters", "agentOptions",
             "departmentLabels", "departmentColors", "isAgent", "canForcePriority",
             "pendingCounts", "totalPending", "pendingChangesList",
             "lastNotifs", "openFeedbackCount", "usedPriorities",
-            "delayCount", "backjobCount", "backjobLockSaleIds", "backjobStatusSaleIds", "repeatCustomers", "repeatEmails",
+            "delayCount", "backjobCount", "backjobLockSaleIds", "backjobStatusSaleIds", "backjobBadges", "repeatCustomers", "repeatEmails",
             "pendingApprovals", "fbPendingIds", "fbOpenIds", "fbDoneIds", "freebiePendingCount",
             "priorityMax",
             "prodCheckCounts",
-            "holdCount"
+            "holdCount",
+            "canSetWhClass", "whClassSchedule", "whClassNote", "whClassSetBy", "whClassTravel"
         ));
+    }
+
+    /**
+     * I-mark na "Dumating na Backjob" ang sale (Andrew 2026-10-22).
+     * Kapag may bagong backjob pagkatapos nito, babalik sa "dumating na ba?" ang badge.
+     */
+    public function ackBackjob(Request $request, $id)
+    {
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $user = auth()->user();
+        if (!$user) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        $sale->backjob_ack_at = now();
+        $sale->save();
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'acked_at' => $sale->backjob_ack_at]);
+        }
+        return redirect()->back()->with('success', 'Na-mark na: Dumating na Backjob.');
+    }
+
+    /**
+     * Save the single global WH → CLASS delivery schedule (Andrew 2026-10-22).
+     * One row lang (id = 1). Allowed: CEO (admin), COO, QA.
+     */
+    public function saveWhClassSchedule(Request $request)
+    {
+        $user = auth()->user();
+        abort_unless($user && ($user->isAdmin() || $user->isCoo() || $user->isQa()), 403, 'Unauthorized access.');
+
+        if ($request->boolean('clear')) {
+            \DB::table('wh_class_schedule')->updateOrInsert(
+                ['id' => 1],
+                ['scheduled_at' => null, 'note' => null, 'set_by' => $user->id, 'updated_at' => now()]
+            );
+            return redirect()->back()->with('success', 'WH → CLASS schedule cleared.');
+        }
+
+        $data = $request->validate([
+            'scheduled_at' => 'required|date',
+            'note' => 'nullable|string|max:255',
+            'travel_minutes' => 'nullable|integer|min:0|max:1440',
+        ]);
+
+        $row = \DB::table('wh_class_schedule')->where('id', 1)->first();
+        $payload = [
+            'scheduled_at' => $data['scheduled_at'],
+            'note' => $data['note'] ?? null,
+            'travel_minutes' => (int) ($data['travel_minutes'] ?? 120),
+            'set_by' => $user->id,
+            'updated_at' => now(),
+        ];
+        if ($row) {
+            \DB::table('wh_class_schedule')->where('id', 1)->update($payload);
+        } else {
+            $payload['created_at'] = now();
+            \DB::table('wh_class_schedule')->insert($payload + ['id' => 1]);
+        }
+
+        return redirect()->back()->with('success', 'WH → CLASS schedule saved: '
+            . \Carbon\Carbon::parse($data['scheduled_at'])->format('M d, Y g:i A'));
     }
 
     public function updateKanbanStatus(Request $request, $id)
@@ -8772,8 +8914,14 @@ SQL;
     /**
      * Payment verification dashboard - shows all pending and recent payments.
      */
-    public function paymentVerification()
+    public function paymentVerification(Request $request)
     {
+        // Server-side payment-date filter para sa VERIFIED section (Andrew 2026-10-22).
+        // Dati limit(50) lang — kaya ang mga September na bayad hindi lumalabas kahit
+        // i-filter, dahil hindi sila kasama sa 50 pinakabago.
+        $pvFrom = $request->query('pfrom');
+        $pvTo = $request->query('pto');
+
         $verifierUser = auth()->user();
         // Each verifier only sees payments tagged to their own payment accounts
         // (applies to admin too — Andrew sees only Drew GCash, not other verifiers' payments)
@@ -8863,6 +9011,8 @@ SQL;
         $pendingPayments = $pendingPayments
             ->where('prototype_payments.payment_status', 'pending')
             ->union($initialDeposits)
+            // Sort by PETSA NG BAYAD (hindi entry time) — Andrew 2026-10-22
+            ->orderBy('payment_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -8887,8 +9037,10 @@ SQL;
             ->whereIn('prototype_payments.payment_status', ['verified', 'down_payment_verified', 'additional_payment_verified', 'full_payment_verified'])
             ->whereNull('prototype_sales.archived_at')
             ->when($ownAccountFilter, fn($q) => $q->where('payment_accounts.user_id', $ownAccountFilter))
-            ->orderBy('prototype_payments.verified_at', 'desc')
-            ->limit(50)
+            ->when($pvFrom, fn($q) => $q->whereDate('prototype_payments.payment_date', '>=', $pvFrom))
+            ->when($pvTo, fn($q) => $q->whereDate('prototype_payments.payment_date', '<=', $pvTo))
+            ->orderBy('prototype_payments.payment_date', 'desc')
+            ->limit(($pvFrom || $pvTo) ? 500 : 50)
             ->get();
 
         // Dropdown for re-tagging shows ALL active accounts (incl. other verifiers'
@@ -9093,7 +9245,7 @@ SQL;
                      + collect($pendingLayoutJobs)->filter(function ($l) { return !empty($l->dup_matches); })->count()
                      + collect($pendingEdits)->filter(function ($e) { return !empty($e->dup_matches); })->count();
 
-        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts', 'pendingRejections', 'pendingEdits', 'pendingLayoutJobs', 'dupRefCount'));
+        return view('sales.prototype.verification', compact('pendingPayments', 'verifiedPayments', 'accounts', 'pendingRejections', 'pendingEdits', 'pendingLayoutJobs', 'dupRefCount', 'pvFrom', 'pvTo'));
     }
 
     /**
@@ -9654,6 +9806,7 @@ SQL;
         // Backjob states from production_checklists
         $chk = \App\Models\ProductionChecklist::where('sale_id', $sale->id)->first();
         $bj = ['active' => 0, 'waiting_qa' => 0, 'verified' => 0, 'items' => []];
+        $bjAll = []; // lahat ng backjob items — para sa WH → CLASS cutoff counting
         if ($chk) {
             $decode = function ($raw) {
                 try { return json_decode($raw ?? '', true) ?: []; } catch (\Exception $e) { return []; }
@@ -9666,7 +9819,7 @@ SQL;
                 }
             }
 
-            $scan = function ($comments, $project) use (&$bj) {
+            $scan = function ($comments, $project) use (&$bj, &$bjAll) {
                 foreach ((array) $comments as $c) {
                     if (!is_array($c) || !empty($c['deleted'])) continue;
                     if (empty($c['done'])) {
@@ -9679,16 +9832,18 @@ SQL;
                         $bj['verified']++;
                         $state = 'verified';
                     }
+                    $item = [
+                        'project' => $project,
+                        'state' => $state,
+                        'at' => $c['at'] ?? '',
+                        'done_at' => $c['done_at'] ?? '',
+                        'verified_at' => $c['verified_at'] ?? '',
+                    ];
+                    $bjAll[] = $item;
                     // Andrew 2026-10-21: huwag isama ang pangalan (privacy) at ang nilalaman
                     // ng backjob — position (GA/QA) + oras lang ang ipapakita.
                     if (count($bj['items']) < 6) {
-                        $bj['items'][] = [
-                            'project' => $project,
-                            'state' => $state,
-                            'at' => $c['at'] ?? '',
-                            'done_at' => $c['done_at'] ?? '',
-                            'verified_at' => $c['verified_at'] ?? '',
-                        ];
+                        $bj['items'][] = $item;
                     }
                 }
             };
@@ -9700,6 +9855,124 @@ SQL;
             foreach ($decode($chk->product_comments) as $itemId => $comments) {
                 $scan($comments, $nameById[(string) $itemId] ?? 'Main Product');
             }
+
+            // Oras kung kailan natapos ang PINAKABAGONG backjob (Andrew 2026-10-22).
+            // Time lang ang ipapakita — walang pangalan/p detalye.
+            $lastBjAt = null;
+            foreach ($bjAll as $it) {
+                $t = !empty($it['verified_at']) ? $it['verified_at'] : (!empty($it['done_at']) ? $it['done_at'] : null);
+                if ($t && ($lastBjAt === null || $t > $lastBjAt)) {
+                    $lastBjAt = $t;
+                }
+            }
+            if ($lastBjAt) {
+                $bj['last_at'] = \Carbon\Carbon::parse($lastBjAt)->format('g:i A');
+            }
+        }
+
+        // WH → CLASS schedule + backjob cutoff explanation (Andrew 2026-10-22).
+        // Logic: kapag may naka-set na oras ng padala, bilangin kung ilang backjob
+        // ang natapos ng GA at na-verify ng QA BAGO ang cutoff na iyon.
+        $whClass = null;
+        $whRow = \DB::table('wh_class_schedule')->where('id', 1)->first();
+        if ($whRow && $whRow->scheduled_at) {
+            $sched = \Carbon\Carbon::parse($whRow->scheduled_at);
+            $travel = (int) ($whRow->travel_minutes ?? 120);
+            $arrival = $sched->copy()->addMinutes($travel);
+
+            $total = count($bjAll);
+            $gaDoneBy = 0;
+            $qaVerifiedBy = 0;
+            $pendingGa = 0;
+            $pendingQa = 0;
+            foreach ($bjAll as $it) {
+                $doneAt = !empty($it['done_at']) ? \Carbon\Carbon::parse($it['done_at']) : null;
+                $verifiedAt = !empty($it['verified_at']) ? \Carbon\Carbon::parse($it['verified_at']) : null;
+                $doneBefore = $doneAt && $doneAt->lte($sched);
+                $verifiedBefore = $verifiedAt && $verifiedAt->lte($sched);
+
+                if ($doneBefore) {
+                    $gaDoneBy++;
+                } else {
+                    $pendingGa++;
+                }
+                if ($verifiedBefore) {
+                    $qaVerifiedBy++;
+                } elseif ($doneBefore) {
+                    $pendingQa++;
+                }
+            }
+
+            $cutoffLabel = $sched->format('g:i A');
+            $arrivalLabel = $arrival->format('g:i A');
+            $travelLabel = $travel % 60 === 0
+                ? ($travel / 60) . ' oras'
+                : $travel . ' min';
+
+            if ($total === 0) {
+                $headline = 'Walang backjob — ready ipadala ng ' . $cutoffLabel . ' mula WH → CLASS; dating ~' . $arrivalLabel . ' (' . $travelLabel . ' travel).';
+            } elseif ($pendingGa > 0) {
+                $headline = 'May ' . $pendingGa . ' backjob pang hindi tapos ng GA bago mag ' . $cutoffLabel
+                    . ' — hindi kasama sa shipment na ito; next batch na.';
+            } elseif ($pendingQa > 0) {
+                $headline = 'Tapos na ng GA ang ' . $gaDoneBy . ' backjob, pero ' . $pendingQa
+                    . ' pa ang hinihintay na QA verification bago mag ' . $cutoffLabel
+                    . ' — kailangan ma-verify bago ang cutoff para makasama sa padala.';
+            } else {
+                $headline = 'Tapos na ang backjob from GA to QA (' . $qaVerifiedBy . '/' . $total
+                    . ') bago mag ' . $cutoffLabel . ' — ipapadala ng ' . $cutoffLabel
+                    . ' mula WH → CLASS, dating ~' . $arrivalLabel . ' (' . $travelLabel
+                    . ' travel) — possible start ng tahi ' . $arrivalLabel . '.';
+            }
+
+            // Backjob arrival status (Andrew 2026-10-22): base sa "Dumating na Backjob" ack.
+            // Kapag may bagong backjob pagkatapos ng ack, itinuturing na HINDI pa dumating.
+            $ackAt = $sale->backjob_ack_at ? \Carbon\Carbon::parse($sale->backjob_ack_at) : null;
+            $latestBjAt = null;
+            foreach ($bjAll as $it) {
+                $atRaw = $it['at'] ?? null;
+                if ($atRaw && ($latestBjAt === null || strtotime($atRaw) > strtotime($latestBjAt))) {
+                    $latestBjAt = $atRaw;
+                }
+            }
+            $arrived = $ackAt && (!$latestBjAt || $ackAt->timestamp >= strtotime($latestBjAt));
+
+            if (!$arrived) {
+                $arrivalNote = 'Hindi pa dumating ang backjob sa Class (ETA ' . $arrivalLabel . ').';
+            } else {
+                $deltaMin = (int) round(($ackAt->timestamp - $arrival->timestamp) / 60);
+                if ($deltaMin <= -1) {
+                    $arrivalNote = 'Dumating ang backjob ng ' . $ackAt->format('g:i A') . ' — mas napaaga ng '
+                        . abs($deltaMin) . ' min sa ETA na ' . $arrivalLabel
+                        . '. Aayusin lang at ipapasok na sa sewing.';
+                } elseif ($deltaMin === 0) {
+                    $arrivalNote = 'Dumating ang backjob ng ' . $ackAt->format('g:i A')
+                        . ' — sakto sa ETA. Aayusin lang at ipapasok na sa sewing.';
+                } else {
+                    $arrivalNote = 'Dumating ang backjob ng ' . $ackAt->format('g:i A') . ' — '
+                        . $deltaMin . ' min late sa ETA na ' . $arrivalLabel
+                        . '. Aayusin lang at ipapasok na sa sewing.';
+                }
+            }
+
+            $whClass = [
+                'scheduled_at' => $sched->toDateTimeString(),
+                'scheduled_label' => $sched->format('M d, g:i A'),
+                'travel_minutes' => $travel,
+                'travel_label' => $travelLabel,
+                'arrival_label' => $arrivalLabel,
+                'cutoff_label' => $cutoffLabel,
+                'note' => $whRow->note ?: '',
+                'total' => $total,
+                'ga_done' => $gaDoneBy,
+                'qa_verified' => $qaVerifiedBy,
+                'pending_ga' => $pendingGa,
+                'pending_qa' => $pendingQa,
+                'headline' => $headline,
+                'arrived' => (bool) $arrived,
+                'ack_label' => $arrived ? $ackAt->format('g:i A') : null,
+                'arrival_note' => $arrivalNote,
+            ];
         }
 
         // Mockup (main)
@@ -9741,6 +10014,7 @@ SQL;
                     'completed_at' => $a->completed_at,
                 ];
             }),
+            'wh_class' => $whClass,
             'counts' => [
                 'ga' => $counts['ga'] ?? null,
                 'qa1' => $counts['qa1'] ?? null,
@@ -10607,7 +10881,13 @@ SQL;
             // (Andrew 2026-10-06)
             ->whereIn('status', ['confirmed', 'in_production', 'pending', 'completed'])
             ->whereNotNull('needed_by')
-            ->whereNull('archived_at');
+            ->whereNull('archived_at')
+            // I-exclude ang mga naka-tag nang SUBCON (subcontracted) — wala na sila sa
+            // prod floor kaya hindi na dapat lumabas sa Set Time List. (Andrew 2026-10-23)
+            ->where(function ($q) {
+                $q->whereNull('production_stage')
+                  ->orWhere('production_stage', '<>', 'SUBCON');
+            });
 
         // === Auto-done (Andrew 2026-10-06; pinalawak 2026-10-14) ===
         // Kapag na-tag nang DISPATCH / UNPAID / DONE / HOLD ang order, AWTOMATIKONG

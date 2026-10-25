@@ -89,6 +89,23 @@
 .tb-amt small{font-size:.8rem;color:#94a3b8;font-weight:700;}
 .tb-pct{font-size:.78rem;font-weight:800;color:#4f46e5;}
 .tb-bar.sm{height:9px;margin-top:.4rem;}
+.tb-champstreak{display:inline-block;margin-top:.3rem;font-size:.72rem;font-weight:800;background:rgba(255,255,255,.55);color:#7c2d12;border-radius:999px;padding:.1rem .55rem;}
+.tb-chase{margin-top:.55rem;background:#eef2ff;border:1px dashed #6366f1;color:#3730a3;border-radius:10px;padding:.45rem .6rem;font-size:.8rem;font-weight:600;}
+.tb-chase.lead{background:#ecfdf5;border-color:#10b981;color:#065f46;}
+.tb-pace{margin-top:.45rem;font-size:.75rem;color:#64748b;font-weight:600;}
+.tb-pace.hit{color:#047857;}
+.tb-week{display:flex;align-items:center;gap:.8rem;background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1px solid #fdba74;border-radius:14px;padding:.9rem 1rem;}
+.tb-week .lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#c2410c;}
+.tb-week .nm{font-size:1.05rem;font-weight:900;color:#7c2d12;}
+.tb-week .tip{font-size:.72rem;color:#9a3412;margin-top:.15rem;}
+.tb-week .amt{margin-left:auto;font-weight:900;color:#c2410c;white-space:nowrap;}
+.tb-week-av{width:44px;height:44px;border-radius:50%;overflow:hidden;flex:0 0 auto;border:2px solid #fff;box-shadow:0 2px 6px rgba(194,65,12,.25);}
+.tb-week-av img{width:100%;height:100%;object-fit:cover;display:block;}
+.tb-hall{display:flex;align-items:center;gap:.8rem;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid #c7d2fe;border-radius:14px;padding:.9rem 1rem;}
+.tb-hall .ic{font-size:1.8rem;}
+.tb-hall .lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;}
+.tb-hall .nm{font-size:1.05rem;font-weight:900;color:#1e293b;}
+.tb-hall .amt{margin-left:auto;font-weight:900;color:#4338ca;}
 .tb-badges{margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.3rem;}
 .tb-badge{display:inline-flex;align-items:center;gap:.2rem;font-size:.68rem;font-weight:800;border-radius:999px;padding:.12rem .55rem;}
 .tb-badge.crown{background:#fef3c7;color:#92400e;}
@@ -117,6 +134,87 @@
 .tb-confetti{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:60;}
 .tb-conf{position:absolute;width:9px;height:14px;opacity:.95;animation:tbfall linear forwards;}
 @keyframes tbfall{to{transform:translateY(110vh) rotate(760deg);opacity:1;}}
+/* Side cannons — para sa Top 1 na magbubukas ng board */
+.tb-cannon{position:fixed;top:0;bottom:0;width:0;pointer-events:none;z-index:65;overflow:visible;}
+.tb-cannon.left{left:0;}
+.tb-cannon.right{right:0;}
+.tb-cannon .p{position:absolute;width:10px;height:15px;border-radius:2px;opacity:.97;will-change:transform,opacity;}
+@keyframes tbShootL{0%{transform:translate(0,0) rotate(0deg);opacity:1;}100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0;}}
+@keyframes tbShootR{0%{transform:translate(0,0) rotate(0deg);opacity:1;}100%{transform:translate(calc(-1 * var(--dx)),var(--dy)) rotate(var(--rot));opacity:0;}}
+
+/* Top 1 privilege — champion message */
+.tb-ann.champion{
+  position:relative;overflow:hidden;border-left:0;border-radius:16px;
+  background:linear-gradient(120deg,#fffbeb,#fef3c7,#fde68a,#fef3c7);
+  background-size:300% 300%;animation:tbGoldFlow 9s ease infinite;
+  box-shadow:0 10px 30px rgba(245,158,11,.30),inset 0 0 0 1.5px rgba(245,158,11,.55);
+  padding:1.1rem 1.2rem 1.15rem;
+}
+@keyframes tbGoldFlow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.tb-ann.champion:before{
+  content:"";position:absolute;top:0;left:-60%;width:45%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.85),transparent);
+  transform:skewX(-18deg);animation:tbShine 4.5s ease-in-out infinite;
+}
+@keyframes tbShine{0%{left:-60%}55%{left:130%}100%{left:130%}}
+.tb-ann.champion .t{color:#7c2d12;font-size:1rem;position:relative;z-index:2;}
+.tb-ann.champion .b{position:relative;z-index:2;font-size:1rem;font-weight:600;color:#57534e;line-height:1.55;padding-left:1.6rem;}
+.tb-ann.champion .b:before{content:"“";position:absolute;left:0;top:-.35rem;font-size:2.3rem;color:#f59e0b;font-family:Georgia,serif;line-height:1;}
+.tb-ann.champion .w{position:relative;z-index:2;}
+.tb-champ-float{position:absolute;right:1rem;top:.9rem;font-size:1.9rem;z-index:1;animation:tbBob 3s ease-in-out infinite;filter:drop-shadow(0 4px 8px rgba(245,158,11,.5));}
+@keyframes tbBob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-8px) rotate(4deg)}}
+.tb-champ-spark{position:absolute;font-size:.9rem;opacity:0;animation:tbSpark 3.4s ease-in-out infinite;z-index:1;}
+@keyframes tbSpark{0%,100%{opacity:0;transform:scale(.5)}45%{opacity:1;transform:scale(1.1)}}
+
+/* Podium emphasis (3s sa pagbukas) */
+.tb-podium.stage .tb-pod{transition:transform .45s cubic-bezier(.2,.8,.3,1),box-shadow .45s ease,filter .45s ease;}
+.tb-podium.stage .tb-pod:not(.lit){filter:grayscale(.55) brightness(.92);opacity:.62;}
+.tb-podium.stage .tb-pod.lit{transform:translateY(-14px) scale(1.06);z-index:5;filter:none;opacity:1;
+  box-shadow:0 20px 45px rgba(245,158,11,.45),0 0 0 4px rgba(251,191,36,.45);}
+.tb-podium.stage .tb-pod.lit.p1{box-shadow:0 24px 60px rgba(245,158,11,.65),0 0 0 6px rgba(251,191,36,.55);}
+.tb-podium.stage .tb-pod.lit .med{animation:tbMedalPop .6s ease;}
+@keyframes tbMedalPop{0%{transform:scale(.6) rotate(-18deg)}60%{transform:scale(1.35) rotate(8deg)}100%{transform:scale(1) rotate(0)}}
+.tb-ann .champ-tag{background:#f59e0b;color:#fff;border-radius:999px;font-size:.62rem;font-weight:900;padding:.1rem .5rem;letter-spacing:.04em;text-transform:uppercase;}
+.tb-champmsg-inline{margin-top:.85rem;}
+.tb-champmsg-inline button{display:inline-flex;align-items:center;gap:.5rem;background:linear-gradient(135deg,#fde68a,#fbbf24);color:#7c2d12;border:0;font-weight:900;font-size:.92rem;padding:.7rem 1.15rem;border-radius:999px;box-shadow:0 8px 22px rgba(0,0,0,.25);cursor:pointer;}
+.tb-champmsg-inline button:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(0,0,0,.3);}
+.tb-gate{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:1.2rem;
+  background:rgba(17,24,39,.62);backdrop-filter:blur(7px) grayscale(.35);-webkit-backdrop-filter:blur(7px) grayscale(.35);}
+.tb-gate.open{display:flex;animation:tbGateIn .35s ease;}
+@keyframes tbGateIn{from{opacity:0}to{opacity:1}}
+.tb-gate-card{position:relative;max-width:640px;width:100%;max-height:88vh;overflow:auto;background:linear-gradient(135deg,#fff,#f8fafc);
+  border-radius:20px;padding:1.6rem 1.7rem 1.5rem;box-shadow:0 30px 80px rgba(2,6,23,.5);border:1px solid #e2e8f0;
+  animation:tbCardIn .45s cubic-bezier(.18,.9,.28,1.1);}
+@keyframes tbCardIn{from{transform:translateY(26px) scale(.94);opacity:0}to{transform:none;opacity:1}}
+.tb-gate-card.champion{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fbbf24;box-shadow:0 30px 80px rgba(245,158,11,.45);}
+.tb-gate-tag{display:inline-flex;align-items:center;gap:.35rem;background:#4f46e5;color:#fff;font-size:.65rem;font-weight:900;letter-spacing:.09em;
+  text-transform:uppercase;border-radius:999px;padding:.22rem .7rem;margin-bottom:.7rem;}
+.tb-gate-card.champion .tb-gate-tag{background:#f59e0b;}
+.tb-gate-card h2{margin:0 0 .5rem;font-size:1.35rem;font-weight:900;color:#1e293b;line-height:1.25;}
+.tb-gate-card.champion h2{color:#7c2d12;}
+.tb-gate-body{font-size:1rem;color:#334155;line-height:1.6;white-space:pre-line;font-weight:600;}
+.tb-gate-card.champion .tb-gate-body{color:#57534e;}
+.tb-gate-imgs{display:flex;flex-direction:column;gap:.7rem;margin-top:.9rem;}
+.tb-gate-imgs img{width:100%;height:auto;max-height:62vh;object-fit:contain;border-radius:12px;border:1px solid #e2e8f0;background:#fff;cursor:zoom-in;display:block;}
+.tb-gate-when{margin-top:.9rem;font-size:.75rem;color:#94a3b8;font-weight:700;}
+.tb-gate-btn{display:block;width:100%;margin-top:1.1rem;border:0;border-radius:12px;padding:.85rem 1rem;font-weight:900;font-size:.95rem;
+  background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;cursor:pointer;box-shadow:0 10px 24px rgba(79,70,229,.35);}
+.tb-gate-card.champion .tb-gate-btn{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#7c2d12;box-shadow:0 10px 24px rgba(245,158,11,.4);}
+.tb-gate-btn:hover{transform:translateY(-1px);}
+.tb-gate-x{position:absolute;top:.8rem;right:.9rem;border:0;background:rgba(148,163,184,.15);color:#64748b;width:30px;height:30px;border-radius:50%;
+  font-weight:900;cursor:pointer;font-size:.95rem;line-height:1;}
+.tb-gate-x:hover{background:rgba(148,163,184,.3);}
+.tb-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:80;padding:1rem;}
+.tb-modal.open{display:flex;}
+.tb-modal-box{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:1.25rem 1.35rem;box-shadow:0 24px 60px rgba(2,6,23,.35);}
+.tb-modal-box h3{margin:0 0 .25rem;font-size:1.1rem;font-weight:900;color:#7c2d12;}
+.tb-modal-box p{font-size:.82rem;color:#78716c;margin:0 0 .7rem;}
+.tb-modal-box textarea{width:100%;min-height:120px;border:1px solid #e7e5e4;border-radius:10px;padding:.7rem .8rem;font-size:.9rem;font-family:inherit;resize:vertical;}
+.tb-modal-box textarea:focus{outline:2px solid #fbbf24;border-color:#fbbf24;}
+.tb-modal-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem;}
+.tb-modal-actions button{border:0;border-radius:10px;padding:.55rem 1rem;font-weight:800;font-size:.85rem;cursor:pointer;}
+.tb-modal-actions .cancel{background:#f5f5f4;color:#57534e;}
+.tb-modal-actions .send{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#7c2d12;}
 
 @media(max-width:600px){.tb-big{font-size:1.9rem;}.tb-podium{gap:.4rem;}.tb-pod .nm{font-size:.75rem;}}
 </style>
@@ -129,10 +227,46 @@
     <h1>🏆 {{ $settings['board_title'] ?: 'Team Board' }}</h1>
     @if(!empty($settings['tagline']))<div class="tb-tagline">{{ $settings['tagline'] }}</div>@endif
     <div class="tb-period">📅 {{ $period['label'] }}</div>
+    @if(!empty($champion_id) && (int) $champion_id === (int) $me_id)
+    <div class="tb-champmsg-inline">
+      <button type="button" id="tb-open-champmsg">🏆 Champion Message — mag-post para sa team</button>
+    </div>
+    @endif
     <div id="tb-team-total"></div>
   </div>
 
+  {{-- Announcement gate: unang lumalabas sa screen tuwing mag-reload (Andrew 2026-10-22) --}}
+  <div class="tb-gate" id="tb-gate">
+    <div class="tb-gate-card" id="tb-gate-card">
+      <button type="button" class="tb-gate-x" id="tb-gate-x" aria-label="Close">✕</button>
+      <div class="tb-gate-tag" id="tb-gate-tag">News</div>
+      <h2 id="tb-gate-title"></h2>
+      <div class="tb-gate-body" id="tb-gate-body"></div>
+      <div class="tb-gate-imgs" id="tb-gate-imgs"></div>
+      <div class="tb-gate-when" id="tb-gate-when"></div>
+      <button type="button" class="tb-gate-btn" id="tb-gate-btn">Sige, tingnan ko na 👀</button>
+    </div>
+  </div>
+
   <div id="tb-live-root"></div>
+
+  @if(!empty($champion_id) && (int) $champion_id === (int) $me_id)
+  {{-- PRIVILEGE ng Top 1: mag-post ng inspiring message para sa lahat --}}
+  <div class="tb-modal" id="tb-champmsg-modal">
+    <div class="tb-modal-box">
+      <h3>🏆 Champion Message</h3>
+      <p>Ikaw ang Top 1 ngayon — gamitin ang privilege para mag-inspire sa team. Makikita ito ng lahat pagbukas nila ng board.</p>
+      <form method="POST" action="{{ route('sales.team.board.champion.message') }}">
+        @csrf
+        <textarea name="message" maxlength="600" required placeholder="Halimbawa: Walang shortcut sa tagumpay — pero may team kayong hindi bumibitaw. Keep pushing! 🔥"></textarea>
+        <div class="tb-modal-actions">
+          <button type="button" class="cancel" id="tb-close-champmsg">Cancel</button>
+          <button type="submit" class="send">I-post sa Team 🚀</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  @endif
 
   @if(!empty($is_admin))
   <div class="tb-fab">
@@ -160,6 +294,10 @@ window.TB_INIT = {!! json_encode([
   'champion_amount' => $champion_amount,
   'champion_initials' => $champion_initials ?? null,
   'champion_avatar' => $champion_avatar ?? null,
+  'champion_days_on_top' => $champion_days_on_top ?? 0,
+  'days_left' => $days_left ?? 0,
+  'last_champion' => $last_champion ?? null,
+  'week_leader' => $week_leader ?? null,
   'top_mover_id' => $top_mover_id,
   'top_mover_name' => $top_mover_name,
   'top_mover_delta' => $top_mover_delta,
@@ -206,9 +344,34 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
     var cav = d.champion_avatar
       ? '<span class="tb-champ-av"><img src="'+esc(d.champion_avatar)+'" alt="'+esc(d.champion_name)+'" loading="lazy"></span>'
       : '<span class="cr">🏆</span>';
+    var dt = Number(d.champion_days_on_top||0);
+    var streak = dt >= 2
+      ? '<div class="tb-champstreak">🔥 Top 1 for '+dt+' days straight</div>'
+      : (dt === 1 ? '<div class="tb-champstreak">🔥 Top 1 ngayong araw</div>' : '');
     return '<div class="tb-champ">'+cav+'<div><div class="lbl">🏆 Champion ngayong '+esc(d.period.label)+'</div>'+
-      '<div class="nm">'+esc(d.champion_name)+'</div></div>'+
+      '<div class="nm">'+esc(d.champion_name)+'</div>'+streak+'</div>'+
       '<div class="amt">'+peso(d.champion_amount)+'</div></div>';
+  }
+
+  function renderWeek(d){
+    var w = d.week_leader;
+    if(!w || !w.name) return '';
+    return '<div class="tb-section"><h2>📅 Lingo ngayong</h2>'+
+      '<div class="tb-week">'+
+      av(w.name, w.initials,'tb-week-av',w.avatar)+
+      '<div><div class="lbl">Week leader · '+esc(w.range||'')+'</div>'+
+      '<div class="nm">'+esc(w.name)+'</div>'+
+      '<div class="tip">Bagong laban bawat Lunes — lahat balik sa zero. '+w.ends_in+' araw pa para agawin ang pwesto!</div></div>'+
+      '<div class="amt">'+peso(w.amount)+'</div></div></div>';
+  }
+
+  function renderHall(d){
+    var lc = d.last_champion;
+    if(!lc || !lc.name) return '';
+    return '<div class="tb-section"><h2>🏅 Hall of Fame</h2>'+
+      '<div class="tb-hall"><span class="ic">🏆</span><div><div class="lbl">Champion ng '+esc(lc.label)+'</div>'+
+      '<div class="nm">'+esc(lc.name)+'</div></div>'+
+      '<div class="amt">'+peso(lc.amount)+'</div></div></div>';
   }
 
   function renderTeamTotal(d){
@@ -249,8 +412,92 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
     html += badges(me, d);
     html += '<div class="tb-motive">'+motivate(me.pct, me.has_quota)+'</div>';
     if(d.settings.show_rank && me.rank){ html += '<div class="tb-sub" style="margin-top:.5rem;">Rank mo ngayon: #'+me.rank+' sa buong team</div>'; }
+    if(me.rank && me.rank>1 && me.gap_to_next>0){
+      html += '<div class="tb-chase">🎯 Kulang na lang <b>'+peso(me.gap_to_next)+'</b> para ma-overtake si <b>'+esc(me.overtake_name||'—')+'</b> (# '+(me.rank-1)+')</div>';
+    } else if(me.rank===1){
+      html += '<div class="tb-chase lead">👑 Ikaw ang nangunguna — depensahan ang pwesto!</div>';
+    }
+    if(me.quota>0 && me.remaining>0 && d.days_left>0){
+      html += '<div class="tb-pace">⏳ '+d.days_left+' araw na lang ngayong buwan · kailangan ng ~'+peso(Math.ceil(me.remaining/d.days_left))+'/araw para ma-hit ang quota</div>';
+    } else if(me.quota>0 && me.remaining<=0){
+      html += '<div class="tb-pace hit">✅ Quota hit — keep pushing para mas mataas pa!</div>';
+    }
     html += '</div></div>';
     return html;
+  }
+
+  function champModalWiring(){
+    var openBtn = document.getElementById('tb-open-champmsg');
+    var modal = document.getElementById('tb-champmsg-modal');
+    if(!openBtn || !modal) return;
+    var closeBtn = document.getElementById('tb-close-champmsg');
+    openBtn.addEventListener('click', function(){ modal.classList.add('open'); });
+    if(closeBtn) closeBtn.addEventListener('click', function(){ modal.classList.remove('open'); });
+    modal.addEventListener('click', function(e){ if(e.target===modal) modal.classList.remove('open'); });
+  }
+
+  // Isang beses lang per page load — ADMIN announcement muna, tapos champion message.
+  // (Andrew 2026-10-22: "dapat una yun announcement ko, bago sa champion")
+  var gateShown = false;
+  var gateQueue = [];
+  var gateIdx = 0;
+
+  function gateClose(){
+    var gate = document.getElementById('tb-gate');
+    gate.classList.remove('open');
+    gateIdx++;
+    if(gateIdx < gateQueue.length){
+      setTimeout(function(){ gatePaint(gateQueue[gateIdx]); }, 260);
+    } else {
+      document.body.style.overflow = '';
+      setTimeout(function(){ watchPodium(); armConfetti(); }, 250);
+    }
+  }
+
+  function gatePaint(a){
+    var gate = document.getElementById('tb-gate');
+    var card = document.getElementById('tb-gate-card');
+    var tag = document.getElementById('tb-gate-tag');
+    var isChamp = (a.type==='champion');
+    tag.textContent = isChamp ? '🏆 Champion Message' : (a.type==='alert' ? '⚠️ Alert' : a.type==='motivation' ? '💡 Motivation' : '📰 News');
+    card.className = 'tb-gate-card' + (isChamp?' champion':'');
+    document.getElementById('tb-gate-title').textContent = a.title || '';
+    document.getElementById('tb-gate-body').textContent = a.body || '';
+    var imgs = document.getElementById('tb-gate-imgs');
+    imgs.innerHTML = '';
+    (a.images||[]).forEach(function(u){
+      var i = document.createElement('img'); i.src = u; i.alt = 'announcement'; imgs.appendChild(i);
+    });
+    document.getElementById('tb-gate-when').textContent = a.when || '';
+    var btn = document.getElementById('tb-gate-btn');
+    btn.textContent = (gateQueue.length > 1 && gateIdx < gateQueue.length - 1)
+      ? 'Susunod →'
+      : 'Sige, tingnan ko na 👀';
+    gate.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function showAnnouncementGate(d){
+    if(gateShown) return;
+    if(!d.settings || !d.settings.show_announcements) return;
+    var list = (d.announcements || []).filter(function(a){ return a && (a.title || a.body); });
+    if(!list.length) return;
+    gateShown = true;
+
+    var admin = list.filter(function(x){ return x.type !== 'champion'; });
+    var champ = list.filter(function(x){ return x.type === 'champion'; });
+
+    // Admin/promo/news muna (naka-pin at latest ang nauna), tapos champion message.
+    gateQueue = admin.slice(0, 3).concat(champ.slice(0, 1));
+    if(!gateQueue.length) gateQueue = list.slice(0, 3);
+
+    gateIdx = 0;
+    gatePaint(gateQueue[0]);
+
+    var gate = document.getElementById('tb-gate');
+    document.getElementById('tb-gate-btn').onclick = gateClose;
+    document.getElementById('tb-gate-x').onclick = function(){ gateQueue = []; gateClose(); };
+    gate.onclick = function(e){ if(e.target === gate){ gateQueue = []; gateClose(); } };
   }
 
   function renderAnn(d){
@@ -258,8 +505,15 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
     if(!d.announcements || !d.announcements.length) return '';
     var h = '<div class="tb-section"><h2>📣 Announcements</h2>';
     d.announcements.forEach(function(a){
-      h += '<div class="tb-ann '+(a.pinned?'pinned':'')+'">';
-      h += '<div class="t">'+(a.pinned?'📌 ':'')+(a.type==='alert'?'⚠️ ':a.type==='motivation'?'💡 ':'📰 ')+esc(a.title)+'</div>';
+      var isChamp = (a.type==='champion');
+      h += '<div class="tb-ann '+(isChamp?'champion':(a.pinned?'pinned':''))+'">';
+      if(isChamp){
+        h += '<span class="tb-champ-float">🏆</span>';
+        h += '<span class="tb-champ-spark" style="left:8%;top:18%;animation-delay:.3s;">✨</span>';
+        h += '<span class="tb-champ-spark" style="left:26%;bottom:14%;animation-delay:1.1s;">✨</span>';
+        h += '<span class="tb-champ-spark" style="right:22%;bottom:20%;animation-delay:1.9s;">⭐</span>';
+      }
+      h += '<div class="t">'+(isChamp?'🏆 ':(a.pinned?'📌 ':''))+(isChamp?'':(a.type==='alert'?'⚠️ ':a.type==='motivation'?'💡 ':'📰 '))+esc(a.title)+(isChamp?' <span class="champ-tag">Top 1</span>':'')+'</div>';
       if(a.body) h += '<div class="b">'+esc(a.body)+'</div>';
       if(a.images && a.images.length){
         h += '<div class="tb-ann-imgs">';
@@ -346,16 +600,115 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
     setTimeout(function(){ layer.remove(); }, 6000);
   }
 
+  var cannonFired = false;
+  function sideConfetti(){
+    if(cannonFired) return;
+    cannonFired = true;
+    var colors = ['#4f46e5','#f59e0b','#ec4899','#10b981','#3b82f6','#fbbf24','#ef4444'];
+    var L = document.createElement('div'); L.className='tb-cannon left';
+    var R = document.createElement('div'); R.className='tb-cannon right';
+    document.body.appendChild(L); document.body.appendChild(R);
+    var volleys = 0;
+    function volley(){
+      volleys++;
+      [L,R].forEach(function(layer){
+        var isLeft = layer.classList.contains('left');
+        for(var i=0;i<26;i++){
+          var p = document.createElement('div');
+          p.className='p';
+          p.style.background = colors[Math.floor(Math.random()*colors.length)];
+          p.style.top = (12 + Math.random()*70) + 'vh';
+          p.style.setProperty('--dx', (30 + Math.random()*70) + 'vw');
+          p.style.setProperty('--dy', (-25 - Math.random()*55) + 'vh');
+          p.style.setProperty('--rot', (Math.random()*1080-540) + 'deg');
+          p.style.animation = (isLeft?'tbShootL':'tbShootR') + ' ' + (1.9 + Math.random()*1.5) + 's cubic-bezier(.2,.7,.3,1) forwards';
+          (isLeft?L:R).appendChild(p);
+        }
+      });
+      setTimeout(function(){
+        if(volleys < 4){ volley(); }
+        else { setTimeout(function(){ L.remove(); R.remove(); }, 3200); }
+      }, 700);
+    }
+    volley();
+  }
+
+  // 3-second emphasis sa Top 1–3 sa pagbukas ng board (Andrew 2026-10-22)
+  var podiumStaged = false;
+  var podiumObserver = null;
+  function watchPodium(){
+    if(podiumStaged) return;
+    var pod = document.querySelector('#tb-live-root .tb-podium');
+    if(!pod) return;
+    if(!('IntersectionObserver' in window)){ podiumStage(); return; }
+    if(podiumObserver) podiumObserver.disconnect();
+    podiumObserver = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting && e.intersectionRatio >= 0.35){ podiumStage(); }
+      });
+    }, { threshold: [0.35, 0.6] });
+    podiumObserver.observe(pod);
+  }
+
+  function podiumStage(){
+    var pod = document.querySelector('#tb-live-root .tb-podium');
+    if(podiumStaged || !pod) return;
+    podiumStaged = true;
+    if(podiumObserver){ podiumObserver.disconnect(); podiumObserver = null; }
+    pod.classList.add('stage');
+    var order = ['.p3','.p2','.p1'];
+    var i = 0;
+    function light(){
+      pod.querySelectorAll('.tb-pod').forEach(function(el){ el.classList.remove('lit'); });
+      if(i < order.length){
+        var el = pod.querySelector('.tb-pod' + order[i]);
+        if(el) el.classList.add('lit');
+        i++;
+        setTimeout(light, 950);
+      } else {
+        setTimeout(function(){
+          pod.classList.remove('stage');
+          pod.querySelectorAll('.tb-pod').forEach(function(el){ el.classList.remove('lit'); });
+        }, 700);
+      }
+    }
+    light();
+  }
+
+  // Confetti trigger pagkatapos ng gate (o agad kung walang announcement).
+  var confettiArmed = false;
+  function armConfetti(){
+    if(confettiArmed) return;
+    confettiArmed = true;
+    var d = window.TB_INIT;
+    var me = (d.agents||[]).find(function(a){ return a.user_id === d.me_id; });
+    if(d.settings.show_confetti && me && me.pct>=100){ confetti(); }
+    if(d.champion_id && d.me_id === d.champion_id){ sideConfetti(); }
+  }
+
   function render(d){
     var root = document.getElementById('tb-live-root');
     var me = (d.agents||[]).find(function(a){return a.user_id===d.me_id;});
-    root.innerHTML = renderChampion(d) + renderMe(d,me) + renderAnn(d) + renderPodium(d) + renderBoard(d);
+    var stageWasOn = !!(document.querySelector('#tb-live-root .tb-podium.stage'));
+    root.innerHTML = renderChampion(d) + renderMe(d,me) + renderAnn(d) + renderPodium(d) + renderWeek(d) + renderHall(d) + renderBoard(d);
+    if(stageWasOn){
+      var np = document.querySelector('#tb-live-root .tb-podium');
+      if(np) np.classList.add('stage');
+    } else if(!podiumStaged){
+      watchPodium();
+    }
     renderTeamTotal(d);
     document.getElementById('tb-updated').textContent = d.generated_at;
-    if(d.settings.show_confetti && me && me.pct>=100){ confetti(); }
+    // Confetti ay pinapakawalan lang pagka-close ng announcement/champion gate
+    // (Andrew 2026-10-22) — nasa armConfetti() na ang trigger.
+    if(d.settings.show_confetti && me && me.pct>=100){ confettiFired = confettiFired; }
   }
 
   render(window.TB_INIT);
+  champModalWiring();
+  // Announcement/promo muna bago lahat; pagka-close, tsaka lang mag-aarmas ang podium effect.
+  showAnnouncementGate(window.TB_INIT);
+  if(!gateShown){ watchPodium(); armConfetti(); }
 
   var lastName = JSON.stringify({
     a: window.TB_INIT.agents, g: window.TB_INIT.groups, s: window.TB_INIT.settings,

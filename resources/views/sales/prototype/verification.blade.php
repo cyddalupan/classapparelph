@@ -80,6 +80,42 @@
         </div>
     </div>
 
+    {{-- Filter bar (Andrew 2026-10-22) — payment date range + search. Pure client-side, hindi ginagalaw ang queries. --}}
+    <form method="GET" action="{{ route('sales.verification') }}" id="pv-form" class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="d-flex flex-wrap align-items-end gap-3">
+                <div>
+                    <label class="form-label small fw-semibold text-muted mb-1">Payment date — Mula</label>
+                    <input type="date" name="pfrom" value="{{ $pvFrom ?? '' }}" class="form-control form-control-sm" id="pv-from" style="min-width:150px;">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold text-muted mb-1">Hanggang</label>
+                    <input type="date" name="pto" value="{{ $pvTo ?? '' }}" class="form-control form-control-sm" id="pv-to" style="min-width:150px;">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold text-muted mb-1 d-block">Mabilis na pili</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary pv-quick" data-range="today">Today</button>
+                        <button type="button" class="btn btn-outline-secondary pv-quick" data-range="yesterday">Kahapon</button>
+                        <button type="button" class="btn btn-outline-secondary pv-quick" data-range="7">Last 7 days</button>
+                        <button type="button" class="btn btn-outline-secondary pv-quick" data-range="30">Last 30 days</button>
+                        <button type="button" class="btn btn-outline-secondary pv-quick" data-range="month">This month</button>
+                        <button type="button" class="btn btn-outline-secondary pv-quick" data-range="all">Lahat</button>
+                    </div>
+                </div>
+                <div class="ms-auto" style="min-width:260px;">
+                    <label class="form-label small fw-semibold text-muted mb-1">Search</label>
+                    <input type="text" class="form-control form-control-sm" id="pv-search"
+                           placeholder="Customer, sales #, ref #, account…">
+                </div>
+                <div>
+                    <span class="badge bg-dark" id="pv-count">—</span>
+                </div>
+            </div>
+            <div class="small text-muted mt-2" id="pv-active-filter" style="display:none;"></div>
+        </div>
+    </form>
+
     <div class="row g-3">
         <!-- Pending Payments (Left column - wider) -->
         <div class="col-lg-8">
@@ -97,9 +133,15 @@
                     @else
                         <div class="list-group list-group-flush">
                             @foreach($pendingPayments as $payment)
+                                @php
+                                    // Filter basis: petsa ng BAYAD (hindi created date) — Andrew 2026-10-22
+                                    $pvDate = $payment->payment_date ?? null;
+                                @endphp
                                 <div class="list-group-item payment-card {{ $payment->payment_status }}"
                                      data-payment-id="{{ $payment->id }}"
-                                     data-sale-id="{{ $payment->prototype_sale_id }}">
+                                     data-sale-id="{{ $payment->prototype_sale_id }}"
+                                     data-pdate="{{ $pvDate ? \Carbon\Carbon::parse($pvDate)->format('Y-m-d') : '' }}"
+                                     data-search="{{ strtolower(trim(($payment->customer_name ?? '').' '.($payment->sales_number ?? '').' '.($payment->reference_number ?? '').' '.($payment->account_name ?? ''))) }}">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1 me-3">
                                             <div class="d-flex align-items-center gap-2 mb-1">
@@ -129,6 +171,11 @@
                                             </div>
                                             <div class="d-flex align-items-center gap-2 mb-1">
                                                 <span class="fw-bold text-success">₱{{ number_format($payment->amount, 2) }}</span>
+                                                @if($payment->payment_date)
+                                                    <span class="badge bg-success" title="Petsa ng bayad ni client — ito ang base ng filter" style="font-size:.72rem;">
+                                                        <i class="fas fa-calendar-check"></i> Bayad: {{ \Carbon\Carbon::parse($payment->payment_date)->format('M d, Y') }}
+                                                    </span>
+                                                @endif
                                                 @if($payment->total_amount)
                                                     <span class="small text-muted">of ₱{{ number_format($payment->total_amount, 2) }} total</span>
                                                 @endif
@@ -157,8 +204,8 @@
                                                     @endif
                                                 @endif
                                                 @if($payment->payment_date)
-                                                    <span class="badge bg-light text-dark me-1">
-                                                        <i class="fas fa-calendar"></i> {{ \Carbon\Carbon::parse($payment->payment_date)->format('M d, Y') }}
+                                                    <span class="badge bg-success me-1" title="Petsa ng bayad ni client — ito ang base ng filter" style="font-size:.75rem;">
+                                                        <i class="fas fa-calendar-check"></i> Bayad: {{ \Carbon\Carbon::parse($payment->payment_date)->format('M d, Y') }}
                                                     </span>
                                                 @endif
                                             </div>
@@ -175,7 +222,7 @@
                                                 @endif
                                             </div>
                                             <div class="small text-muted mt-1">
-                                                <i class="fas fa-clock"></i> {{ \Carbon\Carbon::parse($payment->created_at)->format('M d, g:i A') }}
+                                                <i class="fas fa-clock"></i> Na-post: {{ \Carbon\Carbon::parse($payment->created_at)->format('M d, g:i A') }}
                                             </div>
                                         </div>
                                         <div class="text-end" style="min-width: 100px;">
@@ -232,7 +279,10 @@
                     @else
                         <div class="list-group list-group-flush">
                             @foreach($pendingLayoutJobs as $lj)
-                                <div class="list-group-item payment-card pending">
+                                @php $pvLJDate = $lj->payment_date ?? null; @endphp
+                                <div class="list-group-item payment-card pending"
+                                     data-pdate="{{ $pvLJDate ? \Carbon\Carbon::parse($pvLJDate)->format('Y-m-d') : '' }}"
+                                     data-search="{{ strtolower(trim(($lj->job_no ?? '').' '.($lj->customer_name ?? '').' '.($lj->payment_reference ?? '').' '.($lj->account_name ?? ''))) }}">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1 me-3">
                                             <div class="d-flex align-items-center gap-2 mb-1">
@@ -333,7 +383,10 @@
                     @else
                         <div class="list-group list-group-flush">
                             @foreach($pendingRejections as $pr)
-                                <div class="list-group-item payment-card reject_pending">
+                                @php $pvPRDate = $pr->payment_date ?? null; @endphp
+                                <div class="list-group-item payment-card reject_pending"
+                                     data-pdate="{{ $pvPRDate ? \Carbon\Carbon::parse($pvPRDate)->format('Y-m-d') : '' }}"
+                                     data-search="{{ strtolower(trim(($pr->customer_name ?? '').' '.($pr->sales_number ?? '').' '.($pr->reference_number ?? '').' '.($pr->account_name ?? ''))) }}">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1 me-3">
                                             <div class="d-flex align-items-center gap-2 mb-1">
@@ -412,7 +465,10 @@
                     @else
                         <div class="list-group list-group-flush">
                             @foreach($pendingEdits as $pe)
-                                <div class="list-group-item payment-card edit_pending">
+                                @php $pvPEDate = $pe->payment_date ?? $pe->pending_payment_date ?? null; @endphp
+                                <div class="list-group-item payment-card edit_pending"
+                                     data-pdate="{{ $pvPEDate ? \Carbon\Carbon::parse($pvPEDate)->format('Y-m-d') : '' }}"
+                                     data-search="{{ strtolower(trim(($pe->customer_name ?? '').' '.($pe->sales_number ?? '').' '.($pe->reference_number ?? '').' '.($pe->pending_reference_number ?? '').' '.($pe->account_name ?? ''))) }}">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1 me-3">
                                             <div class="d-flex align-items-center gap-2 mb-1">
@@ -526,7 +582,10 @@
                                         default => 'secondary',
                                     };
                                 @endphp
-                                <div class="list-group-item payment-card {{ $payment->payment_status }}">
+                                @php $pvVDate = $payment->payment_date ?? null; @endphp
+                                <div class="list-group-item payment-card {{ $payment->payment_status }}"
+                                     data-pdate="{{ $pvVDate ? \Carbon\Carbon::parse($pvVDate)->format('Y-m-d') : '' }}"
+                                     data-search="{{ strtolower(trim(($payment->customer_name ?? '').' '.($payment->sales_number ?? '').' '.($payment->reference_number ?? '').' '.($payment->account_name ?? ''))) }}">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1 me-3">
                                             <div class="d-flex align-items-center gap-2 mb-1">
@@ -1277,5 +1336,106 @@ document.addEventListener('keydown', function(e) {
         if (ol) { ol.remove(); document.body.style.overflow = ''; }
     }
 });
+
+// ===== Payment date / search filter (Andrew 2026-10-22) =====
+// Dates = server-side (para kumpleto ang verified list, hindi lang 50).
+// Search = client-side (walang reload).
+(function(){
+    var form = document.getElementById('pv-form');
+    var fromEl = document.getElementById('pv-from');
+    var toEl = document.getElementById('pv-to');
+    var searchEl = document.getElementById('pv-search');
+    var countEl = document.getElementById('pv-count');
+    var activeEl = document.getElementById('pv-active-filter');
+    if(!fromEl || !toEl) return;
+
+    function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    function shift(days){ var d=new Date(); d.setDate(d.getDate()+days); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+    var submitTimer = null;
+    function reloadWithDates(){
+        if(!form) return;
+        clearTimeout(submitTimer);
+        submitTimer = setTimeout(function(){ form.submit(); }, 800);
+    }
+
+    function apply(){
+        var from = fromEl.value || '';
+        var to = toEl.value || '';
+        var q = (searchEl.value || '').trim().toLowerCase();
+        var cards = document.querySelectorAll('.payment-card');
+        var shown = 0, total = 0;
+
+        cards.forEach(function(card){
+            if(!card.hasAttribute('data-search') && !card.hasAttribute('data-pdate')) return;
+            total++;
+            var pd = card.getAttribute('data-pdate') || '';
+            var hay = card.getAttribute('data-search') || '';
+            var ok = true;
+
+            if(from || to){
+                if(!pd){ ok = false; }
+                else {
+                    if(from && pd < from) ok = false;
+                    if(to && pd > to) ok = false;
+                }
+            }
+            if(ok && q && hay.indexOf(q) === -1){ ok = false; }
+
+            card.style.display = ok ? '' : 'none';
+            if(ok) shown++;
+        });
+
+        countEl.textContent = shown + ' / ' + total + ' record' + (total===1?'':'s') + ' na ipinapakita';
+
+        var bits = [];
+        if(from) bits.push('mula ' + from);
+        if(to) bits.push('hanggang ' + to);
+        if(q) bits.push('search: "' + q + '"');
+        if(bits.length){
+            activeEl.style.display='';
+            activeEl.innerHTML = '<i class="fas fa-filter"></i> Filter: ' + bits.join(' · ') +
+                ' <a href="#" id="pv-clear" class="ms-2">clear</a>';
+            var clr = document.getElementById('pv-clear');
+            if(clr) clr.onclick = function(ev){ ev.preventDefault(); reset(); };
+        } else {
+            activeEl.style.display='none'; activeEl.innerHTML='';
+        }
+    }
+
+    function reset(){
+        window.location.href = form ? form.getAttribute('action') : window.location.pathname;
+    }
+
+    document.querySelectorAll('.pv-quick').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            document.querySelectorAll('.pv-quick').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var r = btn.getAttribute('data-range');
+            fromEl.value=''; toEl.value='';
+            if(r === 'today'){ fromEl.value = todayStr(); toEl.value = todayStr(); }
+            else if(r === 'yesterday'){ fromEl.value = shift(-1); toEl.value = shift(-1); }
+            else if(r === '7'){ fromEl.value = shift(-6); toEl.value = todayStr(); }
+            else if(r === '30'){ fromEl.value = shift(-29); toEl.value = todayStr(); }
+            else if(r === 'month'){ var d=new Date(); fromEl.value = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10); toEl.value = todayStr(); }
+            apply();
+            reloadWithDates();
+        });
+    });
+
+    ['change','input'].forEach(function(ev){
+        fromEl.addEventListener(ev, function(){
+            document.querySelectorAll('.pv-quick').forEach(function(b){ b.classList.remove('active'); });
+            apply(); reloadWithDates();
+        });
+        toEl.addEventListener(ev, function(){
+            document.querySelectorAll('.pv-quick').forEach(function(b){ b.classList.remove('active'); });
+            apply(); reloadWithDates();
+        });
+    });
+    searchEl.addEventListener('input', apply);
+
+    apply();
+})();
 </script>
 @endpush
