@@ -1947,6 +1947,12 @@ public function details(Request $request, string $id)
             $hasPendingVerification = true;
         }
 
+        // Tag buttons (Andrew 2026-10-25): File Screenshot → FOR SAMPLE, Approved Sample Color → FOR FORMAT.
+        // Server-side ang rules; dito lang i-compute para ma-disable/ma-hide ang button + tooltip reason.
+        $tagForSample = $this->productionTagState($sale, $currentUser, 'FOR SAMPLE');
+        $tagForFormat = $this->productionTagState($sale, $currentUser, 'FOR FORMAT');
+        $canUseProdTags = $this->canUseProdTagButtons($currentUser);
+
         return view('sales.prototype.show', compact(
             'sale', 'services', 'kanbanItem', 'relatedSales',
             'overallGroupSubtotal', 'overallGroupTotal', 'overallGroupDeposit', 'overallGroupBalance',
@@ -1962,7 +1968,8 @@ public function details(Request $request, string $id)
             'paymentReviews', 'activeReviewRequest',
             'hasPendingVerification',
             'canSeeTagging', 'stageTimeline',
-            'prodCheckCounts'
+            'prodCheckCounts',
+            'tagForSample', 'tagForFormat', 'canUseProdTags'
         ));
     }
 
@@ -6972,6 +6979,227 @@ $services = json_decode($sale->services, true);
             'production_stage' => $sale->production_stage,
             'priority' => $sale->priority,
             'priority_map' => $priorityMap,
+        ]);
+    }
+
+    /**
+     * Sinong pwedeng gumamit ng dalawang tag button sa Show page?
+     * (Andrew 2026-10-25) Lahat ng nagbebenta + CEO + COO.
+     * EXCLUDED: QA/Trimmer (role trimmer_qa) at GA (James, Mark Lorenz).
+     */
+    protected function canUseProdTagButtons($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+        if ($user->isTrimmerQa() || $user->isGa()) {
+            return false;
+        }
+        return $user->isSalesAgent() || $user->isQa() || $user->isAdmin() || $user->isCoo();
+    }
+
+    /**
+     * Shared guard para sa File Screenshot → FOR SAMPLE at Approved Sample Color → FOR FORMAT.
+     * Return: ['allowed' => bool, 'reason' => ?string]
+     *
+     * Rules (Andrew 2026-10-25):
+     *  1. Stage rule — FOR SAMPLE: kailangan HOLD. FOR FORMAT: HOLD / FOR SAMPLE / FOR APPROVAL.
+     *  2. Blocked habang pending approval sa calendar, may pending reprocess/change, o pending add-on.
+     *  3. Blocked kapag may kahit ISANG check na sa Production Slip o Additional Slip.
+     *  4. Kailangan ng uploaded File Screenshot (FOR SAMPLE) at File Screenshot + Sample Color (FOR FORMAT).
+     */
+    protected function productionTagState($sale, $user, string $target): array
+    {
+        $target = strtoupper($target); // 'FOR SAMPLE' | 'FOR FORMAT'
+
+        if (!$user) {
+            return ['allowed' => false, 'reason' => 'Kailangan mong mag-login.'];
+        }
+        if (!$this->canUseProdTagButtons($user)) {
+            return ['allowed' => false, 'reason' => 'Wala kang access sa tag button na ito.'];
+        }
+
+        // QA / Sales Agent: sariling benta lang (pareho ng upload-design-image rule).
+        if ($user->isQa() && (int) $sale->sales_agent_id !== (int) $user->id) {
+            return ['allowed' => false, 'reason' => 'Sariling benta lang ang pwedeng i-tag.'];
+        }
+
+        if (!empty($sale->archived_at) || ($sale->status ?? '') === 'cancelled') {
+            return ['allowed' => false, 'reason' => 'Archived / cancelled ang order na ito.'];
+        }
+
+        $stage = strtoupper(trim((string) ($sale->production_stage ?? '')));
+        if ($stage === '') {
+            $stage = 'HOLD';
+        }
+
+        if ($target === 'FOR SAMPLE' && $stage === 'FOR SAMPLE') {
+            return ['allowed' => false, 'reason' => 'Naka-FOR SAMPLE na ang production status.'];
+        }
+        if ($target === 'FOR FORMAT' && $stage === 'FOR FORMAT') {
+            return ['allowed' => false, 'reason' => 'Naka-FOR FORMAT na ang production status.'];
+        }
+
+        // (1) Stage rule
+        $stageAllowed = $target === 'FOR SAMPLE'
+            ? in_array($stage, ['HOLD'], true)
+            : in_array($stage, ['HOLD', 'FOR SAMPLE', 'FOR APPROVAL'], true);
+        if (!$stageAllowed) {
+            return [
+                'allowed' => false,
+                'reason' => $target === 'FOR SAMPLE'
+                    ? 'Kailangan nasa HOLD ang production status (kasalukuyan: ' . $stage . ').'
+                    : 'Kailangan HOLD / FOR SAMPLE / FOR APPROVAL ang production status (kasalukuyan: ' . $stage . ').',
+            ];
+        }
+
+        // (2) Pending approvals
+        if (($sale->status ?? '') === 'pending_approval') {
+            return ['allowed' => false, 'reason' => 'Pending pa sa calendar approval ang order na ito.'];
+        }
+        $pendingChange = \DB::table('prototype_sale_changes')
+            ->where('sale_id', $sale->id)
+            ->where('status', 'pending')
+            ->exists();
+        if ($pendingChange) {
+            return ['allowed' => false, 'reason' => 'May pending reprocess / change request pa ang order na ito.'];
+        }
+        $pendingAddon = \DB::table('sale_addon_requests')
+            ->where('sale_id', $sale->id)
+            ->where('status', 'pending')
+            ->exists();
+        if ($pendingAddon) {
+            return ['allowed' => false, 'reason' => 'May pending add product request pa ang order na ito.'];
+        }
+
+        // (3) May check na sa Production Slip / Additional Slip
+        if ($this->productionSlipHasAnyCheck((int) $sale->id)) {
+            return ['allowed' => false, 'reason' => 'May naka-check na sa Production Slip / Additional Slip — hindi na pwedeng gamitin ang button na ito.'];
+        }
+
+        // (4) Upload requirement
+        $dImgs = is_string($sale->design_images) ? json_decode($sale->design_images, true) : ($sale->design_images ?? []);
+        $hasFileShot = collect($dImgs)->contains('type', 'file_screenshot');
+        $hasColorShot = collect($dImgs)->contains('type', 'sample_color');
+        if (!$hasFileShot) {
+            return ['allowed' => false, 'reason' => 'Mag-upload muna ng File Screenshot.'];
+        }
+        if ($target === 'FOR FORMAT' && !$hasColorShot) {
+            return ['allowed' => false, 'reason' => 'Mag-upload muna ng Approved Sample Color.'];
+        }
+
+        return ['allowed' => true, 'reason' => null];
+    }
+
+    /**
+     * May kahit isang naka-check na ba (GA / QA1 / QA2) sa Production Slip o Additional Slip?
+     * Checkbox lang ang binibilang (ga_done / qa1_done / qa2_done).
+     */
+    protected function productionSlipHasAnyCheck(int $saleId): bool
+    {
+        $checklist = \App\Models\ProductionChecklist::where('sale_id', $saleId)->first();
+        if (!$checklist) {
+            return false;
+        }
+
+        $buckets = [
+            is_array($checklist->items) ? $checklist->items : (json_decode($checklist->items ?? '[]', true) ?: []),
+            is_array($checklist->additional_items) ? $checklist->additional_items : (json_decode($checklist->additional_items ?? '[]', true) ?: []),
+        ];
+
+        foreach ($buckets as $rows) {
+            if (!is_array($rows)) {
+                continue;
+            }
+            foreach ($rows as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                foreach (['ga_done', 'qa1_done', 'qa2_done'] as $flag) {
+                    if (!empty($row[$flag])) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * File Screenshot → FOR SAMPLE (may confirmation sa UI).
+     */
+    public function tagForSample(Request $request, $id)
+    {
+        return $this->applyProductionTag($request, $id, 'FOR SAMPLE');
+    }
+
+    /**
+     * Approved Sample Color → FOR FORMAT (may confirmation sa UI).
+     */
+    public function tagForFormat(Request $request, $id)
+    {
+        return $this->applyProductionTag($request, $id, 'FOR FORMAT');
+    }
+
+    /**
+     * I-apply ang tag pagkatapos ng lahat ng locks. Naglo-log sa production_stage_logs
+     * (Tagging Timeline) at prototype_sale_audit_logs (history).
+     */
+    protected function applyProductionTag(Request $request, $id, string $target)
+    {
+        $sale = \App\Models\PrototypeSale::find($id);
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
+        $user = auth()->user();
+        $state = $this->productionTagState($sale, $user, $target);
+        if (!$state['allowed']) {
+            $msg = $state['reason'] ?? 'Hindi ma-tag ang order na ito.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return redirect()->back()->with('error', $msg);
+        }
+
+        $targetStage = $target === 'FOR SAMPLE' ? 'FOR SAMPLE' : 'FOR FORMAT';
+        $targetKanban = $target === 'FOR SAMPLE' ? 'sample_approval' : 'design';
+
+        $oldStage = $sale->production_stage;
+        $sale->production_stage = $targetStage;
+        $sale->kanban_status = $targetKanban;
+        $sale->save();
+
+        // Tagging Timeline (production_stage_logs)
+        \App\Models\ProductionStageLog::record($sale, $oldStage, $targetStage, $user ? $user->id : null);
+
+        // Audit history — hindi dapat makasira ng main flow kung mabigo.
+        try {
+            \DB::table('prototype_sale_audit_logs')->insert([
+                'sale_id' => $sale->id,
+                'user_id' => $user ? $user->id : null,
+                'action' => $target === 'FOR SAMPLE' ? 'tagged_for_sample' : 'tagged_for_format',
+                'description' => ($target === 'FOR SAMPLE' ? 'File Screenshot → tagged FOR SAMPLE' : 'Approved Sample Color → tagged FOR FORMAT')
+                    . ' (production status: ' . ($oldStage ?: 'HOLD') . ' → ' . $targetStage . ')',
+                'details' => json_encode([
+                    'from_stage' => $oldStage,
+                    'to_stage' => $targetStage,
+                    'kanban_status' => $targetKanban,
+                    'source' => $target === 'FOR SAMPLE' ? 'file_screenshot_button' : 'sample_color_button',
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('tag audit log failed: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Na-tag na: ' . $targetStage,
+            'production_stage' => $sale->production_stage,
+            'kanban_status' => $sale->kanban_status,
         ]);
     }
 

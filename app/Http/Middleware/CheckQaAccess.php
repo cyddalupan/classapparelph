@@ -59,6 +59,12 @@ class CheckQaAccess
         // (ownership is enforced in the controller)
         'sales.prototype.upload-design-image',
         'sales.prototype.delete-design-image',
+
+        // Tag buttons sa Show page (Andrew 2026-10-25) — QA/Sales Agent, own sale only:
+        // File Screenshot → FOR SAMPLE, Approved Sample Color → FOR FORMAT.
+        // Server-side ang lahat ng locks (stage, pending approvals, may check sa slip).
+        'sales.prototype.tag-for-sample',
+        'sales.prototype.tag-for-format',
         'sales.prototype.upload-mockup',
         'sales.prototype.delete-mockup',
         'sales.prototype.set-main-mockup',

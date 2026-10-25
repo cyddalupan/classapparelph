@@ -1104,6 +1104,12 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/{id}/reprocess-order', [App\Http\Controllers\PrototypeSalesController::class, 'reprocessOrder'])->name('sales.prototype.reprocess-order');
         Route::post('/sales/prototype/refund/{id}', [App\Http\Controllers\PrototypeSalesController::class, 'submitRefund'])->name('sales.prototype.submit-refund');
         Route::post('/sales/prototype/{id}/upload-design-image', [App\Http\Controllers\PrototypeSalesController::class, 'uploadDesignImage'])->name('sales.prototype.upload-design-image');
+
+        // Show-page tag buttons (Andrew 2026-10-25): File Screenshot → FOR SAMPLE,
+        // Approved Sample Color → FOR FORMAT. Parehong may confirmation sa UI at
+        // server-side locks (stage, pending approvals, may check na sa slip).
+        Route::post('/sales/prototype/{id}/tag-for-sample', [App\Http\Controllers\PrototypeSalesController::class, 'tagForSample'])->name('sales.prototype.tag-for-sample');
+        Route::post('/sales/prototype/{id}/tag-for-format', [App\Http\Controllers\PrototypeSalesController::class, 'tagForFormat'])->name('sales.prototype.tag-for-format');
         Route::post('/sales/prototype/{id}/design-image/delete', [App\Http\Controllers\PrototypeSalesController::class, 'deleteDesignImage'])->name('sales.prototype.delete-design-image');
         Route::post('/sales/prototype/{id}/upload-mockup', [App\Http\Controllers\PrototypeSalesController::class, 'uploadMockup'])->name('sales.prototype.upload-mockup');
         Route::post('/sales/prototype/{id}/mockup/delete', [App\Http\Controllers\PrototypeSalesController::class, 'deleteMockup'])->name('sales.prototype.delete-mockup');

@@ -428,6 +428,16 @@
                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('fileShotInput').click()">
                                 <i class="fas fa-upload me-1"></i>Upload File Screenshot
                             </button>
+                            @if($canUseProdTags)
+                            <button type="button" class="btn btn-sm btn-outline-success ms-1"
+                                    onclick="confirmProductionTag('sample')"
+                                    @if(!$tagForSample['allowed']) disabled title="{{ $tagForSample['reason'] }}" @endif>
+                                <i class="fas fa-tag me-1"></i>Tag FOR SAMPLE
+                            </button>
+                            @if(!$tagForSample['allowed'])
+                            <div class="small text-muted mt-1" style="font-size:11px;"><i class="fas fa-lock me-1"></i>{{ $tagForSample['reason'] }}</div>
+                            @endif
+                            @endif
                             <input type="file" id="fileShotInput" accept="image/*" class="d-none" onchange="uploadDesignImage(this, 'file_screenshot')">
                         </div>
                     </div>
@@ -450,6 +460,16 @@
                             <button type="button" class="btn btn-sm btn-outline-success" onclick="document.getElementById('colorShotInput').click()">
                                 <i class="fas fa-upload me-1"></i>Upload Sample Color
                             </button>
+                            @if($canUseProdTags)
+                            <button type="button" class="btn btn-sm btn-outline-success ms-1"
+                                    onclick="confirmProductionTag('format')"
+                                    @if(!$tagForFormat['allowed']) disabled title="{{ $tagForFormat['reason'] }}" @endif>
+                                <i class="fas fa-tag me-1"></i>Tag FOR FORMAT
+                            </button>
+                            @if(!$tagForFormat['allowed'])
+                            <div class="small text-muted mt-1" style="font-size:11px;"><i class="fas fa-lock me-1"></i>{{ $tagForFormat['reason'] }}</div>
+                            @endif
+                            @endif
                             <input type="file" id="colorShotInput" accept="image/*" class="d-none" onchange="uploadDesignImage(this, 'sample_color')">
                         </div>
                     </div>
@@ -1799,6 +1819,27 @@
         </div>
     </div>
 </div>
+{{-- Confirmation modal para sa File Screenshot → FOR SAMPLE at Approved Sample Color → FOR FORMAT --}}
+<div class="modal fade" id="prodTagConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:#0f766e;color:#fff;">
+                <h6 class="modal-title mb-0"><i class="fas fa-tag me-1"></i>Confirm production tag</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="prodTagConfirmBody" class="small"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-success" id="prodTagConfirmOk"
+                        onclick="var k=this.dataset.kind; bootstrap.Modal.getInstance(document.getElementById('prodTagConfirmModal')).hide(); postProductionTag(k);">
+                    Oo, i-tag
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @endsection
 
@@ -2455,6 +2496,60 @@ function openCompleteRefundShow(refundId, amount) {
     document.getElementById('completeShowRefundAmount').value = amount;
     var modal = new bootstrap.Modal(document.getElementById('completeRefundShowModal'));
     modal.show();
+}
+
+// Tag buttons (Andrew 2026-10-25): File Screenshot → FOR SAMPLE, Approved Sample Color → FOR FORMAT.
+// May confirmation muna bago mag-change ng production status; server-side pa rin ang final check.
+function confirmProductionTag(kind) {
+    var isSample = kind === 'sample';
+    var targetStage = isSample ? 'FOR SAMPLE' : 'FOR FORMAT';
+    var currentStage = @json($sale->production_stage ?: 'HOLD');
+    var body = isSample
+        ? 'I-ko-confirm mo ba? Ang production status ay magiging <b>FOR SAMPLE</b> (kasalukuyan: <b>' + currentStage + '</b>).'
+        : 'I-ko-confirm mo ba? Ang production status ay magiging <b>FOR FORMAT</b> (kasalukuyan: <b>' + currentStage + '</b>).';
+    var extra = ' <span class="text-muted">Malalagay ito sa Tagging Timeline at history.</span>';
+
+    var dlg = document.getElementById('prodTagConfirmModal');
+    if (dlg && window.bootstrap) {
+        document.getElementById('prodTagConfirmBody').innerHTML = body + extra;
+        var btn = document.getElementById('prodTagConfirmOk');
+        btn.dataset.kind = kind;
+        btn.dataset.stage = targetStage;
+        btn.textContent = 'Oo, i-tag ' + targetStage;
+        new bootstrap.Modal(dlg).show();
+        return;
+    }
+    if (!window.confirm(body.replace(/<[^>]+>/g, ''))) return;
+    postProductionTag(kind);
+}
+
+function postProductionTag(kind) {
+    var url = kind === 'sample'
+        ? '{{ url('/sales/prototype/' . $sale->id . '/tag-for-sample') }}'
+        : '{{ url('/sales/prototype/' . $sale->id . '/tag-for-format') }}';
+    var msg = document.getElementById('designUploadMsg');
+    if (msg) msg.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Nag-tatag...</span>';
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').content
+        },
+        body: JSON.stringify({})
+    }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, data: d }; });
+    }).then(function (res) {
+        if (!res.ok || !res.data.success) {
+            if (msg) msg.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>' + (res.data.message || 'Hindi na-save.') + '</span>';
+            return;
+        }
+        if (msg) msg.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>' + res.data.message + ' — nag-re-reload...</span>';
+        setTimeout(function () { window.location.reload(); }, 700);
+    }).catch(function () {
+        if (msg) msg.innerHTML = '<span class="text-danger">Network error. Subukan ulit.</span>';
+    });
 }
 
 // Design Files & Sample upload
