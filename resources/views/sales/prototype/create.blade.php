@@ -1020,10 +1020,21 @@
                             <div class="tab-pane fade show active" id="garment-products-pane" role="tabpanel">
                             <div class="row">
                                 <div class="col-md-7">
-                                    <!-- PROJECT NAME -->
-                                    <div class="mb-3">
-                                        <label class="form-label">Project Name *</label>
-                                        <input type="text" class="form-control" id="garment_projectName" placeholder="e.g. DANNA" required>
+                                    <!-- PROJECT NAME + SHOP -->
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-7">
+                                            <label class="form-label">Project Name *</label>
+                                            <input type="text" class="form-control" id="garment_projectName" placeholder="e.g. DANNA" required>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label">Shop / Department *</label>
+                                            <select class="form-select" id="garment_department">
+                                                <option value="">— Select Shop —</option>
+                                                <option value="iprint">iPrint</option>
+                                                <option value="consol">Consol</option>
+                                            </select>
+                                            <div class="form-text small">Dito mapupunta ang order at ang manager nito.</div>
+                                        </div>
                                     </div>
                                     <!-- MULTIPLE PRODUCT ROWS SECTION -->
                                     <!-- GARMENT FILTER SECTION -->
@@ -1052,6 +1063,11 @@
                                                     <label class="form-label small mb-1">Size</label>
                                                     <input type="text" class="form-control form-control-sm" id="garment_filterSize" list="garment_sizeOptions" placeholder="Type or select size...">
                                                     <datalist id="garment_sizeOptions"></datalist>
+                                                </div>
+                                                <div class="col-6 col-md-3">
+                                                    <label class="form-label small mb-1">Material</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_filterMaterial" list="garment_materialOptions" placeholder="Type or select material...">
+                                                    <datalist id="garment_materialOptions"></datalist>
                                                 </div>
                                             </div>
                                             <div class="mt-2 text-end">
@@ -1196,6 +1212,11 @@
                                                     <input type="text" class="form-control form-control-sm" id="garment_specColor" list="garment_specColorOptions" placeholder="e.g. BLACK">
                                                     <datalist id="garment_specColorOptions"></datalist>
                                                 </div>
+                                                <div class="col-6 col-md-4">
+                                                    <label class="form-label small mb-1">Material</label>
+                                                    <input type="text" class="form-control form-control-sm" id="garment_specMaterial" list="garment_specMaterialOptions" placeholder="e.g. Cotton">
+                                                    <datalist id="garment_specMaterialOptions"></datalist>
+                                                </div>
                                             </div>
                                             <small class="text-muted d-block mt-2"><i class="fas fa-info-circle me-1"></i> Kailangang may Brand at Type/Collar bago makapag-upload ng Excel.</small>
                                         </div>
@@ -1339,6 +1360,7 @@
                                             <button type="button" class="btn btn-primary w-100 mt-2" id="garment_addItemBtn">
                                                 <i class="fas fa-cart-plus me-2"></i> Add to Cart
                                             </button>
+                                            <div id="garment_cartGateHint" class="small text-danger mt-1" style="display:none;"></div>
                                             <button type="button" class="btn btn-outline-info w-100 mt-2" id="garment_printOrderSlip" onclick="window.garment_printOrderSlip()">
                                                 <i class="fas fa-print me-2"></i> Print Order Slip
                                             </button>
@@ -1796,6 +1818,7 @@
         <table id="gps_upperInfo"><tr>
             <td style="width:33%;vertical-align:top;" class="no-border">
                 <table style="width:100%;"><tr><td class="field-label" style="width:100px;">PROJECT:</td><td id="gps_projectName"></td></tr></table>
+                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">SHOP:</td><td id="gps_shop"></td></tr></table>
                 <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DATE NEEDED:</td><td id="gps_dateNeeded"></td></tr></table>
                 <table style="width:100%;"><tr><td class="field-label" style="width:100px;">QTY:</td><td id="gps_qty"></td></tr></table>
                 <table style="width:100%;"><tr><td class="field-label" style="width:100px;">AMOUNT:</td><td id="gps_amount"></td></tr></table>
@@ -1889,6 +1912,7 @@ window.openProductModal = function(productType) {
         if (genericBody) genericBody.style.display = 'none';
         if (garmentBody) garmentBody.style.display = 'block';
         if (sublimationBody) sublimationBody.style.display = 'none';
+        if (otherItemsBody) otherItemsBody.style.display = 'none';
         
         // Use wider modal for garment
         if (modalDialog) {
@@ -1905,6 +1929,7 @@ window.openProductModal = function(productType) {
         if (genericBody) genericBody.style.display = 'none';
         if (garmentBody) garmentBody.style.display = 'none';
         if (sublimationBody) sublimationBody.style.display = 'block';
+        if (otherItemsBody) otherItemsBody.style.display = 'none';
         
         // Use wider modal for sublimation
         if (modalDialog) {
@@ -1953,8 +1978,9 @@ window.openProductModal = function(productType) {
     // Show modal
     const modalEl = document.getElementById('productModal');
     if (modalEl) {
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
+        // getOrCreateInstance — para hindi mag-pile up ang modal instance/backdrop
+        // tuwing bubuksan ulit (Andrew 2026-10-27).
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 };
 
@@ -3742,7 +3768,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/api/filter-options/' + productType)
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                ['brand', 'type', 'color', 'size'].forEach(function(type) {
+                ['brand', 'type', 'color', 'size', 'material'].forEach(function(type) {
                     var datalist = document.getElementById('garment_' + type + 'Options');
                     var field = document.getElementById('garment_filter' + type.charAt(0).toUpperCase() + type.slice(1));
                     if (datalist) {
@@ -3769,6 +3795,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var type = document.getElementById('garment_filterType')?.value.trim() || '';
         var color = document.getElementById('garment_filterColor')?.value.trim() || '';
         var size = document.getElementById('garment_filterSize')?.value.trim() || '';
+        var material = document.getElementById('garment_filterMaterial')?.value.trim() || '';
         
         var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
         selects.forEach(function(dropdown) {
@@ -3780,6 +3807,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (type) params.set('type', type);
         if (color) params.set('color', color);
         if (size) params.set('size', size);
+        if (material) params.set('material', material);
         
         fetch('/api/products-for-box/' + currentProductType + '?' + params.toString())
             .then(function(r) { return r.json(); })
@@ -3820,6 +3848,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('garment_filterColor').value = '';
         var sizeEl = document.getElementById('garment_filterSize');
         if (sizeEl) sizeEl.value = '';
+        var matEl = document.getElementById('garment_filterMaterial');
+        if (matEl) matEl.value = '';
         
         var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
         selects.forEach(function(dropdown) {
@@ -4163,7 +4193,7 @@ var garment_referenceImageCounter = 0;
 // (Matches Full Sublimation, which also resets every time the modal opens.)
 window.garment_resetForm = function() {
     // Spec (Brand / Type-Collar / Color)
-    ['garment_specBrand', 'garment_specType', 'garment_specColor'].forEach(function(id) {
+    ['garment_specBrand', 'garment_specType', 'garment_specColor', 'garment_specMaterial'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -4172,6 +4202,9 @@ window.garment_resetForm = function() {
         var el = document.getElementById(id);
         if (el) el.value = '';
     });
+    // Shop / department resets to blank every new order (dapat piliin ni user)
+    var gDeptEl = document.getElementById('garment_department');
+    if (gDeptEl) gDeptEl.value = '';
     // Sizes with name: roster + Excel upload + add-row inputs
     if (typeof garment_clearRoster === 'function') garment_clearRoster();
     var excelInput = document.getElementById('garment_excelInput');
@@ -4213,6 +4246,7 @@ window.garment_openModal = function(productType) {
     setTimeout(function() {
         garment_populatePrintTypes();
     }, 100);
+    setTimeout(function() { window.garment_refreshCartGate(); }, 300);
 };
 
 // Garment-specific product rows system
@@ -4651,7 +4685,18 @@ window.garment_updatePrintSummary = function() {
     var subtotal = printCostAfterCombo * totalQty;
     var bulkDiscount = 0;
     var bulkLabel = '';
-    for (var bi = bulkTiers.length - 1; bi >= 0; bi--) {
+    // ===== Bulk size gate: when ON, bulk applies only for A3/A4 prints =====
+    var bulkGate = garment_printingData.bulk_gate || { active: false, sizes: [] };
+    var bulkGateSatisfied = true;
+    if (bulkGate.active) {
+        var gateNames = (bulkGate.sizes && bulkGate.sizes.length ? bulkGate.sizes : ['A3', 'A4'])
+            .map(function(n) { return String(n).trim().toUpperCase(); });
+        var pickedNames = selectedSizeDetails.map(function(sz) {
+            return String(sz.name || '').trim().toUpperCase();
+        });
+        bulkGateSatisfied = pickedNames.some(function(n) { return gateNames.indexOf(n) !== -1; });
+    }
+    for (var bi = bulkGateSatisfied ? bulkTiers.length - 1 : -1; bi >= 0; bi--) {
         var tier = bulkTiers[bi];
         if (totalQty >= tier.min && totalQty <= tier.max) {
             if (tier.type === 'percentage') {
@@ -4750,7 +4795,7 @@ window.garment_updatePrintSummary = function() {
                     rh += '<div class="d-flex justify-content-between align-items-center mb-1 small"><span>' + _escHtml(s) + ' <span class="text-muted">x' + q + ' @ \u20B1' + res.price.toFixed(2) + '</span></span><span>\u20B1' + (res.price * q).toFixed(2) + '</span></div>';
                 }
             });
-            var specLabel = [(document.getElementById('garment_specBrand') || {}).value || '', (document.getElementById('garment_specType') || {}).value || '', (document.getElementById('garment_specColor') || {}).value || ''].filter(Boolean).join(' / ');
+            var specLabel = [(document.getElementById('garment_specBrand') || {}).value || '', (document.getElementById('garment_specType') || {}).value || '', (document.getElementById('garment_specColor') || {}).value || '', (document.getElementById('garment_specMaterial') || {}).value || ''].filter(Boolean).join(' / ');
             if (specLabel) rh += '<div class="text-muted small">' + _escHtml(specLabel) + '</div>';
             if (roster.missing && roster.missing.length) rh += '<div class="text-danger small">No price: ' + _escHtml(roster.missing.join(', ')) + '</div>';
             breakdownEl.innerHTML = rh;
@@ -5154,7 +5199,7 @@ var garment_specLoading = false;
 
 window.garment_initSpec = function() {
     // Attach gate listeners (idempotent)
-    ['garment_specBrand', 'garment_specType', 'garment_specColor'].forEach(function(id) {
+    ['garment_specBrand', 'garment_specType', 'garment_specColor', 'garment_specMaterial'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el && !el.dataset.specBound) {
             el.dataset.specBound = '1';
@@ -5191,6 +5236,7 @@ window.garment_initSpec = function() {
             fill('garment_specBrandOptions', uniq('brand'));
             fill('garment_specTypeOptions', uniq('shirt_type'));
             fill('garment_specColorOptions', uniq('color'));
+            fill('garment_specMaterialOptions', uniq('material'));
         })
         .catch(function() { garment_specLoading = false; });
 };
@@ -5212,6 +5258,7 @@ window.garment_findItemPrice = function(size) {
     var brand = ((document.getElementById('garment_specBrand') || {}).value || '').trim().toUpperCase();
     var type = ((document.getElementById('garment_specType') || {}).value || '').trim().toUpperCase();
     var color = ((document.getElementById('garment_specColor') || {}).value || '').trim().toUpperCase();
+    var material = ((document.getElementById('garment_specMaterial') || {}).value || '').trim().toUpperCase();
     var sz = (typeof normalizeSize === 'function' ? normalizeSize((size || '').toUpperCase()) : (size || '').toUpperCase());
     var candidates = garment_specItems.filter(function(it) {
         if ((it.brand || '').toUpperCase() !== brand) return false;
@@ -5221,6 +5268,10 @@ window.garment_findItemPrice = function(size) {
         if (color) {
             var ic = (it.color || '').toUpperCase();
             if (ic !== color && ic !== 'ALL COLOR') return false;
+        }
+        if (material) {
+            var im = (it.material || '').toUpperCase();
+            if (im !== material) return false;
         }
         return true;
     });
@@ -5276,11 +5327,88 @@ window.garment_computeSizePricing = function() {
     return { qty: totalQty, amount: totalAmt, hasRows: true, missing: missing, perSize: perSize, keys: keys };
 };
 
+// ===== Garment Add-to-Cart gate =====
+// Blocks Add to Cart until lahat ng kailangan ay kumpleto.
+window.garment_cartMissing = function() {
+    var missing = [];
+    var v = function(id) { var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
+
+    if (!v('garment_projectName')) missing.push('Project Name');
+    if (!v('garment_department')) missing.push('Shop / Department');
+
+    var rosterRows = (typeof garment_getRosterData === 'function') ? (garment_getRosterData() || []) : [];
+    if (rosterRows.length > 0) {
+        if (!v('garment_specBrand') || !v('garment_specType')) {
+            missing.push('Garment Specification (Brand / Type-Collar)');
+        }
+    } else {
+        var hasProductRow = false;
+        document.querySelectorAll('#garment_productRowsContainer .product-row').forEach(function(row) {
+            var sel = row.querySelector('.product-select');
+            var qty = parseInt((row.querySelector('.product-quantity') || {}).value) || 0;
+            if (sel && sel.value && qty > 0) hasProductRow = true;
+        });
+        if (!hasProductRow) missing.push('Products (o mag-upload ng Sizes with name)');
+    }
+
+    if (!v('garment_dateNeeded')) missing.push('Date Needed');
+    if (!window.garment_uploadedMockup || !window.garment_uploadedMockup.dataUrl) missing.push('Mock-up design');
+
+    var printType = v('garment_printTypeSelect');
+    if (!printType) {
+        missing.push('Print Type');
+    } else if (!window.garment_selectedPrintSizes || !window.garment_selectedPrintSizes.length) {
+        missing.push('Print Sizes');
+    }
+
+    if (!window.garment_orderSlipViewed) missing.push('Print Order Slip');
+    return missing;
+};
+
+window.garment_refreshCartGate = function() {
+    var btn = document.getElementById('garment_addItemBtn');
+    var hint = document.getElementById('garment_cartGateHint');
+    if (!btn) return;
+    var missing = window.garment_cartMissing();
+    var blocked = missing.length > 0;
+    btn.disabled = blocked;
+    btn.classList.toggle('disabled', blocked);
+    btn.title = blocked ? ('Kulang pa: ' + missing.join(', ')) : '';
+    if (hint) {
+        hint.style.display = blocked ? '' : 'none';
+        hint.innerHTML = blocked
+            ? '<i class="fas fa-lock me-1"></i>Kulang pa: ' + missing.map(function(m) { return _escHtml(m); }).join(', ')
+            : '';
+    }
+};
+
+// Live refresh ng gate habang nag-e-edit sa garment modal
+(function() {
+    var pending = null;
+    function schedule() {
+        var body = document.getElementById('garmentModalBody');
+        if (!body || body.style.display === 'none') return;
+        if (pending) return;
+        pending = setTimeout(function() { pending = null; window.garment_refreshCartGate(); }, 150);
+    }
+    ['input', 'change', 'click', 'keyup'].forEach(function(evt) {
+        document.addEventListener(evt, schedule, true);
+    });
+})();
+
 // Garment add to cart
 window.garment_addItemToCart = function() {
-    // Department auto-assigned by product type
-    var deptMap = {'garment':'iprint','tarpaulin':'consol','embroidery':'cinco','cutting':'class','sewing':'class','design':'iprint'};
-    var department = deptMap['garment'] || 'iprint';
+    // Shop / department chosen in the modal (iPrint or Consol — different managers)
+    var department = ((document.getElementById('garment_department') || {}).value || 'iprint').toLowerCase();
+    if (['iprint', 'consol'].indexOf(department) === -1) department = 'iprint';
+
+    // Hard gate: huwag pahintulutan kung may kulang pa
+    var gateMissing = window.garment_cartMissing();
+    if (gateMissing.length) {
+        window.garment_refreshCartGate();
+        alert('Kulang pa bago ma-add sa cart:\n\n• ' + gateMissing.join('\n• '));
+        return;
+    }
     var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
     var subItems = [];
     var validationError = false;
@@ -5314,6 +5442,7 @@ window.garment_addItemToCart = function() {
         var specBrand = ((document.getElementById('garment_specBrand') || {}).value || '').trim();
         var specType = ((document.getElementById('garment_specType') || {}).value || '').trim();
         var specColor = ((document.getElementById('garment_specColor') || {}).value || '').trim();
+        var specMaterial = ((document.getElementById('garment_specMaterial') || {}).value || '').trim();
         var specShort = [specBrand, specType, specColor].filter(Boolean).join(' ').trim();
         var sizeRes = (typeof garment_computeSizePricing === 'function') ? garment_computeSizePricing() : { keys: [], perSize: {}, missing: [] };
         if (sizeRes.missing && sizeRes.missing.length) {
@@ -5499,6 +5628,9 @@ window.garment_printOrderSlip = function() {
     }
 
     document.getElementById('gps_projectName').textContent = gVal('garment_projectName');
+    var gShop = gVal('garment_department');
+    var gShopLabel = document.getElementById('gps_shop');
+    if (gShopLabel) gShopLabel.textContent = (gShop === 'consol') ? 'CONSOL' : 'IPRINT';
     var dn = gVal('garment_dateNeeded');
     document.getElementById('gps_dateNeeded').textContent = (typeof formatDateDDMMYYYY === 'function') ? formatDateDDMMYYYY(dn) : dn;
 
@@ -5515,7 +5647,7 @@ window.garment_printOrderSlip = function() {
     body.innerHTML = '';
     var rosterArr = (typeof garment_getRosterData === 'function') ? garment_getRosterData() : [];
     if (rosterArr.length > 0 && typeof garment_computeSizePricing === 'function') {
-        var specLbl = [gVal('garment_specBrand'), gVal('garment_specType'), gVal('garment_specColor')].filter(Boolean).join(' / ');
+        var specLbl = [gVal('garment_specBrand'), gVal('garment_specType'), gVal('garment_specColor'), gVal('garment_specMaterial')].filter(Boolean).join(' / ');
         if (specLbl) body.innerHTML += '<tr><td colspan="4" style="text-align:left;font-weight:bold;">' + gEsc(specLbl) + ' <span style="font-weight:normal;color:#555;">(Sizes with name)</span></td></tr>';
         var res = garment_computeSizePricing();
         var keys = res.keys || Object.keys(res.perSize || {});
@@ -5600,6 +5732,7 @@ window.garment_printOrderSlip = function() {
     // Note
     var notes = gVal('garment_productNotes');
     document.getElementById('gps_note').textContent = notes ? 'Note: ' + notes : '';
+    if (typeof window.garment_refreshCartGate === 'function') window.garment_refreshCartGate();
 
     // Print
     var slip = document.getElementById('garment_printSlip');

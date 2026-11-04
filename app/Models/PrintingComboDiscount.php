@@ -9,7 +9,18 @@ class PrintingComboDiscount extends Model
 {
     use HasFactory;
     
-    protected $fillable = ['size1_id', 'size2_id', 'discount_type', 'discount_value', 'active'];
+    // price_tier + print_type MUST be fillable: updateCombos()/storeComboDiscount() pass them
+    // explicitly, and without them Eloquent silently fell back to the DB defaults
+    // (print_type='dtf', price_tier='sales_team') -> wrong rows + duplicate-key 500s.
+    protected $fillable = [
+        'size1_id',
+        'size2_id',
+        'discount_type',
+        'discount_value',
+        'active',
+        'price_tier',
+        'print_type',
+    ];
     
     protected $casts = [
         'discount_value' => 'decimal:2',

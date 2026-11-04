@@ -7,11 +7,72 @@ use App\Models\PrintingPrice;
 use App\Models\PrintingComboDiscount;
 use App\Models\PrintingSizeUpgrade;
 use App\Models\PrintingBulkDiscount;
+use App\Models\PrintingSetting;
 use App\Models\MasterItem;
 use Illuminate\Support\Facades\DB;
 
 class PrintingPricingController extends Controller
 {
+    /**
+     * Price tier for printing rules.
+     *
+     * Uses the per-user override `users.price_tier` ('agent' or 'sales') first,
+     * then falls back to the sales_agent role for backward compatibility.
+     * Admins/COO/CPO/CMO can therefore sell using agent pricing without
+     * giving up their admin role.
+     */
+    private function resolvePriceTier($user = null): string
+    {
+        $user = $user ?: auth()->user();
+        if (!$user) {
+            return 'sales_team';
+        }
+        if (method_exists($user, 'usesAgentPricing') && $user->usesAgentPricing()) {
+            return 'agent';
+        }
+        return $user->role === 'sales_agent' ? 'agent' : 'sales_team';
+    }
+
+    /**
+     * Bulk discounts can be gated to large print sizes (A3/A4).
+     * Returns the settings row for the print type (never null).
+     */
+    private function bulkSetting(string $printType): PrintingSetting
+    {
+        return PrintingSetting::forType($printType);
+    }
+
+    /**
+     * True when the bulk-discount size gate is enabled for this print type.
+     */
+    private function bulkGateActive(string $printType): bool
+    {
+        return (bool) $this->bulkSetting($printType)->bulk_requires_large_size;
+    }
+
+    /**
+     * Does the picked print set satisfy the gate (contains A3 or A4)?
+     * Small sizes only (Logo / Half A4) => bulk discount is skipped.
+     */
+    private function bulkGateSatisfied(array $resolvedSizeIds, string $printType): bool
+    {
+        if (!$this->bulkGateActive($printType)) {
+            return true;
+        }
+        if (empty($resolvedSizeIds)) {
+            return false;
+        }
+
+        $gateSizes = $this->bulkSetting($printType)->gateSizeNames();
+        $names = PrintingPrice::where('print_type', $printType)
+            ->whereIn('id', $resolvedSizeIds)
+            ->pluck('name')
+            ->map(fn ($n) => strtoupper(trim((string) $n)))
+            ->all();
+
+        return count(array_intersect($names, $gateSizes)) > 0;
+    }
+
     /**
      * Display the printing pricing calculator
      */
@@ -28,7 +89,7 @@ class PrintingPricingController extends Controller
         $priceField = 'price';
         $userRole = null;
         
-        if ($user && $user->role === 'sales_agent') {
+        if ($user && $this->resolvePriceTier($user) === 'agent') {
             $priceField = 'agent_price';
             $userRole = 'sales_agent';
         }
@@ -67,7 +128,7 @@ class PrintingPricingController extends Controller
         $priceField = 'price';
         $userRole = null;
         
-        if ($user && $user->role === 'sales_agent') {
+        if ($user && $this->resolvePriceTier($user) === 'agent') {
             $priceField = 'agent_price';
             $userRole = 'sales_agent';
         }
@@ -106,7 +167,7 @@ class PrintingPricingController extends Controller
         $user = auth()->user();
         $priceField = 'price';
         
-        if ($user && $user->role === 'sales_agent') {
+        if ($user && $this->resolvePriceTier($user) === 'agent') {
             $priceField = 'agent_price';
         }
         
@@ -149,7 +210,14 @@ class PrintingPricingController extends Controller
         // TODO: Implement count_combo_as_one logic
         $transactionCount = count($garments);
         
-        $bulkDiscount = $this->calculateBulkDiscount($transactionCount, $total, $printType);
+        $allPrintIds = [];
+        foreach ($garments as $g) {
+            foreach (($g['prints'] ?? []) as $pid) {
+                $allPrintIds[] = (int) $pid;
+            }
+        }
+
+        $bulkDiscount = $this->calculateBulkDiscount($transactionCount, $total, $printType, $allPrintIds);
         $total -= $bulkDiscount;
         
         return response()->json([
@@ -169,7 +237,7 @@ class PrintingPricingController extends Controller
     {
         $discount = 0;
         $user = auth()->user();
-        $priceTier = ($user && $user->role === 'sales_agent') ? 'agent' : 'sales_team';
+        $priceTier = $this->resolvePriceTier($user);
         
         $comboDiscounts = PrintingComboDiscount::where('print_type', $printType)
             ->where('price_tier', $priceTier)
@@ -273,10 +341,15 @@ class PrintingPricingController extends Controller
     /**
      * Calculate bulk discount (transaction-based)
      */
-    private function calculateBulkDiscount($transactionCount, $subtotal, $printType = 'dtf')
+    private function calculateBulkDiscount($transactionCount, $subtotal, $printType = 'dtf', array $resolvedSizeIds = [])
     {
+        // Size gate: when enabled, bulk discounts only apply for A3/A4 prints.
+        if (!$this->bulkGateSatisfied($resolvedSizeIds, $printType)) {
+            return 0;
+        }
+
         $user = auth()->user();
-        $priceTier = ($user && $user->role === 'sales_agent') ? 'agent' : 'sales_team';
+        $priceTier = $this->resolvePriceTier($user);
         
         $bulkDiscount = PrintingBulkDiscount::where('print_type', $printType)
             ->where('price_tier', $priceTier)
@@ -316,15 +389,36 @@ class PrintingPricingController extends Controller
      */
     public function storeComboDiscount(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'size1_id' => 'required|exists:printing_prices,id',
             'size2_id' => 'required|exists:printing_prices,id',
             'discount_type' => 'required|in:fixed,percent',
-            'discount_value' => 'required|numeric|min:0'
+            'discount_value' => 'required|numeric|min:0',
+            'print_type' => 'nullable|string|in:dtf,sublimation,silkscreen',
+            'price_tier' => 'nullable|in:sales_team,agent',
         ]);
-        
-        PrintingComboDiscount::create($request->all());
-        
+
+        // Never fall back silently to the DB defaults (dtf / sales_team).
+        $data['print_type'] = $data['print_type'] ?? 'dtf';
+        $data['price_tier'] = $data['price_tier'] ?? 'sales_team';
+        $data['active'] = true;
+
+        // Upsert on the (print_type, price_tier, size1, size2) unique scope so a
+        // re-added pair updates instead of throwing a duplicate-key 500.
+        PrintingComboDiscount::updateOrCreate(
+            [
+                'print_type' => $data['print_type'],
+                'price_tier' => $data['price_tier'],
+                'size1_id' => $data['size1_id'],
+                'size2_id' => $data['size2_id'],
+            ],
+            [
+                'discount_type' => $data['discount_type'],
+                'discount_value' => $data['discount_value'],
+                'active' => true,
+            ]
+        );
+
         return response()->json(['success' => true]);
     }
     
@@ -438,12 +532,15 @@ class PrintingPricingController extends Controller
             ->orderBy('from_size_id')
             ->get();
         
+        $bulkSetting = $this->bulkSetting($printType);
+
         return view('printing.edit_rules', compact(
             'prices',
             'comboSalesTeam', 'comboAgent',
             'bulkSalesTeam', 'bulkAgent',
             'upgrades',
-            'printType'
+            'printType',
+            'bulkSetting'
         ));
     }
     
@@ -608,6 +705,30 @@ class PrintingPricingController extends Controller
     /**
      * Add a new print price
      */
+    /**
+     * Toggle the bulk-discount size gate for a print type.
+     * When ON: bulk discounts apply only when A3 or A4 prints are selected.
+     */
+    public function updateBulkSettings(Request $request)
+    {
+        $data = $request->validate([
+            'print_type' => 'required|string|in:dtf,sublimation,silkscreen',
+            'bulk_requires_large_size' => 'required|boolean',
+        ]);
+
+        $setting = PrintingSetting::forType($data['print_type']);
+        $setting->bulk_requires_large_size = (bool) $data['bulk_requires_large_size'];
+        $setting->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $setting->bulk_requires_large_size
+                ? 'Bulk discount now applies only when A3/A4 prints are selected.'
+                : 'Bulk discount applies to all print sizes again.',
+            'bulk_requires_large_size' => $setting->bulk_requires_large_size,
+        ]);
+    }
+
     public function addPrice(Request $request)
     {
         $request->validate([
@@ -819,7 +940,7 @@ class PrintingPricingController extends Controller
     public function getPrintingOptions($type)
     {
         $user = auth()->user();
-        $priceTier = ($user && $user->role === 'sales_agent') ? 'agent' : 'sales_team';
+        $priceTier = $this->resolvePriceTier($user);
         
         // Get print sizes
         $prices = PrintingPrice::where('print_type', $type)
@@ -894,11 +1015,18 @@ class PrintingPricingController extends Controller
                 ];
             });
         
+        // Bulk size gate: when enabled, bulk discounts only apply to A3/A4 prints
+        $bulkSetting = $this->bulkSetting($type);
+
         return response()->json([
             'success' => true,
             'prices' => $prices,
             'combos' => $combos,
             'bulk_tiers' => $bulkTiers,
+            'bulk_gate' => [
+                'active' => (bool) $bulkSetting->bulk_requires_large_size,
+                'sizes' => $bulkSetting->gateSizeNames(),
+            ],
             'print_types' => $printTypes,
             'upgrades' => $upgrades
         ]);
@@ -921,7 +1049,7 @@ class PrintingPricingController extends Controller
         $quantity = $request->input('quantity');
         
         $user = auth()->user();
-        $priceTier = ($user && $user->role === 'sales_agent') ? 'agent' : 'sales_team';
+        $priceTier = $this->resolvePriceTier($user);
         
         // Apply size upgrades first (e.g. Logo x2 -> Half A4)
         [$resolvedSizeIds, $upgradeLog, $upgradeSurcharge] = $this->resolveUpgradedSizes($printSizeIds, $printType);
@@ -953,7 +1081,7 @@ class PrintingPricingController extends Controller
         // Calculate bulk discount
         // count_combo_as_one: kahit maraming print sizes = 1 transaction
         $transactionCount = $quantity; // 1 item = 1 transaction regardless of print count
-        $bulkDiscount = $this->calculateBulkDiscount($transactionCount, $subtotal, $printType);
+        $bulkDiscount = $this->calculateBulkDiscount($transactionCount, $subtotal, $printType, $resolvedSizeIds);
         
         $total = $subtotal - $bulkDiscount;
         
@@ -969,6 +1097,157 @@ class PrintingPricingController extends Controller
             'subtotal' => $subtotal,
             'bulk_discount' => $bulkDiscount,
             'total' => $total
+        ]);
+    }
+
+    /**
+     * Read-only pricing preview for the Rule Editor's Test Calculator.
+     *
+     * Mirrors the computation used by the Garment Printing modal
+     * (resources/views/sales/prototype/create.blade.php -> garment_updatePrintSummary):
+     *   1. resolve size upgrades
+     *   2. base print cost = upgraded sizes + upgrade surcharge
+     *   3. combo discount = BEST single matching combo
+     *   4. subtotal = (print cost - combo) * qty
+     *   5. bulk discount = matching tier (percentage on subtotal, or fixed x qty)
+     *
+     * Nothing is written to the DB.
+     */
+    public function previewRules(Request $request)
+    {
+        $request->validate([
+            'print_type' => 'required|string|in:dtf,sublimation,silkscreen',
+            'price_tier' => 'nullable|string|in:sales_team,agent',
+            'quantity' => 'required|integer|min:1',
+            'print_size_ids' => 'required|array|min:1',
+            'print_size_ids.*' => 'integer',
+        ]);
+
+        $printType = $request->input('print_type', 'dtf');
+        $quantity = (int) $request->input('quantity', 1);
+        $rawIds = array_map('intval', $request->input('print_size_ids'));
+
+        $user = auth()->user();
+        $priceTier = $request->input('price_tier');
+        if (!$priceTier) {
+            $priceTier = $this->resolvePriceTier($user);
+        }
+
+        // 1) Size upgrades
+        [$resolvedIds, $upgradeLog, $upgradeSurcharge] = $this->resolveUpgradedSizes($rawIds, $printType);
+
+        // 2) Base print cost per item
+        $printCostPerItem = $upgradeSurcharge;
+        $sizes = [];
+        foreach ($resolvedIds as $sizeId) {
+            $price = PrintingPrice::where('print_type', $printType)->find($sizeId);
+            if (!$price) {
+                continue;
+            }
+            $unitPrice = ($priceTier === 'agent' && $price->agent_price)
+                ? floatval($price->agent_price)
+                : floatval($price->price);
+            $printCostPerItem += $unitPrice;
+            $sizes[] = [
+                'id' => $price->id,
+                'name' => $price->name,
+                'price' => $unitPrice,
+            ];
+        }
+
+        // 3) Combo discounts - list every match, apply only the best one (modal behaviour)
+        $matchedCombos = PrintingComboDiscount::where('print_type', $printType)
+            ->where('price_tier', $priceTier)
+            ->where('active', true)
+            ->with(['size1:id,name', 'size2:id,name'])
+            ->get()
+            ->filter(function ($combo) use ($resolvedIds) {
+                return in_array($combo->size1_id, $resolvedIds)
+                    && in_array($combo->size2_id, $resolvedIds);
+            })
+            ->map(function ($combo) {
+                return [
+                    'id' => $combo->id,
+                    'label' => ($combo->size1->name ?? '?') . ' + ' . ($combo->size2->name ?? '?'),
+                    'discount' => floatval($combo->discount_value),
+                ];
+            })
+            ->values();
+
+        $comboDiscount = 0.0;
+        $appliedCombo = null;
+        if ($matchedCombos->isNotEmpty()) {
+            $appliedCombo = $matchedCombos->sortByDesc('discount')->first();
+            $comboDiscount = floatval($appliedCombo['discount']);
+        }
+
+        $printCostAfterCombo = max(0, $printCostPerItem - $comboDiscount);
+        $subtotal = $printCostAfterCombo * $quantity;
+
+        // 4) Bulk discount - same tier lookup + math as the sales modal
+        // Size gate: when enabled, bulk only applies for A3/A4 prints.
+        $bulkGateActive = $this->bulkGateActive($printType);
+        $bulkGateSatisfied = $this->bulkGateSatisfied($resolvedIds, $printType);
+
+        $bulk = null;
+        if ($bulkGateSatisfied) {
+            $bulk = PrintingBulkDiscount::where('print_type', $printType)
+                ->where('price_tier', $priceTier)
+                ->where('active', true)
+                ->where('min_transactions', '<=', $quantity)
+                ->where('max_transactions', '>=', $quantity)
+                ->first();
+        }
+
+        $bulkDiscount = 0.0;
+        $bulkTier = null;
+        if ($bulk) {
+            if ($bulk->discount_type === 'fixed_amount') {
+                $bulkDiscount = floatval($bulk->discount_amount) * $quantity;
+                $tierLabel = '₱' . number_format(floatval($bulk->discount_amount), 2) . ' / garment';
+            } else {
+                $bulkDiscount = $subtotal * (floatval($bulk->discount_percent) / 100);
+                $tierLabel = floatval($bulk->discount_percent) . '% off';
+            }
+            $bulkTier = [
+                'min' => (int) $bulk->min_transactions,
+                'max' => (int) $bulk->max_transactions,
+                'type' => $bulk->discount_type === 'fixed_amount' ? 'fixed' : 'percentage',
+                'label' => $tierLabel,
+            ];
+        }
+
+        $total = max(0, $subtotal - $bulkDiscount);
+        $totalDiscount = $comboDiscount * $quantity + $bulkDiscount;
+        $grossBeforeDiscount = $printCostPerItem * $quantity;
+
+        return response()->json([
+            'success' => true,
+            'print_type' => $printType,
+            'price_tier' => $priceTier,
+            'quantity' => $quantity,
+            'input_print_count' => count($rawIds),
+            'sizes' => $sizes,
+            'upgrades' => $upgradeLog,
+            'upgrade_surcharge' => round($upgradeSurcharge, 2),
+            'print_cost_per_item' => round($printCostPerItem, 2),
+            'combos_matched' => $matchedCombos,
+            'combo_count' => $matchedCombos->count(),
+            'combo_applied' => $appliedCombo,
+            'combo_discount' => round($comboDiscount, 2),
+            'print_cost_after_combo' => round($printCostAfterCombo, 2),
+            'subtotal' => round($subtotal, 2),
+            'bulk_tier' => $bulkTier,
+            'bulk_discount' => round($bulkDiscount, 2),
+            'bulk_gate_active' => $bulkGateActive,
+            'bulk_gate_satisfied' => $bulkGateSatisfied,
+            'gross_before_discount' => round($grossBeforeDiscount, 2),
+            'total_discount' => round($totalDiscount, 2),
+            'effective_discount_percent' => $grossBeforeDiscount > 0
+                ? round(($totalDiscount / $grossBeforeDiscount) * 100, 2)
+                : 0,
+            'total' => round($total, 2),
+            'per_item' => round($total / $quantity, 2),
         ]);
     }
 }

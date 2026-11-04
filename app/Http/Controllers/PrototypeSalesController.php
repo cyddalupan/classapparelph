@@ -1841,6 +1841,22 @@ public function details(Request $request, string $id)
                 $subconByName = optional(\App\Models\User::find($subconLog->changed_by))->name;
             }
         }
+
+        // REPLACEMENT (Andrew 2026-10-26): normal sale muna si USER, tapos
+        // ili-link niya sa sale page (sa ilalim ng Subcon) ang SALES NUMBER +
+        // DAMAGE REPORT NO. Si CEO/admin lang ang nag-a-approve. Pag approved,
+        // naka-flag ang sale as replacement at ZERO ang lahat ng amounts.
+        $canRequestReplacement = $currentUser && !$isGa;
+        $replacementStatus = $sale->replacement_status ?? 'none';
+        $replacementSaleLink = $sale->replacement_sale_id
+            ? \DB::table('prototype_sales')->where('id', $sale->replacement_sale_id)->first(['id', 'sales_number'])
+            : null;
+        $replacementDamageLink = $sale->replacement_damage_report_id
+            ? \DB::table('damage_reports')->where('id', $sale->replacement_damage_report_id)->first(['id', 'report_no'])
+            : null;
+        $replacementApprovedBy = $sale->replacement_approved_by
+            ? optional(\App\Models\User::find($sale->replacement_approved_by))->name
+            : null;
         
         // Fetch refund data for this sale
         $refunds = \DB::table('prototype_refunds')
@@ -1916,6 +1932,32 @@ public function details(Request $request, string $id)
         $reviewSettled = (float) ($sale->review_settled_amount ?? 0);
         $balanceDueWithLayout = max($grandTotalWithLayout - $collectedWithLayout - $reviewSettled, 0);
 
+        // REPLACEMENT APPROVED (Andrew 2026-10-26): i-zero rin ang Payment card
+        // (Total Amount / Total Paid / Balance Due) at i-disable ang Pay Balance.
+        $isApprovedReplacement = ($sale->replacement_status ?? 'none') === 'approved';
+        if ($isApprovedReplacement) {
+            $totalPaid = 0;
+            $totalRefunded = 0;
+            $netPaid = 0;
+            $balanceDue = 0;
+            $overpayment = 0;
+            $layoutTotal = 0;
+            $layoutPaidTotal = 0;
+            $layoutFeeTotal = 0;
+            $grandTotalWithLayout = 0;
+            $collectedWithLayout = 0;
+            $balanceDueWithLayout = 0;
+            $reviewSettled = 0;
+            // I-zero rin ang model attributes para sa ibang parte ng page.
+            $sale->total_amount = 0;
+            $sale->deposit_paid = 0;
+            $sale->balance_due = 0;
+            $sale->subtotal = 0;
+            $sale->tax = 0;
+            $sale->overpayment = 0;
+            $sale->overall_total_amount = 0;
+        }
+
         // Payment review requests (balance close-out) for this sale — history sa baba:
         // requested → accepted/rejected (Accountant) → reviewed (CEO/COO), sino + anong oras.
         $paymentReviews = \DB::table('payment_review_requests')
@@ -1960,13 +2002,15 @@ public function details(Request $request, string $id)
             'currentUser',
             'productionStarted', 'canOverrideReprocess',
             'canSubcon', 'subconLocked', 'subconLog', 'subconByName',
+            'canRequestReplacement', 'replacementStatus', 'replacementSaleLink',
+            'replacementDamageLink', 'replacementApprovedBy',
             'refunds', 'activeRefund', 'refundLogs', 'completedRefunds', 'totalRefunded',
             'payments', 'totalPaid', 'netPaid', 'balanceDue',
             'productionFeedbacks', 'artists', 'damageReports',
             'linkedLayoutJobs', 'layoutFeeTotal', 'layoutTotal', 'layoutPaidTotal',
             'grandTotalWithLayout', 'balanceDueWithLayout', 'collectedWithLayout',
             'paymentReviews', 'activeReviewRequest',
-            'hasPendingVerification',
+            'hasPendingVerification', 'isApprovedReplacement',
             'canSeeTagging', 'stageTimeline',
             'prodCheckCounts',
             'tagForSample', 'tagForFormat', 'canUseProdTags'
@@ -6499,11 +6543,15 @@ $services = json_decode($sale->services, true);
                     }
                 }
             };
+            // ⚠️ I-decode muna ang product_comments BAGO i-scan — dati kasi `$bjProd` ay
+            // galing pa sa nakaraang checklist row (undefined sa unang row), kaya ang
+            // product-comment backjob ng isang sale ay naipapasa sa ibang sale at
+            // hindi nababasa ang sarili nyang bagong backjob (Andrew 2026-10-27).
+            $bjProd = json_decode($chk->product_comments ?? '', true) ?: [];
+
             $scanLatestBj($bjMain);
             foreach ((array) $bjAdd as $cs) { $scanLatestBj($cs); }
-            foreach ((array) ($bjProd ?? []) as $cs) { $scanLatestBj($cs); }
-
-            $bjProd = json_decode($chk->product_comments ?? '', true) ?: [];
+            foreach ((array) $bjProd as $cs) { $scanLatestBj($cs); }
             if (is_array($bjProd)) {
                 foreach ($bjProd as $itemId => $comments) {
                     if (!is_array($comments)) continue;
@@ -6811,6 +6859,262 @@ $services = json_decode($sale->services, true);
             'updated_at'  => now(),
         ]);
         return response()->json(['success' => true, 'production_stage' => $restore, 'message' => 'Na-undo ang SUBCON — ibinalik ang production status sa ' . $restore . '.']);
+    }
+
+    /**
+     * REPLACEMENT — live lookup ng SALES NUMBER / DAMAGE REPORT NO.
+     * Kapag may kaparehas sa system => found + clickable link.
+     * Kung wala => warning lang (hindi hard block). Andrew 2026-10-26.
+     */
+    public function lookupReplacementRef(Request $request, $id)
+    {
+        $type = $request->query('type');
+        $q = trim((string) $request->query('q', ''));
+
+        if ($q === '') {
+            return response()->json(['found' => false, 'message' => 'Maglagay muna ng reference number.']);
+        }
+
+        if ($type === 'sale') {
+            $sale = \DB::table('prototype_sales')
+                ->whereRaw('UPPER(TRIM(sales_number)) = ?', [mb_strtoupper($q)])
+                ->first(['id', 'sales_number']);
+
+            if (!$sale) {
+                return response()->json([
+                    'found' => false,
+                    'message' => '⚠️ Walang kaparehas na SALES NUMBER sa system: ' . $q,
+                ]);
+            }
+
+            return response()->json([
+                'found' => true,
+                'id' => $sale->id,
+                'label' => $sale->sales_number,
+                'url' => route('sales.prototype.show', $sale->id),
+            ]);
+        }
+
+        if ($type === 'damage') {
+            $report = \DB::table('damage_reports')
+                ->whereRaw('UPPER(TRIM(report_no)) = ?', [mb_strtoupper($q)])
+                ->first(['id', 'report_no', 'sale_id', 'status']);
+
+            if (!$report) {
+                return response()->json([
+                    'found' => false,
+                    'message' => '⚠️ Walang kaparehas na DAMAGE REFERENCE NUMBER sa system: ' . $q,
+                ]);
+            }
+
+            $linkedSale = $report->sale_id
+                ? \DB::table('prototype_sales')->where('id', $report->sale_id)->first(['id', 'sales_number'])
+                : null;
+
+            return response()->json([
+                'found' => true,
+                'id' => $report->id,
+                'label' => $report->report_no,
+                'url' => route('damage.show', $report->id),
+                'sale_id' => $report->sale_id,
+                'sale_number' => $linkedSale->sales_number ?? null,
+                'status' => $report->status,
+            ]);
+        }
+
+        return response()->json(['found' => false, 'message' => 'Invalid reference type.'], 400);
+    }
+
+    /**
+     * REPLACEMENT — i-submit ng USER ang sale as replacement. Kailangan valid
+     * pareho ang SALES NUMBER at DAMAGE REPORT NO. Pending muna kay CEO/admin.
+     * Andrew 2026-10-26.
+     */
+    public function requestReplacement(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'You must be logged in.'], 401);
+        }
+        if ($user->isGa() || $user->isTrimmerQa()) {
+            return response()->json(['success' => false, 'message' => 'Hindi available ang replacement sa role mo.'], 403);
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        $status = $sale->replacement_status ?? 'none';
+
+        if ($status === 'approved') {
+            return response()->json(['success' => false, 'message' => 'Approved na ang replacement ng order na ito.'], 422);
+        }
+        if ($status === 'pending') {
+            return response()->json(['success' => false, 'message' => 'May pending replacement request na ang order na ito — hinihintay pa ang approval ni CEO.'], 422);
+        }
+
+        $salesNo = trim((string) $request->input('sales_number', ''));
+        $dmgNo = trim((string) $request->input('damage_reference', ''));
+
+        if ($salesNo === '' || $dmgNo === '') {
+            return response()->json(['success' => false, 'message' => 'Kailangan pareho ang SALES NUMBER at DAMAGE REFERENCE NUMBER.'], 422);
+        }
+
+        $linked = \DB::table('prototype_sales')
+            ->whereRaw('UPPER(TRIM(sales_number)) = ?', [mb_strtoupper($salesNo)])
+            ->first(['id', 'sales_number']);
+        if (!$linked) {
+            return response()->json(['success' => false, 'message' => '⚠️ Walang kaparehas na SALES NUMBER sa system: ' . $salesNo], 422);
+        }
+
+        $dmg = \DB::table('damage_reports')
+            ->whereRaw('UPPER(TRIM(report_no)) = ?', [mb_strtoupper($dmgNo)])
+            ->first(['id', 'report_no', 'sale_id']);
+        if (!$dmg) {
+            return response()->json(['success' => false, 'message' => '⚠️ Walang kaparehas na DAMAGE REFERENCE NUMBER sa system: ' . $dmgNo], 422);
+        }
+
+        \DB::table('prototype_sales')->where('id', $sale->id)->update([
+            'is_replacement' => 0,
+            'replacement_status' => 'pending',
+            'replacement_sales_number' => $linked->sales_number,
+            'replacement_sale_id' => $linked->id,
+            'replacement_damage_report_id' => $dmg->id,
+            'replacement_damage_report_no' => $dmg->report_no,
+            'replacement_requested_by' => $user->id,
+            'replacement_requested_at' => now(),
+            'replacement_approved_by' => null,
+            'replacement_approved_at' => null,
+            'replacement_rejected_at' => null,
+            'replacement_reject_reason' => null,
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'replacement_requested',
+            'description' => 'Replacement requested — linked to sale ' . $linked->sales_number . ' and damage report ' . $dmg->report_no . '. Waiting for CEO approval.',
+            'details' => json_encode([
+                'replacement_sale_id' => $linked->id,
+                'replacement_sales_number' => $linked->sales_number,
+                'damage_report_id' => $dmg->id,
+                'damage_report_no' => $dmg->report_no,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Na-submit na for approval. Hinihintay na lang ang approval ni CEO.']);
+    }
+
+    /**
+     * REPLACEMENT — approve (CEO/admin only). ZERO lahat ng amounts at
+     * naka-flag as replacement; tuloy pa rin sa production. Andrew 2026-10-26.
+     */
+    public function approveReplacement(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isAdmin()) {
+            return response()->json(['success' => false, 'message' => 'CEO/admin lang ang pwedeng mag-approve ng replacement.'], 403);
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        if (($sale->replacement_status ?? 'none') !== 'pending') {
+            return response()->json(['success' => false, 'message' => 'Walang pending replacement request ang order na ito.'], 422);
+        }
+
+        $snapshot = [
+            'subtotal' => $sale->subtotal,
+            'tax' => $sale->tax,
+            'total_amount' => $sale->total_amount,
+            'deposit_paid' => $sale->deposit_paid,
+            'balance_due' => $sale->balance_due,
+            'overpayment' => $sale->overpayment,
+            'review_settled_amount' => $sale->review_settled_amount,
+            'overall_subtotal' => $sale->overall_subtotal,
+            'overall_total_amount' => $sale->overall_total_amount,
+            'overall_deposit_paid' => $sale->overall_deposit_paid,
+            'overall_tax' => $sale->overall_tax,
+            'snapshotted_at' => now()->toDateTimeString(),
+            'approved_by' => $user->id,
+        ];
+
+        \DB::table('prototype_sales')->where('id', $sale->id)->update([
+            'is_replacement' => 1,
+            'replacement_status' => 'approved',
+            'replacement_approved_by' => $user->id,
+            'replacement_approved_at' => now(),
+            'replacement_amount_snapshot' => json_encode($snapshot),
+            'subtotal' => 0,
+            'tax' => 0,
+            'total_amount' => 0,
+            'deposit_paid' => 0,
+            'balance_due' => 0,
+            'overpayment' => 0,
+            'review_settled_amount' => 0,
+            'overall_subtotal' => 0,
+            'overall_total_amount' => 0,
+            'overall_deposit_paid' => 0,
+            'overall_tax' => 0,
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'replacement_approved',
+            'description' => 'Replacement APPROVED — sale ' . $sale->sales_number . ' linked to sale ' . ($sale->replacement_sales_number ?: '—') . ' and damage report ' . ($sale->replacement_damage_report_no ?: '—') . '. All amounts set to ZERO.',
+            'details' => json_encode([
+                'replacement_sales_number' => $sale->replacement_sales_number,
+                'damage_report_no' => $sale->replacement_damage_report_no,
+                'amount_snapshot' => $snapshot,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Na-approve ang replacement — ZERO na ang amounts ng order na ito sa lahat ng totals.']);
+    }
+
+    /**
+     * REPLACEMENT — reject (CEO/admin only). Babalik sa normal sale (amounts intact).
+     * Andrew 2026-10-26.
+     */
+    public function rejectReplacement(Request $request, $id)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isAdmin()) {
+            return response()->json(['success' => false, 'message' => 'CEO/admin lang ang pwedeng mag-reject ng replacement.'], 403);
+        }
+
+        $sale = \App\Models\PrototypeSale::findOrFail($id);
+        if (($sale->replacement_status ?? 'none') !== 'pending') {
+            return response()->json(['success' => false, 'message' => 'Walang pending replacement request ang order na ito.'], 422);
+        }
+
+        $reason = trim((string) $request->input('reason', ''));
+
+        \DB::table('prototype_sales')->where('id', $sale->id)->update([
+            'is_replacement' => 0,
+            'replacement_status' => 'rejected',
+            'replacement_rejected_at' => now(),
+            'replacement_reject_reason' => $reason !== '' ? $reason : null,
+            'updated_at' => now(),
+        ]);
+
+        \DB::table('prototype_sale_audit_logs')->insert([
+            'sale_id' => $sale->id,
+            'user_id' => $user->id,
+            'action' => 'replacement_rejected',
+            'description' => 'Replacement REJECTED — sale ' . $sale->sales_number . '. ' . ($reason !== '' ? 'Reason: ' . $reason : 'No reason provided.'),
+            'details' => json_encode([
+                'replacement_sales_number' => $sale->replacement_sales_number,
+                'damage_report_no' => $sale->replacement_damage_report_no,
+                'reason' => $reason,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Na-reject ang replacement request.']);
     }
 
     public function updateStatus(Request $request, $id)
@@ -12935,6 +13239,11 @@ SQL;
         $sale = \DB::table('prototype_sales')->find($id);
         if (!$sale) {
             abort(404, 'Sale not found.');
+        }
+
+        // REPLACEMENT (Andrew 2026-10-26): approved replacement = ZERO / no payment.
+        if (($sale->replacement_status ?? '') === 'approved') {
+            return back()->with('error', '♻️ Replacement approved ang order na ito — ZERO ang balance at disabled ang Pay Balance.');
         }
 
         // Non-admin can only add payments to their own sales

@@ -79,6 +79,7 @@ Route::get('/printing-calculator', function() {
     Route::post('/productpricing/printing/rules/prices', [App\Http\Controllers\PrintingPricingController::class, 'updatePrices'])->name('printing.update-prices');
     Route::post('/productpricing/printing/rules/combos', [App\Http\Controllers\PrintingPricingController::class, 'updateCombos'])->name('printing.update-combos');
     Route::post('/productpricing/printing/rules/bulk', [App\Http\Controllers\PrintingPricingController::class, 'updateBulk'])->name('printing.update-bulk');
+    Route::post('/productpricing/printing/rules/bulk-settings', [App\Http\Controllers\PrintingPricingController::class, 'updateBulkSettings'])->name('printing.update-bulk-settings');
     Route::post('/productpricing/printing/rules/upgrades', [App\Http\Controllers\PrintingPricingController::class, 'updateUpgrades'])->name('printing.update-upgrades');
     Route::post('/productpricing/printing/calculate', [App\Http\Controllers\PrintingPricingController::class, 'calculate'])->name('printing.calculate');
     Route::post('/productpricing/printing/prices', [App\Http\Controllers\PrintingPricingController::class, 'storePrice'])->name('printing.store-price');
@@ -91,6 +92,7 @@ Route::get('/printing-calculator', function() {
     Route::delete('/productpricing/printing/prices/{id}', [App\Http\Controllers\PrintingPricingController::class, 'deletePrice'])->name('printing.delete-price');
     Route::get("/productpricing/printing/get-product-pricing", [App\Http\Controllers\PrintingPricingController::class, "getProductPricing"])->name("printing.get-product-pricing");
     Route::post('/productpricing/printing/prices/sync', [App\Http\Controllers\PrintingPricingController::class, 'syncFromProductPricing'])->name('printing.sync-prices');
+    Route::post('/productpricing/printing/rules/preview', [App\Http\Controllers\PrintingPricingController::class, 'previewRules'])->name('printing.rules-preview');
     
     // Pricing Rules Dashboard
     Route::get('/productpricing/rules', [App\Http\Controllers\PricingRulesController::class, 'index'])->name('pricing.rules');
@@ -999,6 +1001,11 @@ Route::middleware(['auth', 'coo.access', 'cpo.access', 'cmo.access', 'prodmanage
         Route::post('/sales/prototype/{id}/update-status', [App\Http\Controllers\PrototypeSalesController::class, 'updateStatus'])->name('sales.prototype.update-status');
         Route::post('/sales/prototype/{id}/subcon', [App\Http\Controllers\PrototypeSalesController::class, 'markSubcon'])->name('sales.prototype.subcon');
         Route::post('/sales/prototype/{id}/undo-subcon', [App\Http\Controllers\PrototypeSalesController::class, 'undoSubcon'])->name('sales.prototype.undo-subcon');
+        // REPLACEMENT (Andrew 2026-10-26) — USER links normal sale -> sales number + damage report; CEO approves; zero amounts.
+        Route::get('/sales/prototype/{id}/replacement/lookup', [App\Http\Controllers\PrototypeSalesController::class, 'lookupReplacementRef'])->name('sales.prototype.replacement.lookup');
+        Route::post('/sales/prototype/{id}/replacement', [App\Http\Controllers\PrototypeSalesController::class, 'requestReplacement'])->name('sales.prototype.replacement.request');
+        Route::post('/sales/prototype/{id}/replacement/approve', [App\Http\Controllers\PrototypeSalesController::class, 'approveReplacement'])->name('sales.prototype.replacement.approve');
+        Route::post('/sales/prototype/{id}/replacement/reject', [App\Http\Controllers\PrototypeSalesController::class, 'rejectReplacement'])->name('sales.prototype.replacement.reject');
         Route::post('/sales/prototype/{id}/priority', [App\Http\Controllers\PrototypeSalesController::class, 'updatePriority'])->name('sales.prototype.priority');
         Route::post('/sales/prototype/{id}/ga-assign', [App\Http\Controllers\PrototypeSalesController::class, 'assignGa'])->name('sales.prototype.ga-assign');
         Route::post('/sales/prototype/{id}/ga-unassign', [App\Http\Controllers\PrototypeSalesController::class, 'unassignGa'])->name('sales.prototype.ga-unassign');

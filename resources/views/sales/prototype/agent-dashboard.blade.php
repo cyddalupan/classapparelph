@@ -452,6 +452,9 @@
                     @if(!empty($sale->customer_name) && !in_array(strtoupper(trim($sale->customer_name)), ['TEST', 'TEST ORDER']))
                         — {{ $sale->customer_name }}
                     @endif
+                    @if(!empty($sale->is_replacement))
+                        <span class="badge" style="background:#0ea5e9;color:#fff;font-size:10px;margin-left:4px;">♻️ REPLACEMENT</span>
+                    @endif
                 </div>
             </div>
             </div>

@@ -713,6 +713,104 @@
             </div>
             @endif
 
+            <!-- REPLACEMENT (Andrew 2026-10-26) -->
+            @if($canRequestReplacement)
+            <div class="detail-section mt-3" id="replacementSection">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="detail-title mb-0" style="border-bottom:none;padding-bottom:0;">
+                        <i class="fas fa-recycle me-2" style="color:#0ea5e9;"></i>Replacement
+                    </h5>
+                    @if($replacementStatus === 'approved')
+                        <span class="badge" style="background:#0ea5e9;color:#fff;font-size:12px;">♻️ REPLACEMENT — APPROVED</span>
+                    @elseif($replacementStatus === 'pending')
+                        <span class="badge" style="background:#f59e0b;color:#3b2f00;font-size:12px;">🟡 PENDING APPROVAL</span>
+                    @elseif($replacementStatus === 'rejected')
+                        <span class="badge" style="background:#dc3545;color:#fff;font-size:12px;">❌ REJECTED</span>
+                    @endif
+                </div>
+
+                @if($replacementStatus === 'approved')
+                    <div class="alert mt-2 mb-0" style="background:#e0f2fe;border-left:5px solid #0ea5e9;">
+                        <div style="font-size:13px;">
+                            Naka-approve na ang replacement. <strong>ZERO</strong> na ang amounts ng order na ito sa lahat ng dashboards at reports, pero tuloy pa rin ito sa production.
+                            <div class="mt-2">
+                                Sales number:
+                                @if($replacementSaleLink)
+                                    <a href="{{ route('sales.prototype.show', $replacementSaleLink->id) }}" target="_blank"><strong>{{ $replacementSaleLink->sales_number }}</strong></a>
+                                @else
+                                    <strong>{{ $sale->replacement_sales_number }}</strong>
+                                @endif
+                                &nbsp;·&nbsp; Damage report:
+                                @if($replacementDamageLink)
+                                    <a href="{{ route('damage.show', $replacementDamageLink->id) }}" target="_blank"><strong>{{ $replacementDamageLink->report_no }}</strong></a>
+                                @else
+                                    <strong>{{ $sale->replacement_damage_report_no }}</strong>
+                                @endif
+                            </div>
+                            <small class="text-muted">
+                                Na-approve ni <strong>{{ $replacementApprovedBy ?: 'CEO' }}</strong>{{ $sale->replacement_approved_at ? ' · ' . \Carbon\Carbon::parse($sale->replacement_approved_at)->format('M d, Y h:i A') : '' }}
+                            </small>
+                        </div>
+                    </div>
+                @elseif($replacementStatus === 'pending')
+                    <div class="alert mt-2 mb-0" style="background:#fff8e1;border-left:5px solid #f59e0b;">
+                        <div style="font-size:13px;">
+                            Naka-link ang order na ito sa:
+                            <div class="mt-1">
+                                Sales number:
+                                @if($replacementSaleLink)
+                                    <a href="{{ route('sales.prototype.show', $replacementSaleLink->id) }}" target="_blank"><strong>{{ $replacementSaleLink->sales_number }}</strong></a>
+                                @else
+                                    <strong>{{ $sale->replacement_sales_number }}</strong>
+                                @endif
+                                &nbsp;·&nbsp; Damage report:
+                                @if($replacementDamageLink)
+                                    <a href="{{ route('damage.show', $replacementDamageLink->id) }}" target="_blank"><strong>{{ $replacementDamageLink->report_no }}</strong></a>
+                                @else
+                                    <strong>{{ $sale->replacement_damage_report_no }}</strong>
+                                @endif
+                            </div>
+                            <div class="mt-1">Hinihintay ang approval ni CEO.</div>
+                            <small class="text-muted">
+                                Ni-request ni <strong>{{ optional(\App\Models\User::find($sale->replacement_requested_by))->name ?: '—' }}</strong>{{ $sale->replacement_requested_at ? ' · ' . \Carbon\Carbon::parse($sale->replacement_requested_at)->format('M d, Y h:i A') : '' }}
+                            </small>
+                        </div>
+                        @if($currentUser && $currentUser->isAdmin())
+                        <div class="mt-2 d-flex gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-success" id="replApproveBtn" onclick="approveReplacement()"><i class="fas fa-check"></i> Oo, approve replacement</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="replRejectBtn" onclick="rejectReplacement()"><i class="fas fa-times"></i> Reject</button>
+                        </div>
+                        @endif
+                    </div>
+                @else
+                    @if($replacementStatus === 'rejected' && $sale->replacement_reject_reason)
+                        <div class="alert mt-2 mb-2" style="background:#fdecea;border-left:5px solid #dc3545;font-size:13px;">
+                            <strong>Na-reject:</strong> {{ $sale->replacement_reject_reason }}
+                        </div>
+                    @endif
+                    <p class="text-muted mb-2" style="font-size:13px;">
+                        I-link ang order na ito sa existing <strong>SALES NUMBER</strong> at <strong>DAMAGE REFERENCE NUMBER</strong>. Kailangan valid pareho para ma-activate ang Approval button.
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:12px;font-weight:700;">SALES NUMBER</label>
+                            <input type="text" class="form-control form-control-sm" id="replSalesNumber" placeholder="SALE-20261020-XXXXXXXXXXXX" autocomplete="off" oninput="replDebouncedLookup('sale')" onchange="replLookup('sale')">
+                            <div id="replSaleFeedback" class="mt-1" style="font-size:12px;"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size:12px;font-weight:700;">DAMAGE REFERENCE NUMBER</label>
+                            <input type="text" class="form-control form-control-sm" id="replDamageRef" placeholder="DMG-20261026-XXXXXX" autocomplete="off" oninput="replDebouncedLookup('damage')" onchange="replLookup('damage')">
+                            <div id="replDamageFeedback" class="mt-1" style="font-size:12px;"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-info mt-2" id="replSubmitBtn" disabled onclick="submitReplacementRequest()">
+                        <i class="fas fa-paper-plane"></i> Submit for Approval
+                    </button>
+                    <div class="text-muted mt-1" style="font-size:11px;">Disabled hangga't hindi naka-link ang dalawa.</div>
+                @endif
+            </div>
+            @endif
+
             <!-- Audit History (hidden for GA) -->
             @if(!$isGa)
             <div class="detail-section mt-3">
@@ -1032,7 +1130,13 @@
                 </div>
                 @endif
 
-                @if($bal > 0)
+                @if($isApprovedReplacement ?? false)
+                <div class="mt-3 mb-3 d-grid gap-2">
+                    <button type="button" class="btn btn-secondary w-100" disabled style="cursor:not-allowed;opacity:.65;">
+                        <i class="fas fa-lock me-2"></i>Pay Balance (disabled — replacement approved)
+                    </button>
+                </div>
+                @elseif($bal > 0)
                 <div class="mt-3 mb-3 d-grid gap-2">
                     <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#payBalanceModal">
                         <i class="fas fa-credit-card me-2"></i>Pay Balance
@@ -5241,6 +5345,110 @@ function submitSubcon(action){
         else { if (btn){ btn.disabled=false; } alert('⚠️ ' + (res.data.message || 'Failed.')); }
     })
     .catch(function(){ if (btn){ btn.disabled=false; } alert('❌ Network error. Try again.'); });
+}
+
+
+// === REPLACEMENT (Andrew 2026-10-26) ===
+var replLookupState = { sale: null, damage: null };
+var replLookupTimers = {};
+function replDebouncedLookup(type){
+    clearTimeout(replLookupTimers[type]);
+    replLookupTimers[type] = setTimeout(function(){ replLookup(type); }, 450);
+}
+function replLookup(type){
+    var inputId = type === 'sale' ? 'replSalesNumber' : 'replDamageRef';
+    var fbId = type === 'sale' ? 'replSaleFeedback' : 'replDamageFeedback';
+    var input = document.getElementById(inputId);
+    var fb = document.getElementById(fbId);
+    if (!input || !fb) return;
+    var q = (input.value || '').trim();
+    if (q === '') { fb.innerHTML = ''; replLookupState[type] = null; replUpdateSubmit(); return; }
+    fb.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin"></i> Hinahanap...</span>';
+    var url = '{{ route("sales.prototype.replacement.lookup", $sale->id) }}?type=' + encodeURIComponent(type) + '&q=' + encodeURIComponent(q);
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.found) {
+                replLookupState[type] = d;
+                var extra = '';
+                if (type === 'damage' && d.sale_number) extra = ' <span class="text-muted">(naka-link sa ' + d.sale_number + ')</span>';
+                fb.innerHTML = '✅ <a href="' + d.url + '" target="_blank"><strong>' + d.label + '</strong></a>' + extra;
+            } else {
+                replLookupState[type] = null;
+                fb.innerHTML = '<span style="color:#b45309;">' + (d.message || '⚠️ Walang kaparehas sa system.') + '</span>';
+            }
+            replUpdateSubmit();
+        })
+        .catch(function(){
+            replLookupState[type] = null;
+            fb.innerHTML = '<span style="color:#dc3545;">Lookup failed. Try again.</span>';
+            replUpdateSubmit();
+        });
+}
+function replUpdateSubmit(){
+    var btn = document.getElementById('replSubmitBtn');
+    if (!btn) return;
+    btn.disabled = !(replLookupState.sale && replLookupState.damage);
+}
+function submitReplacementRequest(){
+    var btn = document.getElementById('replSubmitBtn');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Please wait...';
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch('{{ route("sales.prototype.replacement.request", $sale->id) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf ? csrf.content : '', 'Accept': 'application/json' },
+        body: JSON.stringify({
+            sales_number: document.getElementById('replSalesNumber').value.trim(),
+            damage_reference: document.getElementById('replDamageRef').value.trim()
+        })
+    }).then(function(r){ return r.json().catch(function(){return {};}).then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+          if (res.ok && res.data.success) { window.location.reload(); }
+          else {
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit for Approval';
+              alert('⚠️ ' + (res.data.message || 'Failed.'));
+          }
+      })
+      .catch(function(){
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit for Approval';
+          alert('❌ Network error. Try again.');
+      });
+}
+function approveReplacement(){
+    if (!confirm('I-approve ang replacement? Magiging ZERO ang lahat ng amounts ng order na ito sa dashboards at reports.')) return;
+    var btn = document.getElementById('replApproveBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Please wait...'; }
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch('{{ route("sales.prototype.replacement.approve", $sale->id) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf ? csrf.content : '', 'Accept': 'application/json' },
+        body: JSON.stringify({})
+    }).then(function(r){ return r.json().catch(function(){return {};}).then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+          if (res.ok && res.data.success) { window.location.reload(); }
+          else { if (btn) { btn.disabled = false; } alert('⚠️ ' + (res.data.message || 'Failed.')); }
+      })
+      .catch(function(){ if (btn) { btn.disabled = false; } alert('❌ Network error. Try again.'); });
+}
+function rejectReplacement(){
+    var reason = prompt('Reason for rejection (optional):');
+    if (reason === null) return;
+    var btn = document.getElementById('replRejectBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Please wait...'; }
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    fetch('{{ route("sales.prototype.replacement.reject", $sale->id) }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf ? csrf.content : '', 'Accept': 'application/json' },
+        body: JSON.stringify({ reason: reason })
+    }).then(function(r){ return r.json().catch(function(){return {};}).then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+          if (res.ok && res.data.success) { window.location.reload(); }
+          else { if (btn) { btn.disabled = false; } alert('⚠️ ' + (res.data.message || 'Failed.')); }
+      })
+      .catch(function(){ if (btn) { btn.disabled = false; } alert('❌ Network error. Try again.'); });
 }
 
 </script>

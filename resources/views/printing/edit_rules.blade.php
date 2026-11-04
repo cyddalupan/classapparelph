@@ -212,6 +212,11 @@
                                 <i class="fas fa-layer-group me-1"></i> Size Upgrades
                             </button>
                         </li>
+                        <li class="nav-item">
+                            <button class="nav-link" id="calc-tab" data-bs-toggle="tab" data-bs-target="#calc" type="button" role="tab">
+                                <i class="fas fa-calculator me-1"></i> Test Calculator
+                            </button>
+                        </li>
                     </ul>
 
                     <div class="tab-content" id="ruleTabsContent">
@@ -463,6 +468,30 @@
                             <h4 class="section-title">Bulk Discounts</h4>
                             <p class="text-muted mb-4">Set discounts based on transaction count (not garment count). Combo items count as 1 transaction.</p>
 
+                            <!-- Size gate toggle -->
+                            <div class="card border-0 bg-light mb-4">
+                                <div class="card-body py-3">
+                                    <div class="form-check form-switch d-flex align-items-center gap-2 mb-1">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="bulk-size-gate" style="width:3em;height:1.5em;"
+                                               {{ $bulkSetting->bulk_requires_large_size ? 'checked' : '' }}
+                                               onchange="toggleBulkSizeGate(this)">
+                                        <label class="form-check-label fw-bold mb-0" for="bulk-size-gate">
+                                            Apply bulk discount only for A3 / A4 prints
+                                        </label>
+                                        <span class="badge {{ $bulkSetting->bulk_requires_large_size ? 'bg-success' : 'bg-secondary' }}"
+                                              id="bulk-size-gate-badge">
+                                            {{ $bulkSetting->bulk_requires_large_size ? 'ON' : 'OFF' }}
+                                        </span>
+                                    </div>
+                                    <div class="form-text mb-0">
+                                        When ON: bulk discount is computed only if the user selected an <strong>A4</strong> or <strong>A3</strong> print.
+                                        Logo-only or Half A4-only selections get <strong>no bulk discount</strong>.
+                                        When OFF: bulk applies to all sizes (current behaviour).
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Sales Team / Agent sub-tabs -->
                             <ul class="nav nav-pills mb-3" id="bulkTierTabs" role="tablist">
                                 <li class="nav-item">
@@ -693,6 +722,192 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- ==================== TEST CALCULATOR TAB ==================== -->
+                        <div class="tab-pane fade" id="calc" role="tabpanel">
+                            <h4 class="section-title">Test Calculator</h4>
+                            <p class="text-muted mb-4">
+                                Test the current rules <strong>without saving or changing anything</strong>. Uses the same
+                                computation as the Garment Printing modal: size upgrades &rarr; best combo &rarr; bulk tier.
+                            </p>
+
+                            <div class="row g-3 align-items-end mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Price Tier</label>
+                                    <select class="form-select" id="calc-price-tier">
+                                        <option value="sales_team">Sales Team price</option>
+                                        <option value="agent">Agent price</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Garment Quantity</label>
+                                    <input type="number" class="form-control" id="calc-quantity" value="10" min="1" step="1">
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="form-text">Quantity is used for the bulk tier and total.</div>
+                                </div>
+                            </div>
+
+                            <label class="form-label fw-bold">Prints per garment</label>
+                            <p class="text-muted small mb-2">
+                                Tick a size and set copies per garment. Example: 2&times; Logo auto-combines into Half A4
+                                based on the upgrade rules.
+                            </p>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:52px;">Use</th>
+                                            <th>Print Size</th>
+                                            <th style="width:130px;">Copies / garment</th>
+                                            <th class="text-end">Sales Team</th>
+                                            <th class="text-end">Agent</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($prices as $price)
+                                        <tr class="calc-size-row" data-size-id="{{ $price->id }}">
+                                            <td><input type="checkbox" class="form-check-input calc-size-checkbox"></td>
+                                            <td><strong>{{ $price->name }}</strong></td>
+                                            <td><input type="number" class="form-control form-control-sm calc-size-qty" value="1" min="1" step="1"></td>
+                                            <td class="text-end">₱{{ number_format($price->price, 2) }}</td>
+                                            <td class="text-end">₱{{ number_format($price->agent_price ?? 0, 2) }}</td>
+                                        </tr>
+                                        @empty
+                                        <tr><td colspan="5" class="text-muted text-center py-3">No print sizes yet.</td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="d-flex gap-2 mb-4">
+                                <button type="button" class="btn btn-primary" id="calc-run" onclick="runPreview()">
+                                    <i class="fas fa-calculator me-2"></i> Compute Preview
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="resetPreview()">Reset</button>
+                            </div>
+
+                            <div id="calc-error" class="alert alert-danger" style="display:none;"></div>
+
+                            <div id="calc-results" style="display:none;">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-3">
+                                        <div class="border rounded p-3 h-100">
+                                            <div class="text-muted small">Gross (before discount)</div>
+                                            <div class="fs-5 fw-bold" id="calc-gross">₱0.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="border rounded p-3 h-100">
+                                            <div class="text-muted small">Total discount</div>
+                                            <div class="fs-5 fw-bold text-success" id="calc-total-discount">₱0.00</div>
+                                            <div class="small text-muted" id="calc-discount-pct">0%</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="border rounded p-3 h-100">
+                                            <div class="text-muted small">Final total</div>
+                                            <div class="fs-5 fw-bold text-primary" id="calc-total">₱0.00</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="border rounded p-3 h-100">
+                                            <div class="text-muted small">Per garment</div>
+                                            <div class="fs-5 fw-bold" id="calc-per-item">₱0.00</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h6 class="fw-bold">Breakdown</h6>
+                                <div class="table-responsive mb-3">
+                                    <table class="table table-sm">
+                                        <tbody id="calc-breakdown"></tbody>
+                                    </table>
+                                </div>
+
+                                <div id="calc-combo-note" class="alert alert-info py-2" style="display:none;"></div>
+                            </div>
+
+                            <hr class="my-4">
+
+                            <h5 class="fw-bold">Rules being applied <span class="text-muted fw-normal small">(read-only)</span></h5>
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <div class="fw-bold mb-2"><i class="fas fa-percentage me-1 text-primary"></i> Combo discounts</div>
+                                        <div class="small"><strong>Sales Team</strong></div>
+                                        <ul class="small mb-2">
+                                            @forelse($comboSalesTeam as $combo)
+                                            <li>{{ $combo->size1->name ?? '?' }} + {{ $combo->size2->name ?? '?' }} &rarr; ₱{{ number_format($combo->discount_value, 2) }}</li>
+                                            @empty
+                                            <li class="text-muted">None</li>
+                                            @endforelse
+                                        </ul>
+                                        <div class="small"><strong>Agent</strong></div>
+                                        <ul class="small mb-0">
+                                            @forelse($comboAgent as $combo)
+                                            <li>{{ $combo->size1->name ?? '?' }} + {{ $combo->size2->name ?? '?' }} &rarr; ₱{{ number_format($combo->discount_value, 2) }}</li>
+                                            @empty
+                                            <li class="text-muted">None</li>
+                                            @endforelse
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <div class="fw-bold mb-2"><i class="fas fa-boxes me-1 text-primary"></i> Bulk discount tiers</div>
+                                        <div class="small"><strong>Sales Team</strong></div>
+                                        <ul class="small mb-2">
+                                            @forelse($bulkSalesTeam as $bulk)
+                                            <li>
+                                                {{ $bulk->min_transactions ?? $bulk->min_garments }}&ndash;{{ $bulk->max_transactions ?? $bulk->max_garments }} txns:
+                                                @if(($bulk->discount_type ?? 'percentage') === 'fixed_amount')
+                                                    ₱{{ number_format($bulk->discount_amount ?? 0, 2) }} each
+                                                @else
+                                                    {{ $bulk->discount_percent }}% off
+                                                @endif
+                                            </li>
+                                            @empty
+                                            <li class="text-muted">None</li>
+                                            @endforelse
+                                        </ul>
+                                        <div class="small"><strong>Agent</strong></div>
+                                        <ul class="small mb-0">
+                                            @forelse($bulkAgent as $bulk)
+                                            <li>
+                                                {{ $bulk->min_transactions ?? $bulk->min_garments }}&ndash;{{ $bulk->max_transactions ?? $bulk->max_garments }} txns:
+                                                @if(($bulk->discount_type ?? 'percentage') === 'fixed_amount')
+                                                    ₱{{ number_format($bulk->discount_amount ?? 0, 2) }} each
+                                                @else
+                                                    {{ $bulk->discount_percent }}% off
+                                                @endif
+                                            </li>
+                                            @empty
+                                            <li class="text-muted">None</li>
+                                            @endforelse
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="border rounded p-3">
+                                        <div class="fw-bold mb-2"><i class="fas fa-layer-group me-1 text-primary"></i> Size upgrades</div>
+                                        <ul class="small mb-0">
+                                            @forelse($upgrades as $upgrade)
+                                            <li>
+                                                {{ $upgrade->from_quantity }}&times; {{ $upgrade->fromSize->name ?? '?' }}
+                                                &rarr; 1&times; {{ $upgrade->toSize->name ?? '?' }}
+                                                @if(floatval($upgrade->surcharge ?? 0) > 0)
+                                                    (+₱{{ number_format($upgrade->surcharge, 2) }})
+                                                @endif
+                                            </li>
+                                            @empty
+                                            <li class="text-muted">None</li>
+                                            @endforelse
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -903,11 +1118,20 @@
             }
         });
         
+        // Saving with ZERO combos is allowed: it clears every combo for this tier.
+        // Only block when rows exist but are incomplete (missing size or discount <= 0),
+        // so an accidental half-filled row can't wipe the saved rules.
         if (combos.length === 0) {
-            showMessage('Please add at least one combo discount.', 'info');
-            return;
+            const rowCount = container.find('.combo-row').length;
+            if (rowCount > 0) {
+                showMessage('Some combo rows are incomplete — pick both sizes and a discount greater than 0, or remove the row.', 'info');
+                return;
+            }
+            if (!confirm('No combo discounts for this tier. Save anyway? This will clear the existing combos.')) {
+                return;
+            }
         }
-        
+
         $.ajax({
             url: '{{ route("printing.update-combos") }}',
             method: 'POST',
@@ -1049,6 +1273,34 @@
         $(btn).closest('.bulk-row').remove();
     }
 
+    function toggleBulkSizeGate(el) {
+        const enabled = el.checked ? 1 : 0;
+        const badge = document.getElementById('bulk-size-gate-badge');
+        badge.className = 'badge ' + (enabled ? 'bg-success' : 'bg-secondary');
+        badge.textContent = enabled ? 'ON' : 'OFF';
+
+        $.ajax({
+            url: '{{ route("printing.update-bulk-settings") }}',
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            data: { print_type: '{{ $printType }}', bulk_requires_large_size: enabled },
+            success: function(res) {
+                showMessage(res.message);
+                if (typeof window.syncBulkGateHint === 'function') {
+                    window.syncBulkGateHint(enabled);
+                }
+            },
+            error: function(xhr) {
+                el.checked = !el.checked;
+                badge.className = 'badge ' + (!enabled ? 'bg-success' : 'bg-secondary');
+                badge.textContent = !enabled ? 'ON' : 'OFF';
+                let msg = 'Could not save the bulk size gate.';
+                if (xhr.responseJSON && xhr.responseJSON.message) { msg = xhr.responseJSON.message; }
+                showMessage(msg, 'error');
+            }
+        });
+    }
+
     function saveBulk(tier) {
         const bulk = [];
         const container = tier === 'agent' ? $('#bulk-container-agent') : $('#bulk-container-sales');
@@ -1074,9 +1326,17 @@
             }
         });
         
+        // Saving with ZERO tiers is allowed: it clears every bulk tier for this tier.
+        // Only block when rows exist but are incomplete.
         if (bulk.length === 0) {
-            showMessage('Please add at least one bulk discount tier.', 'info');
-            return;
+            const rowCount = container.find('.bulk-row').length;
+            if (rowCount > 0) {
+                showMessage('Some bulk rows are incomplete — fill in Min and Max, or remove the row.', 'info');
+                return;
+            }
+            if (!confirm('No bulk discount tiers for this price tier. Save anyway? This will clear the existing tiers.')) {
+                return;
+            }
         }
         
         $.ajax({
@@ -1098,6 +1358,146 @@
                 showMessage(msg, 'error');
             }
         });
+    }
+
+    // ==================== TEST CALCULATOR ====================
+    function calcPeso(n) {
+        return '\u20B1' + (parseFloat(n) || 0).toFixed(2);
+    }
+
+    function resetPreview() {
+        $('.calc-size-checkbox').prop('checked', false);
+        $('.calc-size-qty').val(1);
+        $('#calc-results').hide();
+        $('#calc-error').hide();
+    }
+
+    function runPreview() {
+        var ids = [];
+        var tooMany = false;
+        $('.calc-size-row').each(function() {
+            var row = $(this);
+            if (!row.find('.calc-size-checkbox').is(':checked')) {
+                return;
+            }
+            var copies = parseInt(row.find('.calc-size-qty').val()) || 1;
+            if (copies < 1) { copies = 1; }
+            for (var i = 0; i < copies; i++) {
+                ids.push(parseInt(row.data('size-id')));
+            }
+            if (ids.length > 500) { tooMany = true; return false; }
+        });
+
+        var errorBox = $('#calc-error');
+        errorBox.hide();
+
+        if (ids.length === 0) {
+            errorBox.text('Select at least one print size.').show();
+            return;
+        }
+        if (tooMany) {
+            errorBox.text('Too many copies for a preview (max 500). Lower the copies or quantity.').show();
+            return;
+        }
+
+        var button = $('#calc-run');
+        button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i> Computing...');
+
+        $.ajax({
+            url: '{{ route("printing.rules-preview") }}',
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            data: {
+                print_type: '{{ $printType }}',
+                price_tier: $('#calc-price-tier').val(),
+                quantity: parseInt($('#calc-quantity').val()) || 1,
+                print_size_ids: ids
+            },
+            success: function(res) {
+                if (!res || !res.success) {
+                    errorBox.text('Preview failed.').show();
+                    return;
+                }
+                renderPreview(res);
+            },
+            error: function(xhr) {
+                var msg = 'Preview failed.';
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    msg = Object.values(xhr.responseJSON.errors).flat().join(' ');
+                } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                    msg = xhr.responseJSON.message;
+                }
+                errorBox.text(msg).show();
+            },
+            complete: function() {
+                button.prop('disabled', false).html('<i class="fas fa-calculator me-2"></i> Compute Preview');
+            }
+        });
+    }
+
+    function renderPreview(res) {
+        $('#calc-gross').text(calcPeso(res.gross_before_discount));
+        $('#calc-total-discount').text(calcPeso(res.total_discount));
+        $('#calc-discount-pct').text(res.effective_discount_percent + '% effective');
+        $('#calc-total').text(calcPeso(res.total));
+        $('#calc-per-item').text(calcPeso(res.per_item));
+
+        var rows = '';
+
+        // Sizes after upgrades
+        if (res.upgrades && res.upgrades.length) {
+            var notes = res.upgrades.map(function(u) {
+                return u.from_quantity + '\u00D7 ' + u.from + ' \u2192 ' + u.to_quantity + '\u00D7 ' + u.to;
+            }).join(', ');
+            rows += '<tr><td class="text-muted">Auto-combined</td><td class="text-end text-muted">' + notes + '</td></tr>';
+        }
+
+        rows += '<tr><td>Print cost per garment (after upgrades)</td><td class="text-end">';
+        rows += (res.sizes || []).map(function(sz) {
+            return sz.name + ' ' + calcPeso(sz.price);
+        }).join(' + ');
+        if (parseFloat(res.upgrade_surcharge) > 0) {
+            rows += ' + upgrade ' + calcPeso(res.upgrade_surcharge);
+        }
+        rows += '</td></tr>';
+        rows += '<tr><td>Print cost per garment</td><td class="text-end fw-bold">' + calcPeso(res.print_cost_per_item) + '</td></tr>';
+
+        // Combo
+        if (parseFloat(res.combo_discount) > 0) {
+            rows += '<tr><td>Combo discount per garment <span class="text-muted small">(' + (res.combo_applied ? res.combo_applied.label : '') + ')</span></td>';
+            rows += '<td class="text-end text-success">-' + calcPeso(res.combo_discount) + '</td></tr>';
+        } else {
+            rows += '<tr><td class="text-muted">Combo discount</td><td class="text-end text-muted">-&#8203;' + calcPeso(0) + '</td></tr>';
+        }
+
+        rows += '<tr><td>Print cost per garment after combo</td><td class="text-end">' + calcPeso(res.print_cost_after_combo) + '</td></tr>';
+        rows += '<tr><td>Subtotal &times; ' + res.quantity + ' garment(s)</td><td class="text-end">' + calcPeso(res.subtotal) + '</td></tr>';
+
+        // Bulk
+        if (res.bulk_tier) {
+            rows += '<tr><td>Bulk discount <span class="text-muted small">(' + res.bulk_tier.min + '\u2013' + res.bulk_tier.max + ' txns, ' + res.bulk_tier.label + ')</span></td>';
+            rows += '<td class="text-end text-success">-' + calcPeso(res.bulk_discount) + '</td></tr>';
+        } else {
+            rows += '<tr><td class="text-muted">Bulk discount <span class="small">(no tier for ' + res.quantity + ' txn)</span></td><td class="text-end text-muted">-&#8203;' + calcPeso(0) + '</td></tr>';
+        }
+
+        rows += '<tr class="table-light"><td class="fw-bold">Final total</td><td class="text-end fw-bold fs-5">' + calcPeso(res.total) + '</td></tr>';
+
+        $('#calc-breakdown').html(rows);
+
+        // Combo match counter
+        var note = $('#calc-combo-note');
+        if (res.combo_count > 0) {
+            var labels = (res.combos_matched || []).map(function(c) {
+                return c.label + ' (' + calcPeso(c.discount) + ')';
+            }).join(', ');
+            note.html('<strong>' + res.combo_count + ' combo rule(s) matched:</strong> ' + labels +
+                '<br><span class="small">Only the best one is applied \u2014 same as the sales modal.</span>').show();
+        } else {
+            note.hide();
+        }
+
+        $('#calc-results').show();
     }
 </script>
 </body>

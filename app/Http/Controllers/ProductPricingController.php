@@ -477,6 +477,7 @@ class ProductPricingController extends Controller
         $type = $request->input('type');
         $color = $request->input('color');
         $size = $request->input('size');
+        $material = $request->input('material');
         
         // Start query
         $query = MasterItem::where('sales_box', $boxType)
@@ -497,6 +498,10 @@ class ProductPricingController extends Controller
 
         if ($size) {
             $query->where('size', $size);
+        }
+
+        if ($material) {
+            $query->where('material', $material);
         }
         
         // Get items
@@ -572,12 +577,21 @@ class ProductPricingController extends Controller
             ->pluck('size')
             ->sort()
             ->values();
+
+        $materials = MasterItem::where('sales_box', $boxType)
+            ->whereNotNull('material')
+            ->where('material', '!=', '')
+            ->distinct()
+            ->pluck('material')
+            ->sort()
+            ->values();
         
         return response()->json([
             'brands' => $brands,
             'types' => $types,
             'colors' => $colors,
-            'sizes' => $sizes
+            'sizes' => $sizes,
+            'materials' => $materials
         ]);
     }
 }

@@ -963,6 +963,9 @@
                         <td style="text-align:center;">{{ $totalQty ?: '—' }}</td>
                         <td>
                             @php $currentStage = $sale->production_stage ?: ($statusToStage[$sale->kanban_status ?? 'new'] ?? 'HOLD'); $balanceDue = (float) $sale->balance_due_computed; $bjStatusSale = in_array((int) $sale->id, $backjobStatusSaleIds ?? [], true); $bjDispatchLock = in_array((int) $sale->id, $backjobLockSaleIds ?? [], true); @endphp
+                            @if(!empty($sale->is_replacement))
+                                <div class="mb-1"><span class="badge" style="background:#0ea5e9;color:#fff;font-size:10px;">♻️ REPLACEMENT</span></div>
+                            @endif
                             <select class="form-select form-select-sm prod-status-select" data-sale-id="{{ $sale->id }}" data-current="{{ $currentStage }}" onclick="event.stopPropagation()" style="font-size:12px;min-width:110px;padding:2px 6px;@if($currentStage === 'SUBCON')background:#fff3a3;color:#7a5300;font-weight:700;border-color:#f0c33c;cursor:not-allowed;@elseif($bjStatusSale)background:#fdecea;color:#b02a37;font-weight:700;border-color:#f1aeb5;cursor:not-allowed;@elseif(!$hasFileShot)background:#e9ecef;color:#adb5bd;cursor:not-allowed;@endif" @if($currentStage === 'SUBCON') disabled title="🔒 Naka-SUBCON — LOCKED ang production status. I-undo muna ang Subcon (Prod Manager / CEO / COO) bago makapag-tag ng ibang stage." @elseif($bjStatusSale) disabled title="🔧 BACKJOB — may active backjob. I-clear muna lahat bago makapag-tag ng ibang production status." @elseif(!$hasFileShot) disabled title="🔒 Kulang File Screenshot — i-upload muna bago i-tag FOR SAMPLE / FOR APPROVAL" @endif>
                                 @if($bjStatusSale)
                                     <option value="{{ $currentStage }}" selected>BACKJOB</option>
@@ -1108,7 +1111,7 @@
                             @endif
                             @if(isset($backjobBadges[$sale->id]))
                                 @if($backjobBadges[$sale->id] === 'pending')
-                                    <button type="button" class="bj-ack-badge" data-id="{{ $sale->id }}" onclick="ackBackjob(this)" title="I-click kung dumating na ang backjob sa Class">⚠️ May backjob ito — dumating na ba?</button>
+                                    <button type="button" class="bj-ack-badge" data-id="{{ $sale->id }}" onclick="event.stopPropagation(); ackBackjob(this)" title="I-click kung dumating na ang backjob sa Class">⚠️ May backjob ito — dumating na ba?</button>
                                 @else
                                     <span class="bj-ack-badge done" title="Na-confirm na dumating ang backjob">✓ Dumating na Backjob</span>
                                 @endif
