@@ -106,6 +106,35 @@
 .tb-hall .lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;}
 .tb-hall .nm{font-size:1.05rem;font-weight:900;color:#1e293b;}
 .tb-hall .amt{margin-left:auto;font-weight:900;color:#4338ca;}
+
+/* Hall of Fame — grid ng champion kada buwan (maraming pwesto) */
+.tb-hall-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:.6rem;}
+.tb-hc{position:relative;display:flex;flex-direction:column;gap:.3rem;background:linear-gradient(135deg,#fffbeb,#f8fafc);border:1px solid #fcd34d;border-radius:14px;padding:.7rem .8rem;box-shadow:0 2px 8px rgba(245,158,11,.12);}
+.tb-hc.now{background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-color:#818cf8;box-shadow:0 3px 14px rgba(79,70,229,.20);}
+.tb-hc .mo{font-size:.62rem;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#b45309;}
+.tb-hc.now .mo{color:#4338ca;}
+.tb-hc .crown{position:absolute;top:.45rem;right:.55rem;font-size:.9rem;opacity:.85;}
+.tb-hc .top{display:flex;align-items:center;gap:.5rem;margin-top:.1rem;}
+.tb-hc .nm{font-weight:900;font-size:.86rem;color:#1e293b;line-height:1.15;}
+.tb-hc .amt{font-weight:900;color:#b45309;font-size:.92rem;}
+.tb-hc.now .amt{color:#4338ca;}
+.tb-hc .tag{font-size:.62rem;font-weight:900;border-radius:999px;padding:.05rem .45rem;display:inline-block;}
+.tb-hc .tag.hit{background:#dcfce7;color:#166534;}
+.tb-hc .tag.miss{background:#f1f5f9;color:#64748b;}
+.tb-hc .tag.on{background:#e0e7ff;color:#3730a3;}
+.tb-hc.vacant{align-items:center;justify-content:center;text-align:center;min-height:112px;background:repeating-linear-gradient(135deg,#f8fafc,#f8fafc 9px,#f1f5f9 9px,#f1f5f9 18px);border:1.5px dashed #cbd5e1;box-shadow:none;}
+.tb-hc.vacant .mo{color:#94a3b8;}
+.tb-hc.vacant .v1{font-size:.74rem;font-weight:900;color:#94a3b8;margin-top:.2rem;}
+.tb-hc.vacant .v2{font-size:.62rem;color:#cbd5e1;}
+
+/* Na-hit ang quota */
+.tb-hitters{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.55rem;}
+.tb-hit{display:flex;align-items:center;gap:.55rem;background:linear-gradient(135deg,#ecfdf5,#f0fdf4);border:1px solid #86efac;border-radius:14px;padding:.5rem .7rem;}
+.tb-hit .n{font-weight:900;font-size:.86rem;color:#14532d;line-height:1.15;}
+.tb-hit .p{font-size:.7rem;color:#15803d;font-weight:700;}
+.tb-hit .ov{margin-left:auto;text-align:right;}
+.tb-hit .ov .a{font-weight:900;color:#15803d;font-size:.86rem;}
+.tb-hit .ov .l{font-size:.6rem;color:#4ade80;text-transform:uppercase;letter-spacing:.05em;}
 .tb-badges{margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.3rem;}
 .tb-badge{display:inline-flex;align-items:center;gap:.2rem;font-size:.68rem;font-weight:800;border-radius:999px;padding:.12rem .55rem;}
 .tb-badge.crown{background:#fef3c7;color:#92400e;}
@@ -297,6 +326,8 @@ window.TB_INIT = {!! json_encode([
   'champion_days_on_top' => $champion_days_on_top ?? 0,
   'days_left' => $days_left ?? 0,
   'last_champion' => $last_champion ?? null,
+  'hall_of_fame' => $hall_of_fame ?? [],
+  'quota_hitters' => $quota_hitters ?? [],
   'week_leader' => $week_leader ?? null,
   'top_mover_id' => $top_mover_id,
   'top_mover_name' => $top_mover_name,
@@ -365,13 +396,63 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
       '<div class="amt">'+peso(w.amount)+'</div></div></div>';
   }
 
+  // Hall of Fame — grid ng champion kada buwan. Kasama ang kasalukuyang buwan
+  // (ongoing) at ang mga bakanteng pwesto para sa mga susunod pa.
+  function hallCard(s){
+    var c = s.champion;
+    if(!c){
+      return '<div class="tb-hc vacant">'+
+        '<div class="mo">'+esc(s.short)+'</div>'+
+        '<div class="v1">Bakante</div>'+
+        '<div class="v2">Pwesto pa ito</div></div>';
+    }
+    var tag = c.hit_quota
+      ? '<span class="tag hit">✓ Hit quota</span>'
+      : (c.has_quota ? '<span class="tag miss">'+c.pct+'% ng quota</span>' : '');
+    if(s.ongoing){ tag = '<span class="tag on">⏳ Ongoing</span>' + tag; }
+    return '<div class="tb-hc '+(s.ongoing?'now':'')+'">'+
+      '<span class="crown">🏆</span>'+
+      '<div class="mo">'+esc(s.short)+(s.ongoing?' · kasalukuyan':'')+'</div>'+
+      '<div class="top">'+av(c.name, c.initials, '', c.avatar)+
+        '<div style="min-width:0;"><div class="nm">'+esc(c.name)+'</div></div></div>'+
+      '<div class="amt">'+peso(c.amount)+'</div>'+
+      (tag?'<div>'+tag+'</div>':'')+
+      '</div>';
+  }
+
   function renderHall(d){
-    var lc = d.last_champion;
-    if(!lc || !lc.name) return '';
-    return '<div class="tb-section"><h2>🏅 Hall of Fame</h2>'+
-      '<div class="tb-hall"><span class="ic">🏆</span><div><div class="lbl">Champion ng '+esc(lc.label)+'</div>'+
-      '<div class="nm">'+esc(lc.name)+'</div></div>'+
-      '<div class="amt">'+peso(lc.amount)+'</div></div></div>';
+    var slots = d.hall_of_fame || [];
+    if(!slots.length){
+      var lc = d.last_champion;
+      if(!lc || !lc.name) return '';
+      return '<div class="tb-section"><h2>🏅 Hall of Fame</h2>'+
+        '<div class="tb-hall"><span class="ic">🏆</span><div><div class="lbl">Champion ng '+esc(lc.label)+'</div>'+
+        '<div class="nm">'+esc(lc.name)+'</div></div>'+
+        '<div class="amt">'+peso(lc.amount)+'</div></div></div>';
+    }
+    var h = '<div class="tb-section"><h2>🏛️ Hall of Fame</h2><div class="tb-hall-grid">';
+    slots.forEach(function(s){ h += hallCard(s); });
+    h += '</div><div class="tb-foot" style="text-align:left;margin:.6rem 0 0;">Bawat buwan may pwesto — hindi binubura ang mga dating champion. Ang "bakante" ang pwedeng sakupin. 👑</div></div>';
+    return h;
+  }
+
+  // Mga na-hit ang quota ngayong buwan.
+  function renderHitters(d){
+    var hs = d.quota_hitters || [];
+    var h = '<div class="tb-section"><h2>🎯 Na-hit ang quota</h2>';
+    if(!hs.length){
+      h += '<div class="tb-empty">Wala pang naka-hit ng quota ngayong buwan — ikaw ang mauuna? 💪</div></div>';
+      return h;
+    }
+    h += '<div class="tb-hitters">';
+    hs.forEach(function(a){
+      h += '<div class="tb-hit">'+av(a.name,a.initials,'',a.avatar)+
+        '<div style="min-width:0;"><div class="n">'+esc(a.name)+'</div>'+
+        '<div class="p">'+a.pct+'% · '+(a.orders?a.orders+' orders':'')+(a.rank?' · #'+a.rank:'')+'</div></div>'+
+        '<div class="ov"><div class="a">+'+peso(a.over)+'</div><div class="l">over quota</div></div></div>';
+    });
+    h += '</div><div class="tb-foot" style="text-align:left;margin:.6rem 0 0;">Sarado na ang quota nila ngayong '+esc(d.period.label)+' — galing! 🎉</div></div>';
+    return h;
   }
 
   function renderTeamTotal(d){
@@ -690,7 +771,7 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
     var root = document.getElementById('tb-live-root');
     var me = (d.agents||[]).find(function(a){return a.user_id===d.me_id;});
     var stageWasOn = !!(document.querySelector('#tb-live-root .tb-podium.stage'));
-    root.innerHTML = renderChampion(d) + renderMe(d,me) + renderAnn(d) + renderPodium(d) + renderWeek(d) + renderHall(d) + renderBoard(d);
+    root.innerHTML = renderChampion(d) + renderMe(d,me) + renderAnn(d) + renderPodium(d) + renderWeek(d) + renderHitters(d) + renderHall(d) + renderBoard(d);
     if(stageWasOn){
       var np = document.querySelector('#tb-live-root .tb-podium');
       if(np) np.classList.add('stage');
@@ -712,7 +793,8 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
 
   var lastName = JSON.stringify({
     a: window.TB_INIT.agents, g: window.TB_INIT.groups, s: window.TB_INIT.settings,
-    an: window.TB_INIT.announcements, c: window.TB_INIT.champion_id, tm: window.TB_INIT.top_mover_id, tt: window.TB_INIT.team
+    an: window.TB_INIT.announcements, c: window.TB_INIT.champion_id, tm: window.TB_INIT.top_mover_id, tt: window.TB_INIT.team,
+    hf: window.TB_INIT.hall_of_fame, qh: window.TB_INIT.quota_hitters
   });
 
   function tick(){
@@ -721,7 +803,8 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
       .then(function(d){
         var key = JSON.stringify({
           a: d.agents, g: d.groups, s: d.settings,
-          an: d.announcements, c: d.champion_id, tm: d.top_mover_id, tt: d.team
+          an: d.announcements, c: d.champion_id, tm: d.top_mover_id, tt: d.team,
+          hf: d.hall_of_fame, qh: d.quota_hitters
         });
         // Kung walang nagbago, i-update lang ang timestamp — walang flicker/re-render.
         if(key === lastName){

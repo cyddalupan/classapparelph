@@ -303,7 +303,7 @@ class TeamBoardController extends Controller
         ];
     }
 
-    /** Champion ng nakaraang buwan (Hall of Fame). */
+    /** Champion ng nakaraang buwan (Hall of Fame) — kept para sa mga lumang reference. */
     private function lastMonthChampion(): ?array
     {
         $start = Carbon::now()->subMonthNoOverflow()->startOfMonth();
@@ -331,6 +331,126 @@ class TeamBoardController extends Controller
             'amount' => (float) $row->revenue,
             'label' => $start->format('F Y'),
         ];
+    }
+
+    /**
+     * Hall of Fame — champion kada buwan, pati na ang mga lumang buwan
+     * (Andrew 2026-11-07: "yung mga naging champion ng mga nakaraang months
+     * ilagay mo pa rin, marami kang pwedeng lagyan ng pwesto").
+     *
+     * Ipinapakita ang KASALUKUYAN (ongoing) + nakaraang 11 buwan. Kapag walang
+     * benta ang buwan, "bakante" pa rin ang pwesto — bukas para sa susunod.
+     * Cached ng 1 oras: kada buwan lang naman nagbabago ito.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function pastChampions(int $months = 11): array
+    {
+        return \Illuminate\Support\Facades\Cache::remember(
+            'tb:hall-of-fame:v1',
+            now()->addHour(),
+            function () use ($months) {
+                $now = Carbon::now();
+                $currentStart = $now->copy()->startOfMonth();
+                $windowStart = $currentStart->copy()->subMonthsNoOverflow($months)->startOfMonth();
+
+                // Lahat ng quota sa window — isang query lang.
+                $quotaMap = [];
+                foreach (SalesQuota::query()
+                    ->where('period_type', 'monthly')
+                    ->where('active', true)
+                    ->whereDate('period_start', '>=', $windowStart->toDateString())
+                    ->get(['user_id', 'period_start', 'quota_amount']) as $q) {
+                    $quotaMap[(int) $q->user_id . '|' . Carbon::parse($q->period_start)->format('Y-m')] = (float) $q->quota_amount;
+                }
+
+                $users = [];
+                $slots = [];
+
+                for ($i = 0; $i <= $months; $i++) {
+                    $start = $currentStart->copy()->subMonthsNoOverflow($i)->startOfMonth();
+                    $end = $start->copy()->endOfMonth();
+                    $ongoing = ($i === 0);
+
+                    $slot = [
+                        'month' => $start->format('Y-m'),
+                        'label' => $start->format('F Y'),
+                        'short' => $start->format('M Y'),
+                        'ongoing' => $ongoing,
+                        'champion' => null,
+                    ];
+
+                    $rev = $this->revenueByAgentRange($start->toDateString(), $end->toDateString());
+                    if (!empty($rev)) {
+                        arsort($rev);
+                        $uid = (int) array_key_first($rev);
+                        $amount = (float) $rev[$uid];
+                        if ($amount > 0) {
+                            if (!isset($users[$uid])) {
+                                $u = User::find($uid);
+                                $users[$uid] = $u ? [
+                                    'name' => $u->name ?: '—',
+                                    'initials' => $this->initials($u->name),
+                                    'avatar' => $u->avatar_url,
+                                ] : ['name' => '—', 'initials' => null, 'avatar' => null];
+                            }
+                            $quota = (float) ($quotaMap[$uid . '|' . $start->format('Y-m')] ?? 0);
+                            $slot['champion'] = [
+                                'user_id' => $uid,
+                                'name' => $users[$uid]['name'],
+                                'initials' => $users[$uid]['initials'],
+                                'avatar' => $users[$uid]['avatar'],
+                                'amount' => $amount,
+                                'quota' => $quota,
+                                'has_quota' => $quota > 0,
+                                'hit_quota' => $quota > 0 && $amount >= $quota,
+                                'pct' => $quota > 0 ? round(($amount / $quota) * 100, 1) : 0.0,
+                            ];
+                        }
+                    }
+
+                    $slots[] = $slot;
+                }
+
+                return $slots;
+            }
+        );
+    }
+
+    /**
+     * Mga na-hit ang quota NGAYONG buwan (Andrew 2026-11-07).
+     * Mula sa visible rows para tugma sa leaderboard/podium.
+     *
+     * @param  array<int,array<string,mixed>>  $visibleRows
+     * @return array<int,array<string,mixed>>
+     */
+    private function quotaHitters(array $visibleRows): array
+    {
+        $hitters = [];
+        foreach ($visibleRows as $r) {
+            $quota = (float) ($r['quota'] ?? 0);
+            $revenue = (float) ($r['revenue'] ?? 0);
+            if ($quota <= 0 || $revenue < $quota) {
+                continue;
+            }
+            $hitters[] = [
+                'user_id' => $r['user_id'],
+                'name' => $r['name'],
+                'position' => $r['position'] ?? null,
+                'initials' => $r['initials'] ?? null,
+                'avatar' => $r['avatar'] ?? null,
+                'rank' => $r['rank'] ?? null,
+                'revenue' => $revenue,
+                'quota' => $quota,
+                'over' => $revenue - $quota,
+                'pct' => $quota > 0 ? round(($revenue / $quota) * 100, 1) : 0.0,
+                'orders' => (int) ($r['orders'] ?? 0),
+            ];
+        }
+
+        usort($hitters, fn ($x, $y) => $y['pct'] <=> $x['pct']);
+
+        return $hitters;
     }
 
     /** Buuin ang buong board payload (ginagamit ng view at ng live JSON). */
@@ -511,6 +631,10 @@ class TeamBoardController extends Controller
                 ])->values()->all();
         }
 
+        // Hall of Fame (kasalukuyan + nakaraang 11 buwan) at mga na-hit ang quota ngayon.
+        $hallOfFame = $this->pastChampions(11);
+        $quotaHitters = $this->quotaHitters($visibleRows);
+
         return [
             'period' => [
                 'start' => $start,
@@ -545,6 +669,8 @@ class TeamBoardController extends Controller
             'champion_days_on_top' => $champion ? $this->topStreakDays($visibleRows, (int) $champion['user_id']) : 0,
             'days_left' => (int) Carbon::now()->startOfDay()->diffInDays(Carbon::now()->endOfMonth()->startOfDay()) + 1,
             'last_champion' => $this->lastMonthChampion(),
+            'hall_of_fame' => $hallOfFame,
+            'quota_hitters' => $quotaHitters,
             'week_leader' => $this->weekLeader($visibleRows),
             'top_mover_id' => $topMover['user_id'] ?? null,
             'top_mover_name' => $topMover['name'] ?? null,
