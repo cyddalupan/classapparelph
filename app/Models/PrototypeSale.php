@@ -183,6 +183,19 @@ class PrototypeSale extends Model
     }
 
     /**
+     * Hindi na "active delay" kapag na-tag nang DISPATCH (o lumampas na: UNPAID/DONE)
+     * — nakalabas na sa production floor kaya hindi na binibilang (Andrew 2026-11-07).
+     * Isang lugar lang ang rule para tugma ang page at ang mga badge/count.
+     */
+    public function scopeNotDispatched($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('production_stage')
+              ->orWhereNotIn('production_stage', ['DISPATCH', 'UNPAID', 'DONE']);
+        });
+    }
+
+    /**
      * Ang sales agent na gumawa ng sale (para sa avatar + pangalan sa kanban).
      * Read-only, additive — hindi nagbabago ng behavior ng ibang query.
      */

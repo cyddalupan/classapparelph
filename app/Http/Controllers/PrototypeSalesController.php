@@ -6817,7 +6817,8 @@ $services = json_decode($sale->services, true);
         // Once acknowledged/resolved/dismissed, it drops out of the count (Andrew/CEO 2026-09-14).
         // The full history stays visible on the Delay List page.
         $delayCount = \App\Models\PrototypeSale::where('is_delayed', 1)
-            ->whereNull('delay_review_status');
+            ->whereNull('delay_review_status')
+            ->notDispatched();
         if ($user && $user->isClassScoped()) {
             $delayCount->where('department_id', 4);
         }
@@ -12311,20 +12312,32 @@ SQL;
             abort(403, 'Only managers can view the delay list.');
         }
 
-        $query = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])
+        // Delays still ON the production floor lang ang binibilang. Kapag na-tag nang
+        // DISPATCH (o UNPAID/DONE) — nakalabas na ang order — hindi na delay
+        // (Andrew 2026-11-07). Nasa ibaba sila sa "Na-dispatch na" section, hindi
+        // binibilang sa stats, at hindi binubura ang history.
+        $base = \App\Models\PrototypeSale::with(['payments', 'refunds', 'salesAgent'])
             ->where('is_delayed', 1);
 
         // Class Production Manager: Class department only
         if ($user->isClassScoped()) {
-            $query->where('department_id', 4);
+            $base->where('department_id', 4);
         }
 
-        $query->orderByRaw('CASE WHEN delay_feedback IS NOT NULL AND delay_feedback != \'\' THEN 0 ELSE 1 END')
+        $query = (clone $base)->notDispatched()
+            ->orderByRaw('CASE WHEN delay_feedback IS NOT NULL AND delay_feedback != \'\' THEN 0 ELSE 1 END')
             ->orderBy('delayed_at', 'desc');
 
         $sales = $query->paginate(100);
 
-        return view('sales.prototype.delay-list', compact('sales'));
+        // Na-dispatch na pero flagged pa rin — para may audit trail, hindi counted.
+        $dispatchedSales = (clone $base)
+            ->whereIn('production_stage', ['DISPATCH', 'UNPAID', 'DONE'])
+            ->orderBy('delayed_at', 'desc')
+            ->limit(50)
+            ->get();
+
+        return view('sales.prototype.delay-list', compact('sales', 'dispatchedSales'));
     }
 
     /**

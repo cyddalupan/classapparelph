@@ -126,7 +126,7 @@
             <div>
                 <a href="{{ route('sales.prototype.list') }}" class="btn btn-sm text-white mb-2" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);"><i class="fas fa-arrow-left me-1"></i> Manager List</a>
                 <h2 class="mb-1"><i class="fas fa-exclamation-triangle me-2"></i>Delay List</h2>
-                <div class="small" style="opacity:0.85;">Lahat ng delayed orders — may feedback man o wala</div>
+                <div class="small" style="opacity:0.85;">Lahat ng delayed orders — may feedback man o wala. <strong>Hindi na binibilang kapag na-tag nang DISPATCH.</strong></div>
             </div>
             <div class="d-flex gap-2">
                 <div class="dl-stat">
@@ -140,6 +140,10 @@
                 <div class="dl-stat">
                     <div class="num" style="color:#ffd6a0;">{{ $sales->filter(function($s) { return empty($s->delay_feedback); })->count() }}</div>
                     <div class="lbl">Walang Feedback</div>
+                </div>
+                <div class="dl-stat" title="Naka-DISPATCH/UNPAID/DONE na — hindi na binibilang na delay">
+                    <div class="num" style="color:#9be7ff;">{{ ($dispatchedSales ?? collect())->count() }}</div>
+                    <div class="lbl">Na-dispatch</div>
                 </div>
             </div>
         </div>
@@ -252,6 +256,38 @@
     <div class="mt-4">
         {{ $sales->links() }}
     </div>
+    @endif
+
+    {{-- Na-dispatch na pero flagged pa rin: audit trail lang, hindi counted as delay --}}
+    @if(($dispatchedSales ?? collect())->isNotEmpty())
+        <details class="mt-4 card shadow-sm">
+            <summary class="card-body py-3" style="cursor:pointer;list-style:none;">
+                <strong><i class="fas fa-truck me-1"></i>Na-dispatch na — hindi na binibilang</strong>
+                <span class="badge bg-secondary ms-1">{{ $dispatchedSales->count() }}</span>
+                <span class="text-muted small ms-2">Naka-DISPATCH/UNPAID/DONE na, kaya tapos na sa production floor. Click para makita.</span>
+            </summary>
+            <div class="table-responsive px-3 pb-3">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr class="small text-muted">
+                            <th>Sales #</th><th>Customer</th><th>Stage</th><th>Delayed</th><th>Feedback</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($dispatchedSales as $d)
+                            <tr>
+                                <td>{{ $d->sales_number }}</td>
+                                <td>{{ $d->customer_name ?: '—' }}</td>
+                                <td><span class="badge bg-info text-dark">{{ $d->production_stage }}</span></td>
+                                <td class="small text-muted">{{ $d->delayed_at ? \Carbon\Carbon::parse($d->delayed_at)->format('M d, Y') : '—' }}</td>
+                                <td class="small">{{ \Illuminate\Support\Str::limit($d->delay_feedback ?: '—', 70) }}</td>
+                                <td class="text-end"><a href="{{ route('sales.prototype.delay-review', $d->id) }}" class="btn btn-sm btn-outline-secondary" style="border-radius:20px;padding:2px 12px;">Review</a></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </details>
     @endif
 </div>
 

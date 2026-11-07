@@ -146,7 +146,7 @@ class NotificationComposer
 
         // ⚠️ Delay List — page allows admin | role=manager | coo | classScoped(prod_manager/qa)
         if ($user->isAdmin() || $user->role === 'manager' || $isCoo || $classScoped) {
-            $q = PrototypeSale::where('is_delayed', 1)->whereNull('delay_review_status');
+            $q = PrototypeSale::where('is_delayed', 1)->whereNull('delay_review_status')->notDispatched();
             if ($classDept !== null) {
                 $q->where('department_id', $classDept);
             }
