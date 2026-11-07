@@ -649,7 +649,38 @@
                     </div>
                 </div>
             </div>
-            
+
+            <!-- Payment Separation per Department (multi-dept sales) -->
+            <div class="card mb-4 border-warning" id="deptPaySplitCard" style="display:none;">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background:#fff8e1;">
+                    <h6 class="mb-0"><i class="fas fa-money-bill-wave me-2" style="color:#f59e0b;"></i>Payment Separation per Department</h6>
+                    <small class="text-muted">Multiples of 50 lang — walang butal</small>
+                </div>
+                <div class="card-body py-3">
+                    <div id="deptPaySplitRows"></div>
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <div>
+                            <small class="text-muted">Total allocated:</small>
+                            <strong id="deptSplitAllocated">₱0.00</strong>
+                            <small class="text-muted ms-2">of deposit:</small>
+                            <strong id="deptSplitTarget">₱0.00</strong>
+                        </div>
+                        <div id="deptSplitStatus" class="small"></div>
+                    </div>
+                    <div class="mt-2 d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="autoSplitDeptDeposits()">
+                            <i class="fas fa-calculator me-1"></i> Auto-split (by item share, ₱50)
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="evenSplitDeptDeposits()">
+                            <i class="fas fa-balance-scale me-1"></i> Hatiin nang pantay
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        Bawat department ay may sariling payment record. Dapat eksaktong tugma ang suma sa deposit amount.
+                    </small>
+                </div>
+            </div>
+
             <div class="row mb-4">
                 <div class="col-md-12" id="paymentDetailsSection">
                     <!-- Payment Type & Amount -->
@@ -1004,372 +1035,7 @@
 
                         <!-- Garment-specific modal body (hidden by default) -->
                         <div id="garmentModalBody" style="display:none;">
-                            <ul class="nav nav-tabs mb-3" id="garmentTab" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="garment-products-tab" data-bs-toggle="tab" data-bs-target="#garment-products-pane" type="button" role="tab"><i class="fas fa-tshirt me-1"></i>Product Details</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="garment-sizes-tab" data-bs-toggle="tab" data-bs-target="#garment-sizes-pane" type="button" role="tab"><i class="fas fa-users me-1"></i>Sizes with name</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="garment-summary-tab" data-bs-toggle="tab" data-bs-target="#garment-summary-pane" type="button" role="tab"><i class="fas fa-shopping-cart me-1"></i>Order Summary</button>
-                                </li>
-                            </ul>
-                            <div class="tab-content" id="garmentTabContent">
-                            <!-- TAB 1: PRODUCTS -->
-                            <div class="tab-pane fade show active" id="garment-products-pane" role="tabpanel">
-                            <div class="row">
-                                <div class="col-md-7">
-                                    <!-- PROJECT NAME + SHOP -->
-                                    <div class="row g-2 mb-3">
-                                        <div class="col-md-7">
-                                            <label class="form-label">Project Name *</label>
-                                            <input type="text" class="form-control" id="garment_projectName" placeholder="e.g. DANNA" required>
-                                        </div>
-                                        <div class="col-md-5">
-                                            <label class="form-label">Shop / Department *</label>
-                                            <select class="form-select" id="garment_department">
-                                                <option value="">— Select Shop —</option>
-                                                <option value="iprint">iPrint</option>
-                                                <option value="consol">Consol</option>
-                                            </select>
-                                            <div class="form-text small">Dito mapupunta ang order at ang manager nito.</div>
-                                        </div>
-                                    </div>
-                                    <!-- MULTIPLE PRODUCT ROWS SECTION -->
-                                    <!-- GARMENT FILTER SECTION -->
-                                    <div class="card mb-3">
-                                        <div class="card-header bg-light py-2">
-                                            <h6 class="mb-0"><i class="fas fa-filter me-1"></i> Filter Products</h6>
-                                        </div>
-                                        <div class="card-body p-3">
-                                            <div class="row g-2">
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small mb-1">Brand</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_filterBrand" list="garment_brandOptions" placeholder="Type or select brand...">
-                                                    <datalist id="garment_brandOptions"></datalist>
-                                                </div>
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small mb-1">Type</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_filterType" list="garment_typeOptions" placeholder="Type or select type...">
-                                                    <datalist id="garment_typeOptions"></datalist>
-                                                </div>
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small mb-1">Color</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_filterColor" list="garment_colorOptions" placeholder="Type or select color...">
-                                                    <datalist id="garment_colorOptions"></datalist>
-                                                </div>
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small mb-1">Size</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_filterSize" list="garment_sizeOptions" placeholder="Type or select size...">
-                                                    <datalist id="garment_sizeOptions"></datalist>
-                                                </div>
-                                                <div class="col-6 col-md-3">
-                                                    <label class="form-label small mb-1">Material</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_filterMaterial" list="garment_materialOptions" placeholder="Type or select material...">
-                                                    <datalist id="garment_materialOptions"></datalist>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 text-end">
-                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="garment_applyFilters()">
-                                                    <i class="fas fa-filter me-1"></i> Apply Filters
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="garment_resetFilters()">
-                                                    <i class="fas fa-redo me-1"></i> Reset
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label">Products *</label>
-                                        <div id="garment_productRowsContainer">
-                                            <!-- Product Row Template (Hidden) -->
-                                            <div class="product-row-template d-none">
-                                                <div class="row g-2 mb-2 align-items-center">
-                                                    <div class="col-md-6">
-                                                        <select class="form-control product-select" required>
-                                                            <option value="">Select a product</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- First Product Row -->
-                                            <div class="product-row">
-                                                <div class="row g-2 mb-2 align-items-center">
-                                                    <div class="col-md-6">
-                                                        <select class="form-control product-select" required>
-                                                            <option value="">Select a product</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-md-4">
-                                                        <input type="number" class="form-control product-quantity" min="1" value="1" placeholder="Qty" required>
-                                                    </div>
-                                                    <div class="col-md-2">
-                                                        <button type="button" class="btn btn-sm btn-outline-danger remove-row" title="Remove this product">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mt-2">
-                                            <button type="button" class="btn btn-sm btn-outline-success" id="garment_addProductRowBtn">
-                                                <i class="fas fa-plus-circle me-1"></i> Add Another Product
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Department auto-assigned from product box selection (no manual pick) -->
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">Date Needed <span class="text-danger">*</span></label>
-                                        <input type="date" class="form-control" id="garment_dateNeeded" required>
-                                        <small class="text-muted">Target completion / delivery date</small>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label">Notes (Optional)</label>
-                                        <textarea class="form-control" id="garment_productNotes" rows="3" placeholder="Add special instructions..."></textarea>
-                                    </div>
-                                </div>
-                                <div class="col-md-5">
-                                    <div class="card border-primary">
-                                        <div class="card-header bg-primary text-white small py-2">
-                                            <i class="fas fa-image me-1"></i> Mock-up Design
-                                        </div>
-                                        <div class="card-body py-2 text-center">
-                                            <div id="garment_mockupPreviewArea" class="mb-2" style="min-height:140px;display:flex;align-items:center;justify-content:center;border:2px dashed #ddd;border-radius:8px;cursor:pointer;background:#fafafa;overflow:hidden;" onclick="document.getElementById('garment_mockupUpload').click()">
-                                                <div id="garment_mockupPlaceholder">
-                                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted"></i>
-                                                    <p class="text-muted small mb-0 mt-1">Click to upload mock-up image</p>
-                                                </div>
-                                                <img id="garment_mockupPreview" src="" style="max-height:180px;display:none;max-width:100%;object-fit:contain;">
-                                            </div>
-                                            <input type="file" id="garment_mockupUpload" accept="image/*" style="display:none" onchange="garment_previewMockup(event)">
-                                            <div id="garment_mockupFileInfo" class="small" style="display:none;">
-                                                <span id="garment_mockupFileName" class="text-muted"></span>
-                                                <button type="button" class="btn btn-sm btn-outline-danger ms-2 py-0 px-1" onclick="garment_removeMockup()" title="Remove"><i class="fas fa-times"></i></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="card mt-3">
-                                        <div class="card-body">
-                                            <h6 class="card-title"><i class="fas fa-print me-2"></i>Printing Options</h6>
-                                            <div class="mb-3">
-                                                <label class="form-label">Print Type *</label>
-                                                <select class="form-control" id="garment_printTypeSelect" onchange="garment_loadPrintSizes(this.value)">
-                                                    <option value="">-- Select Print Type --</option>
-                                                </select>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label class="form-label">Print Sizes</label>
-                                                <div id="garment_printSizesContainer" class="small" style="display:none;">
-                                                    <div id="garment_printSizesList"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            </div>
-                            <!-- TAB: SIZES WITH NAME (roster + Excel upload, mirrors Full Sublimation) -->
-                            <div class="tab-pane fade" id="garment-sizes-pane" role="tabpanel">
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="alert alert-success py-2 small">
-                                        <i class="fas fa-users me-1"></i> Piliin ang <strong>Brand / Type-Collar / Color</strong>, tapos mag-upload ng Excel (pangalan + size). Automatic nang bibilangin ang qty at price kada size.
-                                    </div>
-                                    <!-- Garment Specification (required for pricing) -->
-                                    <div class="card mb-3 border-primary">
-                                        <div class="card-header bg-primary text-white small py-2">
-                                            <i class="fas fa-tags me-1"></i> Garment Specification
-                                        </div>
-                                        <div class="card-body p-3">
-                                            <div class="row g-2">
-                                                <div class="col-6 col-md-4">
-                                                    <label class="form-label small mb-1">Brand *</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_specBrand" list="garment_specBrandOptions" placeholder="e.g. YALEX">
-                                                    <datalist id="garment_specBrandOptions"></datalist>
-                                                </div>
-                                                <div class="col-6 col-md-4">
-                                                    <label class="form-label small mb-1">Type / Collar *</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_specType" list="garment_specTypeOptions" placeholder="e.g. ROUNDNECK">
-                                                    <datalist id="garment_specTypeOptions"></datalist>
-                                                </div>
-                                                <div class="col-6 col-md-4">
-                                                    <label class="form-label small mb-1">Color</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_specColor" list="garment_specColorOptions" placeholder="e.g. BLACK">
-                                                    <datalist id="garment_specColorOptions"></datalist>
-                                                </div>
-                                                <div class="col-6 col-md-4">
-                                                    <label class="form-label small mb-1">Material</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_specMaterial" list="garment_specMaterialOptions" placeholder="e.g. Cotton">
-                                                    <datalist id="garment_specMaterialOptions"></datalist>
-                                                </div>
-                                            </div>
-                                            <small class="text-muted d-block mt-2"><i class="fas fa-info-circle me-1"></i> Kailangang may Brand at Type/Collar bago makapag-upload ng Excel.</small>
-                                        </div>
-                                    </div>
-                                    <!-- Excel Upload -->
-                                    <div class="mb-2">
-                                        <div class="d-flex gap-2 flex-wrap align-items-center">
-                                            <button type="button" class="btn btn-outline-primary btn-sm" id="garment_excelBtn" disabled onclick="document.getElementById('garment_excelInput').click()">
-                                                <i class="fas fa-file-excel me-1"></i>Upload Excel
-                                            </button>
-                                            <span id="garment_excelGateHint" class="text-muted small">Piliin muna ang Brand at Type/Collar.</span>
-                                            <input type="file" id="garment_excelInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="garment_uploadExcel(event)">
-                                        </div>
-                                    </div>
-                                    <!-- Roster Table -->
-                                    <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
-                                        <table class="table table-sm table-bordered mb-0" id="garment_rosterTable">
-                                            <thead class="table-light">
-                                                <tr id="garment_rosterHeader">
-                                                    <th style="width:50px">#</th>
-                                                    <th>Name</th>
-                                                    <th style="width:80px">Size</th>
-                                                    <th style="width:40px">Qty</th>
-                                                    <th style="width:40px"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="garment_rosterBody">
-                                                <tr id="garment_rosterEmpty">
-                                                    <td colspan="5" class="text-center text-muted small py-3">
-                                                        <i class="fas fa-user-plus me-1"></i> Add names above to build your roster.
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="mt-1 text-end">
-                                        <small class="text-muted">
-                                            <span id="garment_rosterCount">0</span> people
-                                        </small>
-                                    </div>
-                                    <!-- Size pricing breakdown (from roster + spec) -->
-                                    <div class="card mt-3 border-success" id="garment_sizePricingCard" style="display:none;">
-                                        <div class="card-header bg-success text-white small py-2">
-                                            <i class="fas fa-calculator me-1"></i> Size Breakdown (auto)
-                                        </div>
-                                        <div class="card-body p-2">
-                                            <div id="garment_sizePricingBody" class="small"></div>
-                                            <hr class="my-2">
-                                            <div class="d-flex justify-content-between fw-bold">
-                                                <span>Total: <span id="garment_sizePricingQty">0</span> pcs</span>
-                                                <span id="garment_sizePricingTotal">₱0.00</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            </div>
-                            <!-- TAB 3: ORDER SUMMARY -->
-                            <div class="tab-pane fade" id="garment-summary-pane" role="tabpanel">
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6 class="card-title"><i class="fas fa-shopping-cart me-2"></i>Order Summary</h6>
-                                            
-                                            <!-- Products Breakdown -->
-                                            <div id="garment_productsBreakdown" class="mb-3">
-                                                <div class="text-muted small mb-2">No products selected yet</div>
-                                            </div>
-                                            
-                                            <hr>
-                                            
-                                            <div class="d-flex justify-content-between mb-2">
-                                                <span>Total Quantity:</span>
-                                                <span id="garment_totalQtyDisplay">0</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between fw-bold mb-2">
-                                                <span>Total Amount:</span>
-                                                <span id="garment_totalAmountDisplay">₱0.00</span>
-                                            </div>
-                                            
-                                            <!-- Print Summary Sidebar -->
-                                            <div id="garment_printSummarySidebar" style="display:none;">
-                                                <hr>
-                                                <div id="garment_printSizesBreakdown" class="small mb-2"></div>
-                                                <div class="d-flex justify-content-between small">
-                                                    <span>Print Cost/ea:</span>
-                                                    <span id="garment_printCostPerItemDisplay">₱0.00</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small">
-                                                    <span>Qty:</span>
-                                                    <span id="garment_printQtyDisplay">0</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small">
-                                                    <span>Print Subtotal:</span>
-                                                    <span id="garment_printSubtotalDisplay">₱0.00</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small text-danger" id="garment_comboDiscountRow" style="display:none;">
-                                                    <span>Combo Discount:</span>
-                                                    <span id="garment_comboDiscountDisplay">-₱0.00</span>
-                                                </div>
-                                                <div class="d-flex justify-content-between small text-danger" id="garment_bulkDiscountRow" style="display:none;">
-                                                    <span>Bulk Discount:</span>
-                                                    <span id="garment_bulkDiscountDisplay">-₱0.00</span>
-                                                </div>
-                                                <hr class="my-1">
-                                                <div class="d-flex justify-content-between fw-bold small">
-                                                    <span>Print Total:</span>
-                                                    <span id="garment_printTotalDisplay">₱0.00</span>
-                                                </div>
-                                                <hr>
-                                                <div class="d-flex justify-content-between fw-bold">
-                                                    <span>Grand Total:</span>
-                                                    <span id="garment_grandTotalDisplay">₱0.00</span>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Special Price Section -->
-                                            <div class="mt-3 p-2 bg-light rounded" id="garment_specialPriceSection" style="display:none;">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <span class="fw-bold small">💵 SPECIAL PRICE ACTIVE</span>
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="garment_clearSpecialPrice()">✕ Clear</button>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label class="small text-muted">Set Print Total:</label>
-                                                    <div class="input-group input-group-sm">
-                                                        <span class="input-group-text">₱</span>
-                                                        <input type="number" class="form-control" id="garment_specialPrintTotal" min="0" step="0.01" placeholder="0.00" oninput="garment_onSpecialPriceChange()">
-                                                    </div>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label class="small text-muted">Reason *</label>
-                                                    <input type="text" class="form-control form-control-sm" id="garment_specialPriceReason" placeholder="Why special price?" required>
-                                                </div>
-                                            </div>
-                                            
-                                            <button type="button" class="btn btn-outline-warning btn-sm w-100 mt-2" id="garment_specialPriceBtn" onclick="garment_toggleSpecialPrice()">
-                                                💰 Special Price
-                                            </button>
-                                            
-                                            <button type="button" class="btn btn-primary w-100 mt-2" id="garment_addItemBtn">
-                                                <i class="fas fa-cart-plus me-2"></i> Add to Cart
-                                            </button>
-                                            <div id="garment_cartGateHint" class="small text-danger mt-1" style="display:none;"></div>
-                                            <button type="button" class="btn btn-outline-info w-100 mt-2" id="garment_printOrderSlip" onclick="window.garment_printOrderSlip()">
-                                                <i class="fas fa-print me-2"></i> Print Order Slip
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            </div>
-                            </div>
+                            @include('partials.garment-print-modal-form')
                         </div>
 
                         <!-- SUBLIMATION MODAL BODY - CUSTOMER FORM (hidden by default) -->
@@ -1801,58 +1467,7 @@
     </div>
 </div>
 
-<!-- Garment Order Slip Template (hidden, populated via JS) -->
-<div id="garment_printSlip" style="display:none;">
-    <style>
-        @media print {
-            body.gps-printing * { visibility: hidden !important; }
-            body.gps-printing #garment_printSlip, body.gps-printing #garment_printSlip * { visibility: visible !important; }
-            body.gps-printing #garment_printSlip { position: absolute; left: 0; top: 0; width: 100%; max-width: 277mm; display: block !important; }
-            body.gps-printing #sublimation_printSlip { display: none !important; }
-            body.gps-printing .no-print { display: none !important; }
-        }
-    </style>
-    <div id="garmentSlipContent" class="print-slip">
-        <h1>CUSTOMER FORM SPECIFICATIONS</h1>
-        <div class="divider"></div>
-        <table id="gps_upperInfo"><tr>
-            <td style="width:33%;vertical-align:top;" class="no-border">
-                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">PROJECT:</td><td id="gps_projectName"></td></tr></table>
-                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">SHOP:</td><td id="gps_shop"></td></tr></table>
-                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">DATE NEEDED:</td><td id="gps_dateNeeded"></td></tr></table>
-                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">QTY:</td><td id="gps_qty"></td></tr></table>
-                <table style="width:100%;"><tr><td class="field-label" style="width:100px;">AMOUNT:</td><td id="gps_amount"></td></tr></table>
-            </td>
-            <td style="width:67%;vertical-align:top;">
-                <div class="section-title">PRODUCTS</div>
-                <table id="gps_productsTable">
-                    <thead><tr><th>Product</th><th style="width:60px;">Qty</th><th style="width:90px;">Price</th><th style="width:100px;">Subtotal</th></tr></thead>
-                    <tbody id="gps_productsBody"></tbody>
-                </table>
-                <div class="section-title" style="margin-top:6px;">PRINTING OPTIONS</div>
-                <div id="gps_printOptions" style="font-size:9pt;"></div>
-            </td>
-        </tr></table>
-        <div class="divider"></div>
-        <table><tr>
-            <td style="width:30%;vertical-align:top" class="no-border">
-                <div class="section-title">MOCK UP</div>
-                <div class="mockup-box" style="margin:0 auto;">
-                    <span id="gps_mockupPlaceholder">MOCK UP HERE</span>
-                    <img id="gps_mockupImg" src="" style="display:none;">
-                </div>
-            </td>
-            <td style="width:70%;vertical-align:top" class="no-border">
-                <div class="section-title">NAME LIST</div>
-                <table class="roster-table" id="gps_rosterTable">
-                    <thead></thead>
-                    <tbody id="gps_rosterBody"></tbody>
-                </table>
-            </td>
-        </tr></table>
-        <div style="margin-top:4px;font-size:9pt;text-align:right;border-top:1px solid #000;padding-top:2px;" id="gps_note"></div>
-    </div>
-</div>
+@include('partials.garment-order-slip')
 
 
 @endsection
@@ -2068,19 +1683,33 @@ window.loadProductsFromDatabase = function(productType) {
     
     if (selects.length === 0) return;
     
+    // Locked rows (may napili nang product) ay hindi ginagalaw ng reload/filter.
+    var targets = [];
+    selects.forEach(function(s) { if (!s.value) targets.push(s); });
+    window.__capPrevSel = null;
+    if (targets.length === 0) {
+        if (typeof showToast === 'function') showToast('Naka-lock lahat ng napiling product — i-clear muna para ma-apply ang filter.', 'info');
+        return;
+    }
+
     // Show loading
-    selects.forEach(function(s) { s.innerHTML = '<option value="">Loading products...</option>'; });
+    targets.forEach(function(s) { s.innerHTML = '<option value="">Loading products...</option>'; });
     
     // Fetch products from API
     fetch('/api/products-for-box/' + productType)
         .then(function(response) { return response.json(); })
         .then(function(products) {
-            selects.forEach(function(s) { populateSelect(s, products); });
+            targets.forEach(function(s) { populateSelect(s, products); });
+            window.cap_lastOptionsHtml = targets.length ? targets[0].innerHTML : null;
             
             if (productType === 'garment') {
                 // Reset qty and department for garment
-                var qtyInputs = document.querySelectorAll('#garment_productRowsContainer .product-quantity');
-                qtyInputs.forEach(function(el) { el.value = '1'; });
+                // I-reset ang qty ng WALANG napiling product lang (locked rows: huwag galawin)
+                document.querySelectorAll('#garment_productRowsContainer .product-row').forEach(function(rw) {
+                    var sl = rw.querySelector('.product-select');
+                    var qi = rw.querySelector('.product-quantity');
+                    if (sl && !sl.value && qi) qi.value = '1';
+                });
                 /* Department auto-assigned; no reset needed */
                 var notes = document.getElementById('garment_productNotes');
                 if (notes) notes.value = '';
@@ -2111,7 +1740,7 @@ window.loadProductsFromDatabase = function(productType) {
         })
         .catch(function(error) {
             console.error('Error loading products:', error);
-            selects.forEach(function(s) {
+            targets.forEach(function(s) {
                 s.innerHTML = '<option value="">Error loading products. Please try again.</option>';
             });
         });
@@ -2551,13 +2180,13 @@ window.updateSelectedItemsDisplay = function() {
                             <div class="text-muted small mb-1">
                                 <em>${item.printing.specialReason || 'No reason given'}</em>
                             </div>` : '') +
-                            (!item.printing.isSpecialPrice && item.printing.comboDiscount ? `<div class="d-flex justify-content-between text-success">
+                            (!item.printing.isSpecialPrice && (item.printing.comboTotal || item.printing.comboDiscount) ? `<div class="d-flex justify-content-between text-success">
                                 <span>Combo Discount:</span>
-                                <span>-\u20B1${item.printing.comboDiscount.toFixed(2)}</span>
+                                <span>-\u20B1${(item.printing.comboTotal != null ? item.printing.comboTotal : item.printing.comboDiscount).toFixed(2)}${item.printing.comboLabel ? ' (' + item.printing.comboLabel + ')' : ''}</span>
                             </div>` : '') +
                             (!item.printing.isSpecialPrice && item.printing.bulkDiscount ? `<div class="d-flex justify-content-between text-success">
                                 <span>Bulk Discount:</span>
-                                <span>-\u20B1${item.printing.bulkDiscount.toFixed(2)}</span>
+                                <span>-\u20B1${item.printing.bulkDiscount.toFixed(2)}${item.printing.bulkLabel ? ' (' + item.printing.bulkLabel + ')' : ''}</span>
                             </div>` : '') +
                             `<div class="d-flex justify-content-between fw-bold">
                                 <span>Print Total:</span>
@@ -2723,6 +2352,9 @@ window.updatePaymentSummary = function() {
     
     // Update payment type suggestions
     updatePaymentSuggestions(grandTotal);
+
+    // Refresh payment separation per department
+    if (window.renderDeptPaySplit) window.renderDeptPaySplit();
 };
 
 window.updatePaymentSuggestions = function(grandTotal) {
@@ -2745,6 +2377,141 @@ window.updatePaymentSuggestions = function(grandTotal) {
         var amtInput = document.getElementById('payment_amount');
         if (amtInput) amtInput.value = grandTotal.toFixed(2);
     }
+};
+
+// ===== Payment separation per department (multi-dept) =====
+window.deptPayLabel = function(code) {
+    var m = {'iprint':'iPrint','consol':'Consol','cinco':'Cinco','class':'Class','mto':'MTO','other':'Other'};
+    return m[code] || (code ? code.charAt(0).toUpperCase() + code.slice(1) : 'Other');
+};
+
+window.deptPayTotals = function() {
+    var totals = {};
+    (typeof selectedItems !== 'undefined' ? selectedItems : []).forEach(function(item) {
+        var t = 0;
+        if (item.productType === 'garment' && item.subItems) {
+            t = (item.totalProductPrice || 0) + (item.printing ? (item.printing.printSubtotal || 0) : 0);
+        } else {
+            t = item.totalPrice || 0;
+            if (item.qty && item.unitPrice) t = item.qty * item.unitPrice;
+        }
+        var d = item.department || 'iprint';
+        totals[d] = (totals[d] || 0) + t;
+    });
+    return totals;
+};
+
+window.floorTo50 = function(v) { return Math.floor((Number(v) || 0) / 50) * 50; };
+
+window.renderDeptPaySplit = function(alloc) {
+    var card = document.getElementById('deptPaySplitCard');
+    var host = document.getElementById('deptPaySplitRows');
+    if (!card || !host) return;
+    var totals = window.deptPayTotals();
+    var codes = Object.keys(totals);
+    if (codes.length < 2) { card.style.display = 'none'; host.innerHTML = ''; return; }
+    card.style.display = '';
+
+    var existing = {};
+    host.querySelectorAll('input.dept-dep-input').forEach(function(inp) {
+        existing[inp.dataset.code] = parseFloat(inp.value) || 0;
+    });
+
+    var html = '';
+    codes.forEach(function(c) {
+        var val = 0;
+        if (alloc && alloc[c] !== undefined) val = Number(alloc[c]) || 0;
+        else if (existing[c] !== undefined) val = existing[c];
+        html += '<div class="d-flex align-items-center gap-2 mb-2 dept-split-row">' +
+            '<div style="flex:1"><span class="badge bg-dark">' + window.deptPayLabel(c) + '</span> ' +
+            '<small class="text-muted">Item total ₱' + totals[c].toFixed(2) + '</small></div>' +
+            '<div class="input-group input-group-sm" style="width:180px;">' +
+            '<span class="input-group-text">₱</span>' +
+            '<input type="number" class="form-control dept-dep-input" name="dept_deposits[' + c + ']" ' +
+            'data-code="' + c + '" data-maxtotal="' + totals[c] + '" step="50" min="0" value="' + val.toFixed(2) + '" ' +
+            'oninput="onDeptDepInput()"></div>' +
+            '<div class="text-end" style="width:140px;"><small class="text-muted">bal ₱' +
+            (totals[c] - val).toFixed(2) + '</small></div>' +
+            '</div>';
+    });
+    host.innerHTML = html;
+    window.updateDeptSplitFooter();
+};
+
+window.onDeptDepInput = function() {
+    var host = document.getElementById('deptPaySplitRows');
+    if (!host) return;
+    host.querySelectorAll('.dept-split-row').forEach(function(row) {
+        var inp = row.querySelector('.dept-dep-input');
+        var maxTotal = parseFloat(inp.dataset.maxtotal) || 0;
+        var v = parseFloat(inp.value) || 0;
+        var balEl = row.querySelector('.text-end small');
+        if (balEl) balEl.textContent = 'bal ₱' + (maxTotal - v).toFixed(2);
+    });
+    window.updateDeptSplitFooter();
+};
+
+window.depositTarget = function() {
+    var amt = document.getElementById('payment_amount');
+    return amt ? (parseFloat(amt.value) || 0) : 0;
+};
+
+window.updateDeptSplitFooter = function() {
+    var inputs = document.querySelectorAll('#deptPaySplitRows .dept-dep-input');
+    var allocated = 0;
+    inputs.forEach(function(i) { allocated += parseFloat(i.value) || 0; });
+    var target = window.depositTarget();
+    var allocEl = document.getElementById('deptSplitAllocated');
+    var targetEl = document.getElementById('deptSplitTarget');
+    var statusEl = document.getElementById('deptSplitStatus');
+    if (allocEl) allocEl.textContent = '₱' + allocated.toFixed(2);
+    if (targetEl) targetEl.textContent = '₱' + target.toFixed(2);
+    if (!statusEl) return;
+    var diff = Math.round((target - allocated) * 100) / 100;
+    if (Math.abs(diff) < 0.01) {
+        statusEl.innerHTML = '<span class="text-success fw-semibold"><i class="fas fa-check-circle me-1"></i>Tugma</span>';
+    } else if (diff > 0) {
+        statusEl.innerHTML = '<span class="text-warning fw-semibold"><i class="fas fa-exclamation-triangle me-1"></i>Kulang ₱' + diff.toFixed(2) + '</span>';
+    } else {
+        statusEl.innerHTML = '<span class="text-danger fw-semibold"><i class="fas fa-times-circle me-1"></i>Sobra ₱' + Math.abs(diff).toFixed(2) + '</span>';
+    }
+};
+
+window.autoSplitDeptDeposits = function() {
+    var totals = window.deptPayTotals();
+    var codes = Object.keys(totals);
+    if (codes.length < 2) { window.renderDeptPaySplit(); return; }
+    var deposit = window.depositTarget();
+    var sum = codes.reduce(function(a, c) { return a + totals[c]; }, 0);
+    var alloc = {}, acc = 0;
+    codes.forEach(function(c, i) {
+        var v;
+        if (i === codes.length - 1) {
+            v = Math.round((deposit - acc) * 100) / 100;
+        } else {
+            var share = sum > 0 ? deposit * totals[c] / sum : deposit / codes.length;
+            v = window.floorTo50(share);
+        }
+        if (v < 0) v = 0;
+        alloc[c] = v;
+        acc += v;
+    });
+    window.renderDeptPaySplit(alloc);
+};
+
+window.evenSplitDeptDeposits = function() {
+    var totals = window.deptPayTotals();
+    var codes = Object.keys(totals);
+    if (codes.length < 2) return;
+    var deposit = window.depositTarget();
+    var share = window.floorTo50(deposit / codes.length);
+    var alloc = {}, acc = 0;
+    codes.forEach(function(c, i) {
+        var v = (i === codes.length - 1) ? Math.round((deposit - acc) * 100) / 100 : share;
+        alloc[c] = v;
+        acc += v;
+    });
+    window.renderDeptPaySplit(alloc);
 };
 
 // Payment type selection handlers
@@ -2828,6 +2595,10 @@ document.addEventListener('DOMContentLoaded', function() {
         amtInput.addEventListener('input', function() {
             var hiddenAmt = document.getElementById('deposit_paid_hidden');
             if (hiddenAmt) hiddenAmt.value = this.value || 0;
+            if (window.autoSplitDeptDeposits) window.autoSplitDeptDeposits();
+        });
+        amtInput.addEventListener('change', function() {
+            if (window.autoSplitDeptDeposits) window.autoSplitDeptDeposits();
         });
     }
     
@@ -3224,6 +2995,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
+            // Payment separation check (multi-dept): dapat tugma sa deposit
+            var splitInputs = document.querySelectorAll('#deptPaySplitRows .dept-dep-input');
+            if (splitInputs.length > 1) {
+                var allocSum = 0;
+                var badRow = null;
+                splitInputs.forEach(function(inp) {
+                    var v = parseFloat(inp.value) || 0;
+                    if (v % 50 !== 0) badRow = inp;
+                    allocSum += v;
+                });
+                if (badRow) {
+                    alert('Ang payment separation ay dapat multiple of 50 (walang butal). Ayusin ang halaga para sa ' + window.deptPayLabel(badRow.dataset.code) + '.');
+                    badRow.focus();
+                    return;
+                }
+                var target = window.depositTarget();
+                if (Math.abs(allocSum - target) > 0.01) {
+                    alert('Hindi tugma ang separation: ₱' + allocSum.toFixed(2) + ' ang allocated pero ₱' + target.toFixed(2) + ' ang deposit. I-adjust ang bawat department bago i-save.');
+                    document.getElementById('deptPaySplitCard')?.scrollIntoView({behavior:'smooth', block:'center'});
+                    return;
+                }
+            }
+
             // Convert items to JSON
             const itemsJsonInput = document.getElementById('items_json');
             if (itemsJsonInput) {
@@ -3634,17 +3428,86 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     // Apply filters and reload products (UPDATED FOR MULTIPLE DROPDOWNS)
-    window.applyFilters = function() {
+    // ===== Preserve napiling products kapag nag-Apply/Reset ng filter =====
+// Dati: binabalik sa "Select product" lahat ng dropdown -> nawawala ang napili
+// (at ang qty/price). Ngayon: sine-save muna, tapos ibinabalik kung existing pa
+// ang option sa bagong filtered list.
+// ===== LOCKED product selects =====
+// Rule: kapag may napili nang product sa isang row, HINDI na ito ginagalaw ng
+// filter (Apply o Reset). Para ma-apply ulit ang filter sa row, i-click ang
+// "I-clear" (unlock) button sa ilalim ng select, o i-reload ang page.
+window.cap_lastOptionsHtml = null;   // huling option list na na-render (para sa unlock refill)
+
+window.cap_syncLockUI = function(sel) {
+    if (!sel) return;
+    var wrap = sel.parentElement;
+    if (wrap) {
+        var btn = wrap.querySelector('.cap-unlock');
+        if (btn) btn.remove();   // huwag nang mag-render ng unlock button
+    }
+    // Visual cue lang: green border kapag may napili (naka-lock sa filter).
+    if (sel.value) sel.classList.add('border-success');
+    else sel.classList.remove('border-success');
+};
+
+window.cap_refillSelect = function(sel) {
+    if (!sel) return;
+    if (window.cap_lastOptionsHtml) {
+        sel.innerHTML = window.cap_lastOptionsHtml;
+    }
+    sel.value = '';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    window.cap_syncLockUI(sel);
+};
+
+window.cap_syncAllLocks = function() {
+    document.querySelectorAll('.product-select').forEach(function(s) { window.cap_syncLockUI(s); });
+};
+
+if (!window.__capLockBound) {
+    window.__capLockBound = true;
+    document.addEventListener('change', function(e) {
+        var t = e.target;
+        if (t && t.classList && t.classList.contains('product-select')) window.cap_syncLockUI(t);
+    });
+}
+
+window.cap_snapProductSelects = function(selector) {
+    var out = [];
+    document.querySelectorAll(selector || '.product-select').forEach(function(d) { out.push(d.value || ''); });
+    return out;
+};
+window.cap_restoreProductSelects = function(snapshot, selector) {
+    if (!snapshot || !snapshot.length) return 0;
+    var lost = 0;
+    document.querySelectorAll(selector || '.product-select').forEach(function(d, i) {
+        var v = snapshot[i];
+        if (!v) return;
+        var found = false;
+        for (var k = 0; k < d.options.length; k++) {
+            if (String(d.options[k].value) === String(v)) { found = true; break; }
+        }
+        if (found) {
+            d.value = v;
+            d.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+            lost++;
+        }
+    });
+    if (lost > 0 && typeof showToast === 'function') {
+        showToast(lost + ' product row ang na-reset — wala sa bagong filter ang dating napili.', 'warning');
+    }
+    return lost;
+};
+
+window.applyFilters = function() {
         const brand = document.getElementById('filterBrand')?.value.trim() || '';
         const type = document.getElementById('filterType')?.value.trim() || '';
         const color = document.getElementById('filterColor')?.value.trim() || '';
         
-        // Show loading indicator on ALL dropdowns
-        const allDropdowns = document.querySelectorAll('.product-select');
-        allDropdowns.forEach(dropdown => {
-            dropdown.innerHTML = '<option value="">Applying filters...</option>';
-        });
-        
+        // I-save muna ang napili para hindi mawala pag nag-reload ng options
+        window.__capPrevSel = cap_snapProductSelects();
+
         // Reload products with filters for ALL dropdowns
         loadProductsWithFilters(currentProductType, brand, type, color);
     };
@@ -3655,24 +3518,28 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('filterType').value = '';
         document.getElementById('filterColor').value = '';
         
-        // Show loading indicator in ALL dropdowns
-        const allDropdowns = document.querySelectorAll('.product-select');
-        allDropdowns.forEach(dropdown => {
-            dropdown.innerHTML = '<option value="">Resetting filters...</option>';
-        });
-        
+        // I-save muna ang napili
+        window.__capPrevSel = cap_snapProductSelects();
+
         // Reload products without filters for ALL dropdowns
         loadProductsFromDatabase(currentProductType);
     };
     
     // Load products with filter parameters (UPDATED FOR MULTIPLE DROPDOWNS)
     window.loadProductsWithFilters = function(productType, brand, type, color) {
-        // Get ALL product dropdowns
+        // Lahat ng dropdown, pero ang ipo-populate lang ay yung WALANG napili.
+        // Ang may napili na (locked) ay hindi ginagalaw ng filter.
         const allDropdowns = document.querySelectorAll('.product-select');
         if (allDropdowns.length === 0) return;
-        
-        // Show loading in ALL dropdowns
-        allDropdowns.forEach(dropdown => {
+        const targets = [...allDropdowns].filter(d => !d.value);
+        window.__capPrevSel = null;
+        if (targets.length === 0) {
+            if (typeof showToast === 'function') showToast('Naka-lock lahat ng napiling product — i-clear muna para ma-apply ang filter.', 'info');
+            return;
+        }
+
+        // Show loading in the empty dropdowns
+        targets.forEach(dropdown => {
             dropdown.innerHTML = '<option value="">Loading filtered products...</option>';
         });
         
@@ -3686,8 +3553,8 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(`/api/products-for-box/${productType}?${params.toString()}`)
             .then(response => response.json())
             .then(products => {
-                // Update ALL dropdowns
-                allDropdowns.forEach(dropdown => {
+                // Update the empty (unlocked) dropdowns only
+                targets.forEach(dropdown => {
                     dropdown.innerHTML = '<option value="">Select product</option>';
                     
                     if (products.length === 0) {
@@ -3752,12 +3619,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 });
                 
+                // I-save ang option list para ma-refill ang select kapag nag-unlock
+                window.cap_lastOptionsHtml = targets.length ? targets[0].innerHTML : null;
+
                 // Update order summary
                 updateOrderSummary();
             })
             .catch(error => {
                 console.error('Error loading filtered products:', error);
-                allDropdowns.forEach(dropdown => {
+                targets.forEach(dropdown => {
                     dropdown.innerHTML = '<option value="">Error loading products. Please try again.</option>';
                 });
             });
@@ -3797,8 +3667,15 @@ document.addEventListener('DOMContentLoaded', function() {
         var size = document.getElementById('garment_filterSize')?.value.trim() || '';
         var material = document.getElementById('garment_filterMaterial')?.value.trim() || '';
         
+        // Locked rows (may napili) = hindi gagalawin. Empty rows lang ang fi-fill.
         var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
-        selects.forEach(function(dropdown) {
+        var targets = [];
+        selects.forEach(function(d) { if (!d.value) targets.push(d); });
+        if (targets.length === 0) {
+            if (typeof showToast === 'function') showToast('Naka-lock lahat ng napiling product — i-clear muna para ma-apply ang filter.', 'info');
+            return;
+        }
+        targets.forEach(function(dropdown) {
             dropdown.innerHTML = '<option value="">Applying filters...</option>';
         });
         
@@ -3812,7 +3689,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch('/api/products-for-box/' + currentProductType + '?' + params.toString())
             .then(function(r) { return r.json(); })
             .then(function(products) {
-                selects.forEach(function(dropdown) {
+                targets.forEach(function(dropdown) {
                     dropdown.innerHTML = '<option value="">Select product</option>';
                     products.forEach(function(p) {
                         var opt = document.createElement('option');
@@ -3835,10 +3712,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         dropdown.innerHTML = '<option value="">No products match your filters</option>';
                     }
                 });
+                window.cap_lastOptionsHtml = targets.length ? targets[0].innerHTML : null;
                 garment_updatePrintSummary();
             })
             .catch(function() {
-                selects.forEach(function(d) { d.innerHTML = '<option value="">Error loading</option>'; });
+                targets.forEach(function(d) { d.innerHTML = '<option value="">Error loading</option>'; });
             });
     };
     
@@ -3851,15 +3729,22 @@ document.addEventListener('DOMContentLoaded', function() {
         var matEl = document.getElementById('garment_filterMaterial');
         if (matEl) matEl.value = '';
         
+        // Same rule: locked rows hindi ginagalaw.
         var selects = document.querySelectorAll('#garment_productRowsContainer .product-select');
-        selects.forEach(function(dropdown) {
+        var targets = [];
+        selects.forEach(function(d) { if (!d.value) targets.push(d); });
+        if (targets.length === 0) {
+            if (typeof showToast === 'function') showToast('Naka-lock lahat ng napiling product — i-clear muna para ma-apply ang filter.', 'info');
+            return;
+        }
+        targets.forEach(function(dropdown) {
             dropdown.innerHTML = '<option value="">Resetting filters...</option>';
         });
         
         fetch('/api/products-for-box/' + currentProductType)
             .then(function(r) { return r.json(); })
             .then(function(products) {
-                selects.forEach(function(dropdown) {
+                targets.forEach(function(dropdown) {
                     dropdown.innerHTML = '<option value="">Select product</option>';
                     products.forEach(function(p) {
                         var opt = document.createElement('option');
@@ -3882,10 +3767,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         dropdown.innerHTML = '<option value="">No products available</option>';
                     }
                 });
+                window.cap_lastOptionsHtml = targets.length ? targets[0].innerHTML : null;
                 garment_updatePrintSummary();
             })
             .catch(function() {
-                selects.forEach(function(d) { d.innerHTML = '<option value="">Error loading</option>'; });
+                targets.forEach(function(d) { d.innerHTML = '<option value="">Error loading</option>'; });
             });
     };
     
@@ -4178,1579 +4064,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-// ============================================
-// GARMENT PRINTING FUNCTIONS
-// ============================================
-
-// Garment-specific variables
-var garment_printingData = {};
-var garment_selectedPrintSizes = [];
-var garment_uploadedReferenceImages = [];
-var garment_referenceImageCounter = 0;
-
-// Open garment modal
-// Reset the whole garment form so reopening the modal starts clean.
-// (Matches Full Sublimation, which also resets every time the modal opens.)
-window.garment_resetForm = function() {
-    // Spec (Brand / Type-Collar / Color)
-    ['garment_specBrand', 'garment_specType', 'garment_specColor', 'garment_specMaterial'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    // Project info + notes
-    ['garment_projectName', 'garment_dateNeeded', 'garment_productNotes'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    // Shop / department resets to blank every new order (dapat piliin ni user)
-    var gDeptEl = document.getElementById('garment_department');
-    if (gDeptEl) gDeptEl.value = '';
-    // Sizes with name: roster + Excel upload + add-row inputs
-    if (typeof garment_clearRoster === 'function') garment_clearRoster();
-    var excelInput = document.getElementById('garment_excelInput');
-    if (excelInput) excelInput.value = '';
-    ['garment_roster_newName', 'garment_roster_newNumber'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-    var newSize = document.getElementById('garment_roster_newSize');
-    if (newSize) newSize.selectedIndex = 0;
-    var spCard = document.getElementById('garment_sizePricingCard');
-    if (spCard) spCard.style.display = 'none';
-    // Mockup + print selection
-    if (typeof garment_clearMockup === 'function') garment_clearMockup();
-    if (typeof garment_clearPrintSelection === 'function') garment_clearPrintSelection();
-    // Product rows
-    if (typeof garment_initializeProductRows === 'function') garment_initializeProductRows();
-    // Re-evaluate the Excel/spec gate
-    if (typeof garment_updateSpecGate === 'function') garment_updateSpecGate();
-    if (typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
-};
-
-window.garment_openModal = function(productType) {
-    console.log('Opening garment modal for:', productType);
-    // Fresh form every time the modal is opened (no leftovers from a previous close)
-    garment_resetForm();
-    // Reset order-slip tracking (must re-print each new order)
-    window.garment_orderSlipViewed = false;
-    var gSlipBtn = document.getElementById('garment_printOrderSlip');
-    if (gSlipBtn) {
-        gSlipBtn.classList.remove('btn-success');
-        gSlipBtn.classList.add('btn-outline-info');
-        gSlipBtn.innerHTML = '<i class="fas fa-print me-2"></i> Print Order Slip';
-    }
-    garment_initializeProductRows();
-    garment_loadFilterOptions(productType);
-    loadProductsFromDatabase(productType);
-    garment_initSpec();
-    setTimeout(function() {
-        garment_populatePrintTypes();
-    }, 100);
-    setTimeout(function() { window.garment_refreshCartGate(); }, 300);
-};
-
-// Garment-specific product rows system
-window.garment_initializeProductRows = function() {
-    const container = document.getElementById('garment_productRowsContainer');
-    if (!container) return;
-    
-    // Reset to single row
-    const firstRow = container.querySelector('.product-row:first-child');
-    if (firstRow) {
-        container.innerHTML = '';
-        container.appendChild(firstRow);
-    }
-    const firstSelect = container.querySelector('.product-select');
-    const firstQty = container.querySelector('.product-quantity');
-    if (firstSelect) firstSelect.innerHTML = '<option value="">Select a product</option>';
-    if (firstQty) firstQty.value = '1';
-    
-    garment_setupProductRowEvents();
-};
-
-window.garment_setupProductRowEvents = function() {
-    const container = document.getElementById('garment_productRowsContainer');
-    if (!container) return;
-    
-    // Add row button
-    const addBtn = document.getElementById('garment_addProductRowBtn');
-    if (addBtn) {
-        addBtn.onclick = function() {
-            garment_addProductRow();
-        };
-    }
-    
-    // Remove buttons
-    container.querySelectorAll('.remove-row').forEach(function(btn) {
-        btn.onclick = function() {
-            var row = this.closest('.product-row');
-            if (row && container.querySelectorAll('.product-row').length > 1) {
-                row.remove();
-                garment_updatePrintSummary();
-            }
-        };
-    });
-    
-    // Select change listeners
-    container.querySelectorAll('.product-select').forEach(function(sel) {
-        sel.onchange = function() {
-            garment_updatePrintSummary();
-        };
-    });
-    
-    // Quantity change listeners
-    container.querySelectorAll('.product-quantity').forEach(function(qty) {
-        qty.oninput = function() {
-            garment_updatePrintSummary();
-        };
-    });
-};
-
-window.garment_addProductRow = function() {
-    const container = document.getElementById('garment_productRowsContainer');
-    const template = container.querySelector('.product-row-template');
-    if (!container || !template) return;
-    
-    var newRow = template.cloneNode(true);
-    newRow.classList.remove('product-row-template', 'd-none');
-    newRow.classList.add('product-row');
-    
-    // Clear selections in new row
-    var select = newRow.querySelector('.product-select');
-    if (select) {
-        select.selectedIndex = 0;
-    }
-    var qtyInput = newRow.querySelector('.product-quantity');
-    if (qtyInput) qtyInput.value = '1';
-    
-    container.appendChild(newRow);
-    
-    // Reload products into the new select if available
-    var currentType = window.currentProductType;
-    if (currentType && select) {
-        select.innerHTML = '<option value="">Loading products...</option>';
-        fetch('/api/products-for-box/' + currentType)
-            .then(function(r) { return r.json(); })
-            .then(function(products) {
-                select.innerHTML = '<option value="">Select product</option>';
-                products.forEach(function(p) {
-                    var opt = document.createElement('option');
-                    opt.value = p.id;
-                    opt.textContent = window.garment_buildProductOption(p);
-                    opt.dataset.price = p.base_price;
-                    var pSize = p.size;
-                    if (!pSize && p.description) {
-                        var sizeM = p.description.match(/Size:\s*([^,]+)/i);
-                        if (sizeM) pSize = sizeM[1].trim();
-                    }
-                    opt.dataset.brand = p.brand || '';
-                    opt.dataset.size = pSize || '';
-                    opt.dataset.color = p.color || '';
-                    opt.dataset.productName = p.name || '';
-                    opt.dataset.productData = JSON.stringify(p);
-                    select.appendChild(opt);
-                });
-                garment_updatePrintSummary();
-            })
-            .catch(function() {
-                select.innerHTML = '<option value="">Error loading</option>';
-            });
-    }
-    
-    // Wire remove button
-    var removeBtn = newRow.querySelector('.remove-row');
-    if (removeBtn) {
-        removeBtn.onclick = function() {
-            if (container.querySelectorAll('.product-row').length > 1) {
-                newRow.remove();
-                garment_updatePrintSummary();
-            }
-        };
-    }
-    
-    // Wire select/qty changes
-    if (select) {
-        select.onchange = function() { garment_updatePrintSummary(); };
-    }
-    if (qtyInput) {
-        qtyInput.oninput = function() { garment_updatePrintSummary(); };
-    }
-};
-
-// Populate print type dropdown
-window.garment_populatePrintTypes = function() {
-    var select = document.getElementById('garment_printTypeSelect');
-    if (!select) return;
-    select.innerHTML = '<option value="">-- Select Print Type --</option>';
-    garment_hidePrintingSections();
-    select.onchange = function() {
-        garment_selectedPrintSizes = [];
-        var val = this.value;
-        if (val) {
-            garment_loadPrintSizes(val);
-        } else {
-            garment_hidePrintingSections();
-        }
-    };
-    fetch('/api/printing/options/dtf')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            garment_printingData = data;
-            var types = data.print_types || [];
-            types.forEach(function(t) {
-                var opt = document.createElement('option');
-                opt.value = t;
-                var label = t.charAt(0).toUpperCase() + t.slice(1) + ' Print';
-                opt.textContent = label;
-                select.appendChild(opt);
-            });
-        })
-        .catch(function(err) {
-            console.error('Error loading print types:', err);
-        });
-};
-
-// Load print sizes for selected print type
-window.garment_loadPrintSizes = function(printType) {
-    if (!printType) {
-        garment_hidePrintingSections();
-        return;
-    }
-    fetch('/api/printing/options/' + printType)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            garment_printingData = data;
-            garment_renderPrintSizes(data.prices);
-            var container = document.getElementById('garment_printSizesContainer');
-            if (container) container.style.display = 'block';
-            garment_selectedPrintSizes = [];
-            garment_updatePrintSummary();
-        })
-        .catch(function(err) {
-            console.error('Error loading print options:', err);
-            var list = document.getElementById('garment_printSizesList');
-            if (list) list.innerHTML = '<div class="text-danger small">Failed to load print options.</div>';
-        });
-};
-
-// Render print size rows (checkbox + quantity). Quantity lets you order e.g. 2x Logo
-// which auto-upgrades (Logo x2 -> Half A4) per the DTF upgrade ladder.
-window.garment_renderPrintSizes = function(prices) {
-    var container = document.getElementById('garment_printSizesList');
-    if (!container) return;
-    if (!prices || prices.length === 0) {
-        container.innerHTML = '<div class="text-muted small">No print sizes available.</div>';
-        return;
-    }
-    var html = '';
-    prices.forEach(function(p) {
-        html += '<div class="print-size-row d-flex align-items-center mb-1 p-1 border rounded">';
-        html += '<input type="checkbox" class="print-size-checkbox me-2" value="' + p.id + '" onchange="garment_togglePrintSize(' + p.id + ', this)">';
-        html += '<span class="flex-grow-1">' + p.name + '</span>';
-        html += '<input type="number" class="form-control form-control-sm print-size-qty me-2" style="width:64px;" min="1" value="1" data-size-id="' + p.id + '" oninput="garment_onPrintQtyChange(' + p.id + ', this)">';
-        html += '<span class="text-muted" style="width:72px;text-align:right;">\u20B1' + p.price.toFixed(2) + '</span>';
-        html += '</div>';
-    });
-    container.innerHTML = html;
-};
-
-// Toggle print size selection
-window.garment_togglePrintSize = function(sizeId, checkbox) {
-    var row = checkbox.closest('.print-size-row');
-    if (row) row.style.borderColor = checkbox.checked ? '#0d6efd' : '#dee2e6';
-    garment_syncSelectedPrintSizes();
-};
-
-// Sync the flat selected list from checkboxes x quantity
-window.garment_syncSelectedPrintSizes = function() {
-    garment_selectedPrintSizes = garment_collectRawPrintSizes();
-    garment_updatePrintSummary();
-};
-
-// Change handler for a size quantity input
-window.garment_onPrintQtyChange = function(sizeId, input) {
-    var row = input.closest('.print-size-row');
-    var cb = row ? row.querySelector('.print-size-checkbox') : null;
-    // Typing a quantity implies selecting that size
-    if (cb && !cb.checked && parseInt(input.value) > 0) {
-        cb.checked = true;
-        if (row) row.style.borderColor = '#0d6efd';
-    }
-    garment_syncSelectedPrintSizes();
-};
-
-// Flat list of selected prints (one entry per copy)
-window.garment_collectRawPrintSizes = function() {
-    var out = [];
-    document.querySelectorAll('#garment_printSizesList .print-size-row').forEach(function(row) {
-        var cb = row.querySelector('.print-size-checkbox');
-        var qtyEl = row.querySelector('.print-size-qty');
-        if (!cb || !cb.checked) return;
-        var id = parseInt(cb.value);
-        var q = qtyEl ? (parseInt(qtyEl.value) || 1) : 1;
-        for (var i = 0; i < q; i++) out.push(id);
-    });
-    return out;
-};
-
-// Resolve a raw list of size ids into the upgraded set using the upgrade ladder.
-// Returns { sizes: [ids], log: [...], surcharge: number }
-window.garment_resolvePrint = function(rawIds) {
-    var rules = (garment_printingData && garment_printingData.upgrades) || [];
-    // highest quantity rules first (e.g. 4x Logo -> A4 before 2x Logo -> Half A4)
-    rules = rules.slice().sort(function(a, b) {
-        var d = parseInt(b.from_quantity) - parseInt(a.from_quantity);
-        if (d !== 0) return d;
-        return parseInt(a.from_size_id) - parseInt(b.from_size_id);
-    });
-    var counts = {};
-    (rawIds || []).forEach(function(id) { id = parseInt(id); if (!isNaN(id)) counts[id] = (counts[id] || 0) + 1; });
-    var log = [];
-    var surcharge = 0;
-    if (rules.length) {
-        var changed = true, guard = 0;
-        while (changed && guard++ < 200) {
-            changed = false;
-            rules.forEach(function(r) {
-                var from = parseInt(r.from_size_id), qty = parseInt(r.from_quantity), to = parseInt(r.to_size_id);
-                if (qty < 1) return;
-                if ((counts[from] || 0) >= qty) {
-                    var times = Math.floor(counts[from] / qty);
-                    counts[from] -= times * qty;
-                    counts[to] = (counts[to] || 0) + times;
-                    var ruleSur = (parseFloat(r.surcharge) || 0) * times;
-                    surcharge += ruleSur;
-                    changed = true;
-                    log.push({ from_size_id: from, from_quantity: qty, to_size_id: to, times: times, surcharge: ruleSur });
-                }
-            });
-        }
-    }
-    var sizes = [];
-    Object.keys(counts).forEach(function(k) { for (var i = 0; i < counts[k]; i++) sizes.push(parseInt(k)); });
-    return { sizes: sizes, log: log, surcharge: Math.round(surcharge * 100) / 100 };
-};
-
-window.garment_resolveUpgradedSizes = function(rawIds) {
-    return garment_resolvePrint(rawIds).sizes;
-};
-
-// Human text for an upgrade log, e.g. "2x Logo -> 1x Half A4"
-window.garment_upgradeLogText = function(log) {
-    var prices = garment_printingData.prices || [];
-    function nameOf(id) { for (var i = 0; i < prices.length; i++) { if (parseInt(prices[i].id) === parseInt(id)) return prices[i].name; } return id; }
-    return (log || []).map(function(l) {
-        var t = (l.from_quantity * l.times) + 'x ' + nameOf(l.from_size_id) + ' \u2192 ' + l.times + 'x ' + nameOf(l.to_size_id);
-        if (l.surcharge) t += ' (+\u20B1' + l.surcharge.toFixed(2) + ')';
-        return t;
-    }).join(', ');
-};
-
-// Special Price functions
-window.garment_hasSpecialPrice = false;
-window.garment_toggleSpecialPrice = function() {
-    var section = document.getElementById('garment_specialPriceSection');
-    var btn = document.getElementById('garment_specialPriceBtn');
-    if (!section) return;
-    var showing = section.style.display !== 'none';
-    if (showing) {
-        section.style.display = 'none';
-        btn.textContent = '💰 Special Price';
-        btn.classList.remove('btn-warning');
-        btn.classList.add('btn-outline-warning');
-        garment_hasSpecialPrice = false;
-        garment_updatePrintSummary();
-    } else {
-        section.style.display = 'block';
-        btn.textContent = '💰 Cancel Special Price';
-        btn.classList.remove('btn-outline-warning');
-        btn.classList.add('btn-warning');
-        // Pre-fill with current print total
-        var printTotalEl = document.getElementById('garment_printTotalDisplay');
-        var spInput = document.getElementById('garment_specialPrintTotal');
-        if (printTotalEl && spInput) {
-            var current = parseFloat(printTotalEl.textContent.replace(/[₱,]/g, '')) || 0;
-            if (current > 0) spInput.value = current.toFixed(2);
-        }
-        garment_hasSpecialPrice = true;
-        garment_updatePrintSummary();
-    }
-};
-
-window.garment_clearSpecialPrice = function() {
-    var section = document.getElementById('garment_specialPriceSection');
-    var btn = document.getElementById('garment_specialPriceBtn');
-    var spInput = document.getElementById('garment_specialPrintTotal');
-    var reasonInput = document.getElementById('garment_specialPriceReason');
-    if (section) section.style.display = 'none';
-    if (btn) {
-        btn.textContent = '💰 Special Price';
-        btn.classList.remove('btn-warning');
-        btn.classList.add('btn-outline-warning');
-    }
-    if (spInput) spInput.value = '';
-    if (reasonInput) reasonInput.value = '';
-    garment_hasSpecialPrice = false;
-    garment_updatePrintSummary();
-};
-
-window.garment_onSpecialPriceChange = function() {
-    garment_updatePrintSummary();
-};
-
-// Clear print selection
-window.garment_clearPrintSelection = function() {
-    garment_selectedPrintSizes = [];
-    garment_printingData = {};
-    var select = document.getElementById('garment_printTypeSelect');
-    if (select) select.value = '';
-    garment_hidePrintingSections();
-};
-
-// Hide printing sections
-window.garment_hidePrintingSections = function() {
-    var container = document.getElementById('garment_printSizesContainer');
-    var sidebar = document.getElementById('garment_printSummarySidebar');
-    if (container) container.style.display = 'none';
-    if (sidebar) sidebar.style.display = 'none';
-};
-
-// Update print summary (combo, bulk, totals)
-window.garment_updatePrintSummary = function() {
-    var sidebar = document.getElementById('garment_printSummarySidebar');
-    // Print sizes are OPTIONAL: product qty/amount (Order Summary) must always compute.
-    // Hide only the print-specific sidebar when no print size is chosen.
-    var hasPrintSizes = garment_selectedPrintSizes.length > 0;
-    if (!hasPrintSizes && sidebar) sidebar.style.display = 'none';
-    var prices = garment_printingData.prices || [];
-    var combos = garment_printingData.combos || [];
-    var bulkTiers = garment_printingData.bulk_tiers || [];
-    // ===== Print qty is based on the garment qty (roster qty, else product rows) =====
-    var roster = (typeof garment_computeSizePricing === 'function')
-        ? garment_computeSizePricing()
-        : { qty: 0, amount: 0, hasRows: false, missing: [], perSize: {}, keys: [] };
-    var productTotal = 0;
-    var qtyTotal = 0;
-    if (!roster.hasRows) {
-        document.querySelectorAll('#garment_productRowsContainer .product-row').forEach(function(row) {
-            var qty = parseInt(row.querySelector('.product-quantity').value) || 0;
-            var opt = row.querySelector('.product-select option:checked');
-            var price = opt && opt.dataset.price ? parseFloat(opt.dataset.price) : 0;
-            qtyTotal += qty;
-            productTotal += qty * price;
-        });
-    } else {
-        qtyTotal = roster.qty;
-        productTotal = roster.amount;
-    }
-    // Print qty follows the same source as Order Summary (roster/Excel wins, else product rows).
-    var totalQty = qtyTotal > 0 ? qtyTotal : 0;
-    // Resolve upgrades first (DTF ladder: Logo x2 -> Half A4, Half A4 x2 -> A4, ...)
-    var resolvedPrint = garment_resolvePrint(garment_selectedPrintSizes);
-    var effectiveSizes = resolvedPrint.sizes;
-    var upgradeNote = garment_upgradeLogText(resolvedPrint.log);
-    var upgradeSurcharge = parseFloat(resolvedPrint.surcharge) || 0;
-    var printCostPerItem = upgradeSurcharge;
-    var selectedSizeDetails = [];
-    effectiveSizes.forEach(function(sizeId) {
-        var found = null;
-        for (var i = 0; i < prices.length; i++) {
-            if (prices[i].id === sizeId) {
-                found = prices[i];
-                break;
-            }
-        }
-        if (found) {
-            printCostPerItem += found.price;
-            selectedSizeDetails.push(found);
-        }
-    });
-    // Store original print cost BEFORE any discounts (for special price display)
-    var rawPrintCostPerItem = printCostPerItem;
-    var comboDiscount = 0;
-    var comboDetails = [];
-    combos.forEach(function(c) {
-        if (effectiveSizes.indexOf(c.size1_id) !== -1 && 
-            effectiveSizes.indexOf(c.size2_id) !== -1) {
-            comboDetails.push(c);
-        }
-    });
-    if (comboDetails.length > 0) {
-        comboDetails.sort(function(a, b) { return b.discount - a.discount; });
-        var best = comboDetails[0];
-        comboDiscount = best.discount;
-        comboDetails = [best];
-    }
-    var printCostAfterCombo = printCostPerItem - comboDiscount;
-    var subtotal = printCostAfterCombo * totalQty;
-    var bulkDiscount = 0;
-    var bulkLabel = '';
-    // ===== Bulk size gate: when ON, bulk applies only for A3/A4 prints =====
-    var bulkGate = garment_printingData.bulk_gate || { active: false, sizes: [] };
-    var bulkGateSatisfied = true;
-    if (bulkGate.active) {
-        var gateNames = (bulkGate.sizes && bulkGate.sizes.length ? bulkGate.sizes : ['A3', 'A4'])
-            .map(function(n) { return String(n).trim().toUpperCase(); });
-        var pickedNames = selectedSizeDetails.map(function(sz) {
-            return String(sz.name || '').trim().toUpperCase();
-        });
-        bulkGateSatisfied = pickedNames.some(function(n) { return gateNames.indexOf(n) !== -1; });
-    }
-    for (var bi = bulkGateSatisfied ? bulkTiers.length - 1 : -1; bi >= 0; bi--) {
-        var tier = bulkTiers[bi];
-        if (totalQty >= tier.min && totalQty <= tier.max) {
-            if (tier.type === 'percentage') {
-                bulkDiscount = subtotal * (tier.percent / 100);
-                bulkLabel = tier.label;
-            } else if (tier.type === 'fixed') {
-                bulkDiscount = tier.amount * totalQty;
-                bulkLabel = tier.label;
-            }
-            break;
-        }
-    }
-    var total = subtotal - bulkDiscount;
-    
-    // SPECIAL PRICE OVERRIDE
-    var isSpecialPrice = window.garment_hasSpecialPrice || false;
-    var specialTotal = 0;
-    if (isSpecialPrice) {
-        var spInput = document.getElementById('garment_specialPrintTotal');
-        if (spInput) {
-            specialTotal = parseFloat(spInput.value) || 0;
-        }
-    }
-    
-    // Render sizes breakdown
-    var sizesHtml = '';
-    if (upgradeNote) {
-        sizesHtml += '<div class="text-muted small mb-1">Auto-combined: ' + upgradeNote + '</div>';
-    }
-    selectedSizeDetails.forEach(function(s) {
-        sizesHtml += '<div class="d-flex justify-content-between">';
-        sizesHtml += '<span>' + s.name + '</span>';
-        sizesHtml += '<span>₱' + s.price.toFixed(2) + '</span>';
-        sizesHtml += '</div>';
-    });
-    var sizesBreakdown = document.getElementById('garment_printSizesBreakdown');
-    if (sizesBreakdown) sizesBreakdown.innerHTML = sizesHtml;
-    var costPerItemEl = document.getElementById('garment_printCostPerItemDisplay');
-    var qtyDisplayEl = document.getElementById('garment_printQtyDisplay');
-    var subtotalEl = document.getElementById('garment_printSubtotalDisplay');
-    var comboRow = document.getElementById('garment_comboDiscountRow');
-    var comboDisplay = document.getElementById('garment_comboDiscountDisplay');
-    var bulkRow = document.getElementById('garment_bulkDiscountRow');
-    var bulkDisplay = document.getElementById('garment_bulkDiscountDisplay');
-    var printTotalEl = document.getElementById('garment_printTotalDisplay');
-    var grandTotalEl = document.getElementById('garment_grandTotalDisplay');
-    // Show original print cost (before any discounts)
-    if (costPerItemEl) costPerItemEl.textContent = '₱' + rawPrintCostPerItem.toFixed(2);
-    if (qtyDisplayEl) qtyDisplayEl.textContent = totalQty;
-    if (subtotalEl) subtotalEl.textContent = '₱' + subtotal.toFixed(2);
-    if (isSpecialPrice && specialTotal > 0) {
-        // Special price: hide combo/bulk, show original qty/cost but use special total
-        if (comboRow) comboRow.style.display = 'none';
-        if (bulkRow) bulkRow.style.display = 'none';
-        if (printTotalEl) printTotalEl.textContent = '₱' + specialTotal.toFixed(2) + ' (Special Price)';
-    } else {
-        // Normal: show combo/bulk discounts as before
-        var displayCostPerItem = printCostAfterCombo;
-        if (costPerItemEl) costPerItemEl.textContent = '₱' + displayCostPerItem.toFixed(2);
-        if (comboDiscount > 0 && comboRow && comboDisplay) {
-            comboRow.style.display = 'flex';
-            comboDisplay.textContent = '-₱' + comboDiscount.toFixed(2);
-        } else if (comboRow) {
-            comboRow.style.display = 'none';
-        }
-        if (bulkDiscount > 0 && bulkRow && bulkDisplay) {
-            bulkRow.style.display = 'flex';
-            bulkDisplay.textContent = '-₱' + bulkDiscount.toFixed(2);
-        } else if (bulkRow) {
-            bulkRow.style.display = 'none';
-        }
-        if (printTotalEl) printTotalEl.textContent = '₱' + total.toFixed(2);
-    }
-    
-    var grandTotal = productTotal + (isSpecialPrice && specialTotal > 0 ? specialTotal : total);
-    if (grandTotalEl) grandTotalEl.textContent = '\u20B1' + grandTotal.toFixed(2);
-    if (sidebar) sidebar.style.display = (hasPrintSizes || roster.hasRows) ? 'block' : 'none';
-    var qtyDisplay = document.getElementById('garment_totalQtyDisplay');
-    var amtDisplay = document.getElementById('garment_totalAmountDisplay');
-    if (qtyDisplay) qtyDisplay.textContent = qtyTotal;
-    if (amtDisplay) amtDisplay.textContent = '\u20B1' + productTotal.toFixed(2);
-    
-    // Render breakdown: yung galing sa 'Sizes with name' ang ipapakita kung may laman,
-    // kung wala, dun lang sa Product Details product rows.
-    var breakdownEl = document.getElementById('garment_productsBreakdown');
-    if (breakdownEl) {
-        if (roster.hasRows) {
-            var rh = '<div class="text-muted small mb-1"><i class="fas fa-users me-1"></i>From Sizes with name</div>';
-            var rkeys = roster.keys || Object.keys(roster.perSize || {});
-            rkeys.forEach(function(s) {
-                var q = (roster.perSize || {})[s] || 0;
-                var res = garment_findItemPrice(s);
-                if (res.price == null) {
-                    rh += '<div class="d-flex justify-content-between align-items-center mb-1 small"><span>' + _escHtml(s) + ' <span class="text-muted">x' + q + '</span></span><span class="text-danger">no price</span></div>';
-                } else {
-                    rh += '<div class="d-flex justify-content-between align-items-center mb-1 small"><span>' + _escHtml(s) + ' <span class="text-muted">x' + q + ' @ \u20B1' + res.price.toFixed(2) + '</span></span><span>\u20B1' + (res.price * q).toFixed(2) + '</span></div>';
-                }
-            });
-            var specLabel = [(document.getElementById('garment_specBrand') || {}).value || '', (document.getElementById('garment_specType') || {}).value || '', (document.getElementById('garment_specColor') || {}).value || '', (document.getElementById('garment_specMaterial') || {}).value || ''].filter(Boolean).join(' / ');
-            if (specLabel) rh += '<div class="text-muted small">' + _escHtml(specLabel) + '</div>';
-            if (roster.missing && roster.missing.length) rh += '<div class="text-danger small">No price: ' + _escHtml(roster.missing.join(', ')) + '</div>';
-            breakdownEl.innerHTML = rh;
-        } else {
-        var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
-        var hasProducts = false;
-        var html = '';
-        rows.forEach(function(row) {
-            var sel = row.querySelector('.product-select');
-            var qtyInput = row.querySelector('.product-quantity');
-            if (!sel || !qtyInput) return;
-            var opt = sel.options[sel.selectedIndex];
-            var qty = parseInt(qtyInput.value) || 0;
-            if (!opt || !opt.value || qty === 0) return;
-            hasProducts = true;
-            var price = opt.dataset.price ? parseFloat(opt.dataset.price) : 0;
-            var subtotal = qty * price;
-            var brand = opt.dataset.brand || '';
-            var size = opt.dataset.size || '';
-            var color = opt.dataset.color || '';
-            var shortName = [brand, color, size].filter(Boolean).join(' ');
-            if (!shortName) {
-                var name = opt.textContent.split(' - ')[0] || 'Product';
-                shortName = name;
-            }
-            html += '<div class="d-flex justify-content-between align-items-center mb-1 small">';
-            html += '<span>' + shortName + ' <span class="text-muted">x' + qty + '</span></span>';
-            html += '<span>\u20B1' + subtotal.toFixed(2) + '</span>';
-            html += '</div>';
-        });
-        if (hasProducts) {
-            breakdownEl.innerHTML = html;
-        } else {
-            breakdownEl.innerHTML = '<div class="text-muted small mb-2">No products selected yet</div>';
-        }
-        }
-    }
-};
-
-// Reference image handling
-window.garment_triggerReferenceFilePicker = function() {
-    var picker = document.getElementById('referenceFilePicker');
-    if (picker) picker.click();
-};
-window.garment_onReferencePaste = function(e) {
-    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
-    for (var i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') === 0) {
-            var file = items[i].getAsFile();
-            if (file) garment_handleReferenceImage(file);
-        }
-    }
-};
-window.garment_onReferenceDragOver = function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    var dz = document.getElementById('referenceDropZone');
-    if (dz) dz.style.borderColor = '#0d6efd';
-};
-window.garment_onReferenceDragLeave = function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    var dz = document.getElementById('referenceDropZone');
-    if (dz) dz.style.borderColor = '#ccc';
-};
-window.garment_onReferenceDrop = function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    var dz = document.getElementById('referenceDropZone');
-    if (dz) dz.style.borderColor = '#ccc';
-    var files = e.dataTransfer.files;
-    for (var i = 0; i < files.length; i++) {
-        if (files[i].type.indexOf('image') === 0) {
-            garment_handleReferenceImage(files[i]);
-        }
-    }
-};
-window.garment_onReferenceFilePickerChange = function(e) {
-    var files = e.target.files;
-    for (var i = 0; i < files.length; i++) {
-        garment_handleReferenceImage(files[i]);
-    }
-    e.target.value = '';
-};
-window.garment_handleReferenceImage = function(file) {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        garment_referenceImageCounter++;
-        garment_uploadedReferenceImages.push({
-            id: garment_referenceImageCounter,
-            dataUrl: e.target.result,
-            name: file.name
-        });
-        garment_renderReferencePreviews();
-    };
-    reader.readAsDataURL(file);
-};
-window.garment_renderReferencePreviews = function() {
-    var container = document.getElementById('referencePreviewsGallery');
-    if (!container) return;
-    if (garment_uploadedReferenceImages.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
-    var html = '';
-    garment_uploadedReferenceImages.forEach(function(img) {
-        html += '<div style="position:relative;display:inline-block;width:80px;height:80px;border:1px solid #dee2e6;border-radius:6px;overflow:hidden;">';
-        html += '<img src="' + img.dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
-        html += '<button type="button" onclick="garment_removeReferenceImage(' + img.id + ')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.6);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;text-align:center;padding:0;cursor:pointer;">&times;</button>';
-        html += '</div>';
-    });
-    container.innerHTML = html;
-};
-window.garment_clearAllReferenceImages = function() {
-    garment_uploadedReferenceImages = [];
-    garment_referenceImageCounter = 0;
-    garment_renderReferencePreviews();
-};
-window.garment_removeReferenceImage = function(id) {
-    garment_uploadedReferenceImages = garment_uploadedReferenceImages.filter(function(img) { return img.id !== id; });
-    garment_renderReferencePreviews();
-};
-
-// Mock-up image handling (single image, mirrors Full Sublimation modal)
-window.garment_uploadedMockup = null;
-window.garment_previewMockup = function(event) {
-    var file = event.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var preview = document.getElementById('garment_mockupPreview');
-        var placeholder = document.getElementById('garment_mockupPlaceholder');
-        var fileInfo = document.getElementById('garment_mockupFileInfo');
-        var fileName = document.getElementById('garment_mockupFileName');
-        if (preview) { preview.src = e.target.result; preview.style.display = ''; }
-        if (placeholder) placeholder.style.display = 'none';
-        if (fileName) fileName.textContent = file.name;
-        if (fileInfo) fileInfo.style.display = '';
-        window.garment_uploadedMockup = { name: file.name, dataUrl: e.target.result };
-    };
-    reader.readAsDataURL(file);
-};
-window.garment_removeMockup = function() {
-    var preview = document.getElementById('garment_mockupPreview');
-    var placeholder = document.getElementById('garment_mockupPlaceholder');
-    var fileInfo = document.getElementById('garment_mockupFileInfo');
-    var upload = document.getElementById('garment_mockupUpload');
-    if (preview) { preview.src = ''; preview.style.display = 'none'; }
-    if (placeholder) placeholder.style.display = '';
-    if (fileInfo) fileInfo.style.display = 'none';
-    if (upload) upload.value = '';
-    window.garment_uploadedMockup = null;
-};
-window.garment_clearMockup = function() {
-    window.garment_uploadedMockup = null;
-    garment_removeMockup();
-};
-
-// ===== SIZES WITH NAME (roster) — mirrors Full Sublimation =====
-window.garment_addRosterRow = function() {
-    var nameEl = document.getElementById('garment_roster_newName');
-    var numEl = document.getElementById('garment_roster_newNumber');
-    var sizeEl = document.getElementById('garment_roster_newSize');
-    var name = nameEl ? nameEl.value.trim() : '';
-    var number = numEl ? numEl.value.trim() : '';
-    var size = sizeEl ? sizeEl.value : '';
-    if (!name) { alert('Please enter a name.'); if (nameEl) nameEl.focus(); return; }
-    if (!size) { alert('Please select a size.'); if (sizeEl) sizeEl.focus(); return; }
-    var tbody = document.getElementById('garment_rosterBody');
-    if (!tbody) return;
-    var empty = document.getElementById('garment_rosterEmpty');
-    if (empty) empty.style.display = 'none';
-    var row = document.createElement('tr');
-    row.className = 'roster-row';
-    var rowNum = tbody.querySelectorAll('tr.roster-row').length + 1;
-    var cellsHtml = '<td class="text-center align-middle">' + rowNum + '</td>'
-        + '<td class="align-middle">' + _escHtml(name)
-        + '<input type="hidden" class="roster-name" value="' + _escHtml(name) + '">'
-        + '<input type="hidden" class="roster-number" value="' + _escHtml(number) + '">'
-        + '</td>'
-        + '<td class="align-middle">' + size + '<input type="hidden" class="roster-size" value="' + size + '"></td>'
-        + '<td class="text-center align-middle">1<input type="hidden" class="roster-qty" value="1"></td>'
-        + '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="garment_removeRosterRow(this)" title="Remove"><i class="fas fa-times"></i></button></td>';
-    row.innerHTML = cellsHtml;
-    tbody.appendChild(row);
-    if (numEl) numEl.value = '';
-    if (nameEl) nameEl.value = '';
-    if (sizeEl) sizeEl.selectedIndex = 0;
-    if (nameEl) nameEl.focus();
-    garment_updateRosterCount();
-    if (typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
-};
-window.garment_removeRosterRow = function(btn) {
-    var row = btn.closest('tr');
-    if (!row) return;
-    row.remove();
-    var tbody = document.getElementById('garment_rosterBody');
-    if (tbody) {
-        var remaining = tbody.querySelectorAll('tr.roster-row');
-        remaining.forEach(function(r, idx) {
-            var numTd = r.querySelector('td:first-child');
-            if (numTd) numTd.textContent = (idx + 1).toString();
-        });
-        if (remaining.length === 0) {
-            var empty = document.getElementById('garment_rosterEmpty');
-            if (empty) empty.style.display = '';
-        }
-    }
-    garment_updateRosterCount();
-    if (typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
-};
-window.garment_updateRosterCount = function() {
-    var countEl = document.getElementById('garment_rosterCount');
-    var tbody = document.getElementById('garment_rosterBody');
-    if (countEl && tbody) countEl.textContent = tbody.querySelectorAll('tr.roster-row').length;
-};
-window.garment_toggleBulkPaste = function() {
-    var area = document.getElementById('garmentBulkPasteArea');
-    if (area) area.style.display = area.style.display === 'none' ? '' : 'none';
-};
-window.garment_bulkPaste = function() {
-    var textarea = document.getElementById('garment_bulkPasteInput');
-    if (!textarea || !textarea.value.trim()) { alert('Paste your list first.'); return; }
-    var lines = textarea.value.trim().split('\n');
-    var added = 0;
-    lines.forEach(function(line) {
-        line = line.trim();
-        if (!line) return;
-        var parts = line.split(',').map(function(s) { return s.trim(); });
-        var name, number, size;
-        if (parts.length >= 3) { number = parts[0]; name = parts[1]; size = parts[2].toUpperCase(); }
-        else if (parts.length === 2) { number = ''; name = parts[0]; size = parts[1].toUpperCase(); }
-        else return;
-        if (!name || !size) return;
-        var nameEl = document.getElementById('garment_roster_newName');
-        var numEl = document.getElementById('garment_roster_newNumber');
-        var sizeEl = document.getElementById('garment_roster_newSize');
-        if (nameEl) nameEl.value = name;
-        if (numEl) numEl.value = number;
-        if (sizeEl) {
-            for (var i = 0; i < sizeEl.options.length; i++) {
-                if (sizeEl.options[i].value.toUpperCase() === size) { sizeEl.selectedIndex = i; break; }
-            }
-        }
-        garment_addRosterRow();
-        added++;
-    });
-    textarea.value = '';
-    var area = document.getElementById('garmentBulkPasteArea');
-    if (area) area.style.display = 'none';
-    if (typeof showToast === 'function') showToast(added + ' person' + (added > 1 ? 's' : '') + ' added to roster!', 'success');
-};
-window.garment_uploadExcel = function(event) {
-    var file = event.target.files[0];
-    if (!file) return;
-    // Require spec (Brand + Type/Collar) before importing
-    var brandEl = document.getElementById('garment_specBrand');
-    var typeEl = document.getElementById('garment_specType');
-    if (!brandEl || !typeEl || !brandEl.value.trim() || !typeEl.value.trim()) {
-        if (typeof showToast === 'function') showToast('Piliin muna ang Brand at Type/Collar bago mag-upload.', 'warning');
-        event.target.value = '';
-        return;
-    }
-    function loadAndParse() {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                var data = new Uint8Array(e.target.result);
-                var workbook = XLSX.read(data, {type: 'array'});
-                var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                var json = XLSX.utils.sheet_to_json(firstSheet, {header: 1, defval: ''});
-                if (json.length < 1) { showToast('Excel file is empty.', 'warning'); return; }
-                var headers = json[0].map(function(h) { return String(h).trim(); });
-                var rows = json.slice(1).filter(function(r) { return r.some(function(cell) { return String(cell).trim() !== ''; }); });
-                if (rows.length < 1) { showToast('No data rows found (header only).', 'warning'); return; }
-                garment_autoBuildFromExcel(headers, rows);
-            } catch(err) {
-                showToast('Error reading file: ' + err.message, 'danger');
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-    if (typeof XLSX === 'undefined') {
-        var script = document.createElement('script');
-        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js';
-        script.onload = loadAndParse;
-        script.onerror = function() {
-            var script2 = document.createElement('script');
-            script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-            script2.onload = loadAndParse;
-            script2.onerror = function() { showToast('Failed to load Excel parser. Check internet connection.', 'danger'); };
-            document.head.appendChild(script2);
-        };
-        document.head.appendChild(script);
-    } else {
-        loadAndParse();
-    }
-};
-window.garment_autoBuildFromExcel = function(headers, rows) {
-    var tbody = document.getElementById('garment_rosterBody');
-    var theadRow = document.getElementById('garment_rosterHeader');
-    if (!tbody || !theadRow) return;
-    var nameCols = [], sizeCol = -1, numCol = -1, qtyCol = -1;
-    headers.forEach(function(h, idx) {
-        var hl = (h || '').toLowerCase().trim();
-        if (hl.indexOf('name') >= 0 || hl === 'person' || hl === 'player' || hl === 'employee') nameCols.push(idx);
-        else if (hl === 'size' || hl === 'sizes') sizeCol = idx;
-    });
-    headers.forEach(function(h, idx) {
-        var hl = (h || '').toLowerCase().trim();
-        if (nameCols.indexOf(idx) >= 0 || idx === sizeCol) return;
-        if ((hl.indexOf('number') >= 0 || hl === 'no' || hl === 'no.' || hl === '#' || hl === 'jersey') && numCol < 0) numCol = idx;
-    });
-    headers.forEach(function(h, idx) {
-        var hl = (h || '').toLowerCase().trim();
-        if (nameCols.indexOf(idx) >= 0 || idx === sizeCol || idx === numCol) return;
-        if ((hl === 'qty' || hl === 'quantity' || hl === 'count') && qtyCol < 0) qtyCol = idx;
-    });
-    if (sizeCol >= 0 && typeof sublimation_sortRowsBySize === 'function') {
-        rows = sublimation_sortRowsBySize(rows, sizeCol);
-    }
-    var displayCols = [];
-    headers.forEach(function(h, idx) {
-        var cssClass = '';
-        if (nameCols.indexOf(idx) >= 0) cssClass = 'roster-name';
-        else if (idx === sizeCol) cssClass = 'roster-size';
-        else if (idx === numCol) cssClass = 'roster-number';
-        else if (idx === qtyCol) cssClass = 'roster-qty';
-        displayCols.push({header: h || '(Col ' + (idx + 1) + ')', colIdx: idx, cssClass: cssClass});
-    });
-    tbody.innerHTML = '';
-    var empty = document.getElementById('garment_rosterEmpty');
-    if (empty) empty.style.display = 'none';
-    var headerHtml = '<th style="width:50px">#</th>';
-    displayCols.forEach(function(col) { headerHtml += '<th>' + _escHtml(col.header) + '</th>'; });
-    headerHtml += '<th style="width:40px"></th>';
-    theadRow.innerHTML = headerHtml;
-    var added = 0;
-    rows.forEach(function(row) {
-        var hasData = false;
-        for (var ci = 0; ci < row.length; ci++) { if (row[ci] !== undefined && row[ci] !== null && String(row[ci]).trim() !== '') { hasData = true; break; } }
-        if (!hasData) return;
-        var tr = document.createElement('tr');
-        tr.className = 'roster-row';
-        var cellsHtml = '<td class="text-center align-middle">' + (added + 1) + '</td>';
-        displayCols.forEach(function(col) {
-            var rawVal = (col.colIdx >= 0 && row[col.colIdx] !== undefined && row[col.colIdx] !== null) ? String(row[col.colIdx]).trim() : '';
-            var displayVal = rawVal;
-            if (col.cssClass === 'roster-size') displayVal = normalizeSize(displayVal.toUpperCase());
-            else if (col.cssClass === 'roster-number' || col.cssClass === 'roster-qty') {
-                var numParsed = parseFloat(displayVal);
-                if (!isNaN(numParsed) && String(numParsed) === displayVal) displayVal = String(numParsed);
-                else displayVal = displayVal.replace(/\.0+$/, '');
-            }
-            cellsHtml += '<td class="align-middle">' + _escHtml(displayVal)
-                + '<input type="hidden" class="' + col.cssClass + '" data-header="' + _escHtml(col.header) + '" value="' + _escHtml(displayVal) + '">'
-                + '</td>';
-        });
-        cellsHtml += '<td class="text-center align-middle"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" onclick="garment_removeRosterRow(this)" title="Remove"><i class="fas fa-times"></i></button></td>';
-        tr.innerHTML = cellsHtml;
-        tbody.appendChild(tr);
-        added++;
-    });
-    if (added === 0 && empty) { tbody.appendChild(empty); empty.style.display = ''; empty.querySelector('td').colSpan = displayCols.length + 2; }
-    garment_updateRosterCount();
-    var input = document.getElementById('garment_excelInput');
-    if (input) input.value = '';
-    if (typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
-    if (typeof showToast === 'function') showToast(added > 0 ? (added + ' person' + (added > 1 ? 's' : '') + ' imported from Excel!') : 'No valid rows to import from Excel.', added > 0 ? 'success' : 'warning');
-};
-window.garment_getRosterData = function() {
-    var rows = document.querySelectorAll('#garment_rosterBody tr.roster-row');
-    var out = [];
-    rows.forEach(function(r) {
-        var nameEl = r.querySelector('.roster-name');
-        var sizeEl = r.querySelector('.roster-size');
-        var numEl = r.querySelector('.roster-number');
-        var qtyEl = r.querySelector('.roster-qty');
-        out.push({
-            name: nameEl ? nameEl.value : (r.querySelector('td:nth-child(2)') ? r.querySelector('td:nth-child(2)').textContent.trim() : ''),
-            number: numEl ? numEl.value : '',
-            size: sizeEl ? sizeEl.value : '',
-            qty: qtyEl ? (parseInt(qtyEl.value) || 1) : 1
-        });
-    });
-    return out;
-};
-window.garment_clearRoster = function() {
-    var tbody = document.getElementById('garment_rosterBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    var empty = document.getElementById('garment_rosterEmpty');
-    if (empty) { tbody.appendChild(empty); empty.style.display = ''; empty.querySelector('td').colSpan = 5; }
-    garment_updateRosterCount();
-    if (typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
-};
-
-// ===== GARMENT SPEC (Brand / Type-Collar / Color) + auto size pricing =====
-var garment_specItems = null;      // cached /api/products-for-box/garment items
-var garment_specLoading = false;
-
-window.garment_initSpec = function() {
-    // Attach gate listeners (idempotent)
-    ['garment_specBrand', 'garment_specType', 'garment_specColor', 'garment_specMaterial'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el && !el.dataset.specBound) {
-            el.dataset.specBound = '1';
-            el.addEventListener('input', function() { garment_updateSpecGate(); });
-            el.addEventListener('change', function() { garment_updateSpecGate(); });
-        }
-    });
-    garment_updateSpecGate();
-    if (garment_specItems || garment_specLoading) return;
-    garment_specLoading = true;
-    fetch('/api/products-for-box/garment', { headers: { 'Accept': 'application/json' } })
-        .then(function(r) { return r.json(); })
-        .then(function(items) {
-            garment_specItems = Array.isArray(items) ? items : [];
-            garment_specLoading = false;
-            function uniq(key) {
-                var seen = {};
-                garment_specItems.forEach(function(it) {
-                    var v = (it[key] || '').toString().trim();
-                    if (v) seen[v] = true;
-                });
-                return Object.keys(seen).sort();
-            }
-            function fill(listId, values) {
-                var dl = document.getElementById(listId);
-                if (!dl) return;
-                dl.innerHTML = '';
-                values.forEach(function(v) {
-                    var o = document.createElement('option');
-                    o.value = v;
-                    dl.appendChild(o);
-                });
-            }
-            fill('garment_specBrandOptions', uniq('brand'));
-            fill('garment_specTypeOptions', uniq('shirt_type'));
-            fill('garment_specColorOptions', uniq('color'));
-            fill('garment_specMaterialOptions', uniq('material'));
-        })
-        .catch(function() { garment_specLoading = false; });
-};
-
-window.garment_updateSpecGate = function() {
-    var brand = (document.getElementById('garment_specBrand') || {}).value || '';
-    var type = (document.getElementById('garment_specType') || {}).value || '';
-    var ready = brand.trim() !== '' && type.trim() !== '';
-    var btn = document.getElementById('garment_excelBtn');
-    var hint = document.getElementById('garment_excelGateHint');
-    if (btn) btn.disabled = !ready;
-    if (hint) hint.style.display = ready ? 'none' : '';
-    if (ready && garment_getRosterData && garment_getRosterData().length && typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
-};
-
-// Find the unit price for a given size using the selected Brand / Type-Collar / Color.
-window.garment_findItemPrice = function(size) {
-    if (!garment_specItems) return { price: null, reason: 'no-data' };
-    var brand = ((document.getElementById('garment_specBrand') || {}).value || '').trim().toUpperCase();
-    var type = ((document.getElementById('garment_specType') || {}).value || '').trim().toUpperCase();
-    var color = ((document.getElementById('garment_specColor') || {}).value || '').trim().toUpperCase();
-    var material = ((document.getElementById('garment_specMaterial') || {}).value || '').trim().toUpperCase();
-    var sz = (typeof normalizeSize === 'function' ? normalizeSize((size || '').toUpperCase()) : (size || '').toUpperCase());
-    var candidates = garment_specItems.filter(function(it) {
-        if ((it.brand || '').toUpperCase() !== brand) return false;
-        if ((it.shirt_type || '').toUpperCase() !== type) return false;
-        var itsize = (typeof normalizeSize === 'function' ? normalizeSize((it.size || '').toUpperCase()) : (it.size || '').toUpperCase());
-        if (itsize !== sz) return false;
-        if (color) {
-            var ic = (it.color || '').toUpperCase();
-            if (ic !== color && ic !== 'ALL COLOR') return false;
-        }
-        if (material) {
-            var im = (it.material || '').toUpperCase();
-            if (im !== material) return false;
-        }
-        return true;
-    });
-    if (!candidates.length) return { price: null, reason: 'no-match' };
-    var chosen = candidates[0];
-    return { price: parseFloat(chosen.base_price) || 0, reason: 'ok', color: chosen.color };
-};
-
-window.garment_computeSizePricing = function() {
-    var card = document.getElementById('garment_sizePricingCard');
-    var body = document.getElementById('garment_sizePricingBody');
-    var qtyEl = document.getElementById('garment_sizePricingQty');
-    var totEl = document.getElementById('garment_sizePricingTotal');
-    var rows = (typeof garment_getRosterData === 'function') ? garment_getRosterData() : [];
-    if (!rows.length) {
-        if (card) card.style.display = 'none';
-        if (body) body.innerHTML = '';
-        return { qty: 0, amount: 0, hasRows: false, missing: [], perSize: {} };
-    }
-    // Aggregate qty per size
-    var perSize = {};
-    rows.forEach(function(r) {
-        var s = (typeof normalizeSize === 'function' ? normalizeSize((r.size || '').toUpperCase()) : (r.size || '').toUpperCase()) || '—';
-        perSize[s] = (perSize[s] || 0) + (parseInt(r.qty) || 1);
-    });
-    var order = ['XS','S','M','L','XL','2XL','3XL','4XL','5XL','6XL','7XL','8XL'];
-    var keys = Object.keys(perSize).sort(function(a, b) {
-        var ia = order.indexOf(a), ib = order.indexOf(b);
-        if (ia < 0) ia = 99; if (ib < 0) ib = 99;
-        return ia - ib;
-    });
-    var html = '', totalQty = 0, totalAmt = 0, missing = [];
-    keys.forEach(function(s) {
-        var q = perSize[s];
-        var res = garment_findItemPrice(s);
-        totalQty += q;
-        if (res.price == null) {
-            missing.push(s);
-            html += '<div class="d-flex justify-content-between"><span>' + _escHtml(s) + ' × ' + q + '</span><span class="text-danger">no price</span></div>';
-        } else {
-            var amt = res.price * q;
-            totalAmt += amt;
-            html += '<div class="d-flex justify-content-between"><span>' + _escHtml(s) + ' × ' + q + ' <span class="text-muted">@ ₱' + res.price.toFixed(2) + '</span></span><span>₱' + amt.toFixed(2) + '</span></div>';
-        }
-    });
-    if (missing.length) {
-        html += '<div class="alert alert-warning py-1 px-2 mt-2 mb-0 small"><i class="fas fa-exclamation-triangle me-1"></i>Walang price row para sa: ' + _escHtml(missing.join(', ')) + ' (brand/type/color/size na pinili).</div>';
-    }
-    if (body) body.innerHTML = html;
-    if (qtyEl) qtyEl.textContent = totalQty;
-    if (totEl) totEl.textContent = '₱' + totalAmt.toFixed(2);
-    if (card) card.style.display = '';
-    return { qty: totalQty, amount: totalAmt, hasRows: true, missing: missing, perSize: perSize, keys: keys };
-};
-
-// ===== Garment Add-to-Cart gate =====
-// Blocks Add to Cart until lahat ng kailangan ay kumpleto.
-window.garment_cartMissing = function() {
-    var missing = [];
-    var v = function(id) { var el = document.getElementById(id); return el ? (el.value || '').trim() : ''; };
-
-    if (!v('garment_projectName')) missing.push('Project Name');
-    if (!v('garment_department')) missing.push('Shop / Department');
-
-    var rosterRows = (typeof garment_getRosterData === 'function') ? (garment_getRosterData() || []) : [];
-    if (rosterRows.length > 0) {
-        if (!v('garment_specBrand') || !v('garment_specType')) {
-            missing.push('Garment Specification (Brand / Type-Collar)');
-        }
-    } else {
-        var hasProductRow = false;
-        document.querySelectorAll('#garment_productRowsContainer .product-row').forEach(function(row) {
-            var sel = row.querySelector('.product-select');
-            var qty = parseInt((row.querySelector('.product-quantity') || {}).value) || 0;
-            if (sel && sel.value && qty > 0) hasProductRow = true;
-        });
-        if (!hasProductRow) missing.push('Products (o mag-upload ng Sizes with name)');
-    }
-
-    if (!v('garment_dateNeeded')) missing.push('Date Needed');
-    if (!window.garment_uploadedMockup || !window.garment_uploadedMockup.dataUrl) missing.push('Mock-up design');
-
-    var printType = v('garment_printTypeSelect');
-    if (!printType) {
-        missing.push('Print Type');
-    } else if (!window.garment_selectedPrintSizes || !window.garment_selectedPrintSizes.length) {
-        missing.push('Print Sizes');
-    }
-
-    if (!window.garment_orderSlipViewed) missing.push('Print Order Slip');
-    return missing;
-};
-
-window.garment_refreshCartGate = function() {
-    var btn = document.getElementById('garment_addItemBtn');
-    var hint = document.getElementById('garment_cartGateHint');
-    if (!btn) return;
-    var missing = window.garment_cartMissing();
-    var blocked = missing.length > 0;
-    btn.disabled = blocked;
-    btn.classList.toggle('disabled', blocked);
-    btn.title = blocked ? ('Kulang pa: ' + missing.join(', ')) : '';
-    if (hint) {
-        hint.style.display = blocked ? '' : 'none';
-        hint.innerHTML = blocked
-            ? '<i class="fas fa-lock me-1"></i>Kulang pa: ' + missing.map(function(m) { return _escHtml(m); }).join(', ')
-            : '';
-    }
-};
-
-// Live refresh ng gate habang nag-e-edit sa garment modal
-(function() {
-    var pending = null;
-    function schedule() {
-        var body = document.getElementById('garmentModalBody');
-        if (!body || body.style.display === 'none') return;
-        if (pending) return;
-        pending = setTimeout(function() { pending = null; window.garment_refreshCartGate(); }, 150);
-    }
-    ['input', 'change', 'click', 'keyup'].forEach(function(evt) {
-        document.addEventListener(evt, schedule, true);
-    });
-})();
-
-// Garment add to cart
-window.garment_addItemToCart = function() {
-    // Shop / department chosen in the modal (iPrint or Consol — different managers)
-    var department = ((document.getElementById('garment_department') || {}).value || 'iprint').toLowerCase();
-    if (['iprint', 'consol'].indexOf(department) === -1) department = 'iprint';
-
-    // Hard gate: huwag pahintulutan kung may kulang pa
-    var gateMissing = window.garment_cartMissing();
-    if (gateMissing.length) {
-        window.garment_refreshCartGate();
-        alert('Kulang pa bago ma-add sa cart:\n\n• ' + gateMissing.join('\n• '));
-        return;
-    }
-    var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
-    var subItems = [];
-    var validationError = false;
-    var dateNeededEl = document.getElementById('garment_dateNeeded');
-    if (dateNeededEl && !dateNeededEl.value) {
-        alert('Please select a Date Needed for this garment order.');
-        dateNeededEl.focus();
-        return;
-    }
-
-    // Validate Order Slip was printed (same gate as Full Sublimation)
-    if (!window.garment_orderSlipViewed) {
-        alert('Please click "Print Order Slip" first before adding to cart.');
-        return;
-    }
-
-    // Security gate: a mock-up design image is REQUIRED
-    if (!window.garment_uploadedMockup || !window.garment_uploadedMockup.dataUrl) {
-        alert('Kailangan munang mag-upload ng mock-up design image bago i-add sa cart.');
-        var mockupUploadEl = document.getElementById('garment_mockupUpload');
-        if (mockupUploadEl) mockupUploadEl.focus();
-        return;
-    }
-    var notes = document.getElementById('garment_productNotes');
-    var printTypeEl = document.getElementById('garment_printTypeSelect');
-
-    // Priority (mirrors Order Summary + print slip): if "Sizes with name" (roster)
-    // has rows, build items from size pricing and SKIP the Product Details rows.
-    var rosterArr = (typeof garment_getRosterData === 'function') ? garment_getRosterData() : [];
-    if (rosterArr.length > 0) {
-        var specBrand = ((document.getElementById('garment_specBrand') || {}).value || '').trim();
-        var specType = ((document.getElementById('garment_specType') || {}).value || '').trim();
-        var specColor = ((document.getElementById('garment_specColor') || {}).value || '').trim();
-        var specMaterial = ((document.getElementById('garment_specMaterial') || {}).value || '').trim();
-        var specShort = [specBrand, specType, specColor].filter(Boolean).join(' ').trim();
-        var sizeRes = (typeof garment_computeSizePricing === 'function') ? garment_computeSizePricing() : { keys: [], perSize: {}, missing: [] };
-        if (sizeRes.missing && sizeRes.missing.length) {
-            alert('Walang price para sa size: ' + sizeRes.missing.join(', ') + '.\nPaki-check ang Brand / Type / Color at ang size sa "Sizes with name".');
-            return;
-        }
-        (sizeRes.keys || Object.keys(sizeRes.perSize || {})).forEach(function(s) {
-            var q = (sizeRes.perSize || {})[s] || 0;
-            if (q <= 0) return;
-            var pRes = (typeof garment_findItemPrice === 'function') ? garment_findItemPrice(s) : { price: null };
-            if (pRes.price == null || pRes.price <= 0) return;
-            var label = ((specShort ? specShort + ' ' : '') + s).trim();
-            subItems.push({
-                productId: null,
-                name: label,
-                shortName: label,
-                brand: specBrand,
-                size: s,
-                color: specColor,
-                quantity: q,
-                unitPrice: pRes.price,
-                totalPrice: q * pRes.price,
-                fromRoster: true
-            });
-        });
-    } else {
-    rows.forEach(function(row, index) {
-        if (validationError) return;
-        var select = row.querySelector('.product-select');
-        var qtyInput = row.querySelector('.product-quantity');
-        if (!select || !qtyInput) return;
-        var selectedOption = select.options[select.selectedIndex];
-        var quantity = parseInt(qtyInput.value) || 0;
-        var price = selectedOption && selectedOption.value ? parseFloat(selectedOption.dataset.price) : 0;
-        if (!select.value) { alert('Please select a product for row ' + (index + 1)); select.focus(); validationError = true; return; }
-        if (quantity <= 0) { alert('Please enter valid quantity for row ' + (index + 1)); qtyInput.focus(); validationError = true; return; }
-        if (price <= 0) { alert('Invalid price for product in row ' + (index + 1)); validationError = true; return; }
-        var brand = selectedOption.dataset.brand || '';
-        var size = selectedOption.dataset.size || '';
-        var color = selectedOption.dataset.color || '';
-        var productName = selectedOption.dataset.productName || 'Unknown Product';
-        var shortName = [brand, color, size].filter(Boolean).join(' ');
-        if (!shortName) shortName = productName;
-        subItems.push({
-            productId: select.value,
-            name: productName,
-            shortName: shortName,
-            brand: brand,
-            size: size,
-            color: color,
-            quantity: quantity,
-            unitPrice: price,
-            totalPrice: quantity * price
-        });
-    });
-    }
-    if (validationError) return;
-    if (subItems.length === 0) { alert('Please add at least one product'); return; }
-    // Compute combined totals
-    var totalQty = 0;
-    var totalProductPrice = 0;
-    subItems.forEach(function(si) {
-        totalQty += si.quantity;
-        totalProductPrice += si.totalPrice;
-    });
-    // Build printing summary (mirroring garment_updatePrintSummary logic)
-    var printDetails = null;
-    if (garment_selectedPrintSizes && garment_selectedPrintSizes.length > 0) {
-        var printTypeName = printTypeEl ? printTypeEl.options[printTypeEl.selectedIndex]?.text || printTypeEl.value : '';
-        var printPrices = garment_printingData.prices || [];
-        var combos = garment_printingData.combos || [];
-        var selectedPrintNames = [];
-        // Resolve upgrades first so the receipt matches the sidebar
-        var resolvedSub = garment_resolvePrint(garment_selectedPrintSizes);
-        var effectiveSubSizes = resolvedSub.sizes;
-        var printCostRaw = parseFloat(resolvedSub.surcharge) || 0;
-        effectiveSubSizes.forEach(function(sizeId) {
-            for (var pi = 0; pi < printPrices.length; pi++) {
-                if (printPrices[pi].id === sizeId) {
-                    selectedPrintNames.push(printPrices[pi].name);
-                    printCostRaw += printPrices[pi].price;
-                    break;
-                }
-            }
-        });
-        var printQty = totalQty;
-        // Combo discount (same logic as garment_updatePrintSummary)
-        var comboDiscount = 0;
-        combos.forEach(function(c) {
-            if (effectiveSubSizes.indexOf(c.size1_id) !== -1 &&
-                effectiveSubSizes.indexOf(c.size2_id) !== -1) {
-                if (c.discount > comboDiscount) comboDiscount = c.discount;
-            }
-        });
-        var printCostAfterCombo = printCostRaw - comboDiscount;
-        var subtotalBeforeBulk = printCostAfterCombo * printQty;
-        // Bulk discount
-        var bulkTiers = garment_printingData.bulk_tiers || [];
-        var bulkDiscount = 0;
-        for (var bi = bulkTiers.length - 1; bi >= 0; bi--) {
-            var tier = bulkTiers[bi];
-            if (printQty >= tier.min && printQty <= tier.max) {
-                if (tier.type === 'percentage') {
-                    bulkDiscount = subtotalBeforeBulk * (tier.percent / 100);
-                } else if (tier.type === 'fixed') {
-                    bulkDiscount = tier.amount * printQty;
-                }
-                break;
-            }
-        }
-        // Special price override
-        var isSpecialPrice = window.garment_hasSpecialPrice || false;
-        var specialTotal = 0;
-        var specialReason = '';
-        if (isSpecialPrice) {
-            var spInput = document.getElementById('garment_specialPrintTotal');
-            var reasonInput = document.getElementById('garment_specialPriceReason');
-            if (spInput) specialTotal = parseFloat(spInput.value) || 0;
-            if (reasonInput) specialReason = reasonInput.value.trim();
-        }
-        printDetails = {
-            printType: printTypeName,
-            printSizes: selectedPrintNames,
-            printCostPerItem: isSpecialPrice && specialTotal > 0 ? (specialTotal / printQty) : printCostAfterCombo,
-            printQty: printQty,
-            printSubtotal: isSpecialPrice && specialTotal > 0 ? specialTotal : (subtotalBeforeBulk - bulkDiscount),
-            comboDiscount: comboDiscount,
-            bulkDiscount: bulkDiscount,
-            isSpecialPrice: isSpecialPrice,
-            specialTotal: isSpecialPrice ? specialTotal : 0,
-            specialReason: specialReason
-        };
-    }
-    // Create single garment order item
-    var garmentItem = {
-        id: Date.now(),
-        productType: 'garment',
-        department: department,
-        name: 'Garment Order',
-        totalQty: totalQty,
-        totalProductPrice: totalProductPrice,
-        quantity: totalQty,
-        unitPrice: totalProductPrice,
-        totalPrice: totalProductPrice,
-        date_needed: document.getElementById('garment_dateNeeded')?.value || '',
-        project_name: (document.getElementById('garment_projectName')?.value || '').trim(),
-        notes: notes ? notes.value.trim() : '',
-        timestamp: new Date().toISOString(),
-        subItems: subItems,
-        printing: printDetails,
-        sizesWithNames: (typeof garment_getRosterData === 'function') ? garment_getRosterData() : [],
-        mockup: (window.garment_uploadedMockup && window.garment_uploadedMockup.dataUrl) ? { name: window.garment_uploadedMockup.name, dataUrl: window.garment_uploadedMockup.dataUrl } : null
-    };
-    selectedItems.push(garmentItem);
-    updateSelectedItemsDisplay();
-    updateOrderSummary();
-    garment_clearMockup();
-    if (typeof garment_clearRoster === 'function') garment_clearRoster();
-    garment_clearPrintSelection();
-    if (typeof garment_initializeProductRows === 'function') garment_initializeProductRows();
-    /* Department auto-assigned; no reset needed */
-    var notesEl = document.getElementById('garment_productNotes');
-    if (notesEl) notesEl.value = '';
-    var modalEl = document.getElementById('productModal');
-    if (modalEl) {
-        var modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
-    }
-    showToast('Garment order added to cart!', 'success');
-};
-
-// ===== GARMENT ORDER SLIP (print preview before Add to Cart) =====
-window.garment_printOrderSlip = function() {
-    function gEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
-    function gVal(id) { var el = document.getElementById(id); return el ? (el.value || '') : ''; }
-
-    // Security gate: require a mock-up image before printing the slip too
-    if (!window.garment_uploadedMockup || !window.garment_uploadedMockup.dataUrl) {
-        alert('Kailangan munang mag-upload ng mock-up design image bago i-print ang Order Slip.');
-        var mockupUploadEl2 = document.getElementById('garment_mockupUpload');
-        if (mockupUploadEl2) mockupUploadEl2.focus();
-        return;
-    }
-
-    document.getElementById('gps_projectName').textContent = gVal('garment_projectName');
-    var gShop = gVal('garment_department');
-    var gShopLabel = document.getElementById('gps_shop');
-    if (gShopLabel) gShopLabel.textContent = (gShop === 'consol') ? 'CONSOL' : 'IPRINT';
-    var dn = gVal('garment_dateNeeded');
-    document.getElementById('gps_dateNeeded').textContent = (typeof formatDateDDMMYYYY === 'function') ? formatDateDDMMYYYY(dn) : dn;
-
-    // Ensure summary is fresh
-    if (typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
-    var qtyTxt = (document.getElementById('garment_totalQtyDisplay') || {}).textContent || '0';
-    var amtTxt = (document.getElementById('garment_totalAmountDisplay') || {}).textContent || '\u20B10.00';
-    document.getElementById('gps_qty').textContent = qtyTxt + ' PCS';
-    document.getElementById('gps_amount').textContent = amtTxt;
-
-    // Products table - follow same priority as Order Summary:
-    // if "Sizes with name" (roster) has rows, show per-size; else show Product Details rows.
-    var body = document.getElementById('gps_productsBody');
-    body.innerHTML = '';
-    var rosterArr = (typeof garment_getRosterData === 'function') ? garment_getRosterData() : [];
-    if (rosterArr.length > 0 && typeof garment_computeSizePricing === 'function') {
-        var specLbl = [gVal('garment_specBrand'), gVal('garment_specType'), gVal('garment_specColor'), gVal('garment_specMaterial')].filter(Boolean).join(' / ');
-        if (specLbl) body.innerHTML += '<tr><td colspan="4" style="text-align:left;font-weight:bold;">' + gEsc(specLbl) + ' <span style="font-weight:normal;color:#555;">(Sizes with name)</span></td></tr>';
-        var res = garment_computeSizePricing();
-        var keys = res.keys || Object.keys(res.perSize || {});
-        keys.forEach(function(s) {
-            var q = (res.perSize || {})[s] || 0;
-            var pRes = (typeof garment_findItemPrice === 'function') ? garment_findItemPrice(s) : { price: null };
-            var pr = pRes.price;
-            body.innerHTML += '<tr><td>' + gEsc(s) + '</td><td style="text-align:center;">' + q + '</td>'
-                + '<td style="text-align:right;">' + (pr != null ? ('\u20B1' + pr.toFixed(2)) : '\u2014') + '</td>'
-                + '<td style="text-align:right;">' + (pr != null ? ('\u20B1' + (pr * q).toFixed(2)) : '\u2014') + '</td></tr>';
-        });
-    } else {
-        document.querySelectorAll('#garment_productRowsContainer .product-row').forEach(function(row) {
-            var sel = row.querySelector('.product-select');
-            var qtyI = row.querySelector('.product-quantity');
-            if (!sel || !qtyI) return;
-            var opt = sel.options[sel.selectedIndex];
-            var q = parseInt(qtyI.value) || 0;
-            if (!opt || !opt.value || q === 0) return;
-            var price = opt.dataset.price ? parseFloat(opt.dataset.price) : 0;
-            var name = opt.dataset.productName || '';
-            var desc = [opt.dataset.brand, opt.dataset.color, opt.dataset.size].filter(Boolean).join(' / ');
-            body.innerHTML += '<tr><td>' + gEsc(name) + (desc ? ' <span style="color:#555;">(' + gEsc(desc) + ')</span>' : '') + '</td>'
-                + '<td style="text-align:center;">' + q + '</td>'
-                + '<td style="text-align:right;">\u20B1' + price.toFixed(2) + '</td>'
-                + '<td style="text-align:right;">\u20B1' + (q * price).toFixed(2) + '</td></tr>';
-        });
-    }
-    if (!body.innerHTML) body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#777;">No items</td></tr>';
-
-    // Printing options
-    var ptSel = document.getElementById('garment_printTypeSelect');
-    var ptText = ptSel && ptSel.selectedIndex > 0 ? ptSel.options[ptSel.selectedIndex].textContent : '';
-    var sizeNames = [];
-    document.querySelectorAll('#garment_printSizesList input[type=checkbox]:checked').forEach(function(cb) {
-        var lbl = cb.parentElement;
-        var sp = lbl ? lbl.querySelector('span') : null;
-        if (sp) sizeNames.push(sp.textContent.trim());
-    });
-    var poDiv = document.getElementById('gps_printOptions');
-    if (ptText || sizeNames.length) {
-        poDiv.innerHTML = (ptText ? '<div><b>Print Type:</b> ' + gEsc(ptText) + '</div>' : '')
-            + (sizeNames.length ? '<div><b>Print Sizes:</b> ' + gEsc(sizeNames.join(', ')) + '</div>' : '');
-    } else {
-        poDiv.innerHTML = '<div style="color:#777;">\u2014</div>';
-    }
-
-    // Mockup
-    var mp = document.getElementById('garment_mockupPreview');
-    var mImg = document.getElementById('gps_mockupImg');
-    var mPh = document.getElementById('gps_mockupPlaceholder');
-    if (mp && mp.src && mp.style.display !== 'none') { mImg.src = mp.src; mImg.style.display = ''; mPh.style.display = 'none'; }
-    else { mImg.style.display = 'none'; mPh.style.display = ''; }
-
-    // Name list (roster) - dynamic columns
-    var rBody = document.getElementById('gps_rosterBody');
-    var rTable = document.getElementById('gps_rosterTable');
-    rBody.innerHTML = '';
-    var rRows = document.querySelectorAll('#garment_rosterBody tr.roster-row');
-    if (rRows.length) {
-        var hdr = document.getElementById('garment_rosterHeader');
-        var cols = ['#'];
-        if (hdr) { var ths = hdr.querySelectorAll('th'); for (var ci = 1; ci < ths.length - 1; ci++) cols.push((ths[ci].textContent || '').trim()); }
-        else { cols = ['#', 'NAME', 'SIZE', 'QTY']; }
-        var thead = rTable.querySelector('thead'); if (!thead) { thead = document.createElement('thead'); rTable.insertBefore(thead, rBody); }
-        var hh = '<tr>'; cols.forEach(function(h) { hh += '<th>' + gEsc(h) + '</th>'; }); hh += '</tr>';
-        thead.innerHTML = hh;
-        var idx = 1;
-        rRows.forEach(function(row) {
-            var tds = row.querySelectorAll('td'); if (tds.length < 2) return;
-            var cells = []; for (var i = 1; i < tds.length - 1; i++) cells.push(tds[i]);
-            if (!cells.some(function(td) { return (td.textContent || '').trim() !== ''; })) return;
-            var rh = '<tr><td>' + (idx++) + '</td>';
-            cells.forEach(function(td) { rh += '<td style="text-align:left;">' + gEsc((td.textContent || '').trim()) + '</td>'; });
-            rh += '</tr>'; rBody.innerHTML += rh;
-        });
-    } else {
-        var thead2 = rTable.querySelector('thead'); if (thead2) thead2.innerHTML = '';
-        rBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#777;">No names</td></tr>';
-    }
-
-    // Note
-    var notes = gVal('garment_productNotes');
-    document.getElementById('gps_note').textContent = notes ? 'Note: ' + notes : '';
-    if (typeof window.garment_refreshCartGate === 'function') window.garment_refreshCartGate();
-
-    // Print
-    var slip = document.getElementById('garment_printSlip');
-    document.body.classList.add('gps-printing');
-    slip.style.display = 'block';
-    window.print();
-    slip.style.display = 'none';
-    document.body.classList.remove('gps-printing');
-
-    // Mark as viewed (gate for Add to Cart)
-    window.garment_orderSlipViewed = true;
-    var btn = document.getElementById('garment_printOrderSlip');
-    if (btn) {
-        btn.classList.remove('btn-outline-info');
-        btn.classList.add('btn-success');
-        btn.innerHTML = '<i class="fas fa-check me-2"></i> Order Slip Printed';
-    }
-};
+@include('partials.garment-print-modal-script')
 
 // ======================
 // SUBLIMATION PRINTING MODAL

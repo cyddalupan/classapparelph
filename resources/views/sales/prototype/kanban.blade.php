@@ -1105,6 +1105,7 @@
 <!-- LIGHTBOX overlay is created dynamically by JS (avoids Bootstrap modal repaint issues) -->
 
 @include('partials.sublimation-show-modal')
+@include('partials.garment-show-modal')
 
 <div id="confirmDeleteCommentModal" class="cm-overlay" onclick="if(event.target===this)cancelDeleteComment()">
     <div class="cm-modal" style="max-width:420px;">
@@ -1740,6 +1741,20 @@ window.kanbanOpenSubAddProductModal = function() {
             badge.style.display = '';
         }
         
+        // Department-aware dispatch: iPrint/Consol -> Garment modal, Class -> Sublimation
+        var dept = String(data.department_code || '').toLowerCase();
+        if (['iprint', 'consol'].indexOf(dept) !== -1 && typeof window.gadd_open === 'function') {
+            gadd_open({
+                mode: 'add',
+                saleId: saleId,
+                department: dept,
+                customerName: data.customer_name || '',
+                saleNumber: data.sales_number || '',
+                submitUrl: '/sales/prototype/' + saleId + '/add-product'
+            });
+            return;
+        }
+
         // Open the modal with sale data
         var saleData = {
             services: [],

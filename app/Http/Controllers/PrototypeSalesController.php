@@ -1184,6 +1184,24 @@ class PrototypeSalesController extends Controller
         $deptCount = count($deptGroups);
         $accumulatedDeposit = 0;
         $accumulatedTax = 0;
+
+        // MANUAL PAYMENT SEPARATION (Andrew, 2026-11-06): ang UI sa create form ay
+        // nagpapadala ng `dept_deposits[dept_code] => amount`. Kung may binigay,
+        // iyon ang gamitin. Kung wala, auto-split na WALANG BUTAL — naka-round
+        // pababa sa multiples of 50, at ang huling department ang kukuha ng
+        // natitira (hal. 2500/3000, down 1500 -> iPrint 650, Class 850).
+        $manualDeptDeposits = [];
+        $deptDepositInput = $request->input('dept_deposits');
+        if ($isMultiDept && is_array($deptDepositInput)) {
+            foreach ($deptDepositInput as $mdCode => $mdAmt) {
+                if (!is_numeric($mdAmt)) continue;
+                $manualDeptDeposits[$mdCode] = max(0, round((float) $mdAmt, 2));
+            }
+            // Kung sobra sa overall deposit, huwag gamitin ang manual values.
+            if (array_sum($manualDeptDeposits) - (float) $overallDeposit > 0.01) {
+                $manualDeptDeposits = [];
+            }
+        }
         
         foreach ($deptGroups as $deptCode => $items) {
             $deptIndex++;
@@ -1228,12 +1246,18 @@ class PrototypeSalesController extends Controller
                 $deptTotal = $deptItemTotal;
                 // Proportionally split deposit and tax based on item share
                 $proportion = $totalItemSum > 0 ? ($deptItemTotal / $totalItemSum) : (1 / $deptCount);
-                if ($deptIndex == $deptCount) {
+
+                if (isset($manualDeptDeposits[$deptCode])) {
+                    // Manual separation mula sa UI
+                    $deptDeposit = $manualDeptDeposits[$deptCode];
+                    $deptTax = round($overallTax * $proportion, 2);
+                } elseif ($deptIndex == $deptCount) {
                     // Last department: take remainder to ensure exact match
                     $deptDeposit = round($overallDeposit - $accumulatedDeposit, 2);
                     $deptTax = round($overallTax - $accumulatedTax, 2);
                 } else {
-                    $deptDeposit = round($overallDeposit * $proportion, 2);
+                    // Walang butal: floor sa nearest 50 (hal. 681.82 -> 650)
+                    $deptDeposit = floor(($overallDeposit * $proportion) / 50) * 50;
                     $deptTax = round($overallTax * $proportion, 2);
                 }
                 // Cap deposit to department total to prevent negative balance
@@ -1718,11 +1742,15 @@ public function details(Request $request, string $id)
         $agentShort = $sale->sales_agent_name ? trim(explode(' ', trim($sale->sales_agent_name))[0]) : '';
         $modalTitle = $productLabel ? $productLabel . ($agentShort ? ' - ' . $agentShort : '') : ('Sale: ' . $sale->customer_name);
         
+        $deptCode = $this->departmentCodeForSale($sale);
         return response()->json([
             'html' => $html,
             'title' => $modalTitle . ' (#' . $sale->sales_number . ')',
             'can_addon' => !in_array($sale->kanban_status, ['delivered', 'completed']),
-            'firstServiceName' => $firstServiceName
+            'firstServiceName' => $firstServiceName,
+            'department_code' => $deptCode,
+            'customer_name' => $sale->customer_name,
+            'sales_number' => $sale->sales_number
         ]);
     }
 
@@ -3137,6 +3165,168 @@ public function details(Request $request, string $id)
         return empty($parts) ? 'No changes detected' : implode('; ', $parts);
     }
 
+    /**
+     * Resolve a sale's department CODE (iprint/consol/class/cinco) from its
+     * department_id. prototype_sales has no department_code column, so items
+     * added via add-product/reprocess used to fall back to "class".
+     */
+    private function departmentCodeForSale($sale): string
+    {
+        if (!$sale) return 'class';
+        $code = null;
+        if (!empty($sale->department_id)) {
+            $code = \DB::table('sales_departments')->where('id', $sale->department_id)->value('code');
+        }
+        if (!$code && !empty($sale->department_name)) {
+            $code = \DB::table('sales_departments')->where('name', $sale->department_name)->value('code');
+        }
+        return $code ?: 'class';
+    }
+
+    /**
+     * Save a base64 data-URL image to public/<subdir> and return the public URL.
+     * Returns the original value if it is not a data URL (already a path/URL).
+     */
+    private function saveDataUrlImage(string $dataUrl, string $baseName, string $subdir): string
+    {
+        if (!preg_match('/^data:image\/(\w+);base64,/', $dataUrl, $m)) {
+            return $dataUrl;
+        }
+        $ext = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+        $decoded = base64_decode(substr($dataUrl, strpos($dataUrl, ',') + 1));
+        if ($decoded === false) return '';
+        try {
+            $opt = ImageOptimizer::optimizeBinary($decoded);
+            if ($opt !== null) { [$ext, $decoded] = $opt; }
+        } catch (\Throwable $e) { /* keep original bytes */ }
+        $dir = public_path($subdir);
+        if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+        $filename = $baseName . '.' . $ext;
+        file_put_contents($dir . '/' . $filename, $decoded);
+        return asset($subdir . '/' . $filename);
+    }
+
+    /**
+     * Production-slip payload para sa GARMENT item (iPrint / Consol).
+     * Walang sublimationForm ang garment items — nasa printing / sizesWithNames
+     * / subItems ang detalye. Tinatawag ito ng getProductionChecklist().
+     */
+    private function buildGarmentSlip(array $item, int $index): array
+    {
+        $printing = is_array($item['printing'] ?? null) ? $item['printing'] : [];
+        $sizesWithNames = is_array($item['sizesWithNames'] ?? null) ? $item['sizesWithNames'] : [];
+        $subItems = is_array($item['subItems'] ?? null) ? $item['subItems'] : [];
+        $sizeDetails = is_array($item['sizeDetails'] ?? null) ? $item['sizeDetails'] : [];
+
+        $partRows = [];
+        $productNames = [];
+        $fabric = '';
+        foreach ($subItems as $si) {
+            if (!is_array($si)) continue;
+            $nm = trim((string) ($si['name'] ?? $si['shortName'] ?? ''));
+            $q = intval($si['quantity'] ?? $si['qty'] ?? 0);
+            $desc = array_values(array_filter([
+                $si['brand'] ?? '', $si['color'] ?? '', $si['size'] ?? '',
+            ], fn ($v) => trim((string) $v) !== ''));
+            $label = $nm !== '' ? $nm : implode(' / ', $desc);
+            if ($label !== '') {
+                $productNames[] = $label . ($q > 0 ? ' ×' . $q : '');
+            }
+            if ($fabric === '' && !empty($si['material'])) {
+                $fabric = trim((string) $si['material']);
+            }
+        }
+        if (!empty($productNames)) {
+            $partRows[] = ['part' => 'Products', 'detail' => implode(', ', $productNames)];
+        }
+        $printType = trim((string) ($printing['printType'] ?? ''));
+        if ($printType !== '') {
+            $partRows[] = ['part' => 'Print Type', 'detail' => $printType];
+        }
+        $pSizes = $printing['printSizes'] ?? [];
+        if (is_array($pSizes) && !empty($pSizes)) {
+            $partRows[] = ['part' => 'Print Sizes', 'detail' => implode(', ', array_map('strval', $pSizes))];
+        }
+        if (!empty($printing['isSpecialPrice'])) {
+            $reason = trim((string) ($printing['specialPriceReason'] ?? ''));
+            $partRows[] = ['part' => 'Special Price', 'detail' => $reason !== '' ? $reason : 'Yes'];
+        }
+
+        // Roster — "Sizes with name"
+        $rosters = [];
+        foreach ($sizesWithNames as $r) {
+            if (!is_array($r)) continue;
+            $q = intval($r['qty'] ?? $r['number'] ?? 0);
+            $rosters[] = [
+                'name' => trim((string) ($r['name'] ?? '')),
+                'size' => trim((string) ($r['size'] ?? '')),
+                'number' => $r['number'] ?? $q,
+                'qty' => $q > 0 ? $q : 1,
+            ];
+        }
+
+        // Sizes — kapag walang roster, galing sa sizeDetails; kung wala rin,
+        // i-aggregate ang subItems per size (para may laman ang NAME LIST/sizes).
+        $sizes = [];
+        if (empty($rosters)) {
+            foreach ($sizeDetails as $sd) {
+                if (!is_array($sd)) continue;
+                $q = intval($sd['qty'] ?? $sd['quantity'] ?? 0);
+                if ($q <= 0) continue;
+                $sizes[] = ['size' => (string) ($sd['size'] ?? ''), 'quantity' => $q, 'qty' => $q];
+            }
+            if (empty($sizes)) {
+                $agg = [];
+                foreach ($subItems as $si2) {
+                    if (!is_array($si2)) continue;
+                    $sz = trim((string) ($si2['size'] ?? ''));
+                    $q = intval($si2['quantity'] ?? $si2['qty'] ?? 0);
+                    if ($q <= 0) continue;
+                    if (!isset($agg[$sz])) $agg[$sz] = 0;
+                    $agg[$sz] += $q;
+                }
+                foreach ($agg as $sz => $q) {
+                    $sizes[] = ['size' => (string) $sz, 'quantity' => $q, 'qty' => $q];
+                }
+            }
+        }
+
+        $totalQty = intval($item['quantity'] ?? $item['totalQty'] ?? 0);
+        if ($totalQty === 0) {
+            foreach ($rosters as $r) { $totalQty += intval($r['qty'] ?? 1); }
+            if ($totalQty === 0) {
+                foreach ($sizes as $sz) { $totalQty += intval($sz['quantity'] ?? 0); }
+            }
+        }
+
+        $mockup = $item['mockupUrl'] ?? $item['mockup'] ?? null;
+        if (is_array($mockup)) {
+            // Garment items store mockup as {name, dataUrl} — dataUrl ay public path
+            $mockup = $mockup['url'] ?? ($mockup['dataUrl'] ?? null);
+        }
+        $mockupUrl = is_string($mockup) ? $mockup : null;
+        if ($mockupUrl && str_starts_with($mockupUrl, '/')) {
+            $mockupUrl = asset(ltrim($mockupUrl, '/'));
+        }
+
+        return [
+            'product' => $index,
+            'itemId' => $item['id'] ?? null,
+            'itemName' => $item['name'] ?? ('Product #' . ($index + 1)),
+            'projectName' => (string) ($item['project_name'] ?? ''),
+            'description' => (string) ($item['notes'] ?? ''),
+            'fabric' => $fabric,
+            'designer' => '',
+            'totalQty' => $totalQty,
+            'dateNeeded' => (string) ($item['date_needed'] ?? ''),
+            'partRows' => $partRows,
+            'allRosters' => $rosters,
+            'sizes' => $sizes,
+            'hasRoster' => !empty($rosters),
+            'mockupUrl' => $mockupUrl,
+        ];
+    }
+
     public function addProduct(Request $request, string $id)
     {
         $sale = \DB::table('prototype_sales')->find($id);
@@ -3161,9 +3351,16 @@ public function details(Request $request, string $id)
         if (empty($rawSizes) && $request->has('sublimationForm.sizes')) {
             $rawSizes = $request->input('sublimationForm.sizes', []);
         }
+        // Garment add-on form sends sizes under sizesWithNames (name/size/qty).
+        if (empty($rawSizes) && $request->has('sizesWithNames')) {
+            $rawSizes = $request->input('sizesWithNames', []);
+        }
         $unitPrice = $request->input('unit_price', $request->input('unitPrice', 0));
         $sublimationForm = $request->input('sublimationForm', null);
         $productType = $request->input('productType', 'cutting');
+        // prototype_sales stores department_id/department_name only — resolve the
+        // code so add-on items inherit the REAL shop (iPrint/Consol), not class.
+        $saleDeptCode = $this->departmentCodeForSale($sale);
 
         if (!auth()->check()) {
             return response()->json(['success' => false, 'message' => 'You must be logged in to add products.'], 401);
@@ -3187,6 +3384,26 @@ public function details(Request $request, string $id)
                 $entry['name'] = $sd['name'];
             }
             $sizeDetails[] = $entry;
+        }
+
+        // ── GARMENT: walang roster? kunin ang sizes/qty sa subItems ──────
+        // Ang garment form (Create Sale / Add Product / Reprocess) ay may
+        // product rows (subItems) at/o "Sizes with name" (sizesWithNames).
+        // Kung walang roster rows, i-derive ang sizeDetails sa subItems para
+        // hindi tumama sa "At least one size/quantity is required".
+        if (empty($sizeDetails) && $productType === 'garment') {
+            foreach ((array) $request->input('subItems', []) as $si) {
+                $q = intval($si['quantity'] ?? $si['qty'] ?? 0);
+                if ($q <= 0) continue;
+                $entry = [
+                    'size' => $si['size'] ?? 'M',
+                    'qty' => $q,
+                    'quantity' => $q,
+                ];
+                $label = trim((string) ($si['shortName'] ?? $si['name'] ?? ''));
+                if ($label !== '') $entry['name'] = $label;
+                $sizeDetails[] = $entry;
+            }
         }
 
         if (empty($sizeDetails)) {
@@ -3232,13 +3449,31 @@ public function details(Request $request, string $id)
         $item = [
             'id' => $newId,
             'name' => $productName,
-            'productType' => $productType === 'fullsublimation' ? 'fullsublimation' : 'cutting',
+            'productType' => in_array($productType, ['fullsublimation', 'garment'], true) ? $productType : 'cutting',
             'quantity' => $totalQty,
             'unitPrice' => $unitPrice,
             'totalPrice' => $itemTotal,
-            'department' => $sale->department_code ?? 'class',
+            'department' => $saleDeptCode,
             'sizeDetails' => $sizeDetails,
         ];
+
+        // ── GARMENT item (iPrint / Consol) ────────────────────────────────
+        // Keep printing options + roster + project name. Garment items have no
+        // sublimationForm, so the mockup is stored on the item itself.
+        if ($productType === 'garment') {
+            $item['printing'] = $request->input('printing', []);
+            $item['sizesWithNames'] = $request->input('sizesWithNames', []);
+            $item['subItems'] = $request->input('subItems', []);
+            if ($request->filled('project_name')) {
+                $item['project_name'] = $request->input('project_name');
+            }
+            $gMockup = $request->input('mockup', '');
+            if (is_string($gMockup) && $gMockup !== '') {
+                $saved = $this->saveDataUrlImage($gMockup, 'mockup_' . $id . '_' . $newId . '_' . time(), 'uploads/mockups');
+                $item['mockupUrl'] = $saved;
+                $item['mockup'] = $saved;
+            }
+        }
 
         if ($sublimationForm && is_array($sublimationForm)) {
             // NORMALIZE: Convert JS key names to view-expected key names
@@ -3452,9 +3687,14 @@ public function details(Request $request, string $id)
         if (empty($rawSizes) && $request->has('sublimationForm.sizes')) {
             $rawSizes = $request->input('sublimationForm.sizes', []);
         }
+        // Garment reprocess form sends sizes under sizesWithNames.
+        if (empty($rawSizes) && $request->has('sizesWithNames')) {
+            $rawSizes = $request->input('sizesWithNames', []);
+        }
         $unitPrice = $request->input('unit_price', $request->input('unitPrice', 0));
         $sublimationForm = $request->input('sublimationForm', null);
         $productType = $request->input('productType', 'cutting');
+        $saleDeptCode = $this->departmentCodeForSale($sale);
 
         if (!auth()->check()) {
             return response()->json(['success' => false, 'message' => 'You must be logged in to reprocess orders.'], 401);
@@ -3487,6 +3727,26 @@ public function details(Request $request, string $id)
             $entry = ['size' => $sd['size'] ?? 'M', 'qty' => $qty, 'quantity' => $qty]; // normalized: both keys so views never show 0
             if (!empty($sd['name'])) $entry['name'] = $sd['name'];
             $sizeDetails[] = $entry;
+        }
+
+        // ── GARMENT: walang roster? kunin ang sizes/qty sa subItems ──────
+        // Ang garment form (Create Sale / Add Product / Reprocess) ay may
+        // product rows (subItems) at/o "Sizes with name" (sizesWithNames).
+        // Kung walang roster rows, i-derive ang sizeDetails sa subItems para
+        // hindi tumama sa "At least one size/quantity is required".
+        if (empty($sizeDetails) && $productType === 'garment') {
+            foreach ((array) $request->input('subItems', []) as $si) {
+                $q = intval($si['quantity'] ?? $si['qty'] ?? 0);
+                if ($q <= 0) continue;
+                $entry = [
+                    'size' => $si['size'] ?? 'M',
+                    'qty' => $q,
+                    'quantity' => $q,
+                ];
+                $label = trim((string) ($si['shortName'] ?? $si['name'] ?? ''));
+                if ($label !== '') $entry['name'] = $label;
+                $sizeDetails[] = $entry;
+            }
         }
 
         if (empty($sizeDetails)) {
@@ -3526,13 +3786,29 @@ public function details(Request $request, string $id)
         $item = [
             'id' => $newId,
             'name' => $productName,
-            'productType' => $productType === 'fullsublimation' ? 'fullsublimation' : 'cutting',
+            'productType' => in_array($productType, ['fullsublimation', 'garment'], true) ? $productType : 'cutting',
             'quantity' => $totalQty,
             'unitPrice' => $unitPrice,
             'totalPrice' => $itemTotal,
-            'department' => $sale->department_code ?? 'class',
+            'department' => $saleDeptCode,
             'sizeDetails' => $sizeDetails,
         ];
+
+        // ── GARMENT reprocess item (iPrint / Consol) ──────────────────────
+        if ($productType === 'garment') {
+            $item['printing'] = $request->input('printing', []);
+            $item['sizesWithNames'] = $request->input('sizesWithNames', []);
+            $item['subItems'] = $request->input('subItems', []);
+            if ($request->filled('project_name')) {
+                $item['project_name'] = $request->input('project_name');
+            }
+            $gMockup = $request->input('mockup', '');
+            if (is_string($gMockup) && $gMockup !== '') {
+                $saved = $this->saveDataUrlImage($gMockup, 'mockup_' . $id . '_' . $newId . '_' . time(), 'uploads/mockups');
+                $item['mockupUrl'] = $saved;
+                $item['mockup'] = $saved;
+            }
+        }
 
         if ($sublimationForm && is_array($sublimationForm)) {
             $normalized = $sublimationForm;
@@ -3839,17 +4115,36 @@ $services = json_decode($sale->services, true);
         // isRemoteEnabled = false, so /storage/... URLs would render broken.
         // Resolve stored files back to data URIs, then compress.
         foreach ($services as &$svc) {
-            $sf = &$svc['sublimationForm'];
-            if (!empty($sf)) {
+            if (isset($svc['sublimationForm']) && is_array($svc['sublimationForm'])) {
+                $sf = &$svc['sublimationForm'];
                 if (!empty($sf['mockupUrl'])) {
                     $sf['mockupUrl'] = $this->compressMockupImage(\App\Support\MockupStorage::toPdfSrc($sf['mockupUrl']));
                 }
                 if (!empty($sf['mockup'])) {
                     $sf['mockup'] = $this->compressMockupImage(\App\Support\MockupStorage::toPdfSrc($sf['mockup']));
                 }
+                unset($sf);
+            }
+
+            // GARMENT item (iPrint/Consol): mockup nasa item mismo, hindi sa
+            // sublimationForm. DomPDF has isRemoteEnabled=false, kaya kailangan
+            // i-inline as data URI kung hindi putol na image sa PDF.
+            if (($svc['productType'] ?? '') === 'garment') {
+                // Mockup shape: {name, dataUrl: "/storage/..."} o plain URL/path.
+                $rawMk = $svc['mockupUrl'] ?? $svc['mockup'] ?? null;
+                $mkPath = null;
+                if (is_array($rawMk)) {
+                    $mkPath = $rawMk['dataUrl'] ?? $rawMk['url'] ?? $rawMk['path'] ?? null;
+                } elseif (is_string($rawMk)) {
+                    $mkPath = $rawMk;
+                }
+                if (is_string($mkPath) && $mkPath !== '') {
+                    $svc['mockupUrl'] = $this->compressMockupImage(\App\Support\MockupStorage::toPdfSrc($mkPath));
+                }
+                unset($svc['mockup']);
             }
         }
-        unset($svc, $sf);
+        unset($svc);
         
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('sales.prototype.print-slip', compact('sale', 'services') + ['pdfMode' => true]);
         $pdf->setPaper('A4', 'landscape');
@@ -3925,9 +4220,18 @@ $services = json_decode($sale->services, true);
         // No more `break` after the first one.
         $slips = [];
         foreach ($services as $si => $item) {
-            if (!isset($item['sublimationForm'])) continue;
             $itemId = $item['id'] ?? null;
             if ($itemId && isset($additionalIds[$itemId])) continue; // additional -> separate slip
+
+            // GARMENT item (iPrint / Consol): walang sublimationForm, kaya dati
+            // blanko ang buong Production Slip. Buuin mula sa printing /
+            // sizesWithNames / subItems.
+            if (!isset($item['sublimationForm'])) {
+                if (($item['productType'] ?? '') === 'garment') {
+                    $slips[] = $this->buildGarmentSlip($item, count($slips));
+                }
+                continue;
+            }
 
             $sf = $item['sublimationForm'];
             $specs = $sf['specifications'] ?? [];
@@ -4297,6 +4601,31 @@ $services = json_decode($sale->services, true);
             $qty = $item['quantity'] ?? 0;
             $price = $item['totalPrice'] ?? 0;
             $sf = $item['sublimationForm'] ?? [];
+
+            // ── GARMENT item (iPrint / Consol) ────────────────────────
+            // Walang sublimationForm ang garment items, kaya dati blanko ang
+            // card sa Additional Production Slip. Gamitin ang buildGarmentSlip().
+            if (empty($sf) && ($item['productType'] ?? '') === 'garment') {
+                $g = $this->buildGarmentSlip($item, count($productCards));
+                $productCards[] = [
+                    'item_id' => $itemId,
+                    'name' => $g['itemName'],
+                    'quantity' => $g['totalQty'],
+                    'totalPrice' => $price,
+                    'fabric' => $g['fabric'],
+                    'sizes' => $g['sizes'],
+                    'roster' => $g['allRosters'],
+                    'partRows' => $g['partRows'],
+                    'hasMockup' => !empty($g['mockupUrl']),
+                    'mockupUrl' => $g['mockupUrl'],
+                    'description' => $g['description'],
+                    'designer' => '',
+                    'dateNeeded' => $g['dateNeeded'],
+                    'rosterMode' => $g['hasRoster'],
+                ];
+                continue;
+            }
+
             $mockup = $sf['mockup'] ?? $sf['mockupData'] ?? $sf['mockupUrl'] ?? null;
             $rawFabric = $sf['fabric'] ?? '';
             $fabric = is_string($rawFabric) ? $rawFabric : ($rawFabric['name'] ?? '');

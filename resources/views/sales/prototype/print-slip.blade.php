@@ -140,6 +140,113 @@
         $slipDataList[] = buildSlipData($sf, $sale, $allRosters);
     }
 
+    // ── GARMENT items (iPrint / Consol) ───────────────────────────────
+    // Walang sublimationForm ang garment items — kaya dati "No sublimation
+    // products found." ang buong Print Slip. Buuin mula sa printing /
+    // sizesWithNames / subItems, kaparehong layout.
+    foreach ($services as $si => $gItem) {
+        if (!is_array($gItem) || isset($gItem['sublimationForm'])) continue;
+        if (($gItem['productType'] ?? '') !== 'garment') continue;
+
+        $gPrinting = is_array($gItem['printing'] ?? null) ? $gItem['printing'] : [];
+        $gNames = is_array($gItem['sizesWithNames'] ?? null) ? $gItem['sizesWithNames'] : [];
+        $gSubs = is_array($gItem['subItems'] ?? null) ? $gItem['subItems'] : [];
+        $gDetails = is_array($gItem['sizeDetails'] ?? null) ? $gItem['sizeDetails'] : [];
+
+        $gPartRows = [];
+        $gProducts = [];
+        $gFabric = '';
+        foreach ($gSubs as $gs) {
+            if (!is_array($gs)) continue;
+            $gNm = trim((string) ($gs['name'] ?? $gs['shortName'] ?? ''));
+            $gQ = intval($gs['quantity'] ?? $gs['qty'] ?? 0);
+            $gDesc = array_values(array_filter([
+                $gs['brand'] ?? '', $gs['color'] ?? '', $gs['size'] ?? '',
+            ], fn ($v) => trim((string) $v) !== ''));
+            $gLabel = $gNm !== '' ? $gNm : implode(' / ', $gDesc);
+            if ($gLabel !== '') $gProducts[] = $gLabel . ($gQ > 0 ? ' ×' . $gQ : '');
+            if ($gFabric === '' && !empty($gs['material'])) $gFabric = trim((string) $gs['material']);
+        }
+        if (!empty($gProducts)) $gPartRows[] = ['part' => 'Products', 'detail' => implode(', ', $gProducts)];
+        $gPrintType = trim((string) ($gPrinting['printType'] ?? ''));
+        if ($gPrintType !== '') $gPartRows[] = ['part' => 'Print Type', 'detail' => $gPrintType];
+        if (!empty($gPrinting['printSizes']) && is_array($gPrinting['printSizes'])) {
+            $gPartRows[] = ['part' => 'Print Sizes', 'detail' => implode(', ', array_map('strval', $gPrinting['printSizes']))];
+        }
+        if (!empty($gPrinting['isSpecialPrice'])) {
+            $gReason = trim((string) ($gPrinting['specialPriceReason'] ?? ''));
+            $gPartRows[] = ['part' => 'Special Price', 'detail' => $gReason !== '' ? $gReason : 'Yes'];
+        }
+
+        $gRoster = [];
+        foreach ($gNames as $gr) {
+            if (!is_array($gr)) continue;
+            $gRoster[] = [
+                'name' => (string) ($gr['name'] ?? ''),
+                'size' => (string) ($gr['size'] ?? ''),
+                'number' => $gr['number'] ?? ($gr['qty'] ?? ''),
+                'qty' => intval($gr['qty'] ?? $gr['number'] ?? 1),
+            ];
+        }
+
+        $gSizes = [];
+        if (empty($gRoster)) {
+            foreach ($gDetails as $gd) {
+                $gQty = intval($gd['qty'] ?? $gd['quantity'] ?? 0);
+                if ($gQty <= 0) continue;
+                $gSizes[] = ['size' => (string) ($gd['size'] ?? ''), 'quantity' => $gQty, 'qty' => $gQty];
+            }
+            if (empty($gSizes)) {
+                $gAgg = [];
+                foreach ($gSubs as $gs2) {
+                    if (!is_array($gs2)) continue;
+                    $gSz = trim((string) ($gs2['size'] ?? ''));
+                    $gQ2 = intval($gs2['quantity'] ?? $gs2['qty'] ?? 0);
+                    if ($gQ2 <= 0) continue;
+                    if (!isset($gAgg[$gSz])) $gAgg[$gSz] = 0;
+                    $gAgg[$gSz] += $gQ2;
+                }
+                foreach ($gAgg as $gSz => $gQ2) {
+                    $gSizes[] = ['size' => (string) $gSz, 'quantity' => $gQ2, 'qty' => $gQ2];
+                }
+            }
+        }
+
+        $gTotalQty = intval($gItem['quantity'] ?? 0);
+        if ($gTotalQty === 0) {
+            foreach ($gRoster as $gr2) { $gTotalQty += intval($gr2['qty'] ?? 1); }
+            if ($gTotalQty === 0) {
+                foreach ($gSizes as $gz) { $gTotalQty += intval($gz['quantity'] ?? 0); }
+            }
+        }
+
+        $gMockup = $gItem['mockupUrl'] ?? $gItem['mockup'] ?? '';
+        if (is_array($gMockup)) $gMockup = $gMockup['url'] ?? ($gMockup['dataUrl'] ?? '');
+        if (is_string($gMockup) && $gMockup !== '' && $gMockup[0] === '/') $gMockup = asset(ltrim($gMockup, '/'));
+        if (!$gMockup) {
+            $saleMockups = is_string($sale->mockup_images) ? json_decode($sale->mockup_images, true) : ($sale->mockup_images ?? []);
+            if (!empty($saleMockups[0]['url'])) $gMockup = $saleMockups[0]['url'];
+            elseif (!empty($saleMockups[0])) $gMockup = $saleMockups[0];
+        }
+
+        $gSplit = (int) ceil(count($gPartRows) / 2);
+
+        $slipDataList[] = [
+            'totalQty' => $gTotalQty,
+            'specs' => [],
+            'garmentName' => (string) ($gItem['project_name'] ?? '') ?: (string) ($gItem['name'] ?? ''),
+            'fabricName' => $gFabric,
+            'leftParts' => array_slice($gPartRows, 0, $gSplit),
+            'rightParts' => array_slice($gPartRows, $gSplit),
+            'mockupUrl' => $gMockup,
+            'notes' => (string) ($gItem['notes'] ?? ''),
+            'sizes' => $gSizes,
+            'roster' => $gRoster,
+            'excelHeaders' => [],
+            '_itemName' => (string) ($gItem['name'] ?? ''),
+        ];
+    }
+
     $customerName = $sale->customer_name ?? '';
     $salesNumber = $sale->sales_number ?? '';
     $salesAgent = $sale->sales_agent_name ?? '';

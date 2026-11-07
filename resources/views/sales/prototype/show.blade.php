@@ -95,7 +95,7 @@
         </div>
         <div class="d-flex gap-2">
             @if($canEdit && !$isGa)
-            <button type="button" class="btn btn-success" onclick="openSubAddProductModal()">
+            <button type="button" class="btn btn-success" onclick="openAddProductForSale()">
                 <i class="fas fa-plus-circle"></i> Add Product
             </button>
             
@@ -109,7 +109,7 @@
                     <i class="fas fa-sync-alt"></i> Reprocess Order
                 </button>
                 @else
-                <button type="button" class="btn btn-warning" onclick="openSubReprocessModal()">
+                <button type="button" class="btn btn-warning" onclick="openReprocessForSale()">
                     <i class="fas fa-sync-alt"></i> Reprocess Order
                 </button>
                 @endif
@@ -1788,6 +1788,45 @@
 </div>
 
 @include('partials.sublimation-show-modal')
+@include('partials.garment-show-modal')
+
+@php
+    $__gaddDept = strtolower((string) ($sale->department_code ?? ''));
+    $__isGarmentDept = in_array($__gaddDept, ['iprint', 'consol'], true);
+@endphp
+<script>
+// Department-aware dispatch: iPrint/Consol -> Garment modal, Class -> Full Sublimation
+window.openAddProductForSale = function () {
+    var isGarment = {{ $__isGarmentDept ? 'true' : 'false' }};
+    if (!isGarment || typeof window.gadd_open !== 'function') {
+        openSubAddProductModal();
+        return;
+    }
+    gadd_open({
+        mode: 'add',
+        saleId: '{{ $sale->id }}',
+        department: '{{ $__gaddDept }}',
+        customerName: @json($sale->customer_name ?? ''),
+        saleNumber: @json($sale->sales_number ?? ''),
+        submitUrl: '{{ route('sales.prototype.add-product', $sale->id) }}'
+    });
+};
+window.openReprocessForSale = function () {
+    var isGarment = {{ $__isGarmentDept ? 'true' : 'false' }};
+    if (!isGarment || typeof window.gadd_open !== 'function') {
+        openSubReprocessModal();
+        return;
+    }
+    gadd_open({
+        mode: 'reprocess',
+        saleId: '{{ $sale->id }}',
+        department: '{{ $__gaddDept }}',
+        customerName: @json($sale->customer_name ?? ''),
+        saleNumber: @json($sale->sales_number ?? ''),
+        submitUrl: '{{ route('sales.prototype.reprocess-order', $sale->id) }}'
+    });
+};
+</script>
 
 <!-- Complete Refund Modal (with proof) -->
 <div class="modal fade" id="completeRefundShowModal" tabindex="-1">
@@ -2463,6 +2502,21 @@ function openPdfSelector() {
                     $n = $svc['name'] ?? '';
                     $r = count($sf['roster'] ?? []);
                     $pdfItems[] = ['idx' => $si, 'name' => $n, 'garment' => $g, 'fabric' => $f, 'rosterCount' => $r];
+                } elseif (($svc['productType'] ?? '') === 'garment') {
+                    // GARMENT items walang sublimationForm — dati hindi sila
+                    // lumalabas sa selector kaya "No sublimation items found."
+                    $gSubs = is_array($svc['subItems'] ?? null) ? $svc['subItems'] : [];
+                    $gProducts = [];
+                    $gFabric = '';
+                    foreach ($gSubs as $gs) {
+                        if (!is_array($gs)) continue;
+                        $gsName = trim((string) ($gs['name'] ?? $gs['shortName'] ?? ''));
+                        if ($gsName !== '') $gProducts[] = $gsName;
+                        if ($gFabric === '' && !empty($gs['material'])) $gFabric = trim((string) $gs['material']);
+                    }
+                    $gName = $gProducts ? implode(', ', array_unique($gProducts)) : (string) ($svc['project_name'] ?? ($svc['name'] ?? ''));
+                    $gRosterCount = count(is_array($svc['sizesWithNames'] ?? null) ? $svc['sizesWithNames'] : []);
+                    $pdfItems[] = ['idx' => $si, 'name' => (string) ($svc['name'] ?? ''), 'garment' => $gName, 'fabric' => $gFabric, 'rosterCount' => $gRosterCount];
                 }
             }
         }
@@ -2473,7 +2527,7 @@ function openPdfSelector() {
     container.innerHTML = '';
     
     if (items.length === 0) {
-        container.innerHTML = '<p class="text-muted">No sublimation items found.</p>';
+        container.innerHTML = '<p class="text-muted">Walang item na maisasama sa PDF.</p>';
         document.querySelector('#pdfSelectorModal .cm-confirm-btn').style.display = 'none';
     } else {
         document.querySelector('#pdfSelectorModal .cm-confirm-btn').style.display = '';

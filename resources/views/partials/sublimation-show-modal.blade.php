@@ -5,13 +5,13 @@
   - "Add to Order" instead of "Add to Cart"
 -->
 <style>
-    .product-modal .modal-dialog { max-width: 900px; }
-    .product-modal .tab-content { min-height: 350px; }
-    .product-modal .size-input-group { gap: 0.5rem; }
-    .product-modal .size-input-group label { font-size: 0.8rem; margin-bottom: 0.2rem; }
-    .product-modal .size-input-group input[type="number"] { text-align: center; }
-    .product-modal .roster-row td { vertical-align: middle; padding: 2px 4px; }
-    .product-modal .roster-row select { font-size: 0.85rem; }
+    #subAddProductModal .modal-dialog { max-width: 900px; }
+    #subAddProductModal .tab-content { min-height: 350px; }
+    #subAddProductModal .size-input-group { gap: 0.5rem; }
+    #subAddProductModal .size-input-group label { font-size: 0.8rem; margin-bottom: 0.2rem; }
+    #subAddProductModal .size-input-group input[type="number"] { text-align: center; }
+    #subAddProductModal .roster-row td { vertical-align: middle; padding: 2px 4px; }
+    #subAddProductModal .roster-row select { font-size: 0.85rem; }
     #subExcelDropZone { border: 2px dashed #ccc; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; background: #fafafa; transition: all 0.3s; }
     #subExcelDropZone:hover { border-color: #6c63ff; background: #f0eeff; }
     #subExcelDropZone.has-file { border-color: #28a745; background: #f0fff0; }

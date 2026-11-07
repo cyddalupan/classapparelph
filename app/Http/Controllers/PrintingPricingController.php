@@ -235,7 +235,6 @@ class PrintingPricingController extends Controller
      */
     private function calculateComboDiscount($printSizeIds, $printType = 'dtf')
     {
-        $discount = 0;
         $user = auth()->user();
         $priceTier = $this->resolvePriceTier($user);
         
@@ -244,17 +243,44 @@ class PrintingPricingController extends Controller
             ->where('active', true)
             ->get();
         
+        // Apply only the single best matching combo (same as the rules preview
+        // and the sales modal) and require the actual number of prints.
+        $discount = 0.0;
         foreach ($comboDiscounts as $combo) {
-            if (in_array($combo->size1_id, $printSizeIds) && 
-                in_array($combo->size2_id, $printSizeIds)) {
-                
-                if ($combo->discount_type === 'fixed') {
-                    $discount += $combo->discount_value;
-                }
+            if (!$this->comboMatches($combo, $printSizeIds)) {
+                continue;
+            }
+            if ($combo->discount_type === 'fixed') {
+                $discount = max($discount, floatval($combo->discount_value));
             }
         }
         
         return $discount;
+    }
+
+    /**
+     * Count-aware combo match.
+     *
+     * A combo with the same size on both sides (e.g. "A4 + A4") needs TWO
+     * prints of that size. The old in_array() check passed with only one A4,
+     * which wrongly applied the discount.
+     */
+    private function comboMatches($combo, array $printSizeIds)
+    {
+        $counts = [];
+        foreach ($printSizeIds as $id) {
+            $id = (int) $id;
+            $counts[$id] = ($counts[$id] ?? 0) + 1;
+        }
+
+        $s1 = (int) $combo->size1_id;
+        $s2 = (int) $combo->size2_id;
+
+        if ($s1 === $s2) {
+            return ($counts[$s1] ?? 0) >= 2;
+        }
+
+        return ($counts[$s1] ?? 0) >= 1 && ($counts[$s2] ?? 0) >= 1;
     }
     
     /**
@@ -1162,8 +1188,7 @@ class PrintingPricingController extends Controller
             ->with(['size1:id,name', 'size2:id,name'])
             ->get()
             ->filter(function ($combo) use ($resolvedIds) {
-                return in_array($combo->size1_id, $resolvedIds)
-                    && in_array($combo->size2_id, $resolvedIds);
+                return $this->comboMatches($combo, $resolvedIds);
             })
             ->map(function ($combo) {
                 return [
