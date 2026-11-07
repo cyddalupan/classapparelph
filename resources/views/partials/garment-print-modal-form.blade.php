@@ -1,4 +1,5 @@
 {{-- SHARED: exact garment printing modal form from Create Sale (single source of truth) --}}
+@php $printOnlyEnabled = $printOnlyEnabled ?? false; @endphp
 
                             <ul class="nav nav-tabs mb-3" id="garmentTab" role="tablist">
                                 <li class="nav-item" role="presentation">
@@ -16,6 +17,19 @@
                             <div class="tab-pane fade show active" id="garment-products-pane" role="tabpanel">
                             <div class="row">
                                 <div class="col-md-7">
+                                    @if($printOnlyEnabled)
+                                    <!-- ORDER TYPE — garment+print (shop sells garment) vs print only (customer's own garment) -->
+                                    <div class="mb-3">
+                                        <label class="form-label">Order Type *</label>
+                                        <div class="btn-group w-100" role="group" aria-label="Order type">
+                                            <input type="radio" class="btn-check" name="garment_orderType" id="garment_orderTypeGarment" value="garment" checked onchange="garment_setOrderType('garment')">
+                                            <label class="btn btn-outline-primary" for="garment_orderTypeGarment"><i class="fas fa-tshirt me-1"></i> Garment + Print</label>
+                                            <input type="radio" class="btn-check" name="garment_orderType" id="garment_orderTypePrint" value="print_only" onchange="garment_setOrderType('print_only')">
+                                            <label class="btn btn-outline-primary" for="garment_orderTypePrint"><i class="fas fa-print me-1"></i> Print only</label>
+                                        </div>
+                                        <div class="form-text small">Print only = customer supplies the garment; print lang ang icha-charge.</div>
+                                    </div>
+                                    @endif
                                     <!-- PROJECT NAME + SHOP -->
                                     <div class="row g-2 mb-3">
                                         <div class="col-md-7">
@@ -33,6 +47,7 @@
                                         </div>
                                     </div>
                                     <!-- MULTIPLE PRODUCT ROWS SECTION -->
+                                    @if($printOnlyEnabled)<div id="garment_garmentOnlySections">@endif
                                     <!-- GARMENT FILTER SECTION -->
                                     <div class="card mb-3">
                                         <div class="card-header bg-light py-2">
@@ -125,6 +140,7 @@
                                             </button>
                                         </div>
                                     </div>
+                                    @if($printOnlyEnabled)</div>{{-- /garment_garmentOnlySections --}}@endif
                                     
                                     <!-- Department auto-assigned from product box selection (no manual pick) -->
                                     
@@ -174,6 +190,13 @@
                                                     <div id="garment_printSizesList"></div>
                                                 </div>
                                             </div>
+                                            @if($printOnlyEnabled)
+                                            <div class="mb-2" id="garment_printOnlyQtyWrap" style="display:none;">
+                                                <label class="form-label">Print Quantity *</label>
+                                                <input type="number" class="form-control" id="garment_printOnlyQty" min="1" step="1" placeholder="e.g. 50" oninput="garment_updatePrintSummary()">
+                                                <div class="form-text small">Ilang piraso ang ipi-print (customer's own garment).</div>
+                                            </div>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>

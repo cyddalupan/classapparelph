@@ -146,7 +146,9 @@
     // sizesWithNames / subItems, kaparehong layout.
     foreach ($services as $si => $gItem) {
         if (!is_array($gItem) || isset($gItem['sublimationForm'])) continue;
-        if (($gItem['productType'] ?? '') !== 'garment') continue;
+        $gProductType = (string) ($gItem['productType'] ?? '');
+        if (!in_array($gProductType, ['garment', 'print_only'], true)) continue;
+        $gPrintOnly = ($gProductType === 'print_only');
 
         $gPrinting = is_array($gItem['printing'] ?? null) ? $gItem['printing'] : [];
         $gNames = is_array($gItem['sizesWithNames'] ?? null) ? $gItem['sizesWithNames'] : [];
@@ -173,6 +175,12 @@
         if (!empty($gPrinting['printSizes']) && is_array($gPrinting['printSizes'])) {
             $gPartRows[] = ['part' => 'Print Sizes', 'detail' => implode(', ', array_map('strval', $gPrinting['printSizes']))];
         }
+        // Print-only: customer supplies the garment — no garment SKU/size table
+        if ($gPrintOnly) {
+            $gPrintQty = intval($gPrinting['printQty'] ?? 0) ?: intval($gItem['quantity'] ?? 0);
+            if ($gPrintQty > 0) $gPartRows[] = ['part' => 'Print Qty', 'detail' => (string) $gPrintQty];
+            $gPartRows[] = ['part' => 'Order Type', 'detail' => 'PRINT ONLY (customer\'s own garment)'];
+        }
         if (!empty($gPrinting['isSpecialPrice'])) {
             $gReason = trim((string) ($gPrinting['specialPriceReason'] ?? ''));
             $gPartRows[] = ['part' => 'Special Price', 'detail' => $gReason !== '' ? $gReason : 'Yes'];
@@ -190,7 +198,10 @@
         }
 
         $gSizes = [];
-        if (empty($gRoster)) {
+        if ($gPrintOnly) {
+            // no garment sizes — printing only
+            $gSizes = [];
+        } elseif (empty($gRoster)) {
             foreach ($gDetails as $gd) {
                 $gQty = intval($gd['qty'] ?? $gd['quantity'] ?? 0);
                 if ($gQty <= 0) continue;

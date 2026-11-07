@@ -440,6 +440,115 @@ var garment_selectedPrintSizes = [];
 var garment_uploadedReferenceImages = [];
 var garment_referenceImageCounter = 0;
 
+// ===== ORDER TYPE (Create Sale only) =====
+// 'garment'    = shop sells the garment + print (default, unchanged behaviour)
+// 'print_only' = customer supplies the garment, only printing is charged
+window.garment_orderType = 'garment';
+
+window.garment_setOrderType = function(type) {
+    type = (type === 'print_only') ? 'print_only' : 'garment';
+    if (window.garment_orderType === type) {
+        garment_applyOrderTypeUI();
+        return;
+    }
+    // Warn before throwing away work already typed into the other mode
+    var hasWork = false;
+    if (type === 'print_only') {
+        var rows = document.querySelectorAll('#garment_productRowsContainer .product-row');
+        for (var i = 0; i < rows.length; i++) {
+            var sel = rows[i].querySelector('.product-select');
+            if (sel && sel.value) { hasWork = true; break; }
+        }
+        if (!hasWork && typeof garment_getRosterData === 'function' && (garment_getRosterData() || []).length) hasWork = true;
+        if (!hasWork && typeof garment_computeSizePricing === 'function') {
+            var sp = garment_computeSizePricing();
+            if (sp && sp.hasRows) hasWork = true;
+        }
+    } else {
+        var pq = document.getElementById('garment_printOnlyQty');
+        if (pq && (parseInt(pq.value) || 0) > 0) hasWork = true;
+    }
+    if (hasWork && !confirm('Mababago ang order type. Mawawala ang mga naipasok na product rows / ' +
+            (type === 'print_only' ? 'roster' : 'print quantity') + '. Ituloy?')) {
+        garment_syncOrderTypeRadios();
+        return;
+    }
+    window.garment_orderType = type;
+    garment_applyOrderTypeUI();
+    if (type === 'print_only') {
+        // Numbers na para sa garment ang itatapon — print-only ang bibilangin.
+        if (typeof garment_initializeProductRows === 'function') garment_initializeProductRows();
+        if (typeof garment_clearRoster === 'function') garment_clearRoster();
+    } else {
+        var pqEl = document.getElementById('garment_printOnlyQty');
+        if (pqEl) pqEl.value = '';
+    }
+    garment_syncOrderTypeRadios();
+    garment_applyOrderTypeUI();
+    // Laging sa Product Details mag-e-edit
+    var firstTab = document.getElementById('garment-products-tab');
+    if (firstTab && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+        try { new bootstrap.Tab(firstTab).show(); } catch (e) { firstTab.click(); }
+    }
+    if (typeof garment_updatePrintSummary === 'function') garment_updatePrintSummary();
+    if (typeof window.garment_refreshCartGate === 'function') window.garment_refreshCartGate();
+};
+
+// Radio state follows window.garment_orderType (also used when user cancels the confirm)
+window.garment_syncOrderTypeRadios = function() {
+    var g = document.getElementById('garment_orderTypeGarment');
+    var p = document.getElementById('garment_orderTypePrint');
+    if (g) g.checked = (window.garment_orderType !== 'print_only');
+    if (p) p.checked = (window.garment_orderType === 'print_only');
+};
+
+// Show/hide + enable/disable the fields that belong to the active order type only
+window.garment_applyOrderTypeUI = function() {
+    var printOnly = (window.garment_orderType === 'print_only');
+    var garmentOnly = document.getElementById('garment_garmentOnlySections');
+    if (garmentOnly) garmentOnly.style.display = printOnly ? 'none' : '';
+    var qtyWrap = document.getElementById('garment_printOnlyQtyWrap');
+    if (qtyWrap) qtyWrap.style.display = printOnly ? '' : 'none';
+    // Sizes-with-name (roster) is a garment thing only
+    var sizesTab = document.getElementById('garment-sizes-tab');
+    var sizesPane = document.getElementById('garment-sizes-pane');
+    if (sizesTab) sizesTab.style.display = printOnly ? 'none' : '';
+    if (sizesPane && printOnly) {
+        // Kung naka-open ang roster tab, lumipat sa Product Details bago itago
+        var pdTab = document.getElementById('garment-products-tab');
+        if (pdTab && pdTab.classList.contains('active')) {
+            // nothing to do
+        } else if (typeof bootstrap !== 'undefined' && bootstrap.Tab && pdTab) {
+            try { new bootstrap.Tab(pdTab).show(); } catch (e) {}
+        }
+        sizesPane.classList.remove('show', 'active');
+    }
+    // Disabled (not just hidden) so stale garment fields never validate/submit
+    var rows = document.querySelectorAll('#garment_productRowsContainer .product-row select.product-select, #garment_productRowsContainer .product-row input.product-quantity');
+    rows.forEach(function(el) {
+        el.disabled = printOnly;
+        if (printOnly) el.removeAttribute('required');
+        else el.setAttribute('required', 'required');
+    });
+    ['garment_filterBrand', 'garment_filterType', 'garment_filterColor', 'garment_filterSize', 'garment_filterMaterial'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) { el.disabled = printOnly; if (printOnly) el.removeAttribute('required'); }
+    });
+    var pqEl = document.getElementById('garment_printOnlyQty');
+    if (pqEl) {
+        pqEl.disabled = !printOnly;
+        if (printOnly) pqEl.setAttribute('required', 'required');
+        else pqEl.removeAttribute('required');
+    }
+    // Roster inputs off in print-only
+    ['garment_roster_newName', 'garment_roster_newSize', 'garment_roster_newNumber'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = printOnly;
+    });
+    var excelInput = document.getElementById('garment_excelInput');
+    if (excelInput) excelInput.disabled = printOnly;
+};
+
 // Open garment modal
 // Reset the whole garment form so reopening the modal starts clean.
 // (Matches Full Sublimation, which also resets every time the modal opens.)
@@ -472,6 +581,12 @@ window.garment_resetForm = function() {
     // Mockup + print selection
     if (typeof garment_clearMockup === 'function') garment_clearMockup();
     if (typeof garment_clearPrintSelection === 'function') garment_clearPrintSelection();
+    // Order type always starts as plain garment
+    window.garment_orderType = 'garment';
+    var poQty = document.getElementById('garment_printOnlyQty');
+    if (poQty) poQty.value = '';
+    if (typeof garment_syncOrderTypeRadios === 'function') garment_syncOrderTypeRadios();
+    if (typeof garment_applyOrderTypeUI === 'function') garment_applyOrderTypeUI();
     // Product rows
     if (typeof garment_initializeProductRows === 'function') garment_initializeProductRows();
     // Re-evaluate the Excel/spec gate
@@ -481,6 +596,10 @@ window.garment_resetForm = function() {
 
 window.garment_openModal = function(productType) {
     console.log('Opening garment modal for:', productType);
+    // Sale Details (Add Product / Reprocess) has no order-type selector → always garment
+    window.garment_orderType = 'garment';
+    if (typeof garment_syncOrderTypeRadios === 'function') garment_syncOrderTypeRadios();
+    if (typeof garment_applyOrderTypeUI === 'function') garment_applyOrderTypeUI();
     // Fresh form every time the modal is opened (no leftovers from a previous close)
     garment_resetForm();
     // Reset order-slip tracking (must re-print each new order)
@@ -900,6 +1019,14 @@ window.garment_updatePrintSummary = function() {
     }
     // Print qty follows the same source as Order Summary (roster/Excel wins, else product rows).
     var totalQty = qtyTotal > 0 ? qtyTotal : 0;
+    // Print-only orders: manual print qty (customer's own garment), same pricing rules downstream.
+    var printOnlyMode = (window.garment_orderType === 'print_only');
+    if (printOnlyMode) {
+        var poQtyEl = document.getElementById('garment_printOnlyQty');
+        totalQty = poQtyEl ? (parseInt(poQtyEl.value) || 0) : 0;
+        qtyTotal = totalQty;
+        productTotal = 0;
+    }
     // Resolve upgrades first (DTF ladder: Logo x2 -> Half A4, Half A4 x2 -> A4, ...)
     var resolvedPrint = garment_resolvePrint(garment_selectedPrintSizes);
     var effectiveSizes = resolvedPrint.sizes;
@@ -1051,7 +1178,7 @@ window.garment_updatePrintSummary = function() {
     if (grandTotalEl) grandTotalEl.textContent = '\u20B1' + grandTotal.toFixed(2);
     var gtf = document.getElementById('garment_grandTotalFormula');
     if (gtf) gtf.textContent = 'products ₱' + productTotal.toFixed(2) + ' + print ₱' + (isSpecialPrice && specialTotal > 0 ? specialTotal : total).toFixed(2) + ' = ₱' + grandTotal.toFixed(2);
-    if (sidebar) sidebar.style.display = (hasPrintSizes || roster.hasRows) ? 'block' : 'none';
+    if (sidebar) sidebar.style.display = (hasPrintSizes || roster.hasRows || (printOnlyMode && totalQty > 0)) ? 'block' : 'none';
     var qtyDisplay = document.getElementById('garment_totalQtyDisplay');
     var amtDisplay = document.getElementById('garment_totalAmountDisplay');
     if (qtyDisplay) qtyDisplay.textContent = qtyTotal;
@@ -1875,8 +2002,13 @@ window.garment_cartMissing = function() {
     if (!v('garment_projectName')) missing.push('Project Name');
     if (!v('garment_department')) missing.push('Shop / Department');
 
+    var printOnlyMode = (window.garment_orderType === 'print_only');
     var rosterRows = (typeof garment_getRosterData === 'function') ? (garment_getRosterData() || []) : [];
-    if (rosterRows.length > 0) {
+    if (printOnlyMode) {
+        // Print only: no garment product/roster needed — print qty instead
+        var poQty = parseInt((document.getElementById('garment_printOnlyQty') || {}).value) || 0;
+        if (poQty <= 0) missing.push('Print Quantity');
+    } else if (rosterRows.length > 0) {
         if (!v('garment_specBrand') || !v('garment_specType')) {
             missing.push('Garment Specification (Brand / Type-Collar)');
         }
@@ -1936,6 +2068,102 @@ window.garment_refreshCartGate = function() {
 })();
 
 // Garment add to cart
+    // Printing summary — shared with the print-only branch (same pricing rules, no second formula).
+    window.garment_buildPrintDetails = function(printQtyArg, printTypeElArg) {
+        var printTypeEl = printTypeElArg || document.getElementById('garment_printTypeSelect');
+        var totalQty = parseInt(printQtyArg) || 0;
+        var printDetails = null;
+        if (garment_selectedPrintSizes && garment_selectedPrintSizes.length > 0) {
+            var printTypeName = printTypeEl ? printTypeEl.options[printTypeEl.selectedIndex]?.text || printTypeEl.value : '';
+            var printPrices = garment_printingData.prices || [];
+            var combos = garment_printingData.combos || [];
+            var selectedPrintNames = [];
+            // Resolve upgrades first so the receipt matches the sidebar
+            var resolvedSub = garment_resolvePrint(garment_selectedPrintSizes);
+            var effectiveSubSizes = resolvedSub.sizes;
+            var printCostRaw = parseFloat(resolvedSub.surcharge) || 0;
+            effectiveSubSizes.forEach(function(sizeId) {
+                for (var pi = 0; pi < printPrices.length; pi++) {
+                    if (printPrices[pi].id === sizeId) {
+                        selectedPrintNames.push(printPrices[pi].name);
+                        printCostRaw += printPrices[pi].price;
+                        break;
+                    }
+                }
+            });
+            var printQty = totalQty;
+            // Combo (count-aware, same logic as garment_updatePrintSummary)
+            var subSizeCounts = {};
+            effectiveSubSizes.forEach(function(id) { subSizeCounts[id] = (subSizeCounts[id] || 0) + 1; });
+            var comboDiscount = 0;
+            var comboLabel = '';
+            combos.forEach(function(c) {
+                var s1 = parseInt(c.size1_id);
+                var s2 = parseInt(c.size2_id);
+                var matched = (s1 === s2)
+                    ? (subSizeCounts[s1] || 0) >= 2
+                    : ((subSizeCounts[s1] || 0) >= 1 && (subSizeCounts[s2] || 0) >= 1);
+                if (matched && c.discount > comboDiscount) {
+                    comboDiscount = c.discount;
+                    if (c.size1_name && c.size2_name) comboLabel = c.size1_name + ' + ' + c.size2_name;
+                }
+            });
+            var subtotalBeforeBulk = printCostRaw * printQty;
+            var comboTotal = comboDiscount * printQty;
+            var subtotalAfterCombo = subtotalBeforeBulk - comboTotal;
+            // Bulk discount (respect the A3/A4 gate like the summary)
+            var bulkTiers = garment_printingData.bulk_tiers || [];
+            var bulkGateSub = garment_printingData.bulk_gate || { active: false, sizes: [] };
+            var bulkDiscount = 0;
+            var bulkLabelSub = '';
+            var bulkGateOk = true;
+            if (bulkGateSub.active) {
+                var gateSubNames = (bulkGateSub.sizes && bulkGateSub.sizes.length ? bulkGateSub.sizes : ['A3', 'A4'])
+                    .map(function(n) { return String(n).trim().toUpperCase(); });
+                var pickedSubNames = selectedPrintNames.map(function(n) { return String(n).trim().toUpperCase(); });
+                bulkGateOk = pickedSubNames.some(function(n) { return gateSubNames.indexOf(n) !== -1; });
+            }
+            for (var bi = bulkGateOk ? bulkTiers.length - 1 : -1; bi >= 0; bi--) {
+                var tier = bulkTiers[bi];
+                if (printQty >= tier.min && printQty <= tier.max) {
+                    if (tier.type === 'percentage') {
+                        bulkDiscount = subtotalAfterCombo * (tier.percent / 100);
+                    } else if (tier.type === 'fixed') {
+                        bulkDiscount = tier.amount * printQty;
+                    }
+                    bulkLabelSub = tier.label || '';
+                    break;
+                }
+            }
+            // Special price override
+            var isSpecialPrice = window.garment_hasSpecialPrice || false;
+            var specialTotal = 0;
+            var specialReason = '';
+            if (isSpecialPrice) {
+                var spInput = document.getElementById('garment_specialPrintTotal');
+                var reasonInput = document.getElementById('garment_specialPriceReason');
+                if (spInput) specialTotal = parseFloat(spInput.value) || 0;
+                if (reasonInput) specialReason = reasonInput.value.trim();
+            }
+            printDetails = {
+                printType: printTypeName,
+                printSizes: selectedPrintNames,
+                printCostPerItem: isSpecialPrice && specialTotal > 0 ? (specialTotal / printQty) : printCostRaw,
+                printQty: printQty,
+                printSubtotal: isSpecialPrice && specialTotal > 0 ? specialTotal : (subtotalAfterCombo - bulkDiscount),
+                comboDiscount: comboDiscount,
+                comboTotal: comboTotal,
+                comboLabel: comboLabel,
+                bulkLabel: bulkLabelSub,
+                bulkDiscount: bulkDiscount,
+                isSpecialPrice: isSpecialPrice,
+                specialTotal: isSpecialPrice ? specialTotal : 0,
+                specialReason: specialReason
+            };
+        }
+        return printDetails;
+    };
+
 window.garment_addItemToCart = function() {
     // Shop / department chosen in the modal (iPrint or Consol — different managers)
     var department = ((document.getElementById('garment_department') || {}).value || 'iprint').toLowerCase();
@@ -1973,6 +2201,65 @@ window.garment_addItemToCart = function() {
     }
     var notes = document.getElementById('garment_productNotes');
     var printTypeEl = document.getElementById('garment_printTypeSelect');
+
+    // ===== PRINT ONLY: customer's own garment, printing is the only charge =====
+    if (window.garment_orderType === 'print_only') {
+        var poTypeEl = document.getElementById('garment_printTypeSelect');
+        var poTypeVal = poTypeEl ? poTypeEl.value : '';
+        if (!poTypeVal) { alert('Please select a Print Type.'); if (poTypeEl) poTypeEl.focus(); return; }
+        if (!garment_selectedPrintSizes || !garment_selectedPrintSizes.length) {
+            alert('Please select at least one print size.');
+            return;
+        }
+        var poQty = parseInt((document.getElementById('garment_printOnlyQty') || {}).value) || 0;
+        if (poQty <= 0) {
+            alert('Please enter the print quantity.');
+            var poQtyFocus = document.getElementById('garment_printOnlyQty');
+            if (poQtyFocus) poQtyFocus.focus();
+            return;
+        }
+        var poPrinting = garment_buildPrintDetails(poQty, poTypeEl);
+        var poPrintSubtotal = poPrinting ? poPrinting.printSubtotal : 0;
+        if (!(poPrintSubtotal > 0)) {
+            alert('Walang na-compute na print total. Check ang print sizes / special price.');
+            return;
+        }
+        var poTypeLabel = (poTypeEl.options[poTypeEl.selectedIndex] && poTypeEl.options[poTypeEl.selectedIndex].text || poTypeVal).replace(/\s*\(.*\)\s*$/, '').trim();
+        var poItem = {
+            id: Date.now(),
+            productType: 'print_only',
+            department: department,
+            name: 'Print Only - ' + poTypeLabel,
+            totalQty: poQty,
+            totalProductPrice: poPrintSubtotal,
+            quantity: poQty,
+            unitPrice: Math.round((poPrintSubtotal / poQty) * 100) / 100,
+            totalPrice: poPrintSubtotal,
+            date_needed: document.getElementById('garment_dateNeeded')?.value || '',
+            project_name: (document.getElementById('garment_projectName')?.value || '').trim(),
+            notes: notes ? notes.value.trim() : '',
+            timestamp: new Date().toISOString(),
+            printing: poPrinting,
+            mockup: (window.garment_uploadedMockup && window.garment_uploadedMockup.dataUrl) ? { name: window.garment_uploadedMockup.name, dataUrl: window.garment_uploadedMockup.dataUrl } : null
+        };
+        if (typeof window.garment_submitOverride === 'function') {
+            window.garment_submitOverride(poItem);
+            return;
+        }
+        if (typeof selectedItems !== 'undefined') selectedItems.push(poItem);
+        if (typeof updateSelectedItemsDisplay === 'function') updateSelectedItemsDisplay();
+        if (typeof updateOrderSummary === 'function') updateOrderSummary();
+        garment_clearMockup();
+        garment_clearPrintSelection();
+        if (notes) notes.value = '';
+        var poModalEl = document.getElementById('productModal');
+        if (poModalEl) {
+            var poModal = bootstrap.Modal.getInstance(poModalEl);
+            if (poModal) poModal.hide();
+        }
+        showToast('Print-only order added to cart!', 'success');
+        return;
+    }
 
     // Priority (mirrors Order Summary + print slip): if "Sizes with name" (roster)
     // has rows, build items from size pricing and SKIP the Product Details rows.
@@ -2048,96 +2335,8 @@ window.garment_addItemToCart = function() {
         totalQty += si.quantity;
         totalProductPrice += si.totalPrice;
     });
-    // Build printing summary (mirroring garment_updatePrintSummary logic)
-    var printDetails = null;
-    if (garment_selectedPrintSizes && garment_selectedPrintSizes.length > 0) {
-        var printTypeName = printTypeEl ? printTypeEl.options[printTypeEl.selectedIndex]?.text || printTypeEl.value : '';
-        var printPrices = garment_printingData.prices || [];
-        var combos = garment_printingData.combos || [];
-        var selectedPrintNames = [];
-        // Resolve upgrades first so the receipt matches the sidebar
-        var resolvedSub = garment_resolvePrint(garment_selectedPrintSizes);
-        var effectiveSubSizes = resolvedSub.sizes;
-        var printCostRaw = parseFloat(resolvedSub.surcharge) || 0;
-        effectiveSubSizes.forEach(function(sizeId) {
-            for (var pi = 0; pi < printPrices.length; pi++) {
-                if (printPrices[pi].id === sizeId) {
-                    selectedPrintNames.push(printPrices[pi].name);
-                    printCostRaw += printPrices[pi].price;
-                    break;
-                }
-            }
-        });
-        var printQty = totalQty;
-        // Combo (count-aware, same logic as garment_updatePrintSummary)
-        var subSizeCounts = {};
-        effectiveSubSizes.forEach(function(id) { subSizeCounts[id] = (subSizeCounts[id] || 0) + 1; });
-        var comboDiscount = 0;
-        var comboLabel = '';
-        combos.forEach(function(c) {
-            var s1 = parseInt(c.size1_id);
-            var s2 = parseInt(c.size2_id);
-            var matched = (s1 === s2)
-                ? (subSizeCounts[s1] || 0) >= 2
-                : ((subSizeCounts[s1] || 0) >= 1 && (subSizeCounts[s2] || 0) >= 1);
-            if (matched && c.discount > comboDiscount) {
-                comboDiscount = c.discount;
-                if (c.size1_name && c.size2_name) comboLabel = c.size1_name + ' + ' + c.size2_name;
-            }
-        });
-        var subtotalBeforeBulk = printCostRaw * printQty;
-        var comboTotal = comboDiscount * printQty;
-        var subtotalAfterCombo = subtotalBeforeBulk - comboTotal;
-        // Bulk discount (respect the A3/A4 gate like the summary)
-        var bulkTiers = garment_printingData.bulk_tiers || [];
-        var bulkGateSub = garment_printingData.bulk_gate || { active: false, sizes: [] };
-        var bulkDiscount = 0;
-        var bulkLabelSub = '';
-        var bulkGateOk = true;
-        if (bulkGateSub.active) {
-            var gateSubNames = (bulkGateSub.sizes && bulkGateSub.sizes.length ? bulkGateSub.sizes : ['A3', 'A4'])
-                .map(function(n) { return String(n).trim().toUpperCase(); });
-            var pickedSubNames = selectedPrintNames.map(function(n) { return String(n).trim().toUpperCase(); });
-            bulkGateOk = pickedSubNames.some(function(n) { return gateSubNames.indexOf(n) !== -1; });
-        }
-        for (var bi = bulkGateOk ? bulkTiers.length - 1 : -1; bi >= 0; bi--) {
-            var tier = bulkTiers[bi];
-            if (printQty >= tier.min && printQty <= tier.max) {
-                if (tier.type === 'percentage') {
-                    bulkDiscount = subtotalAfterCombo * (tier.percent / 100);
-                } else if (tier.type === 'fixed') {
-                    bulkDiscount = tier.amount * printQty;
-                }
-                bulkLabelSub = tier.label || '';
-                break;
-            }
-        }
-        // Special price override
-        var isSpecialPrice = window.garment_hasSpecialPrice || false;
-        var specialTotal = 0;
-        var specialReason = '';
-        if (isSpecialPrice) {
-            var spInput = document.getElementById('garment_specialPrintTotal');
-            var reasonInput = document.getElementById('garment_specialPriceReason');
-            if (spInput) specialTotal = parseFloat(spInput.value) || 0;
-            if (reasonInput) specialReason = reasonInput.value.trim();
-        }
-        printDetails = {
-            printType: printTypeName,
-            printSizes: selectedPrintNames,
-            printCostPerItem: isSpecialPrice && specialTotal > 0 ? (specialTotal / printQty) : printCostRaw,
-            printQty: printQty,
-            printSubtotal: isSpecialPrice && specialTotal > 0 ? specialTotal : (subtotalAfterCombo - bulkDiscount),
-            comboDiscount: comboDiscount,
-            comboTotal: comboTotal,
-            comboLabel: comboLabel,
-            bulkLabel: bulkLabelSub,
-            bulkDiscount: bulkDiscount,
-            isSpecialPrice: isSpecialPrice,
-            specialTotal: isSpecialPrice ? specialTotal : 0,
-            specialReason: specialReason
-        };
-    }
+
+    var printDetails = garment_buildPrintDetails(totalQty, printTypeEl);
     // Create single garment order item
     var garmentItem = {
         id: Date.now(),
@@ -2215,7 +2414,11 @@ window.garment_printOrderSlip = function() {
     var body = document.getElementById('gps_productsBody');
     body.innerHTML = '';
     var rosterArr = (typeof garment_getRosterData === 'function') ? garment_getRosterData() : [];
-    if (rosterArr.length > 0 && typeof garment_computeSizePricing === 'function') {
+    var poMode = (window.garment_orderType === 'print_only');
+    if (poMode) {
+        // Print only: customer supplies the garment — wala dapat garment product/price sa slip
+        body.innerHTML = '<tr><td colspan="4" style="text-align:left;font-weight:bold;">PRINT ONLY <span style="font-weight:normal;color:#555;">(customer\'s own garment)</span></td></tr>';
+    } else if (rosterArr.length > 0 && typeof garment_computeSizePricing === 'function') {
         var specLbl = [gVal('garment_specBrand'), gVal('garment_specType'), gVal('garment_specColor'), gVal('garment_specMaterial')].filter(Boolean).join(' / ');
         if (specLbl) body.innerHTML += '<tr><td colspan="4" style="text-align:left;font-weight:bold;">' + gEsc(specLbl) + ' <span style="font-weight:normal;color:#555;">(Sizes with name)</span></td></tr>';
         var res = garment_computeSizePricing();
@@ -2258,8 +2461,14 @@ window.garment_printOrderSlip = function() {
     });
     var poDiv = document.getElementById('gps_printOptions');
     if (ptText || sizeNames.length) {
+        var poQtyTxt = '';
+        if (poMode) {
+            var poQ = parseInt((document.getElementById('garment_printOnlyQty') || {}).value) || 0;
+            poQtyTxt = '<div><b>Print Qty:</b> ' + poQ + '</div>';
+        }
         poDiv.innerHTML = (ptText ? '<div><b>Print Type:</b> ' + gEsc(ptText) + '</div>' : '')
-            + (sizeNames.length ? '<div><b>Print Sizes:</b> ' + gEsc(sizeNames.join(', ')) + '</div>' : '');
+            + (sizeNames.length ? '<div><b>Print Sizes:</b> ' + gEsc(sizeNames.join(', ')) + '</div>' : '')
+            + poQtyTxt;
     } else {
         poDiv.innerHTML = '<div style="color:#777;">\u2014</div>';
     }

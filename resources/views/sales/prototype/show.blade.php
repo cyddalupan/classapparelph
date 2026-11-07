@@ -2502,7 +2502,7 @@ function openPdfSelector() {
                     $n = $svc['name'] ?? '';
                     $r = count($sf['roster'] ?? []);
                     $pdfItems[] = ['idx' => $si, 'name' => $n, 'garment' => $g, 'fabric' => $f, 'rosterCount' => $r];
-                } elseif (($svc['productType'] ?? '') === 'garment') {
+                } elseif (in_array(($svc['productType'] ?? ''), ['garment', 'print_only'], true)) {
                     // GARMENT items walang sublimationForm — dati hindi sila
                     // lumalabas sa selector kaya "No sublimation items found."
                     $gSubs = is_array($svc['subItems'] ?? null) ? $svc['subItems'] : [];

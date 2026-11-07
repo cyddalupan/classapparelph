@@ -1219,7 +1219,8 @@ class PrototypeSalesController extends Controller
             $deptItemTotal = 0;
             foreach ($items as $item) {
                 $itemBase = $item['totalPrice'] ?? $item['unitPrice'] ?? $item['price'] ?? 0;
-                $printSub = $item['printing']['printSubtotal'] ?? 0;
+                // print_only: totalPrice IS the print subtotal — huwag doblehin
+                $printSub = (($item['productType'] ?? '') === 'print_only') ? 0 : ($item['printing']['printSubtotal'] ?? 0);
                 $deptItemTotal += $itemBase + $printSub;
             }
             
@@ -1238,7 +1239,7 @@ class PrototypeSalesController extends Controller
                 foreach ($deptGroups as $dg) {
                     foreach ($dg as $dItem) {
                         $dItemBase = $dItem['totalPrice'] ?? $dItem['unitPrice'] ?? $dItem['price'] ?? 0;
-                        $dPrintSub = $dItem['printing']['printSubtotal'] ?? 0;
+                        $dPrintSub = (($dItem['productType'] ?? '') === 'print_only') ? 0 : ($dItem['printing']['printSubtotal'] ?? 0);
                         $totalItemSum += $dItemBase + $dPrintSub;
                     }
                 }
@@ -3247,6 +3248,13 @@ public function details(Request $request, string $id)
         if (is_array($pSizes) && !empty($pSizes)) {
             $partRows[] = ['part' => 'Print Sizes', 'detail' => implode(', ', array_map('strval', $pSizes))];
         }
+        if (($item['productType'] ?? '') === 'print_only') {
+            $partRows[] = ['part' => 'Order Type', 'detail' => "PRINT ONLY (customer's own garment)"];
+            $pq = intval($printing['printQty'] ?? 0) ?: intval($item['quantity'] ?? 0);
+            if ($pq > 0) {
+                $partRows[] = ['part' => 'Print Qty', 'detail' => (string) $pq];
+            }
+        }
         if (!empty($printing['isSpecialPrice'])) {
             $reason = trim((string) ($printing['specialPriceReason'] ?? ''));
             $partRows[] = ['part' => 'Special Price', 'detail' => $reason !== '' ? $reason : 'Yes'];
@@ -3406,7 +3414,7 @@ public function details(Request $request, string $id)
             }
         }
 
-        if (empty($sizeDetails)) {
+        if (empty($sizeDetails) && $productType !== 'print_only') {
             return response()->json(['success' => false, 'message' => 'At least one size/quantity is required.'], 400);
         }
 
@@ -3449,7 +3457,7 @@ public function details(Request $request, string $id)
         $item = [
             'id' => $newId,
             'name' => $productName,
-            'productType' => in_array($productType, ['fullsublimation', 'garment'], true) ? $productType : 'cutting',
+            'productType' => in_array($productType, ['fullsublimation', 'garment', 'print_only'], true) ? $productType : 'cutting',
             'quantity' => $totalQty,
             'unitPrice' => $unitPrice,
             'totalPrice' => $itemTotal,
@@ -3460,10 +3468,13 @@ public function details(Request $request, string $id)
         // ── GARMENT item (iPrint / Consol) ────────────────────────────────
         // Keep printing options + roster + project name. Garment items have no
         // sublimationForm, so the mockup is stored on the item itself.
-        if ($productType === 'garment') {
+        if (in_array($productType, ['garment', 'print_only'], true)) {
             $item['printing'] = $request->input('printing', []);
-            $item['sizesWithNames'] = $request->input('sizesWithNames', []);
-            $item['subItems'] = $request->input('subItems', []);
+            // print_only: customer supplies the garment — walang garment rows/roster
+            if ($productType === 'garment') {
+                $item['sizesWithNames'] = $request->input('sizesWithNames', []);
+                $item['subItems'] = $request->input('subItems', []);
+            }
             if ($request->filled('project_name')) {
                 $item['project_name'] = $request->input('project_name');
             }
@@ -3749,7 +3760,7 @@ public function details(Request $request, string $id)
             }
         }
 
-        if (empty($sizeDetails)) {
+        if (empty($sizeDetails) && $productType !== 'print_only') {
             return response()->json(['success' => false, 'message' => 'At least one size/quantity is required.'], 400);
         }
 
@@ -3786,7 +3797,7 @@ public function details(Request $request, string $id)
         $item = [
             'id' => $newId,
             'name' => $productName,
-            'productType' => in_array($productType, ['fullsublimation', 'garment'], true) ? $productType : 'cutting',
+            'productType' => in_array($productType, ['fullsublimation', 'garment', 'print_only'], true) ? $productType : 'cutting',
             'quantity' => $totalQty,
             'unitPrice' => $unitPrice,
             'totalPrice' => $itemTotal,
@@ -3795,10 +3806,13 @@ public function details(Request $request, string $id)
         ];
 
         // ── GARMENT reprocess item (iPrint / Consol) ──────────────────────
-        if ($productType === 'garment') {
+        if (in_array($productType, ['garment', 'print_only'], true)) {
             $item['printing'] = $request->input('printing', []);
-            $item['sizesWithNames'] = $request->input('sizesWithNames', []);
-            $item['subItems'] = $request->input('subItems', []);
+            // print_only: customer supplies the garment — walang garment rows/roster
+            if ($productType === 'garment') {
+                $item['sizesWithNames'] = $request->input('sizesWithNames', []);
+                $item['subItems'] = $request->input('subItems', []);
+            }
             if ($request->filled('project_name')) {
                 $item['project_name'] = $request->input('project_name');
             }
@@ -4129,7 +4143,7 @@ $services = json_decode($sale->services, true);
             // GARMENT item (iPrint/Consol): mockup nasa item mismo, hindi sa
             // sublimationForm. DomPDF has isRemoteEnabled=false, kaya kailangan
             // i-inline as data URI kung hindi putol na image sa PDF.
-            if (($svc['productType'] ?? '') === 'garment') {
+            if (in_array(($svc['productType'] ?? ''), ['garment', 'print_only'], true)) {
                 // Mockup shape: {name, dataUrl: "/storage/..."} o plain URL/path.
                 $rawMk = $svc['mockupUrl'] ?? $svc['mockup'] ?? null;
                 $mkPath = null;
@@ -4605,7 +4619,7 @@ $services = json_decode($sale->services, true);
             // ── GARMENT item (iPrint / Consol) ────────────────────────
             // Walang sublimationForm ang garment items, kaya dati blanko ang
             // card sa Additional Production Slip. Gamitin ang buildGarmentSlip().
-            if (empty($sf) && ($item['productType'] ?? '') === 'garment') {
+            if (empty($sf) && in_array(($item['productType'] ?? ''), ['garment', 'print_only'], true)) {
                 $g = $this->buildGarmentSlip($item, count($productCards));
                 $productCards[] = [
                     'item_id' => $itemId,

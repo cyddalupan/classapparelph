@@ -1035,7 +1035,7 @@
 
                         <!-- Garment-specific modal body (hidden by default) -->
                         <div id="garmentModalBody" style="display:none;">
-                            @include('partials.garment-print-modal-form')
+                            @include('partials.garment-print-modal-form', ['printOnlyEnabled' => true])
                         </div>
 
                         <!-- SUBLIMATION MODAL BODY - CUSTOMER FORM (hidden by default) -->
@@ -2123,6 +2123,34 @@ window.updateSelectedItemsDisplay = function() {
         const deptNames = { 'iprint': 'iPrint', 'consol': 'Consol', 'cinco': 'Cinco', 'class': 'Class', 'mto': 'Made to Order', 'other': 'Other' };
         const deptColors = { 'iprint': 'primary', 'consol': 'info', 'cinco': 'warning', 'class': 'success', 'mto': 'danger', 'other': 'secondary' };
         
+        // Print-only: walang garment subItems — sariling card (label + print details)
+        if (item.productType === 'print_only') {
+            const poPrint = item.printing || {};
+            html += `
+            <div class="col-md-6 col-lg-4">
+                <div class="selected-item-card card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">${item.name}</h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-${deptColors[item.department]} item-department-badge">${deptNames[item.department] || item.department}</span>
+                            <span class="badge bg-dark ms-1">PRINT ONLY</span>
+                        </div>
+                        ${item.project_name ? `<div class="small text-muted mb-1"><i class="fas fa-folder me-1"></i>Project: ${item.project_name}</div>` : ''}
+                        <div class="small text-muted mb-1"><i class="fas fa-print me-1"></i>${poPrint.printType || 'Print'}: ${(poPrint.printSizes || []).join(', ')}</div>
+                        <div class="small text-muted mb-1"><i class="fas fa-tshirt me-1"></i>Customer's own garment</div>
+                        <div class="small mb-2">Print qty: <strong>${item.quantity}</strong>${item.date_needed ? ` · Needed: ${item.date_needed}` : ''}</div>
+                        ${item.notes ? `<div class="small text-muted mb-2"><i class="fas fa-sticky-note me-1"></i>${item.notes}</div>` : ''}
+                        <div class="mt-2"><strong>₱${(item.totalPrice || 0).toFixed(2)}</strong></div>
+                    </div>
+                </div>
+            </div>`;
+            return;
+        }
         if (item.productType === 'garment' && item.subItems) {
             // Garment card with sub-items breakdown
             html += `
@@ -2269,6 +2297,10 @@ window.__updateOrderSummaryCore = function() {
         if (item.productType === 'garment' && item.printing) {
             itemTotal = (item.totalProductPrice || 0) + (item.printing.printSubtotal || 0);
         }
+        // Print only: totalPrice already IS the print subtotal (no garment charge)
+        if (item.productType === 'print_only' && item.printing) {
+            itemTotal = item.printing.printSubtotal || item.totalPrice || 0;
+        }
         subtotal += itemTotal;
     });
     
@@ -2322,6 +2354,9 @@ window.updatePaymentSummary = function() {
         if (item.productType === 'garment' && item.subItems) {
             itemQty = item.totalQty || 0;
             itemTotal = (item.totalProductPrice || 0) + (item.printing ? item.printing.printSubtotal || 0 : 0);
+        } else if (item.productType === 'print_only') {
+            itemQty = item.quantity || item.totalQty || 0;
+            itemTotal = (item.printing && item.printing.printSubtotal) ? item.printing.printSubtotal : (item.totalPrice || 0);
         } else {
             itemQty = item.qty || 1;
             itemTotal = item.totalPrice || 0;
@@ -2391,6 +2426,8 @@ window.deptPayTotals = function() {
         var t = 0;
         if (item.productType === 'garment' && item.subItems) {
             t = (item.totalProductPrice || 0) + (item.printing ? (item.printing.printSubtotal || 0) : 0);
+        } else if (item.productType === 'print_only') {
+            t = (item.printing && item.printing.printSubtotal) ? item.printing.printSubtotal : (item.totalPrice || 0);
         } else {
             t = item.totalPrice || 0;
             if (item.qty && item.unitPrice) t = item.qty * item.unitPrice;
