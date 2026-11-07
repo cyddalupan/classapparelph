@@ -204,6 +204,49 @@ class TeamBoardController extends Controller
     }
 
     /**
+     * Na-hit ba ng bawat agent ang quota NAKARAANG buwan? (Andrew 2026-11-07)
+     * Isang query lang para sa quota at isa para sa revenue — hindi per-agent.
+     *
+     * @param  array<int>  $userIds
+     * @return array<int,array<string,mixed>>  [user_id => ['revenue','quota','pct','hit','has_quota']]
+     */
+    private function lastMonthQuotaStatus(array $userIds): array
+    {
+        if (empty($userIds)) {
+            return [];
+        }
+
+        $start = Carbon::now()->subMonthNoOverflow()->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+
+        $quotas = SalesQuota::query()
+            ->whereIn('user_id', $userIds)
+            ->where('period_type', 'monthly')
+            ->whereDate('period_start', $start->toDateString())
+            ->where('active', true)
+            ->pluck('quota_amount', 'user_id');
+
+        $rev = $this->revenueByAgentRange($start->toDateString(), $end->toDateString());
+
+        $out = [];
+        foreach ($userIds as $uid) {
+            $uid = (int) $uid;
+            $quota = (float) ($quotas[$uid] ?? 0);
+            $revenue = (float) ($rev[$uid] ?? 0);
+            $out[$uid] = [
+                'label' => $start->format('M Y'),
+                'revenue' => $revenue,
+                'quota' => $quota,
+                'has_quota' => $quota > 0,
+                'pct' => $quota > 0 ? round(($revenue / $quota) * 100, 1) : 0.0,
+                'hit' => $quota > 0 && $revenue >= $quota,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * Ilang sunod-sunod na araw nang #1 ang champion (Andrew 2026-10-22).
      * Basis: cumulative monthly revenue at the end of each day — sino ang leader.
      */
@@ -482,6 +525,7 @@ class TeamBoardController extends Controller
             Carbon::now()->subWeek()->endOfWeek()->toDateString()
         );
         $streaks = $this->quotaStreaks($agents->pluck('id')->all());
+        $lastMonthQuota = $this->lastMonthQuotaStatus($agents->pluck('id')->all());
 
         foreach ($agents as $a) {
             $revenue = (float) ($rev[$a->id]['revenue'] ?? 0);
@@ -515,6 +559,7 @@ class TeamBoardController extends Controller
                 'week_revenue' => $tw,
                 'week_delta' => $tw - $lw,
                 'streak' => (int) ($streaks[$a->id] ?? 0),
+                'last_month' => $lastMonthQuota[$a->id] ?? null,
             ];
         }
 

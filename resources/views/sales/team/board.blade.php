@@ -140,6 +140,8 @@
 .tb-badge.crown{background:#fef3c7;color:#92400e;}
 .tb-badge.mover{background:#dcfce7;color:#166534;}
 .tb-badge.streak{background:#fee2e2;color:#b91c1c;}
+.tb-badge.lmq-hit{background:#dcfce7;color:#15803d;}
+.tb-badge.lmq-miss{background:#f1f5f9;color:#64748b;}
 
 /* Announcements */
 .tb-ann{background:linear-gradient(135deg,#fff7ed,#fffbeb);border:1px solid #fed7aa;border-left:6px solid #f59e0b;border-radius:12px;padding:.8rem 1rem;margin-bottom:.6rem;}
@@ -366,6 +368,13 @@ window.TB_DATA_URL = "{{ route('sales.team.board.data') }}";
     if(a.rank===1) h += '<span class="tb-badge crown">🏆 Champion</span>';
     if(a.user_id===d.top_mover_id) h += '<span class="tb-badge mover">🔥 Top Mover +'+peso(d.top_mover_delta)+'</span>';
     if(a.streak>=2) h += '<span class="tb-badge streak">⚡ '+a.streak+'-month streak</span>';
+    if(a.last_month && a.last_month.has_quota){
+      if(a.last_month.hit){
+        h += '<span class="tb-badge lmq-hit">✅ Quota hit last month</span>';
+      } else {
+        h += '<span class="tb-badge lmq-miss">Last month: '+a.last_month.pct+'%</span>';
+      }
+    }
     h += '</div>';
     return h;
   }
